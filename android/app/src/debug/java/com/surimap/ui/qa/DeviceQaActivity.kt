@@ -38,6 +38,7 @@ import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
 import com.surimap.feature.handover.ui.DutyHandoverScreen
+import com.surimap.feature.handover.ui.DutyHandoverScreenMode
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.sampleDutyHandoverState
 import com.surimap.feature.handover.ui.sampleHandoverMemoState
@@ -139,6 +140,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
+                onOpenIncidentInfo = {},
+                onOpenWorkStatus = {},
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
@@ -162,6 +165,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
+                onOpenIncidentInfo = {},
+                onOpenWorkStatus = {},
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
@@ -175,6 +180,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
 
         DeviceQaRoute.HandoverSummary ->
             DutyHandoverScreen(
+                mode = DutyHandoverScreenMode.HandoverFinalize,
                 state = sampleDutyHandoverState(),
                 onBack = {},
                 onWriteMemo = {},
@@ -201,6 +207,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
+                onOpenIncidentInfo = {},
+                onOpenWorkStatus = {},
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
@@ -332,6 +340,8 @@ private fun LiveSearchMapQaScreen() {
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
+                onOpenIncidentInfo = {},
+                onOpenWorkStatus = {},
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},

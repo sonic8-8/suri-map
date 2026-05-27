@@ -222,6 +222,8 @@ class SearchMapUiStateTest {
 
         assertFalse(state.showHandoverPrompt)
         assertTrue(state.visibleText().contains("인수인계"))
+        assertTrue(state.visibleText().contains("근무현황"))
+        assertFalse(state.visibleText().contains("준비중"))
     }
 
     @Test
@@ -348,6 +350,7 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("기록 일시정지"))
         assertTrue(state.visibleText().contains("접기"))
         assertTrue(state.visibleText().contains("수색 종료"))
+        assertTrue(state.visibleText().contains("근무현황"))
     }
 
     @Test

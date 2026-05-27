@@ -20,6 +20,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -202,7 +206,7 @@ data class DutyHandoverUiState(
         }
 
     val dutyShiftActionLabel: String =
-        if (endingDutyShift) "종료 등록 중" else "근무 종료"
+        if (endingDutyShift) "인수인계 등록 중" else "근무 종료 및 인수인계"
 
     companion object {
         fun ready(): DutyHandoverUiState {
@@ -349,6 +353,11 @@ enum class DutyHandoverTab(val label: String) {
     Report("보고서")
 }
 
+enum class DutyHandoverScreenMode {
+    WorkStatus,
+    HandoverFinalize
+}
+
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(
     val title: String,
@@ -478,6 +487,7 @@ data class HandoverPromptUiState(
 
 @Composable
 fun DutyHandoverScreen(
+    mode: DutyHandoverScreenMode = DutyHandoverScreenMode.WorkStatus,
     state: DutyHandoverUiState,
     mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
     onBack: () -> Unit,
@@ -494,17 +504,25 @@ fun DutyHandoverScreen(
     refreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    var showEndDutyShiftConfirm by remember { mutableStateOf(false) }
     PoliPullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
         modifier = modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = false, onBack = onBack)
-            DutyHandoverTabRow(
-                selectedTab = state.selectedTab,
-                onSelectTab = onSelectTab
+            PoliAppBar(
+                title = mode.title,
+                subtitle = if (mode == DutyHandoverScreenMode.WorkStatus) state.subtitle else "근무 마감 전 최종 확인",
+                showBack = false,
+                onBack = onBack
             )
+            if (mode == DutyHandoverScreenMode.WorkStatus) {
+                DutyHandoverTabRow(
+                    selectedTab = state.selectedTab,
+                    onSelectTab = onSelectTab
+                )
+            }
             Column(
                 modifier =
                 Modifier
@@ -513,21 +531,26 @@ fun DutyHandoverScreen(
                     .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
-                when (state.selectedTab) {
-                    DutyHandoverTab.Replay ->
-                        ReplayTab(
-                            state = state,
-                            mapState = mapState,
-                            onSelectDutyShift = onSelectDutyShift,
-                            onReplayPlayPause = onReplayPlayPause,
-                            onReplaySeek = onReplaySeek,
-                            onReplaySpeedSelect = onReplaySpeedSelect
-                        )
-                    DutyHandoverTab.Report ->
-                        ReportTab(
-                            state = state,
-                            onSelectOriginalRecord = onSelectOriginalRecord
-                        )
+                when (mode) {
+                    DutyHandoverScreenMode.WorkStatus ->
+                        when (state.selectedTab) {
+                            DutyHandoverTab.Replay ->
+                                ReplayTab(
+                                    state = state,
+                                    mapState = mapState,
+                                    onSelectDutyShift = onSelectDutyShift,
+                                    onReplayPlayPause = onReplayPlayPause,
+                                    onReplaySeek = onReplaySeek,
+                                    onReplaySpeedSelect = onReplaySpeedSelect
+                                )
+                            DutyHandoverTab.Report ->
+                                ReportTab(
+                                    state = state,
+                                    onSelectOriginalRecord = onSelectOriginalRecord
+                                )
+                        }
+                    DutyHandoverScreenMode.HandoverFinalize ->
+                        HandoverFinalizeContent(state = state)
                 }
             }
 
@@ -536,7 +559,7 @@ fun DutyHandoverScreen(
                 horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
             ) {
                 PoliButton(
-                    text = "메모 작성",
+                    text = if (mode == DutyHandoverScreenMode.HandoverFinalize) "인계 메모 작성" else "메모 작성",
                     onClick = onWriteMemo,
                     modifier = Modifier.weight(1f),
                     variant = PoliButtonVariant.Secondary
@@ -546,7 +569,7 @@ fun DutyHandoverScreen(
             if (state.canEndDutyShift) {
                 PoliButton(
                     text = state.dutyShiftActionLabel,
-                    onClick = onEndDutyShift,
+                    onClick = { showEndDutyShiftConfirm = true },
                     modifier =
                     Modifier
                         .fillMaxWidth()
@@ -561,7 +584,91 @@ fun DutyHandoverScreen(
             }
         }
     }
+    if (showEndDutyShiftConfirm) {
+        EndDutyShiftConfirmDialog(
+            onDismiss = { showEndDutyShiftConfirm = false },
+            onConfirm = {
+                showEndDutyShiftConfirm = false
+                onEndDutyShift()
+            }
+        )
+    }
 }
+
+@Composable
+private fun HandoverFinalizeContent(state: DutyHandoverUiState) {
+    ReportSectionCard(title = "인수인계 요약") {
+        Text(text = state.summaryText, style = MaterialTheme.typography.bodyLarge, color = PoliFgSecondary)
+        if (state.metrics.isNotEmpty()) {
+            MetricRow(metrics = state.metrics)
+        }
+    }
+    ReportSectionCard(title = "인계 메모") {
+        if (state.handoverMemoRecords.isEmpty()) {
+            EmptyReportText("작성된 인계 메모 없음")
+        } else {
+            state.handoverMemoRecords.forEach { record ->
+                PoliRow(title = record.title, subtitle = record.subtitle) {
+                    PoliChip(text = record.actionLabel, variant = PoliChipVariant.Neutral)
+                }
+            }
+        }
+    }
+    ReportSectionCard(title = "동기화 상태") {
+        PoliChip(text = state.sourceReadiness.reportLabel, variant = state.sourceReadiness.variant)
+        Text(
+            text = state.sourceReadiness.reportCopy,
+            style = MaterialTheme.typography.bodyMedium,
+            color = PoliFgMuted
+        )
+    }
+    PoliCard(strong = true) {
+        Text(text = "최종 확인", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = "근무 종료 후에는 현재 근무조가 닫히고 다음 근무자가 이 인수인계 기록을 기준으로 확인합니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PoliFgMuted
+        )
+    }
+}
+
+@Composable
+private fun EndDutyShiftConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)).padding(PoliDimens.SectionPadding)) {
+        PoliCard(modifier = Modifier.align(Alignment.Center), strong = true) {
+            Text(text = "근무 종료 및 인수인계", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "현재 근무를 종료하고 인수인계 경계를 확정합니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgMuted
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliButton(
+                    text = "취소",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Secondary
+                )
+                PoliButton(
+                    text = "확정",
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Danger
+                )
+            }
+        }
+    }
+}
+
+private val DutyHandoverScreenMode.title: String
+    get() =
+        when (this) {
+            DutyHandoverScreenMode.WorkStatus -> "근무현황"
+            DutyHandoverScreenMode.HandoverFinalize -> "인수인계"
+        }
 
 @Composable
 private fun DutyHandoverTabRow(

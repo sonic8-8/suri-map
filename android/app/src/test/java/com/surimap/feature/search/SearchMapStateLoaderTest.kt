@@ -1047,7 +1047,7 @@ class SearchMapStateLoaderTest {
                     currentOpId = null,
                     currentDutyShiftId = null
                 )
-            )
+            ).copy(bottomPanelExpanded = true)
 
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canWritePath)

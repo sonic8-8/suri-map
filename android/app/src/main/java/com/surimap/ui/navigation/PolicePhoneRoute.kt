@@ -15,6 +15,7 @@ enum class PolicePhoneRoute(val route: String) {
     IncidentHome("incident_home"),
     OfflinePackage("offline_package"),
     SearchMap("search_map"),
+    WorkStatus("work_status"),
     HandoverSummary("handover_summary"),
     HandoverMemo("handover_memo"),
     MarkerDetail("marker_detail"),
@@ -29,6 +30,7 @@ object PolicePhoneRoutes {
             PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.OfflinePackage,
             PolicePhoneRoute.SearchMap,
+            PolicePhoneRoute.WorkStatus,
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneRoute.HandoverMemo,
             PolicePhoneRoute.MarkerDetail,
@@ -78,7 +80,11 @@ object PolicePhoneBottomNavigation {
 
     private val itemRoutes: Set<PolicePhoneRoute> = items.mapTo(mutableSetOf()) { it.route }
     private val incidentContextRoutes: Set<PolicePhoneRoute> =
-        itemRoutes + PolicePhoneRoute.OfflinePackage + PolicePhoneRoute.HandoverMemo + PolicePhoneRoute.MarkerDetail
+        itemRoutes +
+            PolicePhoneRoute.OfflinePackage +
+            PolicePhoneRoute.WorkStatus +
+            PolicePhoneRoute.HandoverMemo +
+            PolicePhoneRoute.MarkerDetail
 
     fun shouldShow(currentRoute: PolicePhoneRoute?, hasIncidentContext: Boolean): Boolean =
         hasIncidentContext && currentRoute != null && currentRoute in incidentContextRoutes
@@ -86,6 +92,7 @@ object PolicePhoneBottomNavigation {
     fun selectedRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
         when (currentRoute) {
             PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentHome
+            PolicePhoneRoute.WorkStatus -> PolicePhoneRoute.SearchMap
             PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
             PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
             else -> currentRoute?.takeIf(itemRoutes::contains)
@@ -96,10 +103,12 @@ object PolicePhoneBackNavigation {
     fun parentRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
         when (currentRoute) {
             PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentHome
+            PolicePhoneRoute.WorkStatus -> PolicePhoneRoute.SearchMap
             PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
             PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
             PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.SearchMap,
+            PolicePhoneRoute.WorkStatus,
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneRoute.BlockedOutbox,
             PolicePhoneRoute.AuthBootstrap,
