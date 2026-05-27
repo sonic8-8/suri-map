@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 import com.surimap.R
+import com.surimap.core.map.MapLibreMapViewHandle
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
@@ -501,6 +502,7 @@ private fun snapPanelHeight(
 fun SearchMapScreen(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
+    mapViewHandle: MapLibreMapViewHandle? = null,
     showMapPreview: Boolean = false,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
@@ -552,6 +554,7 @@ fun SearchMapScreen(
         SearchMapShell(
             state = state,
             mapState = mapState,
+            mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
             mapBottomInset = mapBottomInset,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
@@ -715,6 +718,7 @@ private fun StopSearchConfirmDialog(
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
     mapBottomInset: Dp,
     onOpenBlockedOutbox: () -> Unit,
@@ -735,6 +739,7 @@ private fun SearchMapShell(
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
+                mapViewHandle = mapViewHandle,
                 modifier = Modifier.fillMaxSize(),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail,

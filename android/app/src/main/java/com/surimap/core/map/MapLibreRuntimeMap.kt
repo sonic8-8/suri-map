@@ -315,10 +315,52 @@ data class MapLibreRuntimeMapState(
     }
 }
 
+class MapLibreMapViewHandle {
+    private var cachedMapView: MapView? = null
+    private var cachedLifecycleBridge: MapViewLifecycleBridge? = null
+
+    internal fun mapView(context: Context): MapView {
+        val existing = cachedMapView
+        if (existing != null && !existing.isDestroyed) {
+            return existing
+        }
+        MapLibre.getInstance(context.applicationContext)
+        return MapView(context).apply {
+            setBackgroundColor(Color.rgb(23, 38, 58))
+            onCreate(Bundle())
+        }.also { mapView ->
+            cachedMapView = mapView
+            cachedLifecycleBridge = MapViewLifecycleBridge(mapView)
+        }
+    }
+
+    internal fun lifecycleBridge(mapView: MapView): MapViewLifecycleBridge {
+        return cachedLifecycleBridge ?: MapViewLifecycleBridge(mapView).also { bridge ->
+            cachedLifecycleBridge = bridge
+        }
+    }
+
+    internal fun destroy() {
+        cachedLifecycleBridge?.onDestroy()
+        cachedLifecycleBridge = null
+        cachedMapView = null
+    }
+}
+
+@Composable
+fun rememberMapLibreMapViewHandle(key: Any? = Unit): MapLibreMapViewHandle {
+    val handle = remember(key) { MapLibreMapViewHandle() }
+    DisposableEffect(handle) {
+        onDispose { handle.destroy() }
+    }
+    return handle
+}
+
 @Composable
 fun SuriMapLibreMap(
     state: MapLibreRuntimeMapState,
     modifier: Modifier = Modifier,
+    mapViewHandle: MapLibreMapViewHandle? = null,
     onLoadFailed: (String) -> Unit = {},
     onMarkerClick: (String) -> Unit = {},
     onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit = {}
@@ -335,11 +377,10 @@ fun SuriMapLibreMap(
     var appliedCameraSignature by remember { mutableStateOf<String?>(null) }
     var markerClickListener by remember { mutableStateOf<MapLibreMap.OnMapClickListener?>(null) }
     var cameraIdleListener by remember { mutableStateOf<MapLibreMap.OnCameraIdleListener?>(null) }
-    val mapView = remember {
-        MapLibre.getInstance(context.applicationContext)
-        MapView(context).apply { onCreate(Bundle()) }
-    }
-    val lifecycleBridge = remember(mapView) { MapViewLifecycleBridge(mapView) }
+    val ownedMapViewHandle = rememberMapLibreMapViewHandle()
+    val activeMapViewHandle = mapViewHandle ?: ownedMapViewHandle
+    val mapView = remember(activeMapViewHandle, context) { activeMapViewHandle.mapView(context) }
+    val lifecycleBridge = remember(activeMapViewHandle, mapView) { activeMapViewHandle.lifecycleBridge(mapView) }
 
     DisposableEffect(lifecycle, mapView) {
         val observer = LifecycleEventObserver { _, event ->
@@ -372,7 +413,7 @@ fun SuriMapLibreMap(
             }
             lifecycle.removeObserver(observer)
             mapView.removeOnDidFailLoadingMapListener(failListener)
-            lifecycleBridge.onDestroy()
+            lifecycleBridge.onStop()
         }
     }
 
@@ -1239,7 +1280,7 @@ private val MapLibreGeometryOverlay.labelPlacement: String
             else -> SYMBOL_PLACEMENT_POINT
         }
 
-private class MapViewLifecycleBridge(
+internal class MapViewLifecycleBridge(
     private val mapView: MapView
 ) {
     private var started = false

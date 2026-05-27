@@ -94,8 +94,10 @@ import com.surimap.feature.alert.ui.IncidentFcmRouteMapper
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.location.GpsLocationFix
+import com.surimap.core.map.MapLibreMapViewHandle
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
+import com.surimap.core.map.rememberMapLibreMapViewHandle
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.AndroidNetworkFactory
@@ -360,6 +362,7 @@ fun SuriMapApp() {
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
     var showIncidentExitConfirm by remember { mutableStateOf(false) }
     var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
+    val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
     val showIncidentBottomNavigation =
@@ -516,6 +519,7 @@ fun SuriMapApp() {
                             navController = navController,
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
+                            mapViewHandle = searchMapViewHandle,
                             restoredViewportBounds =
                             incidentSessionState.incidentContext
                                 ?.incidentId
@@ -1458,6 +1462,7 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
+    mapViewHandle: MapLibreMapViewHandle? = null,
     restoredViewportBounds: SearchMapViewportBounds? = null,
     onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit = { _, _ -> },
     onOpenBlockedOutbox: () -> Unit,
@@ -2102,6 +2107,7 @@ private fun SearchMapRoute(
         SearchMapScreen(
             state = displayedSearchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
+            mapViewHandle = mapViewHandle,
             onPrimaryLifecycleAction = {
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
