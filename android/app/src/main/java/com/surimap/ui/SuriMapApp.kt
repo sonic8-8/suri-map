@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +55,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -541,17 +544,21 @@ fun SuriMapApp() {
                         )
                     }
                     composable(PolicePhoneRoute.IncidentHome.route) {
-                        IncidentHomeRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController
-                        )
+                        IncidentWorkspacePage {
+                            IncidentHomeRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController
+                            )
+                        }
                     }
                     composable(PolicePhoneRoute.OfflinePackage.route) {
-                        OfflinePackageRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            clockSyncState = clockSyncState
-                        )
+                        IncidentWorkspacePage {
+                            OfflinePackageRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                clockSyncState = clockSyncState
+                            )
+                        }
                     }
                     composable(
                         route = SearchMapDeepLink.RoutePattern,
@@ -598,29 +605,35 @@ fun SuriMapApp() {
                         }
                     }
                     composable(PolicePhoneRoute.HandoverSummary.route) {
-                        HandoverSummaryRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            clockSyncState = clockSyncState
-                        )
+                        IncidentWorkspacePage {
+                            HandoverSummaryRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                clockSyncState = clockSyncState
+                            )
+                        }
                     }
                     composable(PolicePhoneRoute.HandoverMemo.route) {
-                        HandoverMemoRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            clockSyncState = clockSyncState,
-                            onMemoSaved = { pendingSync ->
-                                handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = pendingSync)
-                            }
-                        )
+                        IncidentWorkspacePage {
+                            HandoverMemoRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                clockSyncState = clockSyncState,
+                                onMemoSaved = { pendingSync ->
+                                    handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = pendingSync)
+                                }
+                            )
+                        }
                     }
                     composable(PolicePhoneRoute.MarkerDetail.route) {
-                        MarkerDetailRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            markerId = null,
-                            clockSyncState = clockSyncState
-                        )
+                        IncidentWorkspacePage {
+                            MarkerDetailRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                markerId = null,
+                                clockSyncState = clockSyncState
+                            )
+                        }
                     }
                     composable(
                         route = MarkerDetailDeepLink.RoutePattern,
@@ -631,19 +644,23 @@ fun SuriMapApp() {
                                 }
                             )
                     ) { backStackEntry ->
-                        MarkerDetailRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            markerId = backStackEntry.arguments?.getString(MarkerDetailDeepLink.MarkerIdArg),
-                            clockSyncState = clockSyncState
-                        )
+                        IncidentWorkspacePage {
+                            MarkerDetailRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                markerId = backStackEntry.arguments?.getString(MarkerDetailDeepLink.MarkerIdArg),
+                                clockSyncState = clockSyncState
+                            )
+                        }
                     }
                     composable(PolicePhoneRoute.BlockedOutbox.route) {
-                        BlockedOutboxRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            clockSyncState = clockSyncState
-                        )
+                        IncidentWorkspacePage {
+                            BlockedOutboxRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                clockSyncState = clockSyncState
+                            )
+                        }
                     }
                 }
                 }
@@ -696,6 +713,33 @@ private fun PolicePhoneBackPolicyHandler(
         }
     }
 }
+
+@Composable
+private fun IncidentWorkspacePage(content: @Composable () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(PoliBgBase)
+                .consumeUnclaimedPointerEvents()
+    ) {
+        content()
+    }
+}
+
+private fun Modifier.consumeUnclaimedPointerEvents(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Final)
+                event.changes.forEach { change ->
+                    if (!change.isConsumed) {
+                        change.consume()
+                    }
+                }
+            }
+        }
+    }
 
 @Composable
 private fun ConfirmLeaveDialog(

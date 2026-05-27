@@ -134,6 +134,20 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun incidentSupportTabsRemainOpaquePagesOverPersistentMap() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("private fun IncidentWorkspacePage("))
+        assertTrue(source.contains(".background(PoliBgBase)"))
+        assertTrue(source.contains(".consumeUnclaimedPointerEvents()"))
+        assertTrue(source.contains("awaitPointerEvent(PointerEventPass.Final)"))
+        assertTrue(source.contains("change.consume()"))
+        assertTrue(source.contains("IncidentWorkspacePage {\n                            IncidentHomeRoute("))
+        assertTrue(source.contains("IncidentWorkspacePage {\n                            HandoverSummaryRoute("))
+        assertTrue(source.contains("IncidentWorkspacePage {\n                            BlockedOutboxRoute("))
+    }
+
+    @Test
     fun incidentTopLevelTabsDoNotExposeAppBarBackButtons() {
         val handoverSource = File("src/main/java/com/surimap/feature/handover/ui/DutyHandoverScreen.kt").readText()
         val outboxSource = File("src/main/java/com/surimap/feature/outbox/ui/BlockedOutboxScreen.kt").readText()
