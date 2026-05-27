@@ -105,11 +105,12 @@ class PolicePhoneNavigationContractTest {
         val navHostIndex = source.indexOf("NavHost(")
         val backHandlerIndex = source.indexOf("PolicePhoneBackPolicyHandler(", navHostIndex)
 
-        assertTrue(source.contains("navController.navigateToIncidentTopLevel(route)"))
+        assertTrue(source.contains("navController.navigateToIncidentBottomTab(route)"))
         assertTrue(backHandlerIndex > navHostIndex)
         assertTrue(source.contains("private fun NavHostController.navigateToIncidentHomeRoot()"))
         assertTrue(source.contains("navigate(PolicePhoneRoute.SearchMap.route)"))
         assertTrue(source.contains("if (route != PolicePhoneRoute.SearchMap)"))
+        assertTrue(source.contains("private fun NavHostController.navigateToIncidentBottomTab(route: PolicePhoneRoute)"))
         assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
         assertTrue(source.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
@@ -119,6 +120,20 @@ class PolicePhoneNavigationContractTest {
         assertFalse(source.contains("navigateToIncidentHomeRoot()\n    navigateToSingleTop(route)"))
         assertFalse(source.contains("onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) }"))
         assertFalse(source.contains("onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }"))
+    }
+
+    @Test
+    fun bottomTabSelectionDoesNotRouteThroughSearchMapForSupportTabs() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val helperIndex = source.indexOf("private fun NavHostController.navigateToIncidentBottomTab")
+        val nextHelperIndex = source.indexOf("private fun NavHostController.navigateToIncidentHomeRoot", helperIndex)
+        val helperSource = source.substring(helperIndex, nextHelperIndex)
+
+        assertTrue(helperSource.contains("if (route == PolicePhoneRoute.SearchMap)"))
+        assertTrue(helperSource.contains("navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap)"))
+        assertTrue(helperSource.contains("navigate(route.route)"))
+        assertTrue(helperSource.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
+        assertFalse(helperSource.contains("navigate(PolicePhoneRoute.SearchMap.route)"))
     }
 
     @Test
@@ -155,7 +170,7 @@ class PolicePhoneNavigationContractTest {
         assertTrue(source.contains("val shouldShieldPersistentMapDuringTransition ="))
         assertTrue(source.contains("currentRoute != pendingSupportRoute"))
         assertTrue(source.contains("pendingTopLevelRoute = route"))
-        assertTrue(source.contains("pendingTopLevelRoute = null"))
+        assertTrue(source.contains("if (pendingTopLevelRoute == currentRoute)"))
         assertTrue(source.contains("IncidentWorkspaceTransitionShield()"))
         assertTrue(source.contains("private fun IncidentWorkspaceTransitionShield()"))
     }

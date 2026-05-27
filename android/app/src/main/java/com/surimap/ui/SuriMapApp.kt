@@ -386,7 +386,7 @@ fun SuriMapApp() {
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
     val shouldShieldPersistentMapDuringTransition =
-        showPersistentIncidentMap &&
+        incidentSessionState.incidentContext != null &&
             pendingSupportRoute != null &&
             currentRoute != pendingSupportRoute
     val persistentSearchMapFocusMarkerId =
@@ -403,7 +403,7 @@ fun SuriMapApp() {
     }
 
     LaunchedEffect(currentRoute) {
-        if (pendingTopLevelRoute == currentRoute || currentRoute != PolicePhoneRoute.SearchMap) {
+        if (pendingTopLevelRoute == currentRoute) {
             pendingTopLevelRoute = null
         }
         if (PolicePhoneBottomNavigation.selectedRouteFor(currentRoute) == null) {
@@ -476,7 +476,7 @@ fun SuriMapApp() {
                             onSelect = { route ->
                                 if (currentRoute != route) {
                                     pendingTopLevelRoute = route
-                                    navController.navigateToIncidentTopLevel(route)
+                                    navController.navigateToIncidentBottomTab(route)
                                 }
                             }
                         )
@@ -4171,6 +4171,19 @@ private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute
     }
     if (route != PolicePhoneRoute.SearchMap) {
         navigateToSingleTop(route)
+    }
+}
+
+private fun NavHostController.navigateToIncidentBottomTab(route: PolicePhoneRoute) {
+    if (route == PolicePhoneRoute.SearchMap) {
+        navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap)
+        return
+    }
+    navigate(route.route) {
+        popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = false
+        }
+        launchSingleTop = true
     }
 }
 
