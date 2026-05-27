@@ -102,8 +102,8 @@ class OfflinePackageStateLoaderTest {
         assertFalse(state.readyForOfflineUse)
         assertFalse(state.autoOpenSearchMap)
         assertTrue(state.shouldDownloadPackage)
-        assertEquals("완료", state.packageItems.single { it.label == "사건 메타" }.statusLabel)
-        assertEquals("대기", state.packageItems.single { it.label == "실종자" }.statusLabel)
+        assertEquals("완료", state.packageItems.single { it.label == "사건 정보" }.statusLabel)
+        assertEquals("대기", state.packageItems.single { it.label == "실종자 정보" }.statusLabel)
         assertEquals("실패", state.packageItems.single { it.label == "타일" }.statusLabel)
     }
 
@@ -405,8 +405,8 @@ class OfflinePackageStateLoaderTest {
         val state = loader.load()
 
         assertEquals(OfflinePackageDownloadStatus.Partial, state.status)
-        assertEquals("완료", state.packageItems.single { it.label == "사건 메타" }.statusLabel)
-        assertEquals(1f, state.packageItems.single { it.label == "사건 메타" }.progress)
+        assertEquals("완료", state.packageItems.single { it.label == "사건 정보" }.statusLabel)
+        assertEquals(1f, state.packageItems.single { it.label == "사건 정보" }.progress)
         assertEquals("다운로드 중", state.packageItems.single { it.label == "타일" }.statusLabel)
         assertEquals(0.4f, state.packageItems.single { it.label == "타일" }.progress)
         assertEquals("실패", state.packageItems.single { it.label == "마커" }.statusLabel)

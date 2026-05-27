@@ -3,6 +3,7 @@ package com.surimap.ui.navigation
 import com.surimap.testing.dutyShiftIdFixture
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.opIdFixture
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,6 +17,7 @@ class PolicePhoneNavigationContractTest {
             listOf(
                 "auth_bootstrap",
                 "incident_list",
+                "incident_home",
                 "offline_package",
                 "search_map",
                 "handover_summary",
@@ -41,7 +43,7 @@ class PolicePhoneNavigationContractTest {
     @Test
     fun bottomNavigationExposesIncidentContextDestinationsOnly() {
         assertEquals(
-            listOf("offline_package", "search_map", "handover_summary", "blocked_outbox"),
+            listOf("incident_home", "search_map", "handover_summary", "blocked_outbox"),
             PolicePhoneBottomNavigation.items.map { it.route.route }
         )
         assertEquals(listOf("사건", "지도", "인수인계", "미전송"), PolicePhoneBottomNavigation.items.map { it.label })
@@ -56,6 +58,10 @@ class PolicePhoneNavigationContractTest {
 
     @Test
     fun bottomNavigationMapsNestedScreensToParentTab() {
+        assertEquals(
+            PolicePhoneRoute.IncidentHome,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.OfflinePackage)
+        )
         assertEquals(
             PolicePhoneRoute.SearchMap,
             PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.MarkerDetail)
@@ -73,22 +79,14 @@ class PolicePhoneNavigationContractTest {
 
     @Test
     fun backNavigationUsesScreenHierarchyInsteadOfVisitHistory() {
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentHome))
         assertEquals(
-            PolicePhoneRoute.IncidentList,
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.OfflinePackage)
         )
-        assertEquals(
-            PolicePhoneRoute.IncidentList,
-            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.SearchMap)
-        )
-        assertEquals(
-            PolicePhoneRoute.IncidentList,
-            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverSummary)
-        )
-        assertEquals(
-            PolicePhoneRoute.IncidentList,
-            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.BlockedOutbox)
-        )
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.SearchMap))
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverSummary))
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.BlockedOutbox))
         assertEquals(
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverMemo)
@@ -99,6 +97,50 @@ class PolicePhoneNavigationContractTest {
         )
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.AuthBootstrap))
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentList))
+    }
+
+    @Test
+    fun incidentTopLevelNavigationCollapsesTabVisitHistory() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val navHostIndex = source.indexOf("NavHost(")
+        val backHandlerIndex = source.indexOf("PolicePhoneBackPolicyHandler(", navHostIndex)
+
+        assertTrue(source.contains("navController.navigateToIncidentTopLevel(route)"))
+        assertTrue(backHandlerIndex > navHostIndex)
+        assertTrue(source.contains("private fun NavHostController.navigateToIncidentHomeRoot()"))
+        assertTrue(source.contains("navigate(PolicePhoneRoute.SearchMap.route)"))
+        assertTrue(source.contains("if (route != PolicePhoneRoute.SearchMap)"))
+        assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
+        assertTrue(source.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
+        assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
+        assertTrue(source.contains("currentRoute == PolicePhoneRoute.BlockedOutbox"))
+        assertTrue(source.contains("onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }"))
+        assertTrue(source.contains("else -> onRequestIncidentExit()"))
+        assertFalse(source.contains("navigateToIncidentHomeRoot()\n    navigateToSingleTop(route)"))
+        assertFalse(source.contains("onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) }"))
+        assertFalse(source.contains("onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }"))
+    }
+
+    @Test
+    fun incidentTopLevelTabsDoNotExposeAppBarBackButtons() {
+        val handoverSource = File("src/main/java/com/surimap/feature/handover/ui/DutyHandoverScreen.kt").readText()
+        val outboxSource = File("src/main/java/com/surimap/feature/outbox/ui/BlockedOutboxScreen.kt").readText()
+
+        assertTrue(handoverSource.contains("showBack = false"))
+        assertTrue(outboxSource.contains("showBack = false"))
+    }
+
+    @Test
+    fun searchMapMarkerDetailUsesModalInsteadOfRouteNavigation() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val routeIndex = source.indexOf("private fun SearchMapRoute(")
+        val routeEndIndex = source.indexOf("private fun MarkerDetailModal(", routeIndex)
+        val searchMapRoute = source.substring(routeIndex, routeEndIndex)
+
+        assertTrue(searchMapRoute.contains("var markerDetailModalId by rememberSaveable"))
+        assertTrue(searchMapRoute.contains("markerDetailModalId = markerId"))
+        assertTrue(searchMapRoute.contains("MarkerDetailModal("))
+        assertFalse(searchMapRoute.contains("MarkerDetailDeepLink.route(markerId)"))
     }
 
     @Test

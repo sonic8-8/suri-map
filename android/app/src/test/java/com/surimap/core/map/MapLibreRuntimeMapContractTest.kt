@@ -172,6 +172,42 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("CameraUpdateFactory.newLatLngBounds"))
     }
 
+    @Test
+    fun runtimeMapReportsCameraIdleViewportBounds() {
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+
+        assertTrue(source.contains("onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit"))
+        assertTrue(source.contains("addOnCameraIdleListener"))
+        assertTrue(source.contains("removeOnCameraIdleListener"))
+        assertTrue(source.contains("visibleRegion.latLngBounds"))
+        assertTrue(source.contains("toMapLibreViewportBoundsOrNull()"))
+    }
+
+    @Test
+    fun runtimeMapCanReuseMapViewAcrossIncidentTabNavigation() {
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+        val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val searchMapSource = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+
+        assertTrue(source.contains("class MapLibreMapViewHandle"))
+        assertTrue(source.contains("fun rememberMapLibreMapViewHandle"))
+        assertTrue(source.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
+        assertTrue(source.contains("val activeMapViewHandle = mapViewHandle ?: ownedMapViewHandle"))
+        assertTrue(source.contains("activeMapViewHandle.mapView(context)"))
+        assertTrue(source.contains("lifecycleBridge.onStop()"))
+
+        val disposableStart = source.indexOf("DisposableEffect(lifecycle, mapView)")
+        val disposableEnd = source.indexOf("AndroidView(", disposableStart)
+        val disposableSource = source.substring(disposableStart, disposableEnd)
+        val onDisposeSource = disposableSource.substring(disposableSource.indexOf("onDispose {"))
+        assertFalse(onDisposeSource.contains("lifecycleBridge.onDestroy()"))
+
+        assertTrue(appSource.contains("rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)"))
+        assertTrue(appSource.contains("mapViewHandle = searchMapViewHandle"))
+        assertTrue(searchMapSource.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
+        assertTrue(searchMapSource.contains("mapViewHandle = mapViewHandle"))
+    }
+
     private companion object {
         val POLICE_PHONE_ID = policePhoneIdFixture("1")
         val OVERALL_AREA_ID = areaIdFixture("overall-001")

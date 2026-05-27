@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
@@ -93,8 +94,10 @@ import com.surimap.feature.alert.ui.IncidentFcmRouteMapper
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.location.GpsLocationFix
+import com.surimap.core.map.MapLibreMapViewHandle
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
+import com.surimap.core.map.rememberMapLibreMapViewHandle
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.AndroidNetworkFactory
@@ -162,6 +165,9 @@ import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentHomeMapDataStatus
+import com.surimap.feature.incidents.ui.IncidentHomeScreen
+import com.surimap.feature.incidents.ui.IncidentHomeUiState
 import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
@@ -354,6 +360,9 @@ fun SuriMapApp() {
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
     var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
+    var showIncidentExitConfirm by remember { mutableStateOf(false) }
+    var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
+    val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
     val showIncidentBottomNavigation =
@@ -368,6 +377,12 @@ fun SuriMapApp() {
             incidentContext = incidentSessionState.incidentContext,
             policePhoneContext = incidentSessionState.policePhoneContext
         )
+    }
+
+    LaunchedEffect(currentRoute) {
+        if (PolicePhoneBottomNavigation.selectedRouteFor(currentRoute) == null) {
+            showIncidentExitConfirm = false
+        }
     }
 
     OidcSessionRefreshEffect(
@@ -395,11 +410,6 @@ fun SuriMapApp() {
         onClosed = { incidentClosed = it }
     )
     NotificationPermissionEffect()
-    PolicePhoneBackPolicyHandler(
-        currentRoute = currentRoute,
-        navController = navController
-    )
-
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
             state =
@@ -417,7 +427,7 @@ fun SuriMapApp() {
             },
             onOpenBlockedQueue = {
                 blockedQueue = null
-                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
+                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
             },
             onDismissHandoverMemoSaved = { handoverMemoSaved = null },
             onDismissSearchPathEnded = { searchPathEnded = null },
@@ -439,7 +449,7 @@ fun SuriMapApp() {
                             selectedRoute = selectedBottomNavigationRoute,
                             onSelect = { route ->
                                 if (currentRoute != route) {
-                                    navController.navigateToSingleTop(route)
+                                    navController.navigateToIncidentTopLevel(route)
                                 }
                             }
                         )
@@ -480,6 +490,12 @@ fun SuriMapApp() {
                             onClearClosedOverlay = { incidentClosed = null }
                         )
                     }
+                    composable(PolicePhoneRoute.IncidentHome.route) {
+                        IncidentHomeRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController
+                        )
+                    }
                     composable(PolicePhoneRoute.OfflinePackage.route) {
                         OfflinePackageRoute(
                             incidentSessionState = incidentSessionState,
@@ -503,8 +519,19 @@ fun SuriMapApp() {
                             navController = navController,
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
+                            mapViewHandle = searchMapViewHandle,
+                            restoredViewportBounds =
+                            incidentSessionState.incidentContext
+                                ?.incidentId
+                                ?.let(searchMapViewportByIncident::get),
+                            onViewportBoundsChanged = { incidentId, bounds ->
+                                searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
+                            },
                             onOpenBlockedOutbox = {
-                                blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
+                            },
+                            onRequestIncidentExit = {
+                                showIncidentExitConfirm = true
                             },
                             onSearchPathEnded = { pendingSync ->
                                 searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
@@ -561,6 +588,25 @@ fun SuriMapApp() {
                     }
                 }
             }
+            PolicePhoneBackPolicyHandler(
+                currentRoute = currentRoute,
+                navController = navController,
+                onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }
+            )
+            if (showIncidentExitConfirm) {
+                ConfirmLeaveDialog(
+                    title = "사건 선택으로 이동할까요?",
+                    body = "현재 사건의 수색 기록 상태는 유지됩니다. 다른 사건을 선택해야 할 때만 이동하세요.",
+                    dismissText = "계속 보기",
+                    confirmText = "사건 선택",
+                    confirmVariant = PoliButtonVariant.Primary,
+                    onDismiss = { showIncidentExitConfirm = false },
+                    onConfirm = {
+                        showIncidentExitConfirm = false
+                        navController.navigateToIncidentListRoot()
+                    }
+                )
+            }
         }
     }
 }
@@ -568,7 +614,8 @@ fun SuriMapApp() {
 @Composable
 private fun PolicePhoneBackPolicyHandler(
     currentRoute: PolicePhoneRoute?,
-    navController: NavHostController
+    navController: NavHostController,
+    onIncidentSupportTabBack: () -> Unit
 ) {
     val context = LocalContext.current
     val handledByRoute = currentRoute == PolicePhoneRoute.SearchMap || currentRoute == PolicePhoneRoute.HandoverMemo
@@ -579,8 +626,11 @@ private fun PolicePhoneBackPolicyHandler(
     ) {
         val parentRoute = PolicePhoneBackNavigation.parentRouteFor(currentRoute)
         when {
+            currentRoute == PolicePhoneRoute.IncidentHome ||
+                currentRoute == PolicePhoneRoute.HandoverSummary ||
+                currentRoute == PolicePhoneRoute.BlockedOutbox -> onIncidentSupportTabBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
-            parentRoute != null -> navController.navigateToSingleTop(parentRoute)
+            parentRoute != null -> navController.navigateBackToParentRoute(parentRoute)
             currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
             else -> Unit
         }
@@ -698,6 +748,7 @@ private fun IncidentBottomNavigationIcon(
         }
 
         when (route) {
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.OfflinePackage -> {
                 val topLeft = Offset(side * 0.24f, side * 0.17f)
                 val iconSize = Size(side * 0.52f, side * 0.66f)
@@ -1085,7 +1136,7 @@ private fun BlockedOutboxRoute(
 
     BlockedOutboxScreen(
         state = state,
-        onBack = { navController.navigateToIncidentListRoot() },
+        onBack = { navController.navigateToIncidentHomeRoot() },
         onOpenSupportGuide = {},
         onRefresh = { refreshNonce += 1 },
         refreshing = refreshing,
@@ -1251,9 +1302,9 @@ private fun HandoverSummaryRoute(
             endingDutyShift = endingDutyShift
         ),
         mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-        onBack = { navController.navigateToIncidentListRoot() },
+        onBack = { navController.navigateToIncidentHomeRoot() },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
-        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onOpenSearch = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
         onSelectDutyShift = { dutyShiftId ->
             selectedDutyShiftId = dutyShiftId
@@ -1295,7 +1346,7 @@ private fun HandoverSummaryRoute(
                             incidentSessionState.activateIncidentContext(it.copy(currentDutyShiftId = null))
                         }
                         endingDutyShift = false
-                        navController.navigateToSingleTop(PolicePhoneRoute.IncidentList)
+                        navController.navigateToIncidentHomeRoot()
                     }
                 }
             }
@@ -1411,7 +1462,11 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
+    mapViewHandle: MapLibreMapViewHandle? = null,
+    restoredViewportBounds: SearchMapViewportBounds? = null,
+    onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit = { _, _ -> },
     onOpenBlockedOutbox: () -> Unit,
+    onRequestIncidentExit: () -> Unit,
     onSearchPathEnded: (pendingSync: Boolean) -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
@@ -1421,6 +1476,7 @@ private fun SearchMapRoute(
     val outboxDao = remember(database) { database.outboxDao() }
     val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val initialRestoredViewportBounds = remember(sessionContext.incidentId) { restoredViewportBounds }
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val dutyShiftReadRepository =
@@ -1572,7 +1628,11 @@ private fun SearchMapRoute(
         sessionContext.policePhoneId,
         sessionContext.accountId
     ) {
-        mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
+        mutableStateOf(
+            SearchMapStateLoader()
+                .fallbackForRemember(sessionContext)
+                .restoreViewport(initialRestoredViewportBounds)
+        )
     }
     var recordingSession by rememberSaveable(
         sessionContext.incidentId,
@@ -1617,6 +1677,7 @@ private fun SearchMapRoute(
         sessionContext.policePhoneId
     ) { SearchAreaBoundaryMonitor() }
     var markerSheetOpen by remember { mutableStateOf(false) }
+    var markerDetailModalId by rememberSaveable(sessionContext.incidentId) { mutableStateOf<String?>(null) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var showMarkerDiscardConfirm by remember { mutableStateOf(false) }
     var showSearchLeaveConfirm by remember { mutableStateOf(false) }
@@ -1700,11 +1761,7 @@ private fun SearchMapRoute(
         val seenAt = currentDutyShiftStartedAt ?: Instant.now()
         context.writeLastSeenHandoverAt(sessionContext, seenAt)
         lastSeenHandoverAt = seenAt
-        navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary)
-    }
-
-    fun leaveSearchMap() {
-        navController.navigateToIncidentListRoot()
+        navController.navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)
     }
 
     fun requestMarkerSheetDismiss() {
@@ -1828,10 +1885,18 @@ private fun SearchMapRoute(
         lastSeenHandoverAt = context.readLastSeenHandoverAt(sessionContext)
     }
 
+    suspend fun loadServerStatePreservingViewport(): SearchMapUiState =
+        loader.load(sessionContext)
+            .withFocusedMarker(focusMarkerId)
+            .preserveViewportFrom(searchMapState)
+
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
-        searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
+        searchMapState =
+            loader.fallback(sessionContext)
+                .withFocusedMarker(focusMarkerId)
+                .restoreViewport(initialRestoredViewportBounds)
         suspend fun refreshServerState() {
-            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+            searchMapState = loadServerStatePreservingViewport()
         }
         val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
         val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
@@ -1898,7 +1963,7 @@ private fun SearchMapRoute(
             markerSheetOpen -> requestMarkerSheetDismiss()
             displayedLifecycle == SearchLifecycleStatus.Active ||
                 displayedLifecycle == SearchLifecycleStatus.Paused -> showSearchLeaveConfirm = true
-            else -> leaveSearchMap()
+            else -> onRequestIncidentExit()
         }
     }
 
@@ -2042,6 +2107,7 @@ private fun SearchMapRoute(
         SearchMapScreen(
             state = displayedSearchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
+            mapViewHandle = mapViewHandle,
             onPrimaryLifecycleAction = {
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
@@ -2085,7 +2151,7 @@ private fun SearchMapRoute(
                         }
                         SearchLifecycleStatus.OpRequired,
                         SearchLifecycleStatus.OpTransition -> {
-                            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+                            searchMapState = loadServerStatePreservingViewport()
                         }
                     }
                 }
@@ -2131,7 +2197,7 @@ private fun SearchMapRoute(
                 navController.navigateToSingleTop(SearchMapDeepLink.markerFocusRoute(markerId))
             },
             onOpenFocusedMarkerDetail = { markerId ->
-                navController.navigateToSingleTop(MarkerDetailDeepLink.route(markerId))
+                markerDetailModalId = markerId
             },
             onCenterCurrentLocation = {
                 if (context.hasLocationPermission()) {
@@ -2145,11 +2211,29 @@ private fun SearchMapRoute(
                     )
                 }
             },
+            onViewportBoundsChanged = { bounds ->
+                sessionContext.incidentId?.takeIf(String::isNotBlank)?.let { incidentId ->
+                    onViewportBoundsChanged(incidentId, bounds)
+                }
+            },
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
+        markerDetailModalId?.let { markerId ->
+            val markerDetailInitialState = remember(searchMapState.layers, markerId) {
+                searchMapState.markerDetailLoadingState(markerId)
+            }
+            MarkerDetailModal(
+                incidentSessionState = incidentSessionState,
+                navController = navController,
+                markerId = markerId,
+                initialLoadingState = markerDetailInitialState,
+                clockSyncState = clockSyncState,
+                onDismiss = { markerDetailModalId = null }
+            )
+        }
         if (markerSheetOpen) {
             MarkerCreateBottomSheet(
                 state = markerSheetState,
@@ -2195,7 +2279,7 @@ private fun SearchMapRoute(
                                 )
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
                                 markerSheetOpen = false
-                                searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+                                searchMapState = loadServerStatePreservingViewport()
                             }
                         }
                     }
@@ -2236,16 +2320,50 @@ private fun SearchMapRoute(
         }
         if (showSearchLeaveConfirm) {
             ConfirmLeaveDialog(
-                title = "수색 기록을 유지하고 나갈까요?",
-                body = "지도 화면을 벗어나도 현재 수색 기록 상태는 유지됩니다. 종료하려면 지도에서 수색 종료를 눌러야 합니다.",
+                title = "사건 선택으로 이동할까요?",
+                body = "현재 수색 기록 상태는 유지됩니다. 종료하려면 지도에서 수색 종료를 눌러야 합니다.",
                 dismissText = "지도에 머무르기",
-                confirmText = "사건 화면",
+                confirmText = "사건 선택",
                 confirmVariant = PoliButtonVariant.Primary,
                 onDismiss = { showSearchLeaveConfirm = false },
                 onConfirm = {
                     showSearchLeaveConfirm = false
-                    leaveSearchMap()
+                    navController.navigateToIncidentListRoot()
                 }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarkerDetailModal(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    markerId: String,
+    initialLoadingState: MarkerDetailUiState? = null,
+    clockSyncState: ClockSyncState,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = PoliDimens.Space3, vertical = PoliDimens.Space5),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 6.dp
+        ) {
+            MarkerDetailRoute(
+                incidentSessionState = incidentSessionState,
+                navController = navController,
+                markerId = markerId,
+                initialLoadingState = initialLoadingState,
+                clockSyncState = clockSyncState,
+                onClose = onDismiss,
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -2256,7 +2374,10 @@ private fun MarkerDetailRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
     markerId: String?,
-    clockSyncState: ClockSyncState
+    initialLoadingState: MarkerDetailUiState? = null,
+    clockSyncState: ClockSyncState,
+    onClose: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -2315,8 +2436,12 @@ private fun MarkerDetailRoute(
             )
     }
     val coroutineScope = rememberCoroutineScope()
+    val loadingState =
+        remember(markerId, initialLoadingState) {
+            initialLoadingState ?: MarkerDetailUiState.loading(markerId ?: "marker-id-missing")
+        }
     var markerDetailState by remember(markerId) {
-        mutableStateOf(MarkerDetailUiState.loading(markerId ?: "marker-id-missing"))
+        mutableStateOf(loadingState)
     }
     var retryPhotoId by remember(markerId) { mutableStateOf<String?>(null) }
     var photoUriById by remember(markerId) { mutableStateOf<Map<String, Uri>>(emptyMap()) }
@@ -2399,14 +2524,14 @@ private fun MarkerDetailRoute(
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
     }
-    LaunchedEffect(loader, sessionContext) {
-        markerDetailState = MarkerDetailUiState.loading(sessionContext.markerId ?: "marker-id-missing")
+    LaunchedEffect(loader, sessionContext, loadingState) {
+        markerDetailState = loadingState
         markerDetailState = loader.load(sessionContext)
     }
 
     MarkerDetailScreen(
         state = markerDetailState,
-        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onBack = onClose ?: { navController.navigateBackToParentRoute(PolicePhoneRoute.SearchMap) },
         onMemoChange = { memo ->
             if (markerDetailState.canEdit) {
                 markerDetailState = markerDetailState.copy(memo = memo, mutationStatus = MarkerSaveStatus.Editing)
@@ -2479,7 +2604,120 @@ private fun MarkerDetailRoute(
         },
         onOpenPhoto = { photo ->
             context.openMarkerPhoto(photo.viewUrl)
+        },
+        closeLabel = if (onClose != null) "닫기" else "목록으로",
+        modalPresentation = onClose != null,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun IncidentHomeRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val context = LocalContext.current.applicationContext
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
+    val outboxDao = remember(database) { database.outboxDao() }
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val loader =
+        remember(
+            sessionContext.incidentId,
+            sessionContext.currentOpId,
+            sessionContext.policePhoneId,
+            sessionContext.accountId,
+            apiBaseUrl,
+            policePhoneContext?.accessToken,
+            outboxDao
+        ) {
+            SearchMapStateLoader(
+                incidentDetail = { incidentId ->
+                    IncidentReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).detail(incidentId)
+                },
+                overallSearchArea = { incidentId ->
+                    SearchAreaReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).activeOverall(incidentId)
+                },
+                opSearchAreas = { incidentId, opId ->
+                    SearchAreaReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).list(incidentId = incidentId, opId = opId, status = "ACTIVE")
+                },
+                searchPaths = {
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                liveMarkers = {
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                initialMarkers = { _, _ ->
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                outboxSummary = { incidentId, policePhoneId ->
+                    outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+                }
+            )
         }
+    val offlinePackageInstallation by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        offlinePackageInstallationDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf<OfflinePackageInstallationEntity?>(null)
+        } else {
+            offlinePackageInstallationDao.observe(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
+    val outboxSummary by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        outboxDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf(null)
+        } else {
+            outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
+    var refreshNonce by remember { mutableStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
+    var mapState by remember(sessionContext) {
+        mutableStateOf(loader.fallbackForRemember(sessionContext))
+    }
+
+    LaunchedEffect(loader, sessionContext, refreshNonce) {
+        refreshing = true
+        mapState = loader.load(sessionContext)
+        refreshing = false
+    }
+
+    IncidentHomeScreen(
+        state =
+            mapState.toIncidentHomeUiState(
+                installation = offlinePackageInstallation,
+                pendingOutboxCount = outboxSummary?.normalUnsentCount ?: mapState.unsentCount,
+                blockedOutboxCount = outboxSummary?.finalFailedCount ?: mapState.blockedOutboxCount,
+                refreshing = refreshing
+            ),
+        onOpenSearchMap = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
+        onOpenMapData = { navController.navigateToIncidentContextRoute(PolicePhoneRoute.OfflinePackage) },
+        onOpenBlockedOutbox = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox) },
+        onRefresh = { refreshNonce += 1 }
     )
 }
 
@@ -2600,8 +2838,8 @@ private fun OfflinePackageRoute(
 
     OfflinePackageScreen(
         state = state,
-        onBack = { navController.navigateToIncidentListRoot() },
-        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onBack = { navController.navigateToIncidentHomeRoot() },
+        onOpenSearchMap = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onRetryFailedItems = { retryNonce += 1 },
         onRefresh = { retryNonce += 1 }
     )
@@ -2920,7 +3158,7 @@ private suspend fun openIncidentRoute(
         dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
     }
     incidentSessionState.activateIncidentContext(resolvedContext)
-    navController.navigateToSingleTop(route)
+    navController.navigateToIncidentContextRoute(route)
 }
 
 private fun ManagedPolicePhoneConfig.toPolicePhoneContext(
@@ -3034,6 +3272,86 @@ private suspend fun resolveIncidentPackageStatus(
         IncidentPackageStatus.NotInstalled
     }
 }
+
+private fun SearchMapUiState.toIncidentHomeUiState(
+    installation: OfflinePackageInstallationEntity?,
+    pendingOutboxCount: Int,
+    blockedOutboxCount: Int,
+    refreshing: Boolean
+): IncidentHomeUiState {
+    val mapData = installation.toIncidentHomeMapData()
+    return IncidentHomeUiState(
+        incidentTitle = incidentTitle,
+        missingPersonSummary = missingPersonSummary,
+        opLabel = opLabel.toSearchRoundLabelForHome(),
+        assignmentLabel = assignmentLabel.ifBlank { "담당 구역 확인 중" },
+        mapDataStatus = mapData.status,
+        mapDataDetail = mapData.detail,
+        syncLabel =
+            when {
+                blockedOutboxCount > 0 -> "확인 필요"
+                pendingOutboxCount > 0 -> "자동 전송 대기"
+                syncStatus == SearchMapSyncStatus.Offline -> "오프라인"
+                else -> "최신 상태"
+            },
+        lastUpdatedLabel = installation.relativeUpdatedAtLabel(),
+        pendingOutboxCount = pendingOutboxCount,
+        blockedOutboxCount = blockedOutboxCount,
+        refreshing = refreshing
+    )
+}
+
+private data class IncidentHomeMapData(
+    val status: IncidentHomeMapDataStatus,
+    val detail: String
+)
+
+private fun OfflinePackageInstallationEntity?.toIncidentHomeMapData(): IncidentHomeMapData =
+    when {
+        this == null ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Missing,
+                detail = "오프라인 지도와 사건 기본 정보가 아직 단말에 준비되지 않았습니다."
+            )
+
+        failedItems > 0 || status == "FAILED" ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.NeedsAttention,
+                detail = "일부 지도 데이터 준비가 실패했습니다. 실패 항목만 다시 확인하세요."
+            )
+
+        status == "READY" && readyForOfflineUse ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Ready,
+                detail = "오프라인 지도와 사건 기본 정보가 준비되어 있습니다."
+            )
+
+        status == "DOWNLOADING" || completedItems in 1 until totalItems ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Preparing,
+                detail = "지도 데이터 준비가 진행 중입니다. 수색 기록은 계속 사용할 수 있습니다."
+            )
+
+        else ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Missing,
+                detail = "지도 데이터 준비 상태를 확인하세요. 준비 전에도 현장 기록은 열 수 있습니다."
+            )
+    }
+
+private fun OfflinePackageInstallationEntity?.relativeUpdatedAtLabel(): String {
+    val updatedAt = this?.updatedAt ?: return "갱신 이력 없음"
+    val elapsedMinutes = ((System.currentTimeMillis() - updatedAt).coerceAtLeast(0L) / 60_000L).toInt()
+    return when {
+        elapsedMinutes <= 0 -> "방금 갱신"
+        elapsedMinutes < 60 -> "${elapsedMinutes}분 전 갱신"
+        elapsedMinutes < 24 * 60 -> "${elapsedMinutes / 60}시간 전 갱신"
+        else -> "${elapsedMinutes / (24 * 60)}일 전 갱신"
+    }
+}
+
+private fun String.toSearchRoundLabelForHome(): String =
+    replace(Regex("""OP\s*(\d+)차"""), "$1차 수색")
 
 private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(): OfflinePackageInstallationStatus =
     OfflinePackageInstallationStatus(
@@ -3386,6 +3704,28 @@ private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId():
     activeSearchPathId?.takeIf(String::isNotBlank)
         ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
 
+private fun SearchMapUiState.markerDetailLoadingState(markerId: String): MarkerDetailUiState {
+    val markerLayer =
+        layers.firstOrNull { layer ->
+            layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId
+        }
+    val markerType = markerLayer?.markerType.toMarkerTypeOrNote()
+    val title =
+        markerLayer
+            ?.label
+            ?.takeIf(String::isNotBlank)
+            ?.takeIf { label -> label != markerType.label }
+            ?: "마커 정보"
+    return MarkerDetailUiState.loading(
+        markerId = markerId,
+        markerType = markerType,
+        title = title
+    )
+}
+
+private fun String?.toMarkerTypeOrNote(): MarkerType =
+    MarkerType.entries.firstOrNull { markerType -> markerType.apiValue == this } ?: MarkerType.NOTE
+
 private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
     val normalizedFix = fix ?: return this
     val currentLocationLayer =
@@ -3412,6 +3752,12 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
         viewportBounds = fix.toSearchMapViewportBounds(),
         focusedMarkerId = null
     )
+
+internal fun SearchMapUiState.preserveViewportFrom(previous: SearchMapUiState): SearchMapUiState =
+    previous.viewportBounds?.let { bounds -> copy(viewportBounds = bounds) } ?: this
+
+internal fun SearchMapUiState.restoreViewport(bounds: SearchMapViewportBounds?): SearchMapUiState =
+    bounds?.let { copy(viewportBounds = it) } ?: this
 
 private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSearchAreaBoundary> =
     layers
@@ -3599,6 +3945,50 @@ private fun NavHostController.navigateToSingleTop(route: String) {
     navigate(route) {
         launchSingleTop = true
     }
+}
+
+private fun NavHostController.navigateBackToParentRoute(route: PolicePhoneRoute) {
+    if (popBackStack(route.route, inclusive = false)) {
+        return
+    }
+    navigateToIncidentContextRoute(route)
+}
+
+private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneRoute) {
+    when (route) {
+        PolicePhoneRoute.IncidentHome -> navigateToIncidentHomeRoot()
+        PolicePhoneRoute.SearchMap,
+        PolicePhoneRoute.HandoverSummary,
+        PolicePhoneRoute.BlockedOutbox -> navigateToIncidentTopLevel(route)
+        PolicePhoneRoute.OfflinePackage,
+        PolicePhoneRoute.HandoverMemo,
+        PolicePhoneRoute.MarkerDetail -> {
+            navigateToIncidentHomeRoot()
+            navigateToSingleTop(route)
+        }
+        PolicePhoneRoute.AuthBootstrap,
+        PolicePhoneRoute.IncidentList -> navigateToSingleTop(route)
+    }
+}
+
+private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute) {
+    navigate(PolicePhoneRoute.SearchMap.route) {
+        popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = false
+        }
+        launchSingleTop = true
+    }
+    if (route != PolicePhoneRoute.SearchMap) {
+        navigateToSingleTop(route)
+    }
+}
+
+private fun NavHostController.navigateToIncidentHomeRoot() {
+    if (popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)) {
+        return
+    }
+    popBackStack(PolicePhoneRoute.IncidentList.route, inclusive = false)
+    navigateToSingleTop(PolicePhoneRoute.IncidentHome)
 }
 
 private fun NavHostController.navigateToIncidentListRoot() {

@@ -1052,7 +1052,7 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canWritePath)
         assertFalse(state.canCreateMarker)
-        assertTrue(state.visibleText().any { it.contains("수색 차수 새로고침") })
+        assertTrue(state.visibleText().any { it.contains("수색 차수 확인") })
         assertTrue(state.visibleText().any { it.contains("경로·마커 기록 차단") })
     }
 
@@ -1096,7 +1096,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("MarkerRepository"))
         assertTrue(source.contains("listMarkers"))
         assertTrue(source.contains("onOpenFocusedMarkerDetail"))
-        assertTrue(source.contains("MarkerDetailDeepLink.route(markerId)"))
+        assertTrue(source.contains("markerDetailModalId = markerId"))
+        assertTrue(source.contains("MarkerDetailModal("))
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))
@@ -1150,9 +1151,13 @@ class SearchMapStateLoaderTest {
         assertTrue(refreshEffectIndex > routeIndex)
         assertTrue(nextEffectIndex > refreshEffectIndex)
 
+        val routeBody = source.substring(routeIndex, nextEffectIndex)
         val refreshEffect = source.substring(refreshEffectIndex, nextEffectIndex)
+        assertTrue(routeBody.contains("suspend fun loadServerStatePreservingViewport()"))
+        assertTrue(routeBody.contains(".preserveViewportFrom(searchMapState)"))
+        assertTrue(routeBody.contains(".restoreViewport(initialRestoredViewportBounds)"))
         assertTrue(refreshEffect.contains("suspend fun refreshServerState()"))
-        assertTrue(refreshEffect.contains("loader.load(sessionContext).withFocusedMarker(focusMarkerId)"))
+        assertTrue(refreshEffect.contains("loadServerStatePreservingViewport()"))
         assertTrue(refreshEffect.contains("outboxDao.observeStatusSummary"))
         assertTrue(refreshEffect.contains("while (true)"))
         assertTrue(refreshEffect.contains("delay(SEARCH_MAP_SERVER_REFRESH_MS)"))

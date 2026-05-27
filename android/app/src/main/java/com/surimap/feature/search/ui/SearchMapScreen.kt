@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 import com.surimap.R
+import com.surimap.core.map.MapLibreMapViewHandle
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
@@ -284,11 +285,18 @@ data class SearchMapUiState(
 
     val primaryActionLabel: String =
         when (lifecycleStatus) {
-            SearchLifecycleStatus.Active -> "일시정지"
-            SearchLifecycleStatus.Paused -> "재개"
+            SearchLifecycleStatus.Active -> "기록 일시정지"
+            SearchLifecycleStatus.Paused -> "수색 재개"
             SearchLifecycleStatus.Stopped -> "수색 시작"
             SearchLifecycleStatus.OpRequired,
-            SearchLifecycleStatus.OpTransition -> "수색 차수 새로고침"
+            SearchLifecycleStatus.OpTransition -> "수색 차수 확인"
+        }
+
+    val secondaryActionLabel: String? =
+        if (canStopSearch) {
+            "수색 종료"
+        } else {
+            null
         }
 
     fun visibleText(): List<String> =
@@ -301,6 +309,7 @@ data class SearchMapUiState(
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
             if (bottomPanelExpanded) {
                 add(primaryActionLabel)
+                secondaryActionLabel?.let(::add)
             }
             add(if (bottomPanelExpanded) "접기" else "상세")
             add("전체 수색구역")
@@ -310,9 +319,6 @@ data class SearchMapUiState(
             unitSearchAreaTargets.forEach { add(it.label) }
             teamSearchAreaTargets.forEach { add(it.label) }
             if (bottomPanelExpanded) {
-                if (canStopSearch) {
-                    add("수색 종료")
-                }
                 add("인수인계")
                 add("마커 생성")
             }
@@ -498,6 +504,7 @@ private fun snapPanelHeight(
 fun SearchMapScreen(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
+    mapViewHandle: MapLibreMapViewHandle? = null,
     showMapPreview: Boolean = false,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
@@ -508,6 +515,7 @@ fun SearchMapScreen(
     onOpenIncidentAlertMarker: (String) -> Unit,
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
+    onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit = {},
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
@@ -548,11 +556,13 @@ fun SearchMapScreen(
         SearchMapShell(
             state = state,
             mapState = mapState,
+            mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
             mapBottomInset = mapBottomInset,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onCenterCurrentLocation = onCenterCurrentLocation,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
+            onViewportBoundsChanged = onViewportBoundsChanged,
             modifier = mapModifier
         )
 
@@ -710,11 +720,13 @@ private fun StopSearchConfirmDialog(
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
     mapBottomInset: Dp,
     onOpenBlockedOutbox: () -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
+    onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
@@ -729,9 +741,13 @@ private fun SearchMapShell(
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
+                mapViewHandle = mapViewHandle,
                 modifier = Modifier.fillMaxSize(),
                 onLoadFailed = {},
-                onMarkerClick = onOpenMarkerDetail
+                onMarkerClick = onOpenMarkerDetail,
+                onViewportBoundsChanged = { bounds ->
+                    onViewportBoundsChanged(bounds.toSearchMapViewportBounds())
+                }
             )
         }
 
@@ -742,7 +758,8 @@ private fun SearchMapShell(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = PoliDimens.Space2, end = PoliDimens.Space3)
+                        .statusBarsPadding()
+                        .padding(top = PoliDimens.Space3, end = PoliDimens.Space3)
                         .clickable(onClick = onOpenBlockedOutbox)
             )
         }
@@ -1337,15 +1354,6 @@ private fun SearchBottomPanel(
                             size = PoliButtonSize.Large
                         )
                     }
-                    if (state.canStopSearch) {
-                        PoliButton(
-                            text = "수색 종료",
-                            onClick = onStopSearch,
-                            modifier = Modifier.fillMaxWidth(),
-                            variant = PoliButtonVariant.Danger,
-                            size = PoliButtonSize.Large
-                        )
-                    }
                 }
             }
         }
@@ -1363,6 +1371,41 @@ private fun SearchBottomPanel(
 @Composable
 private fun SearchCollapsedPanelContent(state: SearchMapUiState) {
     SearchCollapsedStatusCard(state = state)
+}
+
+@Composable
+private fun SearchCollapsedLifecycleActions(
+    state: SearchMapUiState,
+    onPrimaryLifecycleAction: () -> Unit,
+    onStopSearch: () -> Unit
+) {
+    val secondaryActionLabel = state.secondaryActionLabel
+    if (secondaryActionLabel == null) {
+        SearchCollapsedPrimaryActionButton(
+            text = state.primaryActionLabel,
+            onClick = onPrimaryLifecycleAction,
+            lifecycleStatus = state.lifecycleStatus,
+            modifier = Modifier.fillMaxWidth()
+        )
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+        ) {
+            SearchCollapsedPrimaryActionButton(
+                text = state.primaryActionLabel,
+                onClick = onPrimaryLifecycleAction,
+                lifecycleStatus = state.lifecycleStatus,
+                modifier = Modifier.weight(1f)
+            )
+            PoliButton(
+                text = secondaryActionLabel,
+                onClick = onStopSearch,
+                modifier = Modifier.weight(0.86f),
+                variant = PoliButtonVariant.Danger
+            )
+        }
+    }
 }
 
 @Composable
@@ -1683,6 +1726,14 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
         }
     )
 }
+
+private fun MapLibreViewportBounds.toSearchMapViewportBounds(): SearchMapViewportBounds =
+    SearchMapViewportBounds(
+        south = south,
+        west = west,
+        north = north,
+        east = east
+    )
 
 private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOverlayKind =
     when (this) {

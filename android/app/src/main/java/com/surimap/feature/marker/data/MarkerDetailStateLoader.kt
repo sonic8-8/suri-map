@@ -57,26 +57,27 @@ class MarkerDetailStateLoader(
         val accountId = optString("accountId").ifBlank { "account-unknown" }
         val markerPolicePhoneId = optString("policePhoneId")
         val canEdit = markerPolicePhoneId.isNotBlank() && markerPolicePhoneId == context.policePhoneId
+        val version = optLong("version", 0L)
         return MarkerDetailUiState(
             markerId = markerId,
             markerType = markerType,
             title = markerType.label,
             memo = optString("memo"),
-            version = optLong("version", 0L),
+            version = version,
             lon = coordinates?.first,
             lat = coordinates?.second,
             createdByAccountId = accountId,
             securityContextAccountId = if (canEdit) accountId else context.policePhoneId.orEmpty(),
             canManageAllMarkers = false,
             canEditByContext = canEdit,
-            policePhoneLabel = markerPolicePhoneId.ifBlank { "폴리폰 미확인" },
-            accountLabel = accountId,
+            policePhoneLabel = markerPolicePhoneId.toSafePolicePhoneLabel(),
+            accountLabel = accountId.toSafeAccountLabel(),
             locationLabel = coordinates?.let { (lon, lat) ->
                 "${String.format(Locale.US, "%.6f", lat)}, ${String.format(Locale.US, "%.6f", lon)}"
             } ?: "위치 미확인",
             occurredAtLabel = optString("occurredAt").ifBlank { "시각 미확인" },
-            versionLabel = "v${optLong("version", 0L)}",
-            syncLabel = optString("status").ifBlank { "조회됨" },
+            versionLabel = version.toVersionLabel(),
+            syncLabel = optString("status").toMarkerSyncLabel(),
             mutationStatus = MarkerSaveStatus.Editing,
             photos = photoStates(),
             showDeleteConfirm = false
@@ -135,6 +136,40 @@ class MarkerDetailStateLoader(
             else -> MarkerDetailPhotoStatus.Attached
         }
 }
+
+private fun String.toSafePolicePhoneLabel(): String =
+    if (isBlank()) {
+        "작성 단말 미확인"
+    } else {
+        "작성 단말 확인됨"
+    }
+
+private fun String.toSafeAccountLabel(): String =
+    if (isBlank()) {
+        "기록자 미확인"
+    } else if (startsWith("acct-", ignoreCase = true) || isUuidLike()) {
+        "현장 요원"
+    } else {
+        this
+    }
+
+private fun String.isUuidLike(): Boolean =
+    matches(Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"))
+
+private fun Long.toVersionLabel(): String =
+    if (this > 0L) {
+        "수정 이력 ${this}회"
+    } else {
+        "수정 이력 없음"
+    }
+
+private fun String.toMarkerSyncLabel(): String =
+    when (uppercase()) {
+        "ACTIVE", "ACKED", "SYNCED" -> "동기화"
+        "PENDING", "PENDING_SYNC" -> "전송 대기"
+        "FAILED", "FAILED_RETRYABLE", "FAILED_FINAL" -> "전송 확인 필요"
+        else -> ifBlank { "조회됨" }
+    }
 
 private fun JSONObject.optLongOrNull(name: String): Long? =
     if (has(name) && !isNull(name)) {
