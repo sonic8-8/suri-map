@@ -153,6 +153,7 @@ class PolicePhoneNavigationContractTest {
 
         assertTrue(source.contains("var pendingTopLevelRoute by remember"))
         assertTrue(source.contains("val shouldShieldPersistentMapDuringTransition ="))
+        assertTrue(source.contains("currentRoute != pendingSupportRoute"))
         assertTrue(source.contains("pendingTopLevelRoute = route"))
         assertTrue(source.contains("pendingTopLevelRoute = null"))
         assertTrue(source.contains("IncidentWorkspaceTransitionShield()"))

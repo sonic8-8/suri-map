@@ -388,7 +388,7 @@ fun SuriMapApp() {
     val shouldShieldPersistentMapDuringTransition =
         showPersistentIncidentMap &&
             pendingSupportRoute != null &&
-            currentRoute == PolicePhoneRoute.SearchMap
+            currentRoute != pendingSupportRoute
     val persistentSearchMapFocusMarkerId =
         currentBackStackEntry
             ?.arguments
