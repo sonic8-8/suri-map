@@ -375,6 +375,16 @@ fun SuriMapApp() {
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
     val selectedBottomNavigationRoute = PolicePhoneBottomNavigation.selectedRouteFor(currentRoute)
+    val showPersistentIncidentMap =
+        PolicePhoneBottomNavigation.shouldShow(
+            currentRoute = currentRoute,
+            hasIncidentContext = incidentSessionState.incidentContext != null
+        )
+    val persistentSearchMapFocusMarkerId =
+        currentBackStackEntry
+            ?.arguments
+            ?.getString(SearchMapDeepLink.FocusMarkerIdArg)
+            ?.takeIf { currentRoute == PolicePhoneRoute.SearchMap }
 
     LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
         sessionSnapshotStore.save(
@@ -460,14 +470,50 @@ fun SuriMapApp() {
                     }
                 }
             ) { innerPadding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = debugStartDestination(),
+                Box(
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                 ) {
+                    if (showPersistentIncidentMap) {
+                        PersistentIncidentMapHost(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            focusMarkerId = persistentSearchMapFocusMarkerId,
+                            clockSyncState = clockSyncState,
+                            mapViewHandle = searchMapViewHandle,
+                            cachedSearchMapState =
+                            incidentSessionState.incidentContext
+                                ?.incidentId
+                                ?.let(searchMapStateByIncident::get),
+                            restoredViewportBounds =
+                            incidentSessionState.incidentContext
+                                ?.incidentId
+                                ?.let(searchMapViewportByIncident::get),
+                            onSearchMapStateChanged = { incidentId, state ->
+                                searchMapStateByIncident = searchMapStateByIncident + (incidentId to state)
+                            },
+                            onViewportBoundsChanged = { incidentId, bounds ->
+                                searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
+                            },
+                            onOpenBlockedOutbox = {
+                                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
+                            },
+                            onRequestIncidentExit = {
+                                showIncidentExitConfirm = true
+                            },
+                            onSearchPathEnded = { pendingSync ->
+                                searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
+                            },
+                            backHandlingEnabled = currentRoute == PolicePhoneRoute.SearchMap
+                        )
+                    }
+                    NavHost(
+                        navController = navController,
+                        startDestination = debugStartDestination(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                     composable(PolicePhoneRoute.AuthBootstrap.route) {
                         AuthBootstrapRoute(
                             incidentSessionState = incidentSessionState,
@@ -518,36 +564,38 @@ fun SuriMapApp() {
                                 }
                             )
                     ) { backStackEntry ->
-                        SearchMapRoute(
-                            incidentSessionState = incidentSessionState,
-                            navController = navController,
-                            focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
-                            clockSyncState = clockSyncState,
-                            mapViewHandle = searchMapViewHandle,
-                            cachedSearchMapState =
-                            incidentSessionState.incidentContext
-                                ?.incidentId
-                                ?.let(searchMapStateByIncident::get),
-                            restoredViewportBounds =
-                            incidentSessionState.incidentContext
-                                ?.incidentId
-                                ?.let(searchMapViewportByIncident::get),
-                            onSearchMapStateChanged = { incidentId, state ->
-                                searchMapStateByIncident = searchMapStateByIncident + (incidentId to state)
-                            },
-                            onViewportBoundsChanged = { incidentId, bounds ->
-                                searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
-                            },
-                            onOpenBlockedOutbox = {
-                                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
-                            },
-                            onRequestIncidentExit = {
-                                showIncidentExitConfirm = true
-                            },
-                            onSearchPathEnded = { pendingSync ->
-                                searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
-                            }
-                        )
+                        if (!showPersistentIncidentMap) {
+                            SearchMapRoute(
+                                incidentSessionState = incidentSessionState,
+                                navController = navController,
+                                focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
+                                clockSyncState = clockSyncState,
+                                mapViewHandle = searchMapViewHandle,
+                                cachedSearchMapState =
+                                incidentSessionState.incidentContext
+                                    ?.incidentId
+                                    ?.let(searchMapStateByIncident::get),
+                                restoredViewportBounds =
+                                incidentSessionState.incidentContext
+                                    ?.incidentId
+                                    ?.let(searchMapViewportByIncident::get),
+                                onSearchMapStateChanged = { incidentId, state ->
+                                    searchMapStateByIncident = searchMapStateByIncident + (incidentId to state)
+                                },
+                                onViewportBoundsChanged = { incidentId, bounds ->
+                                    searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
+                                },
+                                onOpenBlockedOutbox = {
+                                    navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
+                                },
+                                onRequestIncidentExit = {
+                                    showIncidentExitConfirm = true
+                                },
+                                onSearchPathEnded = { pendingSync ->
+                                    searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
+                                }
+                            )
+                        }
                     }
                     composable(PolicePhoneRoute.HandoverSummary.route) {
                         HandoverSummaryRoute(
@@ -597,6 +645,7 @@ fun SuriMapApp() {
                             clockSyncState = clockSyncState
                         )
                     }
+                }
                 }
             }
             PolicePhoneBackPolicyHandler(
@@ -1468,6 +1517,39 @@ private fun HandoverMemoRoute(
 }
 
 @Composable
+private fun PersistentIncidentMapHost(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    focusMarkerId: String?,
+    clockSyncState: ClockSyncState,
+    mapViewHandle: MapLibreMapViewHandle,
+    cachedSearchMapState: SearchMapUiState?,
+    restoredViewportBounds: SearchMapViewportBounds?,
+    onSearchMapStateChanged: (String, SearchMapUiState) -> Unit,
+    onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit,
+    onOpenBlockedOutbox: () -> Unit,
+    onRequestIncidentExit: () -> Unit,
+    onSearchPathEnded: (pendingSync: Boolean) -> Unit,
+    backHandlingEnabled: Boolean
+) {
+    SearchMapRoute(
+        incidentSessionState = incidentSessionState,
+        navController = navController,
+        focusMarkerId = focusMarkerId,
+        clockSyncState = clockSyncState,
+        mapViewHandle = mapViewHandle,
+        cachedSearchMapState = cachedSearchMapState,
+        restoredViewportBounds = restoredViewportBounds,
+        onSearchMapStateChanged = onSearchMapStateChanged,
+        onViewportBoundsChanged = onViewportBoundsChanged,
+        onOpenBlockedOutbox = onOpenBlockedOutbox,
+        onRequestIncidentExit = onRequestIncidentExit,
+        onSearchPathEnded = onSearchPathEnded,
+        backHandlingEnabled = backHandlingEnabled
+    )
+}
+
+@Composable
 private fun SearchMapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
@@ -1480,7 +1562,8 @@ private fun SearchMapRoute(
     onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit = { _, _ -> },
     onOpenBlockedOutbox: () -> Unit,
     onRequestIncidentExit: () -> Unit,
-    onSearchPathEnded: (pendingSync: Boolean) -> Unit
+    onSearchPathEnded: (pendingSync: Boolean) -> Unit,
+    backHandlingEnabled: Boolean = true
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -2008,7 +2091,7 @@ private fun SearchMapRoute(
             localWarnings = LocalWarningUiState.from(localWarningSnapshot)
         ).withCurrentLocationViewport(latestLocationFix)
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
-    BackHandler {
+    BackHandler(enabled = backHandlingEnabled) {
         when {
             markerSheetOpen -> requestMarkerSheetDismiss()
             displayedLifecycle == SearchLifecycleStatus.Active ||

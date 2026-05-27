@@ -122,6 +122,18 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun incidentWorkspaceKeepsSearchMapMountedBehindSupportTabs() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("val showPersistentIncidentMap ="))
+        assertTrue(source.contains("PersistentIncidentMapHost("))
+        assertTrue(source.contains("if (showPersistentIncidentMap)"))
+        assertTrue(source.contains("if (!showPersistentIncidentMap)"))
+        assertTrue(source.contains("backHandlingEnabled = currentRoute == PolicePhoneRoute.SearchMap"))
+        assertTrue(source.contains("BackHandler(enabled = backHandlingEnabled)"))
+    }
+
+    @Test
     fun incidentTopLevelTabsDoNotExposeAppBarBackButtons() {
         val handoverSource = File("src/main/java/com/surimap/feature/handover/ui/DutyHandoverScreen.kt").readText()
         val outboxSource = File("src/main/java/com/surimap/feature/outbox/ui/BlockedOutboxScreen.kt").readText()
