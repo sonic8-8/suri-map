@@ -21,10 +21,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,7 +106,6 @@ import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliOverlayDim
 import com.surimap.ui.theme.PoliPrimary
 import com.surimap.ui.theme.PoliPrimaryBorder
-import com.surimap.ui.theme.PoliPrimaryFillSoft
 import com.surimap.ui.theme.PoliPrimaryHi
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
@@ -183,21 +183,11 @@ data class SearchMapLayerUiState(
     val visualStyle: SearchMapLayerVisualStyle? = null
 )
 
-private enum class SearchMapOverlayTransparencyLevel(
+data class SearchMapAreaFocusTarget(
     val label: String,
-    val opacityScale: Float
-) {
-    Full("100%", 1f),
-    Medium("70%", 0.7f),
-    Low("30%", 0.3f);
-
-    fun next(): SearchMapOverlayTransparencyLevel =
-        when (this) {
-            Full -> Medium
-            Medium -> Low
-            Low -> Full
-        }
-}
+    val kind: SearchLayerKind,
+    val overlayId: String?
+)
 
 data class SearchMapUiState(
     val incidentTitle: String,
@@ -256,6 +246,9 @@ data class SearchMapUiState(
     val canFocusTeamSearchArea: Boolean =
         layers.any { layer -> layer.kind == SearchLayerKind.Team && !layer.geoJson.isNullOrBlank() }
     val canOpenMarkerDetail: Boolean = !markerDetailTargetId.isNullOrBlank()
+    val overallSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Overall)
+    val unitSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Unit)
+    val teamSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Team)
 
     val syncLabel: String =
         when (syncStatus) {
@@ -326,12 +319,17 @@ data class SearchMapUiState(
                 secondaryActionLabel?.let(::add)
                 add("사건정보")
                 add("근무현황")
-                add("투명도")
+                add("필터")
                 add("인수인계")
                 add("마커 생성")
             }
             add(if (bottomPanelExpanded) "접기" else "상세")
+            add("전체 수색구역")
+            add("부대 수색구역")
+            add("팀 담당구역")
             add("마커")
+            unitSearchAreaTargets.forEach { add(it.label) }
+            teamSearchAreaTargets.forEach { add(it.label) }
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
                 add("확인")
@@ -365,6 +363,17 @@ data class SearchMapUiState(
             focusedMarkerId = null
         )
     }
+
+    private fun areaFocusTargets(kind: SearchLayerKind): List<SearchMapAreaFocusTarget> =
+        layers
+            .filter { layer -> layer.kind == kind && !layer.geoJson.isNullOrBlank() }
+            .mapIndexed { index, layer ->
+                SearchMapAreaFocusTarget(
+                    label = layer.label.takeIf(String::isNotBlank) ?: "${kind.areaLabel()} ${index + 1}",
+                    kind = kind,
+                    overlayId = layer.overlayId
+                )
+            }
 
     companion object {
         fun active(
@@ -530,12 +539,9 @@ fun SearchMapScreen(
     val persistentLocalWarnings =
         state.localWarnings.banners.filterNot { warning ->
             warning.code == LocalWarningCode.PACKAGE_MISSING
-    }
+        }
     var visiblePackageWarning by remember { mutableStateOf<LocalWarningBanner?>(null) }
     var stopConfirmVisible by remember { mutableStateOf(false) }
-    var overlayTransparencyLevel by rememberSaveable {
-        mutableStateOf(SearchMapOverlayTransparencyLevel.Full)
-    }
     LaunchedEffect(packageWarning?.title, packageWarning?.message) {
         if (packageWarning == null) {
             visiblePackageWarning = null
@@ -563,7 +569,6 @@ fun SearchMapScreen(
             mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
             mapBottomInset = mapBottomInset,
-            overlayTransparencyLevel = overlayTransparencyLevel,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onCenterCurrentLocation = onCenterCurrentLocation,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
@@ -618,10 +623,8 @@ fun SearchMapScreen(
             onCreateMarker = onCreateMarker,
             onOpenIncidentInfo = onOpenIncidentInfo,
             onOpenWorkStatus = onOpenWorkStatus,
-            overlayTransparencyLevel = overlayTransparencyLevel,
-            onCycleOverlayTransparencyLevel = {
-                overlayTransparencyLevel = overlayTransparencyLevel.next()
-            },
+            onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
+            onFocusSearchArea = onFocusSearchArea,
             onToggleBottomPanel = onToggleBottomPanel,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
@@ -732,14 +735,13 @@ private fun SearchMapShell(
     mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
     mapBottomInset: Dp,
-    overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
     onOpenBlockedOutbox: () -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val runtimeMapState = state.toRuntimeMapState(mapState, overlayTransparencyLevel.opacityScale)
+    val runtimeMapState = state.toRuntimeMapState(mapState)
     val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgInput)) {
@@ -1015,6 +1017,57 @@ private fun SearchMapPreviewScene(
     }
 }
 @Composable
+private fun MarkerDetailButton(onClick: (() -> Unit)?, enabled: Boolean, modifier: Modifier = Modifier) {
+    MapActionButton(
+        text = "마커",
+        onClick = onClick,
+        accent = enabled,
+        enabled = enabled,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun AreaFocusGroup(
+    title: String,
+    targets: List<SearchMapAreaFocusTarget>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onFocus: (SearchMapAreaFocusTarget) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val enabled = targets.isNotEmpty()
+    val singleTarget = targets.singleOrNull()
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+        MapActionButton(
+            text =
+            when {
+                targets.size > 1 -> "$title ${targets.size}"
+                else -> title
+            },
+            onClick =
+            when {
+                !enabled -> null
+                singleTarget != null -> { { onFocus(singleTarget) } }
+                else -> onToggleExpanded
+            },
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (expanded && targets.size > 1) {
+            targets.forEachIndexed { index, target ->
+                MapActionButton(
+                    text = "${index + 1}. ${target.label}",
+                    onClick = { onFocus(target) },
+                    accent = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier =
@@ -1042,6 +1095,58 @@ private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modi
 }
 
 @Composable
+private fun MapActionButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    accent: Boolean = false,
+    enabled: Boolean = true
+) {
+    val buttonModifier =
+        modifier
+            .heightIn(min = 34.dp)
+            .then(
+                if (enabled && onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+    Surface(
+        modifier = buttonModifier,
+        shape = MaterialTheme.shapes.small,
+        color = PoliBgSurface,
+        contentColor =
+        when {
+            !enabled -> PoliFgMuted
+            accent -> PoliCurrent
+            else -> PoliFgSecondary
+        },
+        border =
+        androidx.compose.foundation.BorderStroke(
+            1.dp,
+            when {
+                !enabled -> PoliBorder
+                accent -> PoliCurrent
+                else -> PoliBorderStrong
+            }
+        )
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp).widthIn(min = 72.dp, max = 122.dp).height(34.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun SearchBottomPanel(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
@@ -1050,11 +1155,13 @@ private fun SearchBottomPanel(
     onCreateMarker: () -> Unit,
     onOpenIncidentInfo: () -> Unit,
     onOpenWorkStatus: () -> Unit,
-    overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
-    onCycleOverlayTransparencyLevel: () -> Unit,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
+    var filtersExpanded by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
@@ -1197,14 +1304,71 @@ private fun SearchBottomPanel(
                     ) {
                         SearchLifecycleMessage(state = state)
                     }
+                    if (filtersExpanded) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+                            AreaFocusGroup(
+                                title = "전체",
+                                targets = state.overallSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Overall,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Overall) {
+                                            null
+                                        } else {
+                                            SearchLayerKind.Overall
+                                        }
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AreaFocusGroup(
+                                title = "부대",
+                                targets = state.unitSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Unit,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AreaFocusGroup(
+                                title = "팀",
+                                targets = state.teamSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Team,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            MarkerDetailButton(
+                                onClick =
+                                state.markerDetailTargetId
+                                    ?.takeIf { state.canOpenMarkerDetail }
+                                    ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
+                                enabled = state.canOpenMarkerDetail,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                     SearchPanelActionGrid(
                         canCreateMarker = state.canCreateMarker,
                         canStopSearch = state.canStopSearch,
                         onOpenIncidentInfo = onOpenIncidentInfo,
                         onOpenWorkStatus = onOpenWorkStatus,
                         onCreateMarker = onCreateMarker,
-                        overlayTransparencyLevel = overlayTransparencyLevel,
-                        onCycleOverlayTransparencyLevel = onCycleOverlayTransparencyLevel,
+                        onToggleFilters = { filtersExpanded = !filtersExpanded },
                         onOpenHandover = onOpenHandover,
                         onStopSearch = onStopSearch
                     )
@@ -1221,8 +1385,7 @@ private fun SearchPanelActionGrid(
     onOpenIncidentInfo: () -> Unit,
     onOpenWorkStatus: () -> Unit,
     onCreateMarker: () -> Unit,
-    overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
-    onCycleOverlayTransparencyLevel: () -> Unit,
+    onToggleFilters: () -> Unit,
     onOpenHandover: () -> Unit,
     onStopSearch: () -> Unit
 ) {
@@ -1253,9 +1416,8 @@ private fun SearchPanelActionGrid(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(SearchPanelActionGap)) {
-            SearchOverlayTransparencyButton(
-                level = overlayTransparencyLevel,
-                onClick = onCycleOverlayTransparencyLevel,
+            SearchFilterIconButton(
+                onClick = onToggleFilters,
                 modifier = Modifier.size(PoliDimens.CtaHeightLarge)
             )
             PoliButton(
@@ -1270,7 +1432,7 @@ private fun SearchPanelActionGrid(
                     text = "수색 종료",
                     onClick = onStopSearch,
                     modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.SubtleDanger,
+                    variant = PoliButtonVariant.Danger,
                     size = PoliButtonSize.Large
                 )
             } else {
@@ -1298,24 +1460,11 @@ private fun SearchMarkerCreateSquareButton(
                 onClick = onClick
             ),
         shape = MaterialTheme.shapes.medium,
-        color = Color.Transparent,
+        color = if (enabled) PoliPrimary else PoliBgInput,
         contentColor = if (enabled) Color.White else PoliFgMuted,
-        border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder),
-        shadowElevation = if (enabled) 3.dp else 0.dp
+        border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder)
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (enabled) {
-                            Brush.verticalGradient(colors = listOf(PoliPrimaryHi, PoliPrimary))
-                        } else {
-                            Brush.verticalGradient(colors = listOf(PoliBgInput, PoliBgInput))
-                        }
-                    ),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
                 text = "마커 생성",
                 style =
@@ -1331,77 +1480,43 @@ private fun SearchMarkerCreateSquareButton(
 }
 
 @Composable
-private fun SearchOverlayTransparencyButton(
-    level: SearchMapOverlayTransparencyLevel,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun SearchFilterIconButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier =
         modifier
-            .clickable(role = Role.Button, onClickLabel = "투명도 ${level.label}", onClick = onClick)
-            .semantics { contentDescription = "투명도 ${level.label}" },
+            .clickable(role = Role.Button, onClickLabel = "필터", onClick = onClick)
+            .semantics { contentDescription = "필터" },
         shape = MaterialTheme.shapes.medium,
-        color = PoliPrimaryFillSoft,
-        contentColor = Color(0xFFEAF4FF),
-        border = BorderStroke(1.dp, PoliPrimaryBorder)
+        color = PoliBgSurface,
+        contentColor = PoliFgSecondary,
+        border = BorderStroke(1.dp, PoliBorderStrong)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Canvas(modifier = Modifier.size(28.dp)) {
-                val strokeWidth = size.minDimension * 0.065f
-                val layerColor = Color(0xFFEAF4FF)
-                val layerAlpha = listOf(1.0f, 0.86f, 0.72f)
-                val layers =
-                    listOf(
-                        listOf(
-                            Offset(size.width * 0.18f, size.height * 0.28f),
-                            Offset(size.width * 0.72f, size.height * 0.28f),
-                            Offset(size.width * 0.60f, size.height * 0.40f),
-                            Offset(size.width * 0.06f, size.height * 0.40f)
-                        ),
-                        listOf(
-                            Offset(size.width * 0.24f, size.height * 0.45f),
-                            Offset(size.width * 0.78f, size.height * 0.45f),
-                            Offset(size.width * 0.66f, size.height * 0.57f),
-                            Offset(size.width * 0.12f, size.height * 0.57f)
-                        ),
-                        listOf(
-                            Offset(size.width * 0.30f, size.height * 0.62f),
-                            Offset(size.width * 0.84f, size.height * 0.62f),
-                            Offset(size.width * 0.72f, size.height * 0.74f),
-                            Offset(size.width * 0.18f, size.height * 0.74f)
-                        )
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.size(30.dp)) {
+                val strokeWidth = size.minDimension * 0.075f
+                val xStart = size.width * 0.10f
+                val xEnd = size.width * 0.90f
+                val rows = listOf(
+                    size.height * 0.25f to size.width * 0.64f,
+                    size.height * 0.50f to size.width * 0.36f,
+                    size.height * 0.75f to size.width * 0.56f
+                )
+                rows.forEach { (y, knobX) ->
+                    drawLine(
+                        color = PoliFgSecondary,
+                        start = Offset(xStart, y),
+                        end = Offset(xEnd, y),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
                     )
-                layers.forEachIndexed { index, points ->
-                    val path =
-                        Path().apply {
-                            moveTo(points[0].x, points[0].y)
-                            lineTo(points[1].x, points[1].y)
-                            lineTo(points[2].x, points[2].y)
-                            lineTo(points[3].x, points[3].y)
-                            close()
-                        }
-                    drawPath(
-                        path = path,
-                        color = layerColor.copy(alpha = layerAlpha[index]),
-                        style = Stroke(width = strokeWidth, join = StrokeJoin.Round)
+                    drawCircle(
+                        color = PoliBgSurface,
+                        radius = strokeWidth * 1.55f,
+                        center = Offset(knobX, y),
+                        style = Stroke(width = strokeWidth)
                     )
                 }
             }
-            Text(
-                text = level.label,
-                style =
-                MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = Color(0xFFEAF4FF),
-                maxLines = 1
-            )
         }
     }
 }
@@ -1726,10 +1841,7 @@ private val SearchMapUiState.syncVariant: PoliChipVariant
             SearchMapSyncStatus.Sending -> PoliChipVariant.Outbox
         }
 
-private fun SearchMapUiState.toRuntimeMapState(
-    base: MapLibreRuntimeMapState,
-    overlayOpacityScale: Float = 1f
-): MapLibreRuntimeMapState {
+private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
     return base.copy(
         initialBounds =
         (focusedMarkerViewportBounds ?: viewportBounds)?.let { bounds ->
@@ -1744,12 +1856,6 @@ private fun SearchMapUiState.toRuntimeMapState(
         layers.mapNotNull { layer ->
             val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null
             val focused = focusedMarkerId != null && layer.kind == SearchLayerKind.Marker && layer.overlayId == focusedMarkerId
-            val layerOpacityScale =
-                if (layer.kind == SearchLayerKind.CurrentLocation) {
-                    1f
-                } else {
-                    overlayOpacityScale
-                }
             MapLibreGeometryOverlay(
                 id = layer.overlayId ?: layer.label,
                 kind = layer.kind.toMapLibreGeometryOverlayKind(),
@@ -1766,10 +1872,9 @@ private fun SearchMapUiState.toRuntimeMapState(
                             fillOpacity = style.fillOpacity,
                             lineColor = style.lineColor,
                             lineWidth = style.lineWidth,
-                            lineOpacity = style.lineOpacity,
-                            opacityScale = layerOpacityScale
+                            lineOpacity = style.lineOpacity
                         )
-                    } ?: MapLibreGeometryVisualStyle(opacityScale = layerOpacityScale)
+                    }
             )
         }
     )
@@ -1791,6 +1896,16 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
         SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
         SearchLayerKind.CurrentLocation -> MapLibreGeometryOverlayKind.CurrentLocation
+    }
+
+private fun SearchLayerKind.areaLabel(): String =
+    when (this) {
+        SearchLayerKind.Overall -> "전체 수색구역"
+        SearchLayerKind.Unit -> "부대 수색구역"
+        SearchLayerKind.Team -> "팀 담당구역"
+        SearchLayerKind.Path -> "수색 경로"
+        SearchLayerKind.Marker -> "마커"
+        SearchLayerKind.CurrentLocation -> "현재 위치"
     }
 
 private fun String.pointViewportBounds(): SearchMapViewportBounds? {
