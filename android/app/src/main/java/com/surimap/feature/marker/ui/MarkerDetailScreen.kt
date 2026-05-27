@@ -2,6 +2,11 @@ package com.surimap.feature.marker.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,9 +30,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -427,26 +435,45 @@ private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> U
 
 @Composable
 private fun MarkerDetailLoadingContent(state: MarkerDetailUiState) {
+    val skeletonAlpha =
+        rememberInfiniteTransition(label = "marker-detail-skeleton")
+            .animateFloat(
+                initialValue = 0.48f,
+                targetValue = 1f,
+                animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 900),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "marker-detail-skeleton-alpha"
+            ).value
     MarkerSummaryCard(state = state, showPermission = false)
-    PoliBanner(
-        text = "마커 정보 불러오는 중",
-        variant = PoliBannerVariant.Info
+    MarkerDetailSkeletonCard(
+        title = "메모",
+        lineCount = 2,
+        skeletonAlpha = skeletonAlpha,
+        modifier = Modifier.semantics { contentDescription = "마커 정보 불러오는 중" }
     )
-    MarkerDetailSkeletonCard(title = "메모", lineCount = 2)
-    MarkerDetailSkeletonCard(title = "사진", lineCount = 1)
-    MarkerDetailSkeletonCard(title = "기록 정보", lineCount = 3)
+    MarkerDetailSkeletonCard(title = "사진", lineCount = 1, skeletonAlpha = skeletonAlpha)
+    MarkerDetailSkeletonCard(title = "기록 정보", lineCount = 3, skeletonAlpha = skeletonAlpha)
 }
 
 @Composable
-private fun MarkerDetailSkeletonCard(title: String, lineCount: Int) {
-    PoliCard {
+private fun MarkerDetailSkeletonCard(
+    title: String,
+    lineCount: Int,
+    skeletonAlpha: Float,
+    modifier: Modifier = Modifier
+) {
+    PoliCard(modifier = modifier) {
         Text(text = title, style = MaterialTheme.typography.titleMedium)
         repeat(lineCount) { index ->
             Surface(
                 modifier =
                 Modifier
                     .fillMaxWidth(if (index == lineCount - 1) 0.68f else 1f)
-                    .heightIn(min = if (index == 0) 44.dp else 28.dp),
+                    .heightIn(min = if (index == 0) 44.dp else 28.dp)
+                    .alpha(skeletonAlpha),
                 shape = MaterialTheme.shapes.medium,
                 color = PoliBgInput,
                 border = BorderStroke(1.dp, PoliBorder)
