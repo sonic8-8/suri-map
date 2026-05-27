@@ -350,6 +350,26 @@ class MapLibreMapViewHandle {
         }
     }
 
+    internal fun sync(state: Lifecycle.State) {
+        cachedLifecycleBridge?.sync(state)
+    }
+
+    internal fun onStart() {
+        cachedLifecycleBridge?.onStart()
+    }
+
+    internal fun onResume() {
+        cachedLifecycleBridge?.onResume()
+    }
+
+    internal fun onPause() {
+        cachedLifecycleBridge?.onPause()
+    }
+
+    internal fun onStop() {
+        cachedLifecycleBridge?.onStop()
+    }
+
     internal fun destroy() {
         cachedLifecycleBridge?.onDestroy()
         cachedLifecycleBridge = null
@@ -363,9 +383,26 @@ class MapLibreMapViewHandle {
 
 @Composable
 fun rememberMapLibreMapViewHandle(key: Any? = Unit): MapLibreMapViewHandle {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val handle = remember(key) { MapLibreMapViewHandle() }
-    DisposableEffect(handle) {
-        onDispose { handle.destroy() }
+    DisposableEffect(handle, lifecycle) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_START -> handle.onStart()
+                    Lifecycle.Event.ON_RESUME -> handle.onResume()
+                    Lifecycle.Event.ON_PAUSE -> handle.onPause()
+                    Lifecycle.Event.ON_STOP -> handle.onStop()
+                    Lifecycle.Event.ON_DESTROY -> handle.destroy()
+                    else -> Unit
+                }
+            }
+        lifecycle.addObserver(observer)
+        handle.sync(lifecycle.currentState)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            handle.destroy()
+        }
     }
     return handle
 }
@@ -393,21 +430,10 @@ fun SuriMapLibreMap(
     val lifecycleBridge = remember(activeMapViewHandle, mapView) { activeMapViewHandle.lifecycleBridge(mapView) }
 
     DisposableEffect(lifecycle, mapView) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> lifecycleBridge.onStart()
-                Lifecycle.Event.ON_RESUME -> lifecycleBridge.onResume()
-                Lifecycle.Event.ON_PAUSE -> lifecycleBridge.onPause()
-                Lifecycle.Event.ON_STOP -> lifecycleBridge.onStop()
-                Lifecycle.Event.ON_DESTROY -> lifecycleBridge.onDestroy()
-                else -> Unit
-            }
-        }
         val failListener = MapView.OnDidFailLoadingMapListener { reason ->
             latestLoadFailed(reason)
         }
 
-        lifecycle.addObserver(observer)
         mapView.addOnDidFailLoadingMapListener(failListener)
         lifecycleBridge.sync(lifecycle.currentState)
         onDispose {
@@ -421,9 +447,7 @@ fun SuriMapLibreMap(
                     mapLibreMap.removeOnCameraIdleListener(listener)
                 }
             }
-            lifecycle.removeObserver(observer)
             mapView.removeOnDidFailLoadingMapListener(failListener)
-            lifecycleBridge.onStop()
         }
     }
 
