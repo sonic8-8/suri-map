@@ -18,12 +18,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
@@ -117,10 +115,16 @@ import kotlinx.coroutines.launch
 
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
+private val SearchPanelActionGap = PoliDimens.Space3
+private val BottomSheetCollapsedBottomPadding = PoliDimens.Space3
+private val BottomSheetExpandedBottomPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
-    PoliDimens.Space6 + PoliDimens.TouchGlove + (PoliDimens.Space2 * 2)
+    PoliDimens.Space6 +
+        PoliDimens.TouchGlove +
+        (PoliDimens.Space2 * 2) +
+        BottomSheetCollapsedBottomPadding
 private val BottomSheetMaxFallbackHeight = 400.dp
-private val BottomSheetExpandedExtraSpace = PoliDimens.Space4
+private val BottomSheetExpandedExtraSpace = 0.dp
 private const val MapOverlayButtonAlpha = 0.94f
 private const val PanelFlingThresholdPx = 650f
 private const val PackageWarningToastDurationMs = 4_000L
@@ -1161,7 +1165,6 @@ private fun SearchBottomPanel(
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
-    val navigationBarHeightPx = WindowInsets.navigationBars.getBottom(density).toFloat()
     val fallbackExpandedHeightPx = with(density) { BottomSheetMaxFallbackHeight.toPx() }
     var measuredExpandedHeightPx by remember { mutableStateOf(fallbackExpandedHeightPx) }
     val expandedExtraSpacePx = with(density) { BottomSheetExpandedExtraSpace.toPx() }
@@ -1175,11 +1178,19 @@ private fun SearchBottomPanel(
     val expansionThresholdPx = (collapsedHeightPx + expandedHeightPx) / 2f
     val sheetExpanded = panelHeightPx > expansionThresholdPx
     val expandedContentVisible = sheetExpanded
-    val effectiveNavigationBarHeightPx =
-        navigationBarHeightPx.coerceAtMost(with(density) { PoliDimens.Space5.toPx() })
     val contentTopPadding = PoliDimens.Space2
-    val contentBottomPadding = if (expandedContentVisible) PoliDimens.Space4 else 0.dp
-    val contentSpacing = PoliDimens.Space2
+    val contentBottomPadding =
+        if (expandedContentVisible) {
+            BottomSheetExpandedBottomPadding
+        } else {
+            BottomSheetCollapsedBottomPadding
+        }
+    val contentSpacing =
+        if (expandedContentVisible) {
+            SearchPanelActionGap
+        } else {
+            PoliDimens.Space2
+        }
     val dragState =
         rememberDraggableState { delta ->
             val nextHeight = (panelHeight.value - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
@@ -1210,7 +1221,7 @@ private fun SearchBottomPanel(
         modifier =
         modifier
             .fillMaxWidth()
-            .height(with(density) { (panelHeightPx + effectiveNavigationBarHeightPx).toDp() })
+            .height(with(density) { panelHeightPx.toDp() })
             .clipToBounds()
             .draggable(
                 state = dragState,
@@ -1364,14 +1375,6 @@ private fun SearchBottomPanel(
                 }
             }
         }
-        Box(
-            modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(with(density) { effectiveNavigationBarHeightPx.toDp() })
-                .background(PoliBgSurface)
-                .align(Alignment.BottomCenter)
-        )
     }
 }
 
@@ -1386,11 +1389,11 @@ private fun SearchPanelActionGrid(
     onOpenHandover: () -> Unit,
     onStopSearch: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SearchPanelActionGap)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SearchPanelActionGap)) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                verticalArrangement = Arrangement.spacedBy(SearchPanelActionGap)
             ) {
                 PoliButton(
                     text = "사건정보",
@@ -1412,7 +1415,7 @@ private fun SearchPanelActionGrid(
                 enabled = canCreateMarker
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SearchPanelActionGap)) {
             SearchFilterIconButton(
                 onClick = onToggleFilters,
                 modifier = Modifier.size(PoliDimens.CtaHeightLarge)
@@ -1445,7 +1448,7 @@ private fun SearchMarkerCreateSquareButton(
     enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val size = (PoliDimens.CtaHeightLarge * 2) + PoliDimens.Space3
+    val size = (PoliDimens.CtaHeightLarge * 2) + SearchPanelActionGap
     Surface(
         modifier =
         modifier

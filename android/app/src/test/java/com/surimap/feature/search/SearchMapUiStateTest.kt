@@ -134,7 +134,7 @@ class SearchMapUiStateTest {
         assertTrue(source.contains("MapStatusBarAppearanceEffect()"))
         assertTrue(source.contains("controller.isAppearanceLightStatusBars = true"))
         assertTrue(source.contains("MapToastTopPadding = PoliDimens.Space3"))
-        assertTrue(source.contains("PoliDimens.Space6 + PoliDimens.TouchGlove + (PoliDimens.Space2 * 2)"))
+        assertTrue(source.contains("BottomSheetCollapsedBottomPadding"))
         assertTrue(source.contains("val mapModifier = Modifier.fillMaxSize()"))
         assertTrue(source.contains("val mapBottomInset ="))
         assertTrue(source.contains("mapBottomInset = mapBottomInset"))
