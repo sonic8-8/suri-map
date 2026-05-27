@@ -148,6 +148,18 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun incidentSupportTabTransitionShieldsPersistentMapBeforeDestinationDraws() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("var pendingTopLevelRoute by remember"))
+        assertTrue(source.contains("val shouldShieldPersistentMapDuringTransition ="))
+        assertTrue(source.contains("pendingTopLevelRoute = route"))
+        assertTrue(source.contains("pendingTopLevelRoute = null"))
+        assertTrue(source.contains("IncidentWorkspaceTransitionShield()"))
+        assertTrue(source.contains("private fun IncidentWorkspaceTransitionShield()"))
+    }
+
+    @Test
     fun incidentTopLevelTabsDoNotExposeAppBarBackButtons() {
         val handoverSource = File("src/main/java/com/surimap/feature/handover/ui/DutyHandoverScreen.kt").readText()
         val outboxSource = File("src/main/java/com/surimap/feature/outbox/ui/BlockedOutboxScreen.kt").readText()

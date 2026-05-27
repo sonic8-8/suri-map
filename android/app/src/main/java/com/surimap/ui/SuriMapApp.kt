@@ -369,6 +369,7 @@ fun SuriMapApp() {
     var showIncidentExitConfirm by remember { mutableStateOf(false) }
     var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
     var searchMapStateByIncident by remember { mutableStateOf<Map<String, SearchMapUiState>>(emptyMap()) }
+    var pendingTopLevelRoute by remember { mutableStateOf<PolicePhoneRoute?>(null) }
     val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
@@ -378,11 +379,16 @@ fun SuriMapApp() {
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
     val selectedBottomNavigationRoute = PolicePhoneBottomNavigation.selectedRouteFor(currentRoute)
+    val pendingSupportRoute = pendingTopLevelRoute?.takeIf { it != PolicePhoneRoute.SearchMap }
     val showPersistentIncidentMap =
         PolicePhoneBottomNavigation.shouldShow(
             currentRoute = currentRoute,
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
+    val shouldShieldPersistentMapDuringTransition =
+        showPersistentIncidentMap &&
+            pendingSupportRoute != null &&
+            currentRoute == PolicePhoneRoute.SearchMap
     val persistentSearchMapFocusMarkerId =
         currentBackStackEntry
             ?.arguments
@@ -397,6 +403,9 @@ fun SuriMapApp() {
     }
 
     LaunchedEffect(currentRoute) {
+        if (pendingTopLevelRoute == currentRoute || currentRoute != PolicePhoneRoute.SearchMap) {
+            pendingTopLevelRoute = null
+        }
         if (PolicePhoneBottomNavigation.selectedRouteFor(currentRoute) == null) {
             showIncidentExitConfirm = false
         }
@@ -466,6 +475,7 @@ fun SuriMapApp() {
                             selectedRoute = selectedBottomNavigationRoute,
                             onSelect = { route ->
                                 if (currentRoute != route) {
+                                    pendingTopLevelRoute = route
                                     navController.navigateToIncidentTopLevel(route)
                                 }
                             }
@@ -511,6 +521,9 @@ fun SuriMapApp() {
                             },
                             backHandlingEnabled = currentRoute == PolicePhoneRoute.SearchMap
                         )
+                    }
+                    if (shouldShieldPersistentMapDuringTransition) {
+                        IncidentWorkspaceTransitionShield()
                     }
                     NavHost(
                         navController = navController,
@@ -725,6 +738,17 @@ private fun IncidentWorkspacePage(content: @Composable () -> Unit) {
     ) {
         content()
     }
+}
+
+@Composable
+private fun IncidentWorkspaceTransitionShield() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(PoliBgBase)
+                .consumeUnclaimedPointerEvents()
+    )
 }
 
 private fun Modifier.consumeUnclaimedPointerEvents(): Modifier =
