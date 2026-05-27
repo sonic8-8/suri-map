@@ -171,6 +171,20 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - `missingPerson.lastSeenAt`: 마지막 목격 시각
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
+#### GET `/api/incidents/{incidentId}/map-revisions`
+
+- Owner: APP map cache aggregate. Source data ownership remains S1-1/S2/S3-1/S5/S7.
+- Consumer: APP
+- Headers: `Authorization`, `X-Client-Channel`
+- Guard: `@RequireChannel(APP)`, `@RequireIncidentAccess`, `@RecordLocationAccess`
+- Idempotency-Key: no
+- Query: optional `opId`, optional `policePhoneId`
+- Response: `200 {incidentId, opId, sources:[{source, revision}]}`
+- `source`: one of `incident_detail`, `overall_search_area`, `op_search_areas`, `search_paths`, `live_markers`, `initial_markers`
+- `revision`: opaque source revision string. APP must compare for equality only; it must not infer risk, completion, or next search recommendations from the value.
+- Note: 이 endpoint는 Android 지도 화면이 변경 여부를 먼저 확인해 동일 revision이면 로컬 Room/offline cache를 재사용하기 위한 경량 read다. 각 source의 상세 payload는 기존 owner API(`GET /api/incidents/{incidentId}`, `GET /api/search-areas`, `GET /api/search-paths`, `GET /api/markers`, `GET /api/incidents/{incidentId}/offline-package/manifest`)를 계속 canonical source로 사용한다.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
+
 #### POST `/api/incidents/{incidentId}/close`
 
 - Owner: S1-1

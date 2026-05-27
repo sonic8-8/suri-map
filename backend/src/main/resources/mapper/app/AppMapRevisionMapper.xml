@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.app.service.map.AppMapRevisionMapper">
+
+    <sql id="revisionExpression">
+        CONCAT(
+            COUNT(*),
+            ':',
+            COALESCE(MAX(version), 0),
+            ':',
+            COALESCE((EXTRACT(EPOCH FROM MAX(updated_at)) * 1000)::BIGINT, 0),
+            ':',
+            COALESCE(MD5(STRING_AGG(fingerprint, ',' ORDER BY fingerprint)), MD5(''))
+        )
+    </sql>
+
+    <select id="incidentDetailRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT
+                i.version AS version,
+                i.updated_at AS updated_at,
+                CONCAT_WS(
+                    '|',
+                    i.id::TEXT,
+                    i.status,
+                    i.title,
+                    i.version::TEXT,
+                    COALESCE(mp.display_name, ''),
+                    COALESCE(mp.photo_object_key, ''),
+                    COALESCE(mp.appearance_text, ''),
+                    COALESCE(mp.last_seen_location_text, ''),
+                    COALESCE(mp.last_seen_at::TEXT, '')
+                ) AS fingerprint
+            FROM incident i
+            LEFT JOIN missing_person mp
+              ON mp.incident_id = i.id
+            WHERE i.id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ) source
+    </select>
+
+    <select id="overallSearchAreaRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT
+                area.version AS version,
+                area.updated_at AS updated_at,
+                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT) AS fingerprint
+            FROM search_area area
+            JOIN operational_period op
+              ON op.id = area.operational_period_id
+            WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND area.area_level = 'OVERALL'
+              AND area.status = 'ACTIVE'
+        ) source
+    </select>
+
+    <select id="opSearchAreasRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT
+                area.version AS version,
+                area.updated_at AS updated_at,
+                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT) AS fingerprint
+            FROM search_area area
+            JOIN operational_period op
+              ON op.id = area.operational_period_id
+            WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND area.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND area.status != 'CANCELLED'
+        ) source
+    </select>
+
+    <select id="searchPathsRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT
+                sp.version AS version,
+                sp.updated_at AS updated_at,
+                CONCAT_WS('|', sp.id::TEXT, sp.status, sp.version::TEXT) AS fingerprint
+            FROM search_path sp
+            JOIN duty_shift ds
+              ON ds.id = sp.duty_shift_id
+            JOIN operational_period op
+              ON op.id = ds.operational_period_id
+            WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ) source
+    </select>
+
+    <select id="liveMarkersRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT DISTINCT
+                marker.id,
+                GREATEST(marker.version, COALESCE(photo.version, marker.version)) AS version,
+                GREATEST(marker.updated_at, COALESCE(photo.updated_at, marker.updated_at)) AS updated_at,
+                CONCAT_WS(
+                    '|',
+                    marker.id::TEXT,
+                    marker.status,
+                    marker.version::TEXT,
+                    COALESCE(photo.id::TEXT, ''),
+                    COALESCE(photo.status, ''),
+                    COALESCE(photo.version::TEXT, '')
+                ) AS fingerprint
+            FROM marker
+            LEFT JOIN photo
+              ON photo.marker_id = marker.id
+             AND photo.status = 'ATTACHED'
+            WHERE marker.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND marker.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND marker.status IN ('ACTIVE', 'UPDATED')
+        ) source
+    </select>
+
+    <select id="initialMarkersRevision" resultType="string">
+        SELECT
+        <include refid="revisionExpression"/>
+        FROM (
+            SELECT
+                manifest.manifest_version::BIGINT AS version,
+                manifest.updated_at AS updated_at,
+                CONCAT_WS('|', 'manifest', manifest.id::TEXT, manifest.manifest_version::TEXT, manifest.manifest_hash) AS fingerprint
+            FROM (
+                SELECT
+                    id,
+                    manifest_version,
+                    manifest_hash,
+                    updated_at
+                FROM offline_package_manifest
+                WHERE incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                ORDER BY manifest_version DESC
+                LIMIT 1
+            ) manifest
+            UNION ALL
+            SELECT
+                op.version AS version,
+                op.updated_at AS updated_at,
+                CONCAT_WS('|', 'op', op.id::TEXT, op.status, op.version::TEXT) AS fingerprint
+            FROM operational_period op
+            WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            UNION ALL
+            SELECT
+                1::BIGINT AS version,
+                assignment.updated_at AS updated_at,
+                CONCAT_WS('|', 'assignment', assignment.id::TEXT, assignment.status, assignment.updated_at::TEXT) AS fingerprint
+            FROM search_area_assignment assignment
+            JOIN search_area area
+              ON area.id = assignment.search_area_id
+            <if test="policePhoneId != null">
+            JOIN police_phone phone
+              ON phone.account_id = assignment.assigned_account_id
+             AND phone.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+            WHERE assignment.status = 'ACTIVE'
+              AND assignment.revoked_at IS NULL
+              <if test="opId != null">
+              AND area.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              </if>
+            UNION ALL
+            SELECT
+                marker.version AS version,
+                marker.updated_at AS updated_at,
+                CONCAT_WS('|', 'initial-marker', marker.id::TEXT, marker.status, marker.version::TEXT) AS fingerprint
+            FROM marker
+            WHERE marker.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              <if test="opId != null">
+              AND marker.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              </if>
+              AND marker.marker_source IN ('MOCK_SEED', 'SYSTEM')
+              AND marker.status IN ('ACTIVE', 'UPDATED')
+        ) source
+    </select>
+</mapper>

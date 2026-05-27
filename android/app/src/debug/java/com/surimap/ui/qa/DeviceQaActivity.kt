@@ -26,8 +26,11 @@ import androidx.core.content.FileProvider
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.SearchMapRevisionQuery
+import com.surimap.core.map.SearchMapRevisionRepository
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.path.SearchPathRepository
@@ -425,6 +428,23 @@ private suspend fun loadLiveSearchMapQaState(
                     apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
                     accessTokenProvider = accessTokenProvider
                 ).listMarkers(query)
+            },
+            mapRevisions = { mapContext ->
+                val incidentId = mapContext.incidentId?.takeIf(String::isNotBlank)
+                if (incidentId == null) {
+                    SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                } else {
+                    SearchMapRevisionRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).revisions(
+                        SearchMapRevisionQuery(
+                            incidentId = incidentId,
+                            opId = mapContext.currentOpId,
+                            policePhoneId = mapContext.policePhoneId
+                        )
+                    )
+                }
             },
             initialMarkers = { incidentId, policePhoneId ->
                 OfflinePackageRepository(

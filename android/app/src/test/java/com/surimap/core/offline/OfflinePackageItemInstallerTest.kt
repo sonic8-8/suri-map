@@ -4,6 +4,7 @@ import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.manifestIdFixture
 import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,9 +15,11 @@ class OfflinePackageItemInstallerTest {
     fun checksumMatchMarksDownloadableItemDownloadedAndReportsFinalStatuses() = runBlocking {
         val persisted = mutableListOf<List<OfflinePackageItemStatus>>()
         val reported = mutableListOf<List<OfflinePackageItemStatus>>()
+        val persistedPayloads = mutableListOf<Pair<OfflinePackageDownloadItem, ByteArray>>()
         val installer =
             OfflinePackageItemInstaller(
                 fetchBytes = { "tile-bytes".encodeToByteArray() },
+                persistDownloadedBytes = { item, bytes -> persistedPayloads += item to bytes },
                 persistItemStatuses = { statuses -> persisted += statuses },
                 reportInstallationProgress = { statuses -> reported += statuses }
             )
@@ -38,13 +41,17 @@ class OfflinePackageItemInstallerTest {
         assertEquals(10L, result.single().bytesDownloaded)
         assertEquals(result, persisted.single())
         assertEquals(result, reported.single())
+        assertEquals("tile-1", persistedPayloads.single().first.itemKey)
+        assertArrayEquals("tile-bytes".encodeToByteArray(), persistedPayloads.single().second)
     }
 
     @Test
     fun checksumMismatchMarksItemFailed() = runBlocking {
+        val persistedPayloads = mutableListOf<Pair<OfflinePackageDownloadItem, ByteArray>>()
         val installer =
             OfflinePackageItemInstaller(
                 fetchBytes = { "different-bytes".encodeToByteArray() },
+                persistDownloadedBytes = { item, bytes -> persistedPayloads += item to bytes },
                 persistItemStatuses = {},
                 reportInstallationProgress = {}
             )
@@ -64,6 +71,7 @@ class OfflinePackageItemInstallerTest {
         assertEquals("FAILED", result.single().status)
         assertEquals(15L, result.single().bytesTotal)
         assertEquals(15L, result.single().bytesDownloaded)
+        assertTrue(persistedPayloads.isEmpty())
     }
 
     @Test

@@ -22,6 +22,7 @@ data class OfflinePackageItemInstallCommand(
 
 class OfflinePackageItemInstaller(
     private val fetchBytes: suspend (OfflinePackageDownloadItem) -> ByteArray,
+    private val persistDownloadedBytes: suspend (OfflinePackageDownloadItem, ByteArray) -> Unit = { _, _ -> },
     private val persistItemStatuses: suspend (List<OfflinePackageItemStatus>) -> Unit,
     private val reportInstallationProgress: suspend (List<OfflinePackageItemStatus>) -> Unit
 ) {
@@ -45,15 +46,21 @@ class OfflinePackageItemInstaller(
                 bytesDownloaded = null
             )
         }
-        return runCatching { fetchBytes(item) }
+        return runCatching {
+            val bytes = fetchBytes(item)
+            val checksumMatches = sha256(bytes) == item.sourceHash.lowercase()
+            if (checksumMatches) {
+                persistDownloadedBytes(item, bytes)
+            }
+            DownloadedItem(bytesSize = bytes.size, checksumMatches = checksumMatches)
+        }
             .fold(
-                onSuccess = { bytes ->
-                    val checksumMatches = sha256(bytes) == item.sourceHash.lowercase()
+                onSuccess = { result ->
                     item.toStatus(
                         command = command,
-                        status = if (checksumMatches) "DOWNLOADED" else "FAILED",
-                        bytesTotal = bytes.size.toLong(),
-                        bytesDownloaded = bytes.size.toLong()
+                        status = if (result.checksumMatches) "DOWNLOADED" else "FAILED",
+                        bytesTotal = result.bytesSize.toLong(),
+                        bytesDownloaded = result.bytesSize.toLong()
                     )
                 },
                 onFailure = {
@@ -66,6 +73,11 @@ class OfflinePackageItemInstaller(
                 }
             )
     }
+
+    private data class DownloadedItem(
+        val bytesSize: Int,
+        val checksumMatches: Boolean
+    )
 
     private fun OfflinePackageDownloadItem.toStatus(
         command: OfflinePackageItemInstallCommand,
