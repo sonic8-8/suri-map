@@ -16,6 +16,13 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -266,6 +273,9 @@ private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
 private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L
 private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
+private const val INCIDENT_TAB_ENTER_TRANSITION_MS = 160
+private const val INCIDENT_TAB_EXIT_TRANSITION_MS = 120
+private const val INCIDENT_TAB_SLIDE_OFFSET_PX = 56
 
 private val SearchRecordingSessionStateSaver =
     listSaver<MutableState<SearchRecordingSessionState>, Any>(
@@ -466,7 +476,31 @@ fun SuriMapApp() {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .padding(innerPadding),
+                    enterTransition = {
+                        incidentTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    exitTransition = {
+                        incidentTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popEnterTransition = {
+                        incidentTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popExitTransition = {
+                        incidentTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    }
                 ) {
                     composable(PolicePhoneRoute.AuthBootstrap.route) {
                         AuthBootstrapRoute(
@@ -4012,15 +4046,49 @@ private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneR
 }
 
 private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute) {
-    navigate(PolicePhoneRoute.SearchMap.route) {
+    navigate(route.route) {
         popUpTo(PolicePhoneRoute.IncidentList.route) {
             inclusive = false
+            saveState = true
         }
         launchSingleTop = true
+        restoreState = true
     }
-    if (route != PolicePhoneRoute.SearchMap) {
-        navigateToSingleTop(route)
-    }
+}
+
+private fun incidentTabEnterTransition(
+    fromRoute: String?,
+    toRoute: String?
+): EnterTransition {
+    val direction = incidentTabTransitionDirection(fromRoute, toRoute) ?: return EnterTransition.None
+    return fadeIn(animationSpec = tween(durationMillis = INCIDENT_TAB_ENTER_TRANSITION_MS)) +
+        slideInHorizontally(animationSpec = tween(durationMillis = INCIDENT_TAB_ENTER_TRANSITION_MS)) {
+            direction * INCIDENT_TAB_SLIDE_OFFSET_PX
+        }
+}
+
+private fun incidentTabExitTransition(
+    fromRoute: String?,
+    toRoute: String?
+): ExitTransition {
+    val direction = incidentTabTransitionDirection(fromRoute, toRoute) ?: return ExitTransition.None
+    return fadeOut(animationSpec = tween(durationMillis = INCIDENT_TAB_EXIT_TRANSITION_MS)) +
+        slideOutHorizontally(animationSpec = tween(durationMillis = INCIDENT_TAB_EXIT_TRANSITION_MS)) {
+            -direction * (INCIDENT_TAB_SLIDE_OFFSET_PX / 2)
+        }
+}
+
+private fun incidentTabTransitionDirection(fromRoute: String?, toRoute: String?): Int? {
+    val fromIndex = incidentTopLevelIndex(fromRoute) ?: return null
+    val toIndex = incidentTopLevelIndex(toRoute) ?: return null
+    if (fromIndex == toIndex) return null
+    return if (toIndex > fromIndex) 1 else -1
+}
+
+private fun incidentTopLevelIndex(route: String?): Int? {
+    val policePhoneRoute = PolicePhoneRoutes.fromNavigationRoute(route) ?: return null
+    val index = PolicePhoneBottomNavigation.items.indexOfFirst { it.route == policePhoneRoute }
+    return index.takeIf { it >= 0 }
 }
 
 private fun NavHostController.navigateToIncidentHomeRoot() {
