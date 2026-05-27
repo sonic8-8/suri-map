@@ -59,7 +59,13 @@ class SearchMapStateLoader(
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
-        val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
+        val areaColorRegistry = WebAreaColorRegistry(context.incidentId)
+        val areaState =
+            withOpSearchAreas(
+                context,
+                withOverallSearchArea(context, fallback(context), areaColorRegistry),
+                areaColorRegistry
+            )
         val mapState = withSearchPaths(context, areaState)
         val liveMarkerResult = withLiveMarkers(context, mapState)
         val serverMarkerState =
@@ -132,7 +138,8 @@ class SearchMapStateLoader(
 
     private suspend fun withOverallSearchArea(
         context: SearchMapSessionContext,
-        fallback: SearchMapUiState
+        fallback: SearchMapUiState,
+        areaColorRegistry: WebAreaColorRegistry
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return fallback
         val response = runCatching { overallSearchArea(incidentId) }.getOrNull() ?: return fallback
@@ -154,9 +161,9 @@ class SearchMapStateLoader(
                     visualStyle =
                         searchAreaVisualStyle(
                             areaId = area.optString("id").ifBlank { "overall-search-area" },
-                            tokenIndex = 0,
                             kind = SearchLayerKind.Overall,
-                            highlighted = false
+                            highlighted = false,
+                            areaColorRegistry = areaColorRegistry
                         )
                 )
             )
@@ -165,7 +172,8 @@ class SearchMapStateLoader(
 
     private suspend fun withOpSearchAreas(
         context: SearchMapSessionContext,
-        state: SearchMapUiState
+        state: SearchMapUiState,
+        areaColorRegistry: WebAreaColorRegistry
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
@@ -173,12 +181,7 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val usedAreaTokenCount =
-            state.layers.count { layer ->
-                layer.geoJson != null &&
-                    layer.kind in setOf(SearchLayerKind.Overall, SearchLayerKind.Unit, SearchLayerKind.Team)
-            }
-        val opLayers = searchAreaLayers(response.body, usedAreaTokenCount)
+        val opLayers = searchAreaLayers(response.body, areaColorRegistry)
         if (opLayers.isEmpty()) {
             return state
         }
@@ -215,7 +218,12 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val pathLayerResult = searchPathLayers(response.body, accountId, policePhoneId)
+        val pathLayerResult = searchPathLayers(
+            body = response.body,
+            currentAccountId = accountId,
+            currentPolicePhoneId = policePhoneId,
+            areaColorCandidates = state.routeAreaColorCandidates()
+        )
         if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
             return state
         }
@@ -347,7 +355,7 @@ class SearchMapStateLoader(
 
     private fun searchAreaLayers(
         body: String,
-        usedAreaTokenCount: Int
+        areaColorRegistry: WebAreaColorRegistry
     ): List<SearchMapLayerUiState> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
         val areas = root.optJSONArray("areas") ?: root.optJSONArray("items") ?: return emptyList()
@@ -368,9 +376,9 @@ class SearchMapStateLoader(
                         visualStyle =
                             searchAreaVisualStyle(
                                 areaId = id,
-                                tokenIndex = usedAreaTokenCount + size,
                                 kind = kind,
-                                highlighted = highlighted
+                                highlighted = highlighted,
+                                areaColorRegistry = areaColorRegistry
                             )
                     )
                 )
@@ -497,7 +505,8 @@ class SearchMapStateLoader(
     private fun searchPathLayers(
         body: String,
         currentAccountId: String?,
-        currentPolicePhoneId: String
+        currentPolicePhoneId: String,
+        areaColorCandidates: List<RouteAreaColorCandidate>
     ): SearchPathLayerResult {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
@@ -533,7 +542,7 @@ class SearchMapStateLoader(
                     return@repeat
                 }
                 val pathId = path.optString("id").ifBlank { "search-path-$index" }
-                val routeColor = path.routeCoreColor(pathId)
+                val routeColor = path.routeCoreColor(pathId, geometry, areaColorCandidates)
                 val routeVisualStyle = searchPathVisualStyle(routeColor, activeForCurrentActor)
                 pathCount += 1
                 add(
@@ -589,11 +598,11 @@ class SearchMapStateLoader(
 
     private fun searchAreaVisualStyle(
         areaId: String,
-        tokenIndex: Int,
         kind: SearchLayerKind,
-        highlighted: Boolean
+        highlighted: Boolean,
+        areaColorRegistry: WebAreaColorRegistry
     ): SearchMapLayerVisualStyle {
-        val token = webAreaColorToken(areaId, tokenIndex)
+        val token = areaColorRegistry.token(areaId)
         val baseLineWidth =
             when (kind) {
                 SearchLayerKind.Overall -> 2.0f
@@ -651,7 +660,17 @@ class SearchMapStateLoader(
             lineOpacity = if (highlighted) 0.98f else 0.86f
         )
 
-    private fun JSONObject.routeCoreColor(pathId: String): String {
+    private fun JSONObject.routeCoreColor(
+        pathId: String,
+        geometry: JSONObject,
+        areaColorCandidates: List<RouteAreaColorCandidate>
+    ): String {
+        val routeOpId = optString("opId").ifBlank { optString("op_id") }.takeIf(String::isNotBlank)
+        resolveRouteColorByGeometry(
+            routeCoordinates = geometry.lineStringCoordinates(),
+            areaCandidates = areaColorCandidates,
+            routeOpId = routeOpId
+        )?.let { return it }
         val explicitColor =
             optString("routeColor")
                 .ifBlank { optString("route_color") }
@@ -668,17 +687,172 @@ class SearchMapStateLoader(
         return routeFallbackColor(routeKey)
     }
 
+    private fun SearchMapUiState.routeAreaColorCandidates(): List<RouteAreaColorCandidate> =
+        layers.mapNotNull { layer ->
+            if (
+                layer.kind !in setOf(SearchLayerKind.Overall, SearchLayerKind.Unit, SearchLayerKind.Team) ||
+                layer.geoJson.isNullOrBlank()
+            ) {
+                return@mapNotNull null
+            }
+            val lineColor = layer.visualStyle?.lineColor?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val geometry = runCatching { JSONObject(layer.geoJson) }.getOrNull() ?: return@mapNotNull null
+            RouteAreaColorCandidate(
+                id = layer.overlayId.orEmpty(),
+                opId = null,
+                kind = layer.kind,
+                coordinates = geometry.polygonOuterRing(),
+                lineColor = lineColor
+            )
+        }
+
+    private fun resolveRouteColorByGeometry(
+        routeCoordinates: List<Pair<Double, Double>>,
+        areaCandidates: List<RouteAreaColorCandidate>,
+        routeOpId: String?
+    ): String? {
+        if (routeCoordinates.size < 2 || areaCandidates.isEmpty()) {
+            return null
+        }
+        val samples = createLineSamples(routeCoordinates)
+        val matchingAreaCandidates =
+            if (routeOpId == null) {
+                areaCandidates
+            } else {
+                areaCandidates.filter { candidate -> candidate.opId == null || candidate.opId == routeOpId }
+            }
+        val nonOverallCandidates = matchingAreaCandidates.filter { candidate -> candidate.kind != SearchLayerKind.Overall }
+        val candidatesToScore = nonOverallCandidates.ifEmpty { matchingAreaCandidates }
+        return candidatesToScore
+            .mapNotNull { candidate ->
+                if (candidate.coordinates.size < 4) {
+                    return@mapNotNull null
+                }
+                val hitCount = samples.count { sample -> sample.isInPolygon(candidate.coordinates) }
+                if (hitCount == 0) {
+                    return@mapNotNull null
+                }
+                ScoredRouteAreaColorCandidate(
+                    candidate = candidate,
+                    sampleHitCount = hitCount,
+                    priority = candidate.kind.routeAreaPriority,
+                    polygonArea = kotlin.math.abs(candidate.coordinates.polygonArea())
+                )
+            }
+            .sortedWith(
+                compareByDescending<ScoredRouteAreaColorCandidate> { it.sampleHitCount }
+                    .thenByDescending { it.priority }
+                    .thenBy { it.polygonArea }
+            )
+            .firstOrNull()
+            ?.candidate
+            ?.lineColor
+    }
+
+    private fun createLineSamples(coordinates: List<Pair<Double, Double>>): List<Pair<Double, Double>> =
+        buildList {
+            addAll(coordinates)
+            for (index in 0 until coordinates.lastIndex) {
+                val current = coordinates[index]
+                val next = coordinates[index + 1]
+                add((current.first + next.first) / 2.0 to (current.second + next.second) / 2.0)
+            }
+        }
+
+    private fun Pair<Double, Double>.isInPolygon(polygon: List<Pair<Double, Double>>): Boolean {
+        var inside = false
+        val pointX = first
+        val pointY = second
+        var previousIndex = polygon.lastIndex
+        for (index in polygon.indices) {
+            val current = polygon[index]
+            val previous = polygon[previousIndex]
+            if (isPointOnSegment(this, previous, current)) {
+                return true
+            }
+            val intersects =
+                (current.second > pointY) != (previous.second > pointY) &&
+                    pointX < ((previous.first - current.first) * (pointY - current.second)) /
+                    (previous.second - current.second) + current.first
+            if (intersects) {
+                inside = !inside
+            }
+            previousIndex = index
+        }
+        return inside
+    }
+
+    private fun isPointOnSegment(
+        point: Pair<Double, Double>,
+        start: Pair<Double, Double>,
+        end: Pair<Double, Double>
+    ): Boolean {
+        val minX = minOf(start.first, end.first) - 1e-12
+        val maxX = maxOf(start.first, end.first) + 1e-12
+        val minY = minOf(start.second, end.second) - 1e-12
+        val maxY = maxOf(start.second, end.second) + 1e-12
+        if (point.first < minX || point.first > maxX || point.second < minY || point.second > maxY) {
+            return false
+        }
+        val crossProduct =
+            (point.second - start.second) * (end.first - start.first) -
+                (point.first - start.first) * (end.second - start.second)
+        if (kotlin.math.abs(crossProduct) > 1e-12) {
+            return false
+        }
+        val dotProduct =
+            (point.first - start.first) * (end.first - start.first) +
+                (point.second - start.second) * (end.second - start.second)
+        if (dotProduct < 0.0) {
+            return false
+        }
+        val segmentLengthSquared =
+            (end.first - start.first) * (end.first - start.first) +
+                (end.second - start.second) * (end.second - start.second)
+        return dotProduct <= segmentLengthSquared
+    }
+
+    private fun List<Pair<Double, Double>>.polygonArea(): Double =
+        foldIndexed(0.0) { index, area, current ->
+            val next = this[(index + 1) % size]
+            area + current.first * next.second - next.first * current.second
+        } / 2.0
+
+    private fun JSONObject.lineStringCoordinates(): List<Pair<Double, Double>> {
+        if (!optString("type").equals("LineString", ignoreCase = true)) {
+            return emptyList()
+        }
+        return optJSONArray("coordinates").coordinatePairs()
+    }
+
+    private fun JSONObject.polygonOuterRing(): List<Pair<Double, Double>> {
+        if (!optString("type").equals("Polygon", ignoreCase = true)) {
+            return emptyList()
+        }
+        return optJSONArray("coordinates")?.optJSONArray(0).coordinatePairs()
+    }
+
+    private fun JSONArray?.coordinatePairs(): List<Pair<Double, Double>> {
+        val coordinates = this ?: return emptyList()
+        return buildList {
+            repeat(coordinates.length()) { index ->
+                val point = coordinates.optJSONArray(index) ?: return@repeat
+                if (point.length() < 2 || point.opt(0) !is Number || point.opt(1) !is Number) {
+                    return@repeat
+                }
+                val longitude = point.optDouble(0)
+                val latitude = point.optDouble(1)
+                if (longitude.isFinite() && latitude.isFinite()) {
+                    add(longitude to latitude)
+                }
+            }
+        }
+    }
+
     private fun routeFallbackColor(routeKey: String): String {
         val index = (webHashString(routeKey) % WEB_AREA_COLOR_TOKENS.size).toInt()
         return WEB_AREA_COLOR_TOKENS[index].lineColor
     }
-
-    private fun webAreaColorToken(areaId: String, tokenIndex: Int): WebAreaColorToken =
-        if (tokenIndex in WEB_AREA_COLOR_TOKENS.indices) {
-            WEB_AREA_COLOR_TOKENS[tokenIndex]
-        } else {
-            WEB_AREA_COLOR_TOKENS[(webHashString(areaId) % WEB_AREA_COLOR_TOKENS.size).toInt()]
-        }
 
     private fun webHashString(value: String): Long =
         value.fold(17L) { hash, char ->
@@ -950,6 +1124,28 @@ class SearchMapStateLoader(
                 WebAreaColorToken("#fdba74", "rgba(253, 186, 116, 0.18)", 0.18f)
             )
     }
+
+    private class WebAreaColorRegistry(incidentId: String?) {
+        private val tokenIndicesByAreaId =
+            incidentId?.takeIf(String::isNotBlank)
+                ?.let { linkedMapOf("$it:overall" to 0) }
+                ?: linkedMapOf()
+
+        fun token(areaId: String): WebAreaColorToken {
+            tokenIndicesByAreaId[areaId]?.let { index -> return WEB_AREA_COLOR_TOKENS[index] }
+            val usedTokenIndices = tokenIndicesByAreaId.values.toSet()
+            val nextTokenIndex =
+                WEB_AREA_COLOR_TOKENS.indices.firstOrNull { index -> index !in usedTokenIndices }
+                    ?: (hashString(areaId) % WEB_AREA_COLOR_TOKENS.size).toInt()
+            tokenIndicesByAreaId[areaId] = nextTokenIndex
+            return WEB_AREA_COLOR_TOKENS[nextTokenIndex]
+        }
+
+        private fun hashString(value: String): Long =
+            value.fold(17L) { hash, char ->
+                (hash * 31L + char.code.toLong()) and 0xFFFF_FFFFL
+            }
+    }
 }
 
 private data class WebAreaColorToken(
@@ -957,6 +1153,32 @@ private data class WebAreaColorToken(
     val fillColor: String,
     val fillOpacity: Float
 )
+
+private data class RouteAreaColorCandidate(
+    val id: String,
+    val opId: String?,
+    val kind: SearchLayerKind,
+    val coordinates: List<Pair<Double, Double>>,
+    val lineColor: String
+)
+
+private data class ScoredRouteAreaColorCandidate(
+    val candidate: RouteAreaColorCandidate,
+    val sampleHitCount: Int,
+    val priority: Int,
+    val polygonArea: Double
+)
+
+private val SearchLayerKind.routeAreaPriority: Int
+    get() =
+        when (this) {
+            SearchLayerKind.Overall -> 1
+            SearchLayerKind.Unit -> 2
+            SearchLayerKind.Team -> 3
+            SearchLayerKind.Path,
+            SearchLayerKind.Marker,
+            SearchLayerKind.CurrentLocation -> 0
+        }
 
 private data class LiveMarkerLoadResult(
     val state: SearchMapUiState,

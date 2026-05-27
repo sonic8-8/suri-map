@@ -330,10 +330,10 @@ class SearchMapUiStateTest {
         assertFalse(state.mapOverlaysVisible)
         assertTrue(state.visibleText().contains("지도 정보 접힘"))
         assertFalse(state.visibleText().contains("지도 오버레이 숨김"))
-        assertTrue(state.visibleText().contains("전체 수색구역"))
-        assertTrue(state.visibleText().contains("부대 수색구역"))
-        assertTrue(state.visibleText().contains("팀 담당구역"))
-        assertTrue(state.visibleText().contains("마커"))
+        assertFalse(state.visibleText().contains("전체 수색구역"))
+        assertFalse(state.visibleText().contains("부대 수색구역"))
+        assertFalse(state.visibleText().contains("팀 담당구역"))
+        assertFalse(state.visibleText().contains("투명도"))
         assertTrue(state.visibleText().contains("수색 진행 중"))
         assertFalse(state.visibleText().contains("일시정지"))
         assertTrue(state.visibleText().contains("상세"))
@@ -351,6 +351,7 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("접기"))
         assertTrue(state.visibleText().contains("수색 종료"))
         assertTrue(state.visibleText().contains("근무현황"))
+        assertTrue(state.visibleText().contains("투명도"))
     }
 
     @Test
@@ -358,17 +359,18 @@ class SearchMapUiStateTest {
         val state =
             SearchMapUiState.active().copy(
                 layers = emptyList(),
-                mapOverlaysVisible = true
+                mapOverlaysVisible = true,
+                bottomPanelExpanded = true
             )
 
         assertFalse(state.canFocusOverallSearchArea)
         assertFalse(state.canFocusUnitSearchArea)
         assertFalse(state.canFocusTeamSearchArea)
         assertFalse(state.canOpenMarkerDetail)
-        assertTrue(state.visibleText().contains("전체 수색구역"))
-        assertTrue(state.visibleText().contains("부대 수색구역"))
-        assertTrue(state.visibleText().contains("팀 담당구역"))
-        assertTrue(state.visibleText().contains("마커"))
+        assertTrue(state.visibleText().contains("투명도"))
+        assertFalse(state.visibleText().contains("전체 수색구역"))
+        assertFalse(state.visibleText().contains("부대 수색구역"))
+        assertFalse(state.visibleText().contains("팀 담당구역"))
     }
 
     @Test
@@ -376,6 +378,7 @@ class SearchMapUiStateTest {
         val state =
             SearchMapUiState.active().copy(
                 focusedMarkerId = MARKER_ID,
+                bottomPanelExpanded = true,
                 layers =
                     listOf(
                         SearchMapLayerUiState(
@@ -415,13 +418,13 @@ class SearchMapUiStateTest {
         assertTrue(state.canFocusOverallSearchArea)
         assertTrue(state.canFocusUnitSearchArea)
         assertTrue(state.canOpenMarkerDetail)
-        assertTrue(state.visibleText().contains("전체 수색구역"))
-        assertTrue(state.visibleText().contains("부대 수색구역"))
-        assertTrue(state.visibleText().contains("마커"))
+        assertFalse(state.visibleText().contains("전체 수색구역"))
+        assertFalse(state.visibleText().contains("부대 수색구역"))
+        assertTrue(state.visibleText().contains("투명도"))
     }
 
     @Test
-    fun multipleUnitAndTeamAreasExposeSelectableTargets() {
+    fun multipleUnitAndTeamAreasStillRecenterByOverlayId() {
         val state =
             SearchMapUiState.active().copy(
                 layers =
@@ -449,12 +452,6 @@ class SearchMapUiStateTest {
                         )
                     )
             )
-
-        assertEquals(listOf("1기동대 담당", "2기동대 담당"), state.unitSearchAreaTargets.map { it.label })
-        assertEquals(listOf("A팀 담당"), state.teamSearchAreaTargets.map { it.label })
-        assertTrue(state.visibleText().contains("1기동대 담당"))
-        assertTrue(state.visibleText().contains("2기동대 담당"))
-        assertTrue(state.visibleText().contains("A팀 담당"))
 
         val secondUnit = state.centerOnSearchLayer(SearchLayerKind.Unit, overlayId = "unit-2")
         val team = state.centerOnSearchLayer(SearchLayerKind.Team, overlayId = "team-a")
