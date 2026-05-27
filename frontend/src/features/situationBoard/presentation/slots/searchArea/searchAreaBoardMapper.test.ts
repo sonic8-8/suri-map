@@ -101,7 +101,7 @@ function fallbackSearchAreaTree(): SearchAreaTreeNode {
   return {
     id: 'fallback-overall',
     kind: 'overall',
-    colorToken: 'areaColor001',
+    colorToken: 'AREA_BLUE_01',
     name: '전체 수색 구역',
     meta: '전체 수색 구역',
     status: 'ACTIVE',
