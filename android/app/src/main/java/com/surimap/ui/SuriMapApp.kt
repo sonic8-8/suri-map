@@ -96,6 +96,8 @@ import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreMapViewHandle
 import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.SearchMapRevisionQuery
+import com.surimap.core.map.SearchMapRevisionRepository
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.rememberMapLibreMapViewHandle
 import com.surimap.core.marker.MarkerRepository
@@ -1610,6 +1612,26 @@ private fun SearchMapRoute(
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).listMarkers(query)
+                },
+                mapRevisions = { mapContext ->
+                    val incidentId = mapContext.incidentId?.takeIf(String::isNotBlank)
+                    if (incidentId == null) {
+                        com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                    } else {
+                        SearchMapRevisionRepository(
+                            apiClient =
+                            SuriMapApiClient(
+                                baseUrl = apiBaseUrl
+                            ),
+                            accessTokenProvider = accessTokenProvider
+                        ).revisions(
+                            SearchMapRevisionQuery(
+                                incidentId = incidentId,
+                                opId = mapContext.currentOpId,
+                                policePhoneId = mapContext.policePhoneId
+                            )
+                        )
+                    }
                 },
                 initialMarkers = { incidentId, policePhoneId ->
                     OfflinePackageRepository(

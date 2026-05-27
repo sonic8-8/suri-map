@@ -16,7 +16,13 @@ object SuriMapDatabaseProvider {
                 SuriMapDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6
+                )
                 .build().also { database ->
                 instance = database
             }
@@ -132,6 +138,18 @@ object SuriMapDatabaseProvider {
                     """
                     CREATE INDEX IF NOT EXISTS `idx_search_map_response_cache_context`
                     ON `search_map_response_cache` (`incident_id`, `op_id`, `police_phone_id`)
+                    """.trimIndent()
+                )
+            }
+        }
+
+    internal val MIGRATION_5_6 =
+        object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE `search_map_response_cache`
+                    ADD COLUMN `source_revision` TEXT NOT NULL DEFAULT ''
                     """.trimIndent()
                 )
             }

@@ -10,10 +10,13 @@ interface SearchMapResponseCache {
         source: String
     ): String?
 
+    suspend fun revisions(context: SearchMapSessionContext): Map<String, String>
+
     suspend fun upsertIfChanged(
         context: SearchMapSessionContext,
         source: String,
-        body: String
+        body: String,
+        sourceRevision: String? = null
     )
 }
 
@@ -34,14 +37,29 @@ class RoomSearchMapResponseCache(
         )?.bodyJson
     }
 
+    override suspend fun revisions(context: SearchMapSessionContext): Map<String, String> {
+        val key = context.cacheKeyOrNull() ?: return emptyMap()
+        return dao.findByContext(
+            incidentId = key.incidentId,
+            opId = key.opId,
+            policePhoneId = key.policePhoneId
+        ).mapNotNull { entity ->
+            entity.sourceRevision
+                .takeIf(String::isNotBlank)
+                ?.let { revision -> entity.source to revision }
+        }.toMap()
+    }
+
     override suspend fun upsertIfChanged(
         context: SearchMapSessionContext,
         source: String,
-        body: String
+        body: String,
+        sourceRevision: String?
     ) {
         val key = context.cacheKeyOrNull() ?: return
         val normalizedBody = body.takeIf(String::isNotBlank) ?: return
         val bodyHash = normalizedBody.sha256()
+        val normalizedRevision = sourceRevision.orEmpty()
         val current =
             dao.find(
                 incidentId = key.incidentId,
@@ -49,7 +67,7 @@ class RoomSearchMapResponseCache(
                 policePhoneId = key.policePhoneId,
                 source = source
             )
-        if (current?.bodyHash == bodyHash) {
+        if (current?.bodyHash == bodyHash && current.sourceRevision == normalizedRevision) {
             return
         }
         dao.upsert(
@@ -59,6 +77,7 @@ class RoomSearchMapResponseCache(
                 policePhoneId = key.policePhoneId,
                 source = source,
                 bodyHash = bodyHash,
+                sourceRevision = normalizedRevision,
                 bodyJson = normalizedBody,
                 updatedAt = nowMillis()
             )

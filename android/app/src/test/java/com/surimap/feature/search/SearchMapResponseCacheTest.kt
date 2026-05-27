@@ -42,9 +42,19 @@ class SearchMapResponseCacheTest {
                 nowMillis = { now }
             )
 
-        cache.upsertIfChanged(CONTEXT, source = "search_paths", body = """{"paths":[]}""")
+        cache.upsertIfChanged(
+            CONTEXT,
+            source = "search_paths",
+            body = """{"paths":[]}""",
+            sourceRevision = "paths-rev-1"
+        )
         now = 2_000L
-        cache.upsertIfChanged(CONTEXT, source = "search_paths", body = """{"paths":[]}""")
+        cache.upsertIfChanged(
+            CONTEXT,
+            source = "search_paths",
+            body = """{"paths":[]}""",
+            sourceRevision = "paths-rev-1"
+        )
 
         val unchanged =
             database.searchMapResponseCacheDao().find(
@@ -56,9 +66,15 @@ class SearchMapResponseCacheTest {
 
         assertEquals(1_000L, unchanged!!.updatedAt)
         assertEquals("""{"paths":[]}""", cache.read(CONTEXT, "search_paths"))
+        assertEquals("paths-rev-1", cache.revisions(CONTEXT)["search_paths"])
 
         now = 3_000L
-        cache.upsertIfChanged(CONTEXT, source = "search_paths", body = """{"paths":[{"id":"p1"}]}""")
+        cache.upsertIfChanged(
+            CONTEXT,
+            source = "search_paths",
+            body = """{"paths":[{"id":"p1"}]}""",
+            sourceRevision = "paths-rev-2"
+        )
 
         val changed =
             database.searchMapResponseCacheDao().find(
@@ -69,6 +85,7 @@ class SearchMapResponseCacheTest {
             )
 
         assertEquals(3_000L, changed!!.updatedAt)
+        assertEquals("paths-rev-2", changed.sourceRevision)
         assertEquals("""{"paths":[{"id":"p1"}]}""", cache.read(CONTEXT, "search_paths"))
     }
 

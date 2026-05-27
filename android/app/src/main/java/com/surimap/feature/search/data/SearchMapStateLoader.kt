@@ -46,6 +46,9 @@ class SearchMapStateLoader(
     private val liveMarkers: suspend (MarkerReadQuery) -> SuriMapApiResponse = {
         SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
     },
+    private val mapRevisions: suspend (SearchMapSessionContext) -> SuriMapApiResponse = {
+        SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+    },
     private val initialMarkers: suspend (String, String) -> SuriMapApiResponse = { incidentId, policePhoneId ->
         OfflinePackageRepository().manifest(
             OfflinePackageManifestQuery(
@@ -61,22 +64,31 @@ class SearchMapStateLoader(
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
         val initialState = cached(context) ?: fallback(context)
-        val areaState = withOpSearchAreas(context, withOverallSearchArea(context, initialState))
-        val mapState = withSearchPaths(context, areaState)
-        val liveMarkerResult = withLiveMarkers(context, mapState)
+        val revisionSnapshot = revisionSnapshot(context)
+        val areaState =
+            withOpSearchAreas(
+                context,
+                withOverallSearchArea(context, initialState, revisionSnapshot),
+                revisionSnapshot
+            )
+        val mapState = withSearchPaths(context, areaState, revisionSnapshot)
+        val liveMarkerResult = withLiveMarkers(context, mapState, revisionSnapshot)
         val serverMarkerState =
             if (liveMarkerResult.loaded) {
                 liveMarkerResult.state
             } else {
-                withInitialMarkers(context, mapState)
+                withInitialMarkers(context, mapState, revisionSnapshot)
             }
         val markerState = withPendingMarkers(context, serverMarkerState)
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return markerState
+        if (!shouldFetch(CACHE_SOURCE_INCIDENT_DETAIL, revisionSnapshot)) {
+            return markerState
+        }
         val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return markerState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return markerState
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_INCIDENT_DETAIL, response.body)
+        cacheResponse(context, CACHE_SOURCE_INCIDENT_DETAIL, response.body, revisionSnapshot)
         return detailState(context, response.body, markerState)
     }
 
@@ -169,14 +181,18 @@ class SearchMapStateLoader(
 
     private suspend fun withOverallSearchArea(
         context: SearchMapSessionContext,
-        fallback: SearchMapUiState
+        fallback: SearchMapUiState,
+        revisionSnapshot: MapRevisionSnapshot
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return fallback
+        if (!shouldFetch(CACHE_SOURCE_OVERALL_SEARCH_AREA, revisionSnapshot)) {
+            return fallback
+        }
         val response = runCatching { overallSearchArea(incidentId) }.getOrNull() ?: return fallback
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return fallback
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_OVERALL_SEARCH_AREA, response.body)
+        cacheResponse(context, CACHE_SOURCE_OVERALL_SEARCH_AREA, response.body, revisionSnapshot)
         return withOverallSearchAreaBody(fallback, response.body)
     }
 
@@ -213,15 +229,19 @@ class SearchMapStateLoader(
 
     private suspend fun withOpSearchAreas(
         context: SearchMapSessionContext,
-        state: SearchMapUiState
+        state: SearchMapUiState,
+        revisionSnapshot: MapRevisionSnapshot
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
+        if (!shouldFetch(CACHE_SOURCE_OP_SEARCH_AREAS, revisionSnapshot)) {
+            return state
+        }
         val response = runCatching { opSearchAreas(incidentId, opId) }.getOrNull() ?: return state
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_OP_SEARCH_AREAS, response.body)
+        cacheResponse(context, CACHE_SOURCE_OP_SEARCH_AREAS, response.body, revisionSnapshot)
         return withOpSearchAreasBody(state, response.body)
     }
 
@@ -251,12 +271,16 @@ class SearchMapStateLoader(
 
     private suspend fun withSearchPaths(
         context: SearchMapSessionContext,
-        state: SearchMapUiState
+        state: SearchMapUiState,
+        revisionSnapshot: MapRevisionSnapshot
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
         val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
         val accountId = context.accountId?.takeIf(String::isNotBlank)
+        if (!shouldFetch(CACHE_SOURCE_SEARCH_PATHS, revisionSnapshot)) {
+            return state
+        }
         val response =
             runCatching {
                 searchPaths(
@@ -274,7 +298,7 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_SEARCH_PATHS, response.body)
+        cacheResponse(context, CACHE_SOURCE_SEARCH_PATHS, response.body, revisionSnapshot)
         return withSearchPathsBody(context, state, response.body)
     }
 
@@ -307,15 +331,19 @@ class SearchMapStateLoader(
 
     private suspend fun withInitialMarkers(
         context: SearchMapSessionContext,
-        state: SearchMapUiState
+        state: SearchMapUiState,
+        revisionSnapshot: MapRevisionSnapshot
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        if (!shouldFetch(CACHE_SOURCE_INITIAL_MARKERS, revisionSnapshot)) {
+            return state
+        }
         val response = runCatching { initialMarkers(incidentId, policePhoneId) }.getOrNull() ?: return state
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_INITIAL_MARKERS, response.body)
+        cacheResponse(context, CACHE_SOURCE_INITIAL_MARKERS, response.body, revisionSnapshot)
         return withInitialMarkersBody(state, response.body)
     }
 
@@ -338,10 +366,14 @@ class SearchMapStateLoader(
 
     private suspend fun withLiveMarkers(
         context: SearchMapSessionContext,
-        state: SearchMapUiState
+        state: SearchMapUiState,
+        revisionSnapshot: MapRevisionSnapshot
     ): LiveMarkerLoadResult {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return LiveMarkerLoadResult(state, false)
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return LiveMarkerLoadResult(state, false)
+        if (!shouldFetch(CACHE_SOURCE_LIVE_MARKERS, revisionSnapshot)) {
+            return LiveMarkerLoadResult(state, true)
+        }
         val response =
             runCatching {
                 liveMarkers(
@@ -355,8 +387,60 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return LiveMarkerLoadResult(state, false)
         }
-        responseCache?.upsertIfChanged(context, CACHE_SOURCE_LIVE_MARKERS, response.body)
+        cacheResponse(context, CACHE_SOURCE_LIVE_MARKERS, response.body, revisionSnapshot)
         return withLiveMarkersBody(state, response.body)
+    }
+
+    private suspend fun revisionSnapshot(context: SearchMapSessionContext): MapRevisionSnapshot {
+        val localRevisions = responseCache?.revisions(context).orEmpty()
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank)
+            ?: return MapRevisionSnapshot(remote = null, local = localRevisions)
+        val response = runCatching { mapRevisions(context.copy(incidentId = incidentId)) }.getOrNull()
+        val remote =
+            response
+                ?.takeIf { it.isSuccessful && !it.body.isNullOrBlank() }
+                ?.body
+                ?.let(::parseRevisionMap)
+                ?.takeIf(Map<String, String>::isNotEmpty)
+        return MapRevisionSnapshot(remote = remote, local = localRevisions)
+    }
+
+    private fun shouldFetch(
+        source: String,
+        revisionSnapshot: MapRevisionSnapshot
+    ): Boolean {
+        val remoteRevision = revisionSnapshot.remote?.get(source) ?: return true
+        val localRevision = revisionSnapshot.local[source] ?: return true
+        return localRevision != remoteRevision
+    }
+
+    private suspend fun cacheResponse(
+        context: SearchMapSessionContext,
+        source: String,
+        body: String,
+        revisionSnapshot: MapRevisionSnapshot
+    ) {
+        responseCache?.upsertIfChanged(
+            context = context,
+            source = source,
+            body = body,
+            sourceRevision = revisionSnapshot.remote?.get(source)
+        )
+    }
+
+    private fun parseRevisionMap(body: String): Map<String, String> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyMap()
+        val sources = root.optJSONArray("sources") ?: return emptyMap()
+        return buildMap {
+            repeat(sources.length()) { index ->
+                val source = sources.optJSONObject(index) ?: return@repeat
+                val sourceName =
+                    source.optString("source").takeIf(String::isNotBlank) ?: return@repeat
+                val revision =
+                    source.optString("revision").takeIf(String::isNotBlank) ?: return@repeat
+                put(sourceName, revision)
+            }
+        }
     }
 
     private fun withLiveMarkersBody(
@@ -1067,4 +1151,9 @@ private data class WebAreaColorToken(
 private data class LiveMarkerLoadResult(
     val state: SearchMapUiState,
     val loaded: Boolean
+)
+
+private data class MapRevisionSnapshot(
+    val remote: Map<String, String>?,
+    val local: Map<String, String>
 )

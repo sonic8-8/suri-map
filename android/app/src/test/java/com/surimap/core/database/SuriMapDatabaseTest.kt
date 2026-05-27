@@ -492,6 +492,7 @@ class SuriMapDatabaseTest {
                 ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
                 ColumnSpec("source", nullable = false, primaryKey = true),
                 ColumnSpec("body_hash", nullable = false),
+                ColumnSpec("source_revision", nullable = false),
                 ColumnSpec("body_json", nullable = false),
                 ColumnSpec("updated_at", nullable = false)
             ),
@@ -505,6 +506,7 @@ class SuriMapDatabaseTest {
                 policePhoneId = POLICE_PHONE_ID,
                 source = "search_paths",
                 bodyHash = "sha256:paths",
+                sourceRevision = "paths-rev-1",
                 bodyJson = """{"paths":[]}""",
                 updatedAt = 1_000L
             )
@@ -519,6 +521,7 @@ class SuriMapDatabaseTest {
             )
 
         assertEquals("""{"paths":[]}""", cached!!.bodyJson)
+        assertEquals("paths-rev-1", cached.sourceRevision)
         assertEquals(
             IndexSpec(unique = false, columns = listOf("incident_id", "op_id", "police_phone_id")),
             indexSpec("search_map_response_cache", "idx_search_map_response_cache_context")
@@ -547,6 +550,29 @@ class SuriMapDatabaseTest {
         assertEquals(
             IndexSpec(unique = false, columns = listOf("incident_id", "op_id", "police_phone_id")),
             indexSpec("search_map_response_cache", "idx_search_map_response_cache_context")
+        )
+    }
+
+    @Test
+    fun migration5To6AddsSearchMapSourceRevision() {
+        val writableDatabase = database.openHelper.writableDatabase
+        writableDatabase.execSQL("DROP TABLE IF EXISTS search_map_response_cache")
+        SuriMapDatabaseProvider.MIGRATION_4_5.migrate(writableDatabase)
+
+        SuriMapDatabaseProvider.MIGRATION_5_6.migrate(writableDatabase)
+
+        assertEquals(
+            listOf(
+                ColumnSpec("incident_id", nullable = false, primaryKey = true),
+                ColumnSpec("op_id", nullable = false, primaryKey = true),
+                ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
+                ColumnSpec("source", nullable = false, primaryKey = true),
+                ColumnSpec("body_hash", nullable = false),
+                ColumnSpec("body_json", nullable = false),
+                ColumnSpec("updated_at", nullable = false),
+                ColumnSpec("source_revision", nullable = false)
+            ),
+            tableColumns("search_map_response_cache")
         )
     }
 

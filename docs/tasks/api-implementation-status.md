@@ -44,6 +44,7 @@
 | `POST /api/internal/mock-112/events` | S1-1 | 구현 | `Mock112WebhookController`, `Mock112WebhookService` | 실제 Firebase Admin adapter는 별도 ticket |
 | `GET /api/incidents` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
 | `GET /api/incidents/{incidentId}` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
+| `GET /api/incidents/{incidentId}/map-revisions` | APP map cache aggregate | 구현 | `AppMapRevisionController`, `AppMapRevisionQueryService`, Android `SearchMapRevisionRepository` | 배포 서버 반영 후 revision 동일 시 heavy map source fetch 생략 smoke |
 | `POST /api/incidents/{incidentId}/close` | S1-1 | 구현 | `IncidentCloseController` | Web command client 필요 |
 | `POST /api/search-areas` | S2 | 부분 | `SearchAreaController`, `SearchAreaApiService`가 WEB guard/idempotency header/headless response를 제공하나 MyBatis persistence는 미연결 | search_area/op DB 계약 정렬 후 persistence 전환 |
 | `GET /api/search-areas` | S2 | 부분 | `SearchAreaController`, Web client, Android read repository 추가 | board/offline source provider와 MyBatis query adapter 연결 |

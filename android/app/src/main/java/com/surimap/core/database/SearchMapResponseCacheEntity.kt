@@ -25,6 +25,8 @@ data class SearchMapResponseCacheEntity(
     val source: String,
     @ColumnInfo(name = "body_hash")
     val bodyHash: String,
+    @ColumnInfo(name = "source_revision")
+    val sourceRevision: String,
     @ColumnInfo(name = "body_json")
     val bodyJson: String,
     @ColumnInfo(name = "updated_at")

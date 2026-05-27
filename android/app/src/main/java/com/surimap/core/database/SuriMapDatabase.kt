@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         OfflinePackageItemStatusEntity::class,
         SearchMapResponseCacheEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class SuriMapDatabase : RoomDatabase() {

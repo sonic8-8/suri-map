@@ -730,6 +730,75 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun unchangedMapRevisionsReuseCachedResponsesWithoutHeavyFetches() = runBlocking {
+        val areaGeometry =
+            """{"type":"Polygon","coordinates":[[[126.91,37.51],[126.92,37.51],[126.92,37.52],[126.91,37.52],[126.91,37.51]]]}"""
+        val pathGeometry = """{"type":"LineString","coordinates":[[126.912,37.512],[126.918,37.518]]}"""
+        val revisions =
+            mapOf(
+                "incident_detail" to "incident-rev",
+                "overall_search_area" to "overall-rev",
+                "op_search_areas" to "areas-rev",
+                "search_paths" to "paths-rev",
+                "live_markers" to "markers-rev"
+            )
+        val cache =
+            InMemorySearchMapResponseCache(
+                initialResponses =
+                    mapOf(
+                        "incident_detail" to """{"id":"$INCIDENT_ID","title":"캐시 사건","missingPerson":{"displayName":"홍길동"}}""",
+                        "overall_search_area" to """{"id":"$OVERALL_AREA_ID","geometry":$areaGeometry}""",
+                        "op_search_areas" to """{"areas":[{"id":"$TEAM_AREA_ID","areaLevel":"TEAM","name":"A팀","geometry":$areaGeometry}]}""",
+                        "search_paths" to """{"paths":[{"id":"$PATH_ID","status":"RECORDING","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
+                        "live_markers" to """{"markers":[{"id":"$MARKER_ID","type":"CLUE","status":"ACTIVE","location":{"type":"Point","coordinates":[126.919,37.519]}}]}"""
+                    ),
+                initialRevisions = revisions
+            )
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { error("unchanged incident detail must not be fetched") },
+                overallSearchArea = { error("unchanged overall area must not be fetched") },
+                opSearchAreas = { _, _ -> error("unchanged op areas must not be fetched") },
+                searchPaths = { error("unchanged search paths must not be fetched") },
+                liveMarkers = { error("unchanged live markers must not be fetched") },
+                mapRevisions = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                            """
+                            {
+                              "sources": [
+                                {"source":"incident_detail","revision":"incident-rev"},
+                                {"source":"overall_search_area","revision":"overall-rev"},
+                                {"source":"op_search_areas","revision":"areas-rev"},
+                                {"source":"search_paths","revision":"paths-rev"},
+                                {"source":"live_markers","revision":"markers-rev"}
+                              ]
+                            }
+                            """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                responseCache = cache
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
+                )
+            )
+
+        assertEquals("캐시 사건", state.incidentTitle)
+        assertTrue(state.layers.any { layer -> layer.overlayId == PATH_ID })
+        assertTrue(state.layers.any { layer -> layer.overlayId == MARKER_ID })
+    }
+
+    @Test
     fun missingPolicePhoneDoesNotReadSearchPaths() = runBlocking {
         var searchPathsCalled = false
         val loader =
@@ -1269,21 +1338,30 @@ class SearchMapStateLoaderTest {
     }
 
     private class InMemorySearchMapResponseCache(
-        initialResponses: Map<String, String> = emptyMap()
+        initialResponses: Map<String, String> = emptyMap(),
+        initialRevisions: Map<String, String> = emptyMap()
     ) : SearchMapResponseCache {
         val responses = initialResponses.toMutableMap()
+        private val sourceRevisions = initialRevisions.toMutableMap()
 
         override suspend fun read(
             context: SearchMapSessionContext,
             source: String
         ): String? = responses[source]
 
+        override suspend fun revisions(context: SearchMapSessionContext): Map<String, String> =
+            sourceRevisions.toMap()
+
         override suspend fun upsertIfChanged(
             context: SearchMapSessionContext,
             source: String,
-            body: String
+            body: String,
+            sourceRevision: String?
         ) {
             responses[source] = body
+            sourceRevision?.takeIf(String::isNotBlank)?.let { revision ->
+                sourceRevisions[source] = revision
+            }
         }
     }
 

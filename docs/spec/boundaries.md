@@ -1222,6 +1222,7 @@ Guard shorthand:
 | `POST /api/incidents/import` | S1-1 | 웹 지휘관 역할 개인 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
 | `GET /api/incidents` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session` | - |
 | `GET /api/incidents/{incidentId}` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
+| `GET /api/incidents/{incidentId}/map-revisions` | APP map cache aggregate | 앱 | HTTPS | `public-session`, `incident-read`, `@RequireChannel(APP)`, `@RecordLocationAccess`; source 상세 payload는 각 owner API를 canonical로 유지 | - |
 | `POST /api/incidents/{incidentId}/close` | S1-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: purge orchestration trigger |
 | `POST /api/search-areas` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /api/search-areas` | S2 | 앱, 웹, S3-2, S7, S8 | HTTPS | `public-session`, `incident-read` | - |
