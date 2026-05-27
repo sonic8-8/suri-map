@@ -203,6 +203,11 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("activeMapViewHandle.appliedStyleUrl = styleUrl"))
         assertTrue(source.contains("activeMapViewHandle.appliedOverlaySignature = overlaySignature"))
         assertTrue(source.contains("activeMapViewHandle.appliedCameraSignature = cameraSignature"))
+        assertTrue(source.contains("MapLibreMapOptions()"))
+        assertTrue(source.contains(".textureMode(true)"))
+        assertTrue(source.contains(".foregroundLoadColor(MAP_FOREGROUND_LOAD_COLOR)"))
+        assertTrue(source.contains(".setPrefetchesTiles(true)"))
+        assertTrue(source.contains("MapView(context, options)"))
 
         val disposableStart = source.indexOf("DisposableEffect(lifecycle, mapView)")
         val disposableEnd = source.indexOf("AndroidView(", disposableStart)

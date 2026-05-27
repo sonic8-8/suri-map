@@ -28,6 +28,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.net.ConnectivityReceiver
@@ -329,8 +330,13 @@ class MapLibreMapViewHandle {
             return existing
         }
         MapLibre.getInstance(context.applicationContext)
-        return MapView(context).apply {
-            setBackgroundColor(Color.rgb(23, 38, 58))
+        val options =
+            MapLibreMapOptions()
+                .textureMode(true)
+                .foregroundLoadColor(MAP_FOREGROUND_LOAD_COLOR)
+                .setPrefetchesTiles(true)
+        return MapView(context, options).apply {
+            setBackgroundColor(MAP_FOREGROUND_LOAD_COLOR)
             onCreate(Bundle())
         }.also { mapView ->
             cachedMapView = mapView
@@ -1338,4 +1344,5 @@ internal class MapViewLifecycleBridge(
 }
 
 private val UNSAFE_STYLE_ID_CHARS = Regex("[^A-Za-z0-9_-]")
+private const val MAP_FOREGROUND_LOAD_COLOR = -15194566
 private const val INITIAL_BOUNDS_PADDING_PX = 64
