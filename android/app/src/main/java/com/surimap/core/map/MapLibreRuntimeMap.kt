@@ -545,7 +545,8 @@ private fun installMapLibreTileHttp(context: Context, state: MapLibreRuntimeMapS
         MapLibreTileCallFactory(
             tileBaseUrl = state.apiBaseUrl,
             accessTokenProvider = { state.accessToken },
-            policePhoneIdProvider = { state.policePhoneId }
+            policePhoneIdProvider = { state.policePhoneId },
+            offlineTileCache = OfflineTileCache.fromContext(context)
         )
     )
 }

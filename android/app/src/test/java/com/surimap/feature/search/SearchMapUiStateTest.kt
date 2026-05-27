@@ -8,6 +8,8 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.ui.preserveMapContentFrom
+import com.surimap.testing.pathIdFixture
 import com.surimap.testing.markerIdFixture
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -235,7 +237,7 @@ class SearchMapUiStateTest {
         val readSeenIndex = source.indexOf("readLastSeenHandoverAt", routeIndex)
         val openHandoverIndex = source.indexOf("fun openHandoverFromSearchMap", routeIndex)
         val writeSeenIndex = source.indexOf("writeLastSeenHandoverAt", openHandoverIndex)
-        val navigateIndex = source.indexOf("navigateToSingleTop(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
+        val navigateIndex = source.indexOf("navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
 
         assertTrue(routeIndex >= 0)
         assertTrue(currentShiftStartedIndex > routeIndex)
@@ -248,6 +250,46 @@ class SearchMapUiStateTest {
         assertFalse(source.contains("다음 투입"))
         assertFalse(source.contains("미수색"))
         assertFalse(source.contains("위험도"))
+    }
+
+    @Test
+    fun serverRefreshFallbackDoesNotClearPreviouslyLoadedMapGeometry() {
+        val previous =
+            SearchMapUiState.active().copy(
+                movementSummary = "경로 1개 표시",
+                assignmentLabel = "A팀 담당 구역",
+                activeSearchPathId = PATH_ID,
+                layers =
+                listOf(
+                    SearchMapLayerUiState(
+                        label = "A팀 담당 구역",
+                        kind = SearchLayerKind.Team,
+                        overlayId = "team-a",
+                        geoJson =
+                        """{"type":"Polygon","coordinates":[[[126.91,35.16],[126.92,35.16],[126.92,35.17],[126.91,35.17],[126.91,35.16]]]}"""
+                    ),
+                    SearchMapLayerUiState(
+                        label = "현재 경로",
+                        kind = SearchLayerKind.Path,
+                        highlighted = true,
+                        overlayId = PATH_ID,
+                        geoJson = """{"type":"LineString","coordinates":[[126.91,35.16],[126.92,35.17]]}"""
+                    )
+                )
+            )
+        val fallback =
+            SearchMapUiState.active().copy(
+                movementSummary = "경로 기록 대기",
+                assignmentLabel = "",
+                layers = listOf(SearchMapLayerUiState("담당 구역 확인 중", SearchLayerKind.Team))
+            )
+
+        val preserved = fallback.preserveMapContentFrom(previous)
+
+        assertEquals(previous.layers, preserved.layers)
+        assertEquals("경로 1개 표시", preserved.movementSummary)
+        assertEquals("A팀 담당 구역", preserved.assignmentLabel)
+        assertEquals(PATH_ID, preserved.activeSearchPathId)
     }
 
     @Test
@@ -467,5 +509,6 @@ class SearchMapUiStateTest {
 
     private companion object {
         val MARKER_ID = markerIdFixture("person-found-001")
+        val PATH_ID = pathIdFixture("001")
     }
 }

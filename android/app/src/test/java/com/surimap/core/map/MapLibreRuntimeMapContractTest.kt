@@ -208,6 +208,7 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains(".foregroundLoadColor(MAP_FOREGROUND_LOAD_COLOR)"))
         assertTrue(source.contains(".setPrefetchesTiles(true)"))
         assertTrue(source.contains("MapView(context, options)"))
+        assertTrue(source.contains("offlineTileCache = OfflineTileCache.fromContext(context)"))
 
         val disposableStart = source.indexOf("DisposableEffect(lifecycle, mapView)")
         val disposableEnd = source.indexOf("AndroidView(", disposableStart)
@@ -224,6 +225,12 @@ class MapLibreRuntimeMapContractTest {
 
         assertTrue(appSource.contains("rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)"))
         assertTrue(appSource.contains("mapViewHandle = searchMapViewHandle"))
+        assertTrue(appSource.contains("var searchMapStateByIncident by remember"))
+        assertTrue(appSource.contains("cachedSearchMapState ="))
+        assertTrue(appSource.contains("onSearchMapStateChanged = { incidentId, state ->"))
+        assertTrue(appSource.contains("cachedSearchMapState: SearchMapUiState? = null"))
+        assertTrue(appSource.contains("preserveMapContentFrom(searchMapState)"))
+        assertFalse(appSource.contains("searchMapState =\n            loader.fallback(sessionContext)"))
         assertTrue(searchMapSource.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
         assertTrue(searchMapSource.contains("mapViewHandle = mapViewHandle"))
     }

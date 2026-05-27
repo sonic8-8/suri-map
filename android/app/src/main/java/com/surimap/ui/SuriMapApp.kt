@@ -362,6 +362,7 @@ fun SuriMapApp() {
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
     var showIncidentExitConfirm by remember { mutableStateOf(false) }
     var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
+    var searchMapStateByIncident by remember { mutableStateOf<Map<String, SearchMapUiState>>(emptyMap()) }
     val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
@@ -520,10 +521,17 @@ fun SuriMapApp() {
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
                             mapViewHandle = searchMapViewHandle,
+                            cachedSearchMapState =
+                            incidentSessionState.incidentContext
+                                ?.incidentId
+                                ?.let(searchMapStateByIncident::get),
                             restoredViewportBounds =
                             incidentSessionState.incidentContext
                                 ?.incidentId
                                 ?.let(searchMapViewportByIncident::get),
+                            onSearchMapStateChanged = { incidentId, state ->
+                                searchMapStateByIncident = searchMapStateByIncident + (incidentId to state)
+                            },
                             onViewportBoundsChanged = { incidentId, bounds ->
                                 searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
                             },
@@ -1463,7 +1471,9 @@ private fun SearchMapRoute(
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
     mapViewHandle: MapLibreMapViewHandle? = null,
+    cachedSearchMapState: SearchMapUiState? = null,
     restoredViewportBounds: SearchMapViewportBounds? = null,
+    onSearchMapStateChanged: (String, SearchMapUiState) -> Unit = { _, _ -> },
     onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit = { _, _ -> },
     onOpenBlockedOutbox: () -> Unit,
     onRequestIncidentExit: () -> Unit,
@@ -1629,9 +1639,12 @@ private fun SearchMapRoute(
         sessionContext.accountId
     ) {
         mutableStateOf(
-            SearchMapStateLoader()
-                .fallbackForRemember(sessionContext)
-                .restoreViewport(initialRestoredViewportBounds)
+            (
+                cachedSearchMapState ?: SearchMapStateLoader()
+                    .fallbackForRemember(sessionContext)
+                    .restoreViewport(initialRestoredViewportBounds)
+                )
+                .withFocusedMarker(focusMarkerId ?: cachedSearchMapState?.focusedMarkerId)
         )
     }
     var recordingSession by rememberSaveable(
@@ -1885,18 +1898,19 @@ private fun SearchMapRoute(
         lastSeenHandoverAt = context.readLastSeenHandoverAt(sessionContext)
     }
 
-    suspend fun loadServerStatePreservingViewport(): SearchMapUiState =
+    suspend fun loadServerStatePreservingMapContent(): SearchMapUiState =
         loader.load(sessionContext)
-            .withFocusedMarker(focusMarkerId)
-            .preserveViewportFrom(searchMapState)
+            .withFocusedMarker(focusMarkerId ?: searchMapState.focusedMarkerId)
+            .preserveMapContentFrom(searchMapState)
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
-        searchMapState =
-            loader.fallback(sessionContext)
-                .withFocusedMarker(focusMarkerId)
-                .restoreViewport(initialRestoredViewportBounds)
+        focusMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                searchMapState = searchMapState.withFocusedMarker(markerId)
+        }
         suspend fun refreshServerState() {
-            searchMapState = loadServerStatePreservingViewport()
+            searchMapState = loadServerStatePreservingMapContent()
         }
         val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
         val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
@@ -1913,6 +1927,12 @@ private fun SearchMapRoute(
             delay(SEARCH_MAP_SERVER_REFRESH_MS)
             refreshServerState()
         }
+    }
+
+    LaunchedEffect(sessionContext.incidentId, searchMapState) {
+        sessionContext.incidentId
+            ?.takeIf(String::isNotBlank)
+            ?.let { incidentId -> onSearchMapStateChanged(incidentId, searchMapState) }
     }
 
     DisposableEffect(context) {
@@ -2151,7 +2171,7 @@ private fun SearchMapRoute(
                         }
                         SearchLifecycleStatus.OpRequired,
                         SearchLifecycleStatus.OpTransition -> {
-                            searchMapState = loadServerStatePreservingViewport()
+                            searchMapState = loadServerStatePreservingMapContent()
                         }
                     }
                 }
@@ -2279,7 +2299,7 @@ private fun SearchMapRoute(
                                 )
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
                                 markerSheetOpen = false
-                                searchMapState = loadServerStatePreservingViewport()
+                                searchMapState = loadServerStatePreservingMapContent()
                             }
                         }
                     }
@@ -3727,6 +3747,24 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
 
 internal fun SearchMapUiState.preserveViewportFrom(previous: SearchMapUiState): SearchMapUiState =
     previous.viewportBounds?.let { bounds -> copy(viewportBounds = bounds) } ?: this
+
+internal fun SearchMapUiState.preserveMapContentFrom(previous: SearchMapUiState): SearchMapUiState {
+    val hasLoadedGeometry = layers.any { layer -> !layer.geoJson.isNullOrBlank() }
+    val hasPreviousGeometry = previous.layers.any { layer -> !layer.geoJson.isNullOrBlank() }
+    if (hasLoadedGeometry || !hasPreviousGeometry) {
+        return preserveViewportFrom(previous)
+    }
+    return copy(
+        layers = previous.layers,
+        viewportBounds = previous.viewportBounds ?: viewportBounds,
+        assignmentLabel = previous.assignmentLabel.ifBlank { assignmentLabel },
+        movementSummary = previous.movementSummary.ifBlank { movementSummary },
+        activeSearchPathId = previous.activeSearchPathId ?: activeSearchPathId,
+        activeSearchPathStartedAtEpochMs =
+        previous.activeSearchPathStartedAtEpochMs ?: activeSearchPathStartedAtEpochMs,
+        focusedMarkerId = focusedMarkerId ?: previous.focusedMarkerId
+    )
+}
 
 internal fun SearchMapUiState.restoreViewport(bounds: SearchMapViewportBounds?): SearchMapUiState =
     bounds?.let { copy(viewportBounds = it) } ?: this

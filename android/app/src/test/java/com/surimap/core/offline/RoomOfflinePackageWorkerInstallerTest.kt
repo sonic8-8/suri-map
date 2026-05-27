@@ -2,6 +2,7 @@ package com.surimap.core.offline
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.core.map.OfflineTileCache
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.RoomSyncClient
@@ -14,6 +15,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Timeout
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -21,17 +23,24 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.File
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 import kotlin.reflect.KClass
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 @RunWith(RobolectricTestRunner::class)
 class RoomOfflinePackageWorkerInstallerTest {
     private lateinit var database: SuriMapDatabase
+    private lateinit var offlineTileCache: OfflineTileCache
+    private lateinit var offlineTileCacheDir: File
 
     @Before
     fun setUp() {
+        offlineTileCacheDir = File(RuntimeEnvironment.getApplication().filesDir, "test-offline-map-tiles")
+        offlineTileCacheDir.deleteRecursively()
+        offlineTileCache = OfflineTileCache(offlineTileCacheDir)
         database = Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
             SuriMapDatabase::class.java
@@ -41,6 +50,7 @@ class RoomOfflinePackageWorkerInstallerTest {
     @After
     fun tearDown() {
         database.close()
+        offlineTileCacheDir.deleteRecursively()
     }
 
     @Test
@@ -75,6 +85,10 @@ class RoomOfflinePackageWorkerInstallerTest {
 
         assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
         assertTrue(items.all { it.status == "DOWNLOADED" || it.status == "SKIPPED" })
+        assertArrayEquals(
+            "tile-bytes".encodeToByteArray(),
+            offlineTileCache.readTile("https://suri-map.internal/tiles/osm-local/15/27935/12960.pbf".toHttpUrl())
+        )
         assertEquals("READY", installation!!.status)
         assertTrue(installation.readyForOfflineUse)
         assertEquals("PACKAGE_INSTALLATION", outboxRow.dependencyGroup)
@@ -122,6 +136,10 @@ class RoomOfflinePackageWorkerInstallerTest {
         assertEquals("/tiles/osm-local/15/27935/12960.pbf", fetched.single().downloadUrl)
         assertEquals("DOWNLOADED", items.single { it.itemType == "TILE" }.status)
         assertEquals(10L, items.single { it.itemType == "TILE" }.bytesTotal)
+        assertArrayEquals(
+            "tile-bytes".encodeToByteArray(),
+            offlineTileCache.readTile("https://suri-map.internal/tiles/osm-local/15/27935/12960.pbf".toHttpUrl())
+        )
         assertEquals("READY", installation!!.status)
         assertEquals(2, installation.totalItems)
         assertEquals(2, installation.completedItems)
@@ -228,6 +246,7 @@ class RoomOfflinePackageWorkerInstallerTest {
                 onFetch(item)
                 tileBytes
             },
+            offlineTileCache = offlineTileCache,
             nowMillis = { 1_000L }
         )
     }
