@@ -134,7 +134,7 @@ class SearchMapUiStateTest {
         assertTrue(source.contains("MapStatusBarAppearanceEffect()"))
         assertTrue(source.contains("controller.isAppearanceLightStatusBars = true"))
         assertTrue(source.contains("MapToastTopPadding = PoliDimens.Space3"))
-        assertTrue(source.contains("PoliDimens.Space6 + PoliDimens.TouchGlove + PoliDimens.CtaHeight + (PoliDimens.Space2 * 3)"))
+        assertTrue(source.contains("PoliDimens.Space6 + PoliDimens.TouchGlove + (PoliDimens.Space2 * 2)"))
         assertTrue(source.contains("val mapModifier = Modifier.fillMaxSize()"))
         assertTrue(source.contains("val mapBottomInset ="))
         assertTrue(source.contains("mapBottomInset = mapBottomInset"))
@@ -222,6 +222,8 @@ class SearchMapUiStateTest {
 
         assertFalse(state.showHandoverPrompt)
         assertTrue(state.visibleText().contains("인수인계"))
+        assertTrue(state.visibleText().contains("근무현황"))
+        assertFalse(state.visibleText().contains("준비중"))
     }
 
     @Test
@@ -235,7 +237,8 @@ class SearchMapUiStateTest {
         val readSeenIndex = source.indexOf("readLastSeenHandoverAt", routeIndex)
         val openHandoverIndex = source.indexOf("fun openHandoverFromSearchMap", routeIndex)
         val writeSeenIndex = source.indexOf("writeLastSeenHandoverAt", openHandoverIndex)
-        val navigateIndex = source.indexOf("navigateToSingleTop(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
+        val navigateIndex =
+            source.indexOf("navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
 
         assertTrue(routeIndex >= 0)
         assertTrue(currentShiftStartedIndex > routeIndex)
@@ -332,9 +335,9 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("팀 담당구역"))
         assertTrue(state.visibleText().contains("마커"))
         assertTrue(state.visibleText().contains("수색 진행 중"))
-        assertTrue(state.visibleText().contains("기록 일시정지"))
+        assertFalse(state.visibleText().contains("일시정지"))
         assertTrue(state.visibleText().contains("상세"))
-        assertTrue(state.visibleText().contains("수색 종료"))
+        assertFalse(state.visibleText().contains("수색 종료"))
         assertFalse(state.visibleText().contains("인수인계"))
         assertFalse(state.visibleText().contains("마커 생성"))
     }
@@ -347,6 +350,7 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("기록 일시정지"))
         assertTrue(state.visibleText().contains("접기"))
         assertTrue(state.visibleText().contains("수색 종료"))
+        assertTrue(state.visibleText().contains("근무현황"))
     }
 
     @Test

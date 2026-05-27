@@ -20,6 +20,7 @@ class PolicePhoneNavigationContractTest {
                 "incident_home",
                 "offline_package",
                 "search_map",
+                "work_status",
                 "handover_summary",
                 "handover_memo",
                 "marker_detail",
@@ -52,6 +53,7 @@ class PolicePhoneNavigationContractTest {
         assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.IncidentList, hasIncidentContext = true))
         assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = false))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = true))
+        assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.WorkStatus, hasIncidentContext = true))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.HandoverMemo, hasIncidentContext = true))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.MarkerDetail, hasIncidentContext = true))
     }
@@ -61,6 +63,10 @@ class PolicePhoneNavigationContractTest {
         assertEquals(
             PolicePhoneRoute.IncidentHome,
             PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.OfflinePackage)
+        )
+        assertEquals(
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.WorkStatus)
         )
         assertEquals(
             PolicePhoneRoute.SearchMap,
@@ -85,6 +91,10 @@ class PolicePhoneNavigationContractTest {
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.OfflinePackage)
         )
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.SearchMap))
+        assertEquals(
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.WorkStatus)
+        )
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverSummary))
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.BlockedOutbox))
         assertEquals(
@@ -113,6 +123,7 @@ class PolicePhoneNavigationContractTest {
         assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
         assertTrue(source.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
+        assertTrue(source.contains("currentRoute == PolicePhoneRoute.WorkStatus"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.BlockedOutbox"))
         assertTrue(source.contains("onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }"))
         assertTrue(source.contains("else -> onRequestIncidentExit()"))
