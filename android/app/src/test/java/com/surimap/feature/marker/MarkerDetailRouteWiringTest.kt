@@ -75,7 +75,11 @@ class MarkerDetailRouteWiringTest {
         assertTrue(screenSource.contains("MarkerDetailLoadingContent"))
         assertTrue(screenSource.contains("MarkerDetailSkeletonCard"))
         assertTrue(screenSource.contains("rememberInfiniteTransition"))
-        assertTrue(screenSource.contains(".alpha(skeletonAlpha)"))
+        assertTrue(screenSource.contains("Brush.linearGradient"))
+        assertTrue(screenSource.contains("shimmerBrush"))
+        assertTrue(screenSource.contains("shimmerOffset"))
+        assertTrue(screenSource.contains(".background(shimmerBrush)"))
+        assertFalse(screenSource.contains(".alpha(skeletonAlpha)"))
 
         val loadingContentStart = screenSource.indexOf("private fun MarkerDetailLoadingContent")
         val loadingContentEnd = screenSource.indexOf("private fun MarkerDetailSkeletonCard", loadingContentStart)
