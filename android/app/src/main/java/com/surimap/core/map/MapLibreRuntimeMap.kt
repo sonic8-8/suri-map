@@ -318,6 +318,10 @@ data class MapLibreRuntimeMapState(
 class MapLibreMapViewHandle {
     private var cachedMapView: MapView? = null
     private var cachedLifecycleBridge: MapViewLifecycleBridge? = null
+    internal var appliedStyleUrl: String? = null
+    internal var appliedOverlaySignature: String? = null
+    internal var appliedOverlayStyleIds: Set<String> = emptySet()
+    internal var appliedCameraSignature: String? = null
 
     internal fun mapView(context: Context): MapView {
         val existing = cachedMapView
@@ -344,6 +348,10 @@ class MapLibreMapViewHandle {
         cachedLifecycleBridge?.onDestroy()
         cachedLifecycleBridge = null
         cachedMapView = null
+        appliedStyleUrl = null
+        appliedOverlaySignature = null
+        appliedOverlayStyleIds = emptySet()
+        appliedCameraSignature = null
     }
 }
 
@@ -371,10 +379,6 @@ fun SuriMapLibreMap(
     val latestMarkerClick by rememberUpdatedState(onMarkerClick)
     val latestViewportBoundsChanged by rememberUpdatedState(onViewportBoundsChanged)
     val latestMapState by rememberUpdatedState(state)
-    var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
-    var appliedOverlaySignature by remember { mutableStateOf<String?>(null) }
-    var appliedOverlayStyleIds by remember { mutableStateOf(emptySet<String>()) }
-    var appliedCameraSignature by remember { mutableStateOf<String?>(null) }
     var markerClickListener by remember { mutableStateOf<MapLibreMap.OnMapClickListener?>(null) }
     var cameraIdleListener by remember { mutableStateOf<MapLibreMap.OnCameraIdleListener?>(null) }
     val ownedMapViewHandle = rememberMapLibreMapViewHandle()
@@ -467,17 +471,17 @@ fun SuriMapLibreMap(
                     cameraIdleListener = listener
                 }
                 fun applyRuntimeState(style: Style) {
-                    if (appliedOverlaySignature != overlaySignature) {
+                    if (activeMapViewHandle.appliedOverlaySignature != overlaySignature) {
                         val currentStyleIds = state.geometryOverlays.map { it.styleId }.toSet()
-                        style.removeGeometryOverlays(appliedOverlayStyleIds - currentStyleIds)
+                        style.removeGeometryOverlays(activeMapViewHandle.appliedOverlayStyleIds - currentStyleIds)
                         state.geometryOverlays.forEach { overlay ->
                             style.upsertGeometryOverlay(overlay)
                         }
-                        appliedOverlayStyleIds = currentStyleIds
-                        appliedOverlaySignature = overlaySignature
+                        activeMapViewHandle.appliedOverlayStyleIds = currentStyleIds
+                        activeMapViewHandle.appliedOverlaySignature = overlaySignature
                     }
                     val bounds = state.initialBounds
-                    if (bounds != null && appliedCameraSignature != cameraSignature) {
+                    if (bounds != null && activeMapViewHandle.appliedCameraSignature != cameraSignature) {
                         view.post {
                             runCatching {
                                 mapLibreMap.moveCamera(
@@ -487,20 +491,20 @@ fun SuriMapLibreMap(
                                     )
                                 )
                             }.onSuccess {
-                                appliedCameraSignature = cameraSignature
+                                activeMapViewHandle.appliedCameraSignature = cameraSignature
                             }
                         }
                     } else if (bounds == null) {
-                        appliedCameraSignature = null
+                        activeMapViewHandle.appliedCameraSignature = null
                     }
                 }
 
-                if (appliedStyleUrl != styleUrl) {
+                if (activeMapViewHandle.appliedStyleUrl != styleUrl) {
                     installMapLibreTileHttp(context, state)
-                    appliedOverlaySignature = null
-                    appliedOverlayStyleIds = emptySet()
-                    appliedCameraSignature = null
-                    appliedStyleUrl = styleUrl
+                    activeMapViewHandle.appliedOverlaySignature = null
+                    activeMapViewHandle.appliedOverlayStyleIds = emptySet()
+                    activeMapViewHandle.appliedCameraSignature = null
+                    activeMapViewHandle.appliedStyleUrl = styleUrl
                     mapLibreMap.setStyle(styleUrl) {
                         applyRuntimeState(it)
                     }
