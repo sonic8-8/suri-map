@@ -206,6 +206,7 @@ import com.surimap.feature.outbox.ui.BlockedOutboxScreen
 import com.surimap.feature.outbox.ui.BlockedOutboxUiState
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
+import com.surimap.feature.search.data.RoomSearchMapResponseCache
 import com.surimap.feature.search.data.SearchAreaBoundaryAlertLocalRecorder
 import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
@@ -1629,7 +1630,8 @@ private fun SearchMapRoute(
                 },
                 pendingMarkers = { incidentId, policePhoneId ->
                     database.localMarkerDao().findPendingByIncidentAndPolicePhone(incidentId, policePhoneId)
-                }
+                },
+                responseCache = RoomSearchMapResponseCache(database.searchMapResponseCacheDao())
             )
         }
     var searchMapState by remember(
@@ -1908,7 +1910,13 @@ private fun SearchMapRoute(
             ?.takeIf(String::isNotBlank)
             ?.let { markerId ->
                 searchMapState = searchMapState.withFocusedMarker(markerId)
-        }
+            }
+        loader.cached(sessionContext)
+            ?.withFocusedMarker(focusMarkerId ?: searchMapState.focusedMarkerId)
+            ?.preserveMapContentFrom(searchMapState)
+            ?.let { cachedState ->
+                searchMapState = cachedState
+            }
         suspend fun refreshServerState() {
             searchMapState = loadServerStatePreservingMapContent()
         }

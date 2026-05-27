@@ -55,6 +55,7 @@ class SuriMapDatabaseTest {
         assertTrue(tableNames.contains("android_sync_status"))
         assertTrue(tableNames.contains("local_write_draft"))
         assertTrue(tableNames.contains("local_marker"))
+        assertTrue(tableNames.contains("search_map_response_cache"))
         assertFalse(tableNames.contains("sync_status"))
     }
 
@@ -480,6 +481,73 @@ class SuriMapDatabaseTest {
 
         assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
         assertEquals(40L, items.single { it.itemKey == "tile-1" }.bytesDownloaded)
+    }
+
+    @Test
+    fun searchMapResponseCacheSchemaStoresRenderedMapSourcesByIncidentContext() = runBlocking {
+        assertEquals(
+            listOf(
+                ColumnSpec("incident_id", nullable = false, primaryKey = true),
+                ColumnSpec("op_id", nullable = false, primaryKey = true),
+                ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
+                ColumnSpec("source", nullable = false, primaryKey = true),
+                ColumnSpec("body_hash", nullable = false),
+                ColumnSpec("body_json", nullable = false),
+                ColumnSpec("updated_at", nullable = false)
+            ),
+            tableColumns("search_map_response_cache")
+        )
+
+        database.searchMapResponseCacheDao().upsert(
+            SearchMapResponseCacheEntity(
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                source = "search_paths",
+                bodyHash = "sha256:paths",
+                bodyJson = """{"paths":[]}""",
+                updatedAt = 1_000L
+            )
+        )
+
+        val cached =
+            database.searchMapResponseCacheDao().find(
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                source = "search_paths"
+            )
+
+        assertEquals("""{"paths":[]}""", cached!!.bodyJson)
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "op_id", "police_phone_id")),
+            indexSpec("search_map_response_cache", "idx_search_map_response_cache_context")
+        )
+    }
+
+    @Test
+    fun migration4To5CreatesSearchMapResponseCacheTable() {
+        val writableDatabase = database.openHelper.writableDatabase
+        writableDatabase.execSQL("DROP TABLE IF EXISTS search_map_response_cache")
+
+        SuriMapDatabaseProvider.MIGRATION_4_5.migrate(writableDatabase)
+
+        assertEquals(
+            listOf(
+                ColumnSpec("incident_id", nullable = false, primaryKey = true),
+                ColumnSpec("op_id", nullable = false, primaryKey = true),
+                ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
+                ColumnSpec("source", nullable = false, primaryKey = true),
+                ColumnSpec("body_hash", nullable = false),
+                ColumnSpec("body_json", nullable = false),
+                ColumnSpec("updated_at", nullable = false)
+            ),
+            tableColumns("search_map_response_cache")
+        )
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "op_id", "police_phone_id")),
+            indexSpec("search_map_response_cache", "idx_search_map_response_cache_context")
+        )
     }
 
     private fun tableColumns(tableName: String): List<ColumnSpec> {

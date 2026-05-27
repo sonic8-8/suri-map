@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         LocalWriteDraftEntity::class,
         LocalMarkerEntity::class,
         OfflinePackageInstallationEntity::class,
-        OfflinePackageItemStatusEntity::class
+        OfflinePackageItemStatusEntity::class,
+        SearchMapResponseCacheEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class SuriMapDatabase : RoomDatabase() {
@@ -27,4 +28,6 @@ abstract class SuriMapDatabase : RoomDatabase() {
     abstract fun offlinePackageInstallationDao(): OfflinePackageInstallationDao
 
     abstract fun offlinePackageItemStatusDao(): OfflinePackageItemStatusDao
+
+    abstract fun searchMapResponseCacheDao(): SearchMapResponseCacheDao
 }

@@ -56,10 +56,12 @@ class SearchMapStateLoader(
     },
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
     private val pendingMarkers: suspend (String, String) -> List<LocalMarkerEntity> = { _, _ -> emptyList() },
+    private val responseCache: SearchMapResponseCache? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
-        val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
+        val initialState = cached(context) ?: fallback(context)
+        val areaState = withOpSearchAreas(context, withOverallSearchArea(context, initialState))
         val mapState = withSearchPaths(context, areaState)
         val liveMarkerResult = withLiveMarkers(context, mapState)
         val serverMarkerState =
@@ -74,7 +76,42 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return markerState
         }
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_INCIDENT_DETAIL, response.body)
         return detailState(context, response.body, markerState)
+    }
+
+    suspend fun cached(context: SearchMapSessionContext): SearchMapUiState? {
+        val cache = responseCache ?: return null
+        var state = fallback(context)
+        var cacheHit = false
+        cache.read(context, CACHE_SOURCE_OVERALL_SEARCH_AREA)?.let { body ->
+            cacheHit = true
+            state = withOverallSearchAreaBody(state, body)
+        }
+        cache.read(context, CACHE_SOURCE_OP_SEARCH_AREAS)?.let { body ->
+            cacheHit = true
+            state = withOpSearchAreasBody(state, body)
+        }
+        cache.read(context, CACHE_SOURCE_SEARCH_PATHS)?.let { body ->
+            cacheHit = true
+            state = withSearchPathsBody(context, state, body)
+        }
+        val liveMarkerBody = cache.read(context, CACHE_SOURCE_LIVE_MARKERS)
+        if (liveMarkerBody != null) {
+            cacheHit = true
+            state = withLiveMarkersBody(state, liveMarkerBody).state
+        } else {
+            cache.read(context, CACHE_SOURCE_INITIAL_MARKERS)?.let { body ->
+                cacheHit = true
+                state = withInitialMarkersBody(state, body)
+            }
+        }
+        state = withPendingMarkers(context, state)
+        cache.read(context, CACHE_SOURCE_INCIDENT_DETAIL)?.let { body ->
+            cacheHit = true
+            state = detailState(context, body, state)
+        }
+        return if (cacheHit) state else null
     }
 
     fun fallbackForRemember(context: SearchMapSessionContext): SearchMapUiState = fallbackState(context, summary = null)
@@ -139,7 +176,15 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return fallback
         }
-        val area = runCatching { JSONObject(response.body) }.getOrNull() ?: return fallback
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_OVERALL_SEARCH_AREA, response.body)
+        return withOverallSearchAreaBody(fallback, response.body)
+    }
+
+    private fun withOverallSearchAreaBody(
+        fallback: SearchMapUiState,
+        body: String
+    ): SearchMapUiState {
+        val area = runCatching { JSONObject(body) }.getOrNull() ?: return fallback
         val geometry = area.optJSONObject("geometry") ?: return fallback
         val bounds = viewportBounds(area, geometry) ?: return fallback
         return fallback.copy(
@@ -159,7 +204,10 @@ class SearchMapStateLoader(
                             highlighted = false
                         )
                 )
-            )
+            ) + fallback.layers.filterNot { layer ->
+                layer.kind == SearchLayerKind.Overall ||
+                    (layer.geoJson == null && layer.kind in setOf(SearchLayerKind.Unit, SearchLayerKind.Team))
+            }
         )
     }
 
@@ -173,20 +221,31 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_OP_SEARCH_AREAS, response.body)
+        return withOpSearchAreasBody(state, response.body)
+    }
+
+    private fun withOpSearchAreasBody(
+        state: SearchMapUiState,
+        body: String
+    ): SearchMapUiState {
         val usedAreaTokenCount =
             state.layers.count { layer ->
                 layer.geoJson != null &&
                     layer.kind in setOf(SearchLayerKind.Overall, SearchLayerKind.Unit, SearchLayerKind.Team)
             }
-        val opLayers = searchAreaLayers(response.body, usedAreaTokenCount)
+        val opLayers = searchAreaLayers(body, usedAreaTokenCount)
         if (opLayers.isEmpty()) {
             return state
         }
         return state.copy(
             assignmentLabel = opLayers.assignmentLabel() ?: state.assignmentLabel,
             layers =
-            state.layers
-                .filterNot { layer -> layer.kind != SearchLayerKind.Overall && layer.geoJson == null } + opLayers
+                state.layers
+                    .filterNot { layer ->
+                        layer.kind in setOf(SearchLayerKind.Unit, SearchLayerKind.Team) ||
+                            (layer.kind != SearchLayerKind.Overall && layer.geoJson == null)
+                    } + opLayers
         )
     }
 
@@ -215,7 +274,18 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val pathLayerResult = searchPathLayers(response.body, accountId, policePhoneId)
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_SEARCH_PATHS, response.body)
+        return withSearchPathsBody(context, state, response.body)
+    }
+
+    private fun withSearchPathsBody(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState,
+        body: String
+    ): SearchMapUiState {
+        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        val accountId = context.accountId?.takeIf(String::isNotBlank)
+        val pathLayerResult = searchPathLayers(body, accountId, policePhoneId)
         if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
             return state
         }
@@ -227,7 +297,7 @@ class SearchMapStateLoader(
                 } else {
                     "경로 ${pathLayerResult.pathCount}개 표시"
                 },
-                layers = state.layers + pathLayerResult.layers,
+                layers = state.layers.withoutSearchPathLayers() + pathLayerResult.layers,
                 lifecycleStatus = pathLayerResult.activeLifecycleStatus ?: state.lifecycleStatus,
                 activeSearchPathId = pathLayerResult.activePathId,
                 activeSearchPathStartedAtEpochMs = pathLayerResult.activeStartedAtEpochMs
@@ -245,13 +315,25 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val assignedAreaIds = assignedAreaIds(response.body)
-        val areaState = state.withAssignedAreas(assignedAreaIds)
-        val markerLayers = initialMarkerLayers(response.body)
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_INITIAL_MARKERS, response.body)
+        return withInitialMarkersBody(state, response.body)
+    }
+
+    private fun withInitialMarkersBody(
+        state: SearchMapUiState,
+        body: String
+    ): SearchMapUiState {
+        val assignedAreaIds = assignedAreaIds(body)
+        val areaState =
+            state.withAssignedAreas(assignedAreaIds).let { assignedState ->
+                assignedState.copy(layers = assignedState.layers.withoutMarkerLayers())
+            }
+        val markerLayers = initialMarkerLayers(body)
         if (markerLayers.isEmpty()) {
             return areaState
         }
-        return areaState.copy(layers = areaState.layers + markerLayers).withViewportFromLayers(markerLayers)
+        return areaState.copy(layers = areaState.layers.withoutMarkerLayers() + markerLayers)
+            .withViewportFromLayers(markerLayers)
     }
 
     private suspend fun withLiveMarkers(
@@ -273,9 +355,18 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return LiveMarkerLoadResult(state, false)
         }
-        val markerLayers = liveMarkerLayers(response.body)
+        responseCache?.upsertIfChanged(context, CACHE_SOURCE_LIVE_MARKERS, response.body)
+        return withLiveMarkersBody(state, response.body)
+    }
+
+    private fun withLiveMarkersBody(
+        state: SearchMapUiState,
+        body: String
+    ): LiveMarkerLoadResult {
+        val markerLayers = liveMarkerLayers(body)
         return LiveMarkerLoadResult(
-            state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers),
+            state.copy(layers = state.layers.withoutMarkerLayers() + markerLayers)
+                .withViewportFromLayers(markerLayers),
             true
         )
     }
@@ -295,6 +386,15 @@ class SearchMapStateLoader(
         }
         return state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers)
     }
+
+    private fun List<SearchMapLayerUiState>.withoutSearchPathLayers(): List<SearchMapLayerUiState> =
+        filterNot { layer ->
+            layer.kind == SearchLayerKind.Path ||
+                (layer.kind == SearchLayerKind.CurrentLocation && layer.overlayId?.endsWith("-latest-location") == true)
+        }
+
+    private fun List<SearchMapLayerUiState>.withoutMarkerLayers(): List<SearchMapLayerUiState> =
+        filterNot { layer -> layer.kind == SearchLayerKind.Marker }
 
     private fun detailState(
         context: SearchMapSessionContext,
@@ -871,6 +971,12 @@ class SearchMapStateLoader(
     }
 
     private companion object {
+        const val CACHE_SOURCE_INCIDENT_DETAIL = "incident_detail"
+        const val CACHE_SOURCE_OVERALL_SEARCH_AREA = "overall_search_area"
+        const val CACHE_SOURCE_OP_SEARCH_AREAS = "op_search_areas"
+        const val CACHE_SOURCE_SEARCH_PATHS = "search_paths"
+        const val CACHE_SOURCE_LIVE_MARKERS = "live_markers"
+        const val CACHE_SOURCE_INITIAL_MARKERS = "initial_markers"
         const val MILLIS_PER_MINUTE = 60_000L
         const val POINT_VIEWPORT_DELTA = 0.003
         val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
