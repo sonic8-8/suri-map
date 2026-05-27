@@ -59,6 +59,7 @@ import com.surimap.ui.theme.PoliWarning
 enum class PoliButtonVariant {
     Primary,
     Secondary,
+    SubtleDanger,
     Danger
 }
 
@@ -114,7 +115,16 @@ fun PoliButton(
                 )
             PoliButtonVariant.Secondary ->
                 ButtonDefaults.outlinedButtonColors(
-                    contentColor = PoliPrimaryFg,
+                    containerColor = PoliPrimaryFillSoft,
+                    contentColor = Color(0xFFEAF4FF),
+                    disabledContainerColor = PoliBgInput,
+                    disabledContentColor = PoliFgMuted
+                )
+            PoliButtonVariant.SubtleDanger ->
+                ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color(0xFF2F1A1D),
+                    contentColor = Color(0xFFFCA5A5),
+                    disabledContainerColor = PoliBgInput,
                     disabledContentColor = PoliFgMuted
                 )
             PoliButtonVariant.Danger ->
@@ -127,13 +137,18 @@ fun PoliButton(
         }
 
     val shape = MaterialTheme.shapes.medium
-    if (variant == PoliButtonVariant.Secondary) {
+    if (variant == PoliButtonVariant.Secondary || variant == PoliButtonVariant.SubtleDanger) {
+        val borderColor =
+            when (variant) {
+                PoliButtonVariant.SubtleDanger -> Color(0xFF7F2D2D)
+                else -> PoliPrimaryBorder
+            }
         OutlinedButton(
             onClick = onClick,
             modifier = modifier.height(height),
             enabled = enabled,
             shape = shape,
-            border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder),
+            border = BorderStroke(1.dp, if (enabled) borderColor else PoliBorder),
             colors = colors
         ) {
             Text(text = text, style = textStyle)
