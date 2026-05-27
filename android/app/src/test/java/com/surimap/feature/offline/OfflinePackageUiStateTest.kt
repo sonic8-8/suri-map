@@ -15,7 +15,7 @@ class OfflinePackageUiStateTest {
         val labels = OfflinePackageUiState.defaultPackageItems().map { it.label }
 
         assertEquals(
-            listOf("사건 메타", "실종자", "OP", "구역", "마커", "전체 수색 구역", "타일"),
+            listOf("사건 정보", "실종자 정보", "수색 차수", "담당 구역", "마커", "전체 수색 구역", "타일"),
             labels
         )
     }
@@ -49,7 +49,7 @@ class OfflinePackageUiStateTest {
         assertFalse(partial.autoOpenSearchMap)
         assertTrue(partial.requiresLimitedOpenConfirmation)
         assertTrue(partial.visibleText().any { it.contains("오프라인 지도 준비") })
-        assertTrue(partial.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
+        assertTrue(partial.visibleText().any { it.contains("지도 준비 전 현장 기록 열기") })
     }
 
     @Test
@@ -67,10 +67,10 @@ class OfflinePackageUiStateTest {
 
         assertFalse(current.shouldDownloadPackage)
         assertFalse(current.autoOpenSearchMap)
-        assertTrue(current.visibleText().any { it.contains("manifest rev 17") })
+        assertTrue(current.visibleText().any { it.contains("지도 데이터 버전 17") })
         assertTrue(changed.shouldDownloadPackage)
         assertFalse(changed.autoOpenSearchMap)
-        assertTrue(changed.visibleText().any { it.contains("manifest rev 17 -> 18") })
+        assertTrue(changed.visibleText().any { it.contains("지도 데이터 버전 17 -> 18") })
     }
 
     @Test
@@ -82,7 +82,7 @@ class OfflinePackageUiStateTest {
                 knownManifestRevision = null,
                 packageItems =
                 listOf(
-                    OfflinePackageItemUiState(label = "사건 메타", progress = 1f, statusLabel = "완료"),
+                    OfflinePackageItemUiState(label = "사건 정보", progress = 1f, statusLabel = "완료"),
                     OfflinePackageItemUiState(label = "타일", progress = 0f, statusLabel = "대기")
                 )
             )
@@ -92,8 +92,8 @@ class OfflinePackageUiStateTest {
         assertFalse(state.autoOpenSearchMap)
         assertTrue(state.requiresLimitedOpenConfirmation)
         assertTrue(state.shouldDownloadPackage)
-        assertTrue(state.visibleText().any { it.contains("패키지 설치 상태와 구분") })
-        assertTrue(state.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
+        assertTrue(state.visibleText().any { it.contains("단말 준비 상태와 구분") })
+        assertTrue(state.visibleText().any { it.contains("지도 준비 전 현장 기록 열기") })
     }
 
     @Test
@@ -115,8 +115,8 @@ class OfflinePackageUiStateTest {
         assertFalse(searchAreaPending.autoOpenSearchMap)
         assertTrue(offline.requiresLimitedOpenConfirmation)
         assertTrue(unavailable.requiresLimitedOpenConfirmation)
-        assertTrue(offline.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
-        assertTrue(unavailable.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
+        assertTrue(offline.visibleText().any { it.contains("지도 준비 전 현장 기록 열기") })
+        assertTrue(unavailable.visibleText().any { it.contains("지도 준비 전 현장 기록 열기") })
         assertTrue(searchAreaPending.visibleText().any { it.contains("수색구역 지정 전") })
         assertTrue(searchAreaPending.canOpenSearchMap)
         assertTrue(searchAreaPending.visibleText().any { it.contains("현장 기록 열기") })

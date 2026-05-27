@@ -36,12 +36,12 @@ enum class BlockedOutboxReason(
     IncidentClosed(
         errorCode = "incident_closed",
         title = "종료된 사건 전송 차단",
-        actionGuide = "사건 종료 시점과 폴리폰 ID를 IT 부서에 전달하세요."
+        actionGuide = "사건 종료 시점과 단말 식별 정보를 IT 부서에 전달하세요."
     ),
     PolicePhoneNotAssigned(
         errorCode = "police_phone_not_assigned",
-        title = "폴리폰 배정 확인 필요",
-        actionGuide = "단말 배정 정정이 필요합니다. 사건 번호와 폴리폰 ID를 함께 전달하세요."
+        title = "단말 배정 확인 필요",
+        actionGuide = "단말 배정 정정이 필요합니다. 사건 번호와 단말 식별 정보를 함께 전달하세요."
     ),
     RetryExhausted(
         errorCode = "retry_exhausted",
@@ -65,7 +65,7 @@ enum class BlockedOutboxReason(
     ),
     PolicePhoneAccessRequired(
         errorCode = "police_phone_access_required",
-        title = "폴리폰 접근 복구 필요",
+        title = "단말 접근 복구 필요",
         actionGuide = "로그인/단말 배정 상태를 복구한 뒤 다시 전송하세요."
     )
 }
@@ -77,7 +77,7 @@ data class BlockedOutboxItemUiState(
     val reason: BlockedOutboxReason,
     val retryable: Boolean = false
 ) {
-    val subtitle: String = "${reason.title} (${reason.errorCode})"
+    val subtitle: String = reason.title
     val retryActionLabel: String? = if (retryable) "지금 재시도" else null
 }
 
@@ -99,7 +99,7 @@ data class BlockedOutboxUiState(
     val blockedCount: Int = blockedItems.size
     val canEnterDiagnostic: Boolean = blockedCount > 0
     val headerLabel: String = if (canEnterDiagnostic) "처리 불가 ${blockedCount}건" else "처리 불가 없음"
-    val supportActionLabel: String = "IT 부서 문의 안내 보기"
+    val supportActionLabel: String = "문의 안내 보기"
 
     fun visibleText(): List<String> =
         buildList {
@@ -125,25 +125,25 @@ data class BlockedOutboxUiState(
     companion object {
         fun blockedFixture(): BlockedOutboxUiState =
             BlockedOutboxUiState(
-                title = "미전송 진단",
-                subtitle = "POL-1A-0023 · 사건 #1234",
+                title = "미전송 기록",
+                subtitle = "현재 사건 · 단말 기록",
                 blockedItems =
                 listOf(
                     BlockedOutboxItemUiState(
                         operationId = "op-path-001",
-                        title = "경로 batch",
+                        title = "경로 기록",
                         timestampLabel = "14:18 ~ 14:22",
                         reason = BlockedOutboxReason.IncidentClosed
                     ),
                     BlockedOutboxItemUiState(
                         operationId = "op-package-001",
-                        title = "패키지 상태 보고",
+                        title = "지도 데이터 상태",
                         timestampLabel = "14:08",
                         reason = BlockedOutboxReason.PolicePhoneNotAssigned
                     ),
                     BlockedOutboxItemUiState(
                         operationId = "op-photo-001",
-                        title = "사진 첨부 finalize",
+                        title = "사진 첨부",
                         timestampLabel = "14:02",
                         reason = BlockedOutboxReason.RetryExhausted,
                         retryable = true
@@ -165,8 +165,8 @@ data class BlockedOutboxUiState(
 
         fun normalPendingFixture(): BlockedOutboxUiState =
             BlockedOutboxUiState(
-                title = "미전송 진단",
-                subtitle = "POL-1A-0023 · 사건 #1234",
+                title = "미전송 기록",
+                subtitle = "현재 사건 · 단말 기록",
                 blockedItems = emptyList(),
                 pendingSummary =
                 PendingOutboxSummaryUiState(
@@ -197,7 +197,7 @@ fun BlockedOutboxScreen(
             PoliAppBar(
                 title = state.title,
                 subtitle = state.subtitle,
-                showBack = true,
+                showBack = false,
                 onBack = onBack,
                 trailing = {
                     PoliChip(
@@ -221,7 +221,7 @@ fun BlockedOutboxScreen(
                     PoliCard {
                         Text(text = "처리 불가 항목이 없습니다", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            text = "정상 오프라인 대기 큐는 지도 sync chip에서만 확인합니다.",
+                            text = "정상 자동 전송 대기는 연결 복구 시 자동 처리됩니다.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = PoliFgMuted
                         )

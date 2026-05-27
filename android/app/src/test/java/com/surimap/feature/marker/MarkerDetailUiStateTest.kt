@@ -1,6 +1,7 @@
 package com.surimap.feature.marker
 
 import com.surimap.feature.marker.ui.MarkerDetailPhotoStatus
+import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.MarkerDetailUiState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,6 +20,8 @@ class MarkerDetailUiStateTest {
         assertTrue(own.visibleText().any { it.contains("삭제") })
         assertTrue(own.visibleText().contains("촬영"))
         assertTrue(own.visibleText().contains("앨범"))
+        assertFalse(own.visibleText().any { it.contains("SecurityContext") || it.contains("createdByAccountId") })
+        assertFalse(own.visibleText().contains(own.markerType.apiValue))
         assertFalse(own.longPressDeleteEnabled)
     }
 
@@ -48,6 +51,26 @@ class MarkerDetailUiStateTest {
     }
 
     @Test
+    fun loadingMarkerUsesPreviewSummaryAndSuppressesActions() {
+        val loading =
+            MarkerDetailUiState.loading(
+                markerId = "marker-123",
+                markerType = MarkerType.CLUE,
+                title = "의류 발견"
+            )
+
+        assertTrue(loading.loading)
+        assertFalse(loading.canEdit)
+        assertFalse(loading.canSave)
+        assertFalse(loading.canDelete)
+        assertTrue(loading.visibleText().contains("마커 정보 불러오는 중"))
+        assertTrue(loading.visibleText().contains("의류 발견"))
+        assertFalse(loading.visibleText().contains("저장"))
+        assertFalse(loading.visibleText().contains("촬영"))
+        assertFalse(loading.visibleText().contains("앨범"))
+    }
+
+    @Test
     fun deleteRequiresConfirmDialogAfterExplicitDeleteRequest() {
         val confirming = MarkerDetailUiState.ownMarker(showDeleteConfirm = true)
 
@@ -63,7 +86,7 @@ class MarkerDetailUiStateTest {
 
         assertTrue(state.photos.any { it.status == MarkerDetailPhotoStatus.Attaching })
         assertTrue(state.photos.any { it.status == MarkerDetailPhotoStatus.Deleting })
-        assertTrue(state.visibleText().any { it.contains("attach 진행 중") })
+        assertTrue(state.visibleText().any { it.contains("첨부 중") })
         assertTrue(state.visibleText().any { it.contains("삭제 진행 중") })
     }
 }

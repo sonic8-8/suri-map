@@ -78,8 +78,10 @@ class MarkerDetailStateLoaderTest {
         assertTrue(state.canEdit)
         assertTrue(state.canSave)
         assertTrue(state.canDelete)
-        assertEquals("v7", state.versionLabel)
-        assertEquals("ACTIVE", state.syncLabel)
+        assertEquals("수정 이력 7회", state.versionLabel)
+        assertEquals("동기화", state.syncLabel)
+        assertEquals("작성 단말 확인됨", state.policePhoneLabel)
+        assertEquals("현장 요원", state.accountLabel)
         assertEquals("37.580123, 126.970123", state.locationLabel)
         assertEquals(1, state.photos.size)
         assertEquals(MarkerDetailPhotoStatus.Attached, state.photos.single().status)
@@ -91,6 +93,8 @@ class MarkerDetailStateLoaderTest {
         assertEquals("https://photo.example/thumb.jpg", state.photos.single().previewUrl)
         assertEquals("https://photo.example/full.jpg", state.photos.single().viewUrl)
         assertTrue(state.visibleText().contains("사진 열기"))
+        assertFalse(state.visibleText().contains("CLUE"))
+        assertFalse(state.visibleText().any { it.contains("acct-field-alpha") || it.contains(POLICE_PHONE_ID) })
     }
 
     @Test
@@ -126,6 +130,39 @@ class MarkerDetailStateLoaderTest {
         assertFalse(state.canSave)
         assertFalse(state.canDelete)
         assertTrue(state.visibleText().any { it.contains("읽기 전용") })
+    }
+
+    @Test
+    fun uuidAccountIdIsHiddenFromMarkerDetailLabel() = runBlocking {
+        val loader =
+            MarkerDetailStateLoader {
+                SuriMapApiResponse(
+                    statusCode = 200,
+                    body =
+                    """
+                    {
+                      "markers": [
+                        {
+                          "id": "$MARKER_ID",
+                          "accountId": "d1000000-0000-4000-8000-000000000003",
+                          "policePhoneId": "$POLICE_PHONE_ID",
+                          "type": "CLUE",
+                          "status": "ACTIVE",
+                          "version": 1,
+                          "geometry": {"type": "Point", "coordinates": [126.95, 35.162]},
+                          "memo": "UUID 작성자 숨김 확인"
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                    errorCode = null
+                )
+            }
+
+        val state = loader.load(CONTEXT)
+
+        assertEquals("현장 요원", state.accountLabel)
+        assertFalse(state.visibleText().any { it.contains("d1000000-0000-4000-8000-000000000003") })
     }
 
     @Test

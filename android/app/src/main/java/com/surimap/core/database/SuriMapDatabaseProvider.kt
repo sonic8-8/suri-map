@@ -16,7 +16,13 @@ object SuriMapDatabaseProvider {
                 SuriMapDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6
+                )
                 .build().also { database ->
                 instance = database
             }
@@ -106,6 +112,44 @@ object SuriMapDatabaseProvider {
                     """
                     CREATE UNIQUE INDEX IF NOT EXISTS `ux_local_marker_operation`
                     ON `local_marker` (`operation_id`)
+                    """.trimIndent()
+                )
+            }
+        }
+
+    internal val MIGRATION_4_5 =
+        object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `search_map_response_cache` (
+                        `incident_id` TEXT NOT NULL,
+                        `op_id` TEXT NOT NULL,
+                        `police_phone_id` TEXT NOT NULL,
+                        `source` TEXT NOT NULL,
+                        `body_hash` TEXT NOT NULL,
+                        `body_json` TEXT NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`incident_id`, `op_id`, `police_phone_id`, `source`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `idx_search_map_response_cache_context`
+                    ON `search_map_response_cache` (`incident_id`, `op_id`, `police_phone_id`)
+                    """.trimIndent()
+                )
+            }
+        }
+
+    internal val MIGRATION_5_6 =
+        object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE `search_map_response_cache`
+                    ADD COLUMN `source_revision` TEXT NOT NULL DEFAULT ''
                     """.trimIndent()
                 )
             }

@@ -8,6 +8,8 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.ui.preserveMapContentFrom
+import com.surimap.testing.pathIdFixture
 import com.surimap.testing.markerIdFixture
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -26,7 +28,8 @@ class SearchMapUiStateTest {
         assertTrue(active.canWritePath)
         assertTrue(active.canCreateMarker)
         assertEquals("수색 진행 중", active.lifecycleStatusLabel)
-        assertEquals("일시정지", active.primaryActionLabel)
+        assertEquals("기록 일시정지", active.primaryActionLabel)
+        assertEquals("수색 종료", active.secondaryActionLabel)
         assertFalse(active.visibleText().contains(active.incidentTitle))
         assertFalse(active.visibleText().contains(active.opLabel))
         assertFalse(active.visibleText().contains(active.syncLabel))
@@ -41,7 +44,7 @@ class SearchMapUiStateTest {
         assertEquals(SearchLifecycleStatus.OpRequired, opRequired.lifecycleStatus)
         assertFalse(opRequired.canWritePath)
         assertFalse(opRequired.canCreateMarker)
-        assertTrue(opRequired.visibleText().any { it.contains("수색 차수 새로고침") })
+        assertTrue(opRequired.visibleText().any { it.contains("수색 차수 확인") })
         assertTrue(opRequired.visibleText().any { it.contains("경로·마커 기록 차단") })
         assertEquals(SearchLifecycleStatus.OpTransition, opTransition.lifecycleStatus)
         assertFalse(opTransition.canWritePath)
@@ -54,11 +57,13 @@ class SearchMapUiStateTest {
         val paused = SearchMapUiState.paused()
         val stopped = SearchMapUiState.stopped()
 
-        assertEquals("재개", paused.primaryActionLabel)
+        assertEquals("수색 재개", paused.primaryActionLabel)
+        assertEquals("수색 종료", paused.secondaryActionLabel)
         assertEquals("수색 일시정지", paused.lifecycleStatusLabel)
         assertFalse(paused.canWritePath)
         assertFalse(paused.canCreateMarker)
         assertEquals("수색 시작", stopped.primaryActionLabel)
+        assertEquals(null, stopped.secondaryActionLabel)
         assertEquals("수색 대기", stopped.lifecycleStatusLabel)
         assertFalse(stopped.canWritePath)
         assertFalse(stopped.canCreateMarker)
@@ -232,7 +237,7 @@ class SearchMapUiStateTest {
         val readSeenIndex = source.indexOf("readLastSeenHandoverAt", routeIndex)
         val openHandoverIndex = source.indexOf("fun openHandoverFromSearchMap", routeIndex)
         val writeSeenIndex = source.indexOf("writeLastSeenHandoverAt", openHandoverIndex)
-        val navigateIndex = source.indexOf("navigateToSingleTop(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
+        val navigateIndex = source.indexOf("navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
 
         assertTrue(routeIndex >= 0)
         assertTrue(currentShiftStartedIndex > routeIndex)
@@ -245,6 +250,46 @@ class SearchMapUiStateTest {
         assertFalse(source.contains("다음 투입"))
         assertFalse(source.contains("미수색"))
         assertFalse(source.contains("위험도"))
+    }
+
+    @Test
+    fun serverRefreshFallbackDoesNotClearPreviouslyLoadedMapGeometry() {
+        val previous =
+            SearchMapUiState.active().copy(
+                movementSummary = "경로 1개 표시",
+                assignmentLabel = "A팀 담당 구역",
+                activeSearchPathId = PATH_ID,
+                layers =
+                listOf(
+                    SearchMapLayerUiState(
+                        label = "A팀 담당 구역",
+                        kind = SearchLayerKind.Team,
+                        overlayId = "team-a",
+                        geoJson =
+                        """{"type":"Polygon","coordinates":[[[126.91,35.16],[126.92,35.16],[126.92,35.17],[126.91,35.17],[126.91,35.16]]]}"""
+                    ),
+                    SearchMapLayerUiState(
+                        label = "현재 경로",
+                        kind = SearchLayerKind.Path,
+                        highlighted = true,
+                        overlayId = PATH_ID,
+                        geoJson = """{"type":"LineString","coordinates":[[126.91,35.16],[126.92,35.17]]}"""
+                    )
+                )
+            )
+        val fallback =
+            SearchMapUiState.active().copy(
+                movementSummary = "경로 기록 대기",
+                assignmentLabel = "",
+                layers = listOf(SearchMapLayerUiState("담당 구역 확인 중", SearchLayerKind.Team))
+            )
+
+        val preserved = fallback.preserveMapContentFrom(previous)
+
+        assertEquals(previous.layers, preserved.layers)
+        assertEquals("경로 1개 표시", preserved.movementSummary)
+        assertEquals("A팀 담당 구역", preserved.assignmentLabel)
+        assertEquals(PATH_ID, preserved.activeSearchPathId)
     }
 
     @Test
@@ -329,10 +374,9 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("팀 담당구역"))
         assertTrue(state.visibleText().contains("마커"))
         assertTrue(state.visibleText().contains("수색 진행 중"))
-        assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("기록 일시정지"))
         assertTrue(state.visibleText().contains("상세"))
-        assertFalse(state.visibleText().contains("종료"))
-        assertFalse(state.visibleText().contains("수색 종료"))
+        assertTrue(state.visibleText().contains("수색 종료"))
         assertFalse(state.visibleText().contains("인수인계"))
         assertFalse(state.visibleText().contains("마커 생성"))
     }
@@ -342,7 +386,7 @@ class SearchMapUiStateTest {
         val state = SearchMapUiState.active().copy(bottomPanelExpanded = true)
 
         assertTrue(state.visibleText().contains("수색 진행 중"))
-        assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("기록 일시정지"))
         assertTrue(state.visibleText().contains("접기"))
         assertTrue(state.visibleText().contains("수색 종료"))
     }
@@ -465,5 +509,6 @@ class SearchMapUiStateTest {
 
     private companion object {
         val MARKER_ID = markerIdFixture("person-found-001")
+        val PATH_ID = pathIdFixture("001")
     }
 }

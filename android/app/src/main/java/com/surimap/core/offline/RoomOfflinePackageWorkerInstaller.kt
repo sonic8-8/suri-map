@@ -3,6 +3,7 @@ package com.surimap.core.offline
 import android.content.Context
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.database.SuriMapDatabaseProvider
+import com.surimap.core.map.OfflineTileCache
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.NoAccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
@@ -21,6 +22,7 @@ class RoomOfflinePackageWorkerInstaller(
     private val database: SuriMapDatabase,
     private val repository: OfflinePackageRepository,
     private val fetchBytes: suspend (OfflinePackageDownloadItem) -> ByteArray,
+    private val offlineTileCache: OfflineTileCache? = null,
     private val nowMillis: () -> Long = { System.currentTimeMillis() }
 ) : OfflinePackageWorkerInstaller {
 
@@ -43,6 +45,15 @@ class RoomOfflinePackageWorkerInstaller(
         val installer =
             OfflinePackageItemInstaller(
                 fetchBytes = fetchBytes,
+                persistDownloadedBytes = { item, bytes ->
+                    if (item.itemType == "TILE") {
+                        offlineTileCache?.writeTile(
+                            itemKey = item.itemKey,
+                            downloadUrl = item.downloadUrl,
+                            bytes = bytes
+                        )
+                    }
+                },
                 persistItemStatuses = {},
                 reportInstallationProgress = {}
             )
@@ -119,7 +130,8 @@ class RoomOfflinePackageWorkerInstaller(
                     apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
                     accessTokenProvider = accessTokenProvider
                 ),
-                fetchBytes = fetcher::fetch
+                fetchBytes = fetcher::fetch,
+                offlineTileCache = OfflineTileCache.fromContext(context)
             )
         }
     }

@@ -1,6 +1,8 @@
 package com.surimap.core.map
 
 import com.surimap.testing.policePhoneIdFixture
+import kotlinx.coroutines.runBlocking
+import kotlin.io.path.createTempDirectory
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Protocol
@@ -8,6 +10,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Timeout
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -80,6 +83,37 @@ class MapLibreTileHttpTest {
         assertNull(request.header("X-Client-Channel"))
         assertNull(request.header("Authorization"))
         assertNull(request.header("X-PolicePhone-Id"))
+    }
+
+    @Test
+    fun mapLibreTileRequestFactoryServesDownloadedTileCacheBeforeNetwork() = runBlocking {
+        val tileBytes = byteArrayOf(0x0A, 0x02, 0x01)
+        val cacheDir = createTempDirectory(prefix = "suri-map-offline-tiles").toFile()
+        val cache = OfflineTileCache(cacheDir)
+        cache.writeTile("tile:osm-local:15:27935:12960", tileBytes)
+        val delegate = CapturingCallFactory()
+        val factory = MapLibreTileCallFactory(
+            delegate = delegate,
+            tileBaseUrl = "https://suri-map.example.com/api",
+            accessTokenProvider = { "access-token-1" },
+            policePhoneIdProvider = { POLICE_PHONE_ID },
+            offlineTileCache = cache
+        )
+
+        try {
+            val response =
+                factory.newCall(
+                    Request.Builder()
+                        .url("https://suri-map.example.com/tiles/osm-local/15/27935/12960.pbf")
+                        .build()
+                ).execute()
+
+            assertArrayEquals(tileBytes, response.body.bytes())
+            assertEquals("HIT", response.header("X-SuriMap-Offline-Cache"))
+            assertNull(delegate.lastRequest)
+        } finally {
+            cacheDir.deleteRecursively()
+        }
     }
 
     private class CapturingCallFactory : Call.Factory {

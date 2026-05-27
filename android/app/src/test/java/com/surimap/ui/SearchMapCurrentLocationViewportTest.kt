@@ -4,6 +4,7 @@ import com.surimap.core.location.GpsLocationFix
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.feature.search.ui.SearchMapViewportBounds
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -65,5 +66,59 @@ class SearchMapCurrentLocationViewportTest {
         assertEquals("current-location", currentLocationLayer.overlayId)
         assertEquals("""{"type":"Point","coordinates":[126.912345,35.176543]}""", currentLocationLayer.geoJson)
         assertEquals("", currentLocationLayer.label)
+    }
+
+    @Test
+    fun serverRefreshPreservesCurrentLocationViewport() {
+        val centered =
+            SearchMapUiState.active().centerOnCurrentLocation(
+                GpsLocationFix(
+                    lon = 126.912345,
+                    lat = 35.176543,
+                    bearingDegrees = null,
+                    speedMps = null,
+                    horizontalAccuracyM = 8,
+                    capturedAt = Instant.parse("2026-05-18T09:00:00Z")
+                )
+            )
+        val refreshedFromServer =
+            SearchMapUiState.active().copy(
+                viewportBounds =
+                SearchMapViewportBounds(
+                    south = 35.0,
+                    west = 126.7,
+                    north = 35.3,
+                    east = 127.0
+                )
+            )
+
+        val preserved = refreshedFromServer.preserveViewportFrom(centered)
+
+        assertEquals(centered.viewportBounds, preserved.viewportBounds)
+    }
+
+    @Test
+    fun restoredViewportOverridesFreshServerAreaViewport() {
+        val restored =
+            SearchMapViewportBounds(
+                south = 35.173543,
+                west = 126.909345,
+                north = 35.179543,
+                east = 126.915345
+            )
+        val serverLoaded =
+            SearchMapUiState.active().copy(
+                viewportBounds =
+                SearchMapViewportBounds(
+                    south = 35.0,
+                    west = 126.7,
+                    north = 35.3,
+                    east = 127.0
+                )
+            )
+
+        val restoredState = serverLoaded.restoreViewport(restored)
+
+        assertEquals(restored, restoredState.viewportBounds)
     }
 }

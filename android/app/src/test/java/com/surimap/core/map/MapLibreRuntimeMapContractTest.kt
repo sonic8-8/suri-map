@@ -172,6 +172,69 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("CameraUpdateFactory.newLatLngBounds"))
     }
 
+    @Test
+    fun runtimeMapReportsCameraIdleViewportBounds() {
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+
+        assertTrue(source.contains("onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit"))
+        assertTrue(source.contains("addOnCameraIdleListener"))
+        assertTrue(source.contains("removeOnCameraIdleListener"))
+        assertTrue(source.contains("visibleRegion.latLngBounds"))
+        assertTrue(source.contains("toMapLibreViewportBoundsOrNull()"))
+    }
+
+    @Test
+    fun runtimeMapCanReuseMapViewAcrossIncidentTabNavigation() {
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+        val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val searchMapSource = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+
+        assertTrue(source.contains("class MapLibreMapViewHandle"))
+        assertTrue(source.contains("fun rememberMapLibreMapViewHandle"))
+        assertTrue(source.contains("var appliedStyleUrl: String? = null"))
+        assertTrue(source.contains("var appliedOverlaySignature: String? = null"))
+        assertTrue(source.contains("var appliedOverlayStyleIds: Set<String> = emptySet()"))
+        assertTrue(source.contains("var appliedCameraSignature: String? = null"))
+        assertTrue(source.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
+        assertTrue(source.contains("val activeMapViewHandle = mapViewHandle ?: ownedMapViewHandle"))
+        assertTrue(source.contains("activeMapViewHandle.mapView(context)"))
+        assertTrue(source.contains("lifecycleBridge.onStop()"))
+        assertTrue(source.contains("activeMapViewHandle.appliedStyleUrl != styleUrl"))
+        assertTrue(source.contains("activeMapViewHandle.appliedStyleUrl = styleUrl"))
+        assertTrue(source.contains("activeMapViewHandle.appliedOverlaySignature = overlaySignature"))
+        assertTrue(source.contains("activeMapViewHandle.appliedCameraSignature = cameraSignature"))
+        assertTrue(source.contains("MapLibreMapOptions()"))
+        assertTrue(source.contains(".textureMode(true)"))
+        assertTrue(source.contains(".foregroundLoadColor(MAP_FOREGROUND_LOAD_COLOR)"))
+        assertTrue(source.contains(".setPrefetchesTiles(true)"))
+        assertTrue(source.contains("MapView(context, options)"))
+        assertTrue(source.contains("offlineTileCache = OfflineTileCache.fromContext(context)"))
+
+        val disposableStart = source.indexOf("DisposableEffect(lifecycle, mapView)")
+        val disposableEnd = source.indexOf("AndroidView(", disposableStart)
+        val disposableSource = source.substring(disposableStart, disposableEnd)
+        val onDisposeSource = disposableSource.substring(disposableSource.indexOf("onDispose {"))
+        assertFalse(onDisposeSource.contains("lifecycleBridge.onDestroy()"))
+
+        val composableStart = source.indexOf("fun SuriMapLibreMap(")
+        val composableEnd = source.indexOf("    AndroidView(", composableStart)
+        val composableStateSource = source.substring(composableStart, composableEnd)
+        assertFalse(composableStateSource.contains("var appliedStyleUrl by remember"))
+        assertFalse(composableStateSource.contains("var appliedOverlaySignature by remember"))
+        assertFalse(composableStateSource.contains("var appliedCameraSignature by remember"))
+
+        assertTrue(appSource.contains("rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)"))
+        assertTrue(appSource.contains("mapViewHandle = searchMapViewHandle"))
+        assertTrue(appSource.contains("var searchMapStateByIncident by remember"))
+        assertTrue(appSource.contains("cachedSearchMapState ="))
+        assertTrue(appSource.contains("onSearchMapStateChanged = { incidentId, state ->"))
+        assertTrue(appSource.contains("cachedSearchMapState: SearchMapUiState? = null"))
+        assertTrue(appSource.contains("preserveMapContentFrom(searchMapState)"))
+        assertFalse(appSource.contains("searchMapState =\n            loader.fallback(sessionContext)"))
+        assertTrue(searchMapSource.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
+        assertTrue(searchMapSource.contains("mapViewHandle = mapViewHandle"))
+    }
+
     private companion object {
         val POLICE_PHONE_ID = policePhoneIdFixture("1")
         val OVERALL_AREA_ID = areaIdFixture("overall-001")

@@ -6,6 +6,7 @@ import com.surimap.core.marker.MarkerReadQuery
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.path.SearchPathQuery
 import com.surimap.feature.search.data.SearchMapSessionContext
+import com.surimap.feature.search.data.SearchMapResponseCache
 import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchLayerKind
@@ -651,6 +652,153 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun cachedMapResponsesRenderImmediatelyWithoutNetworkFetch() = runBlocking {
+        val areaGeometry =
+            """{"type":"Polygon","coordinates":[[[126.91,37.51],[126.93,37.51],[126.93,37.53],[126.91,37.53],[126.91,37.51]]]}"""
+        val pathGeometry =
+            """{"type":"LineString","coordinates":[[126.912,37.512],[126.918,37.518]]}"""
+        val cache =
+            InMemorySearchMapResponseCache(
+                mapOf(
+                    "overall_search_area" to
+                        """{"id":"$OVERALL_AREA_ID","incidentId":"$INCIDENT_ID","areaLevel":"OVERALL","status":"ACTIVE","geometry":$areaGeometry}""",
+                    "op_search_areas" to
+                        """{"areas":[{"id":"$TEAM_AREA_ID","opId":"$OP_ID","areaLevel":"TEAM","name":"A팀 담당 구역","status":"ACTIVE","geometry":$areaGeometry}]}""",
+                    "search_paths" to
+                        """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
+                    "live_markers" to
+                        """{"markers":[{"id":"$MARKER_ID","type":"CLUE","status":"ACTIVE","location":{"type":"Point","coordinates":[126.919,37.519]}}]}"""
+                )
+            )
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { error("cached render must not fetch incident detail") },
+                overallSearchArea = { error("cached render must not fetch overall area") },
+                opSearchAreas = { _, _ -> error("cached render must not fetch op areas") },
+                searchPaths = { error("cached render must not fetch search paths") },
+                liveMarkers = { error("cached render must not fetch live markers") },
+                responseCache = cache
+            )
+
+        val state =
+            loader.cached(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
+                )
+            )
+
+        requireNotNull(state)
+        assertTrue(state.layers.any { layer -> layer.kind == SearchLayerKind.Overall })
+        assertTrue(state.layers.any { layer -> layer.kind == SearchLayerKind.Team && layer.label == "A팀 담당 구역" })
+        assertTrue(state.layers.any { layer -> layer.kind == SearchLayerKind.Path && layer.overlayId == PATH_ID })
+        assertTrue(state.layers.any { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == MARKER_ID })
+        assertEquals(PATH_ID, state.activeSearchPathId)
+        assertEquals("경로 1개 표시", state.movementSummary)
+    }
+
+    @Test
+    fun remoteMapLoadStoresResponsesForNextCachedRender() = runBlocking {
+        val cache = InMemorySearchMapResponseCache()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body = """{"id":"$OVERALL_AREA_ID","geometry":{"type":"Polygon","coordinates":[[[126.91,37.51],[126.92,37.51],[126.92,37.52],[126.91,37.52],[126.91,37.51]]]}}""",
+                        errorCode = null
+                    )
+                },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                responseCache = cache
+            )
+
+        loader.load(
+            SearchMapSessionContext(
+                incidentId = INCIDENT_ID,
+                currentOpId = OP_ID,
+                currentDutyShiftId = DUTY_SHIFT_ID,
+                policePhoneId = POLICE_PHONE_ID
+            )
+        )
+
+        assertTrue(cache.responses.containsKey("overall_search_area"))
+    }
+
+    @Test
+    fun unchangedMapRevisionsReuseCachedResponsesWithoutHeavyFetches() = runBlocking {
+        val areaGeometry =
+            """{"type":"Polygon","coordinates":[[[126.91,37.51],[126.92,37.51],[126.92,37.52],[126.91,37.52],[126.91,37.51]]]}"""
+        val pathGeometry = """{"type":"LineString","coordinates":[[126.912,37.512],[126.918,37.518]]}"""
+        val revisions =
+            mapOf(
+                "incident_detail" to "incident-rev",
+                "overall_search_area" to "overall-rev",
+                "op_search_areas" to "areas-rev",
+                "search_paths" to "paths-rev",
+                "live_markers" to "markers-rev"
+            )
+        val cache =
+            InMemorySearchMapResponseCache(
+                initialResponses =
+                    mapOf(
+                        "incident_detail" to """{"id":"$INCIDENT_ID","title":"캐시 사건","missingPerson":{"displayName":"홍길동"}}""",
+                        "overall_search_area" to """{"id":"$OVERALL_AREA_ID","geometry":$areaGeometry}""",
+                        "op_search_areas" to """{"areas":[{"id":"$TEAM_AREA_ID","areaLevel":"TEAM","name":"A팀","geometry":$areaGeometry}]}""",
+                        "search_paths" to """{"paths":[{"id":"$PATH_ID","status":"RECORDING","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
+                        "live_markers" to """{"markers":[{"id":"$MARKER_ID","type":"CLUE","status":"ACTIVE","location":{"type":"Point","coordinates":[126.919,37.519]}}]}"""
+                    ),
+                initialRevisions = revisions
+            )
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { error("unchanged incident detail must not be fetched") },
+                overallSearchArea = { error("unchanged overall area must not be fetched") },
+                opSearchAreas = { _, _ -> error("unchanged op areas must not be fetched") },
+                searchPaths = { error("unchanged search paths must not be fetched") },
+                liveMarkers = { error("unchanged live markers must not be fetched") },
+                mapRevisions = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                            """
+                            {
+                              "sources": [
+                                {"source":"incident_detail","revision":"incident-rev"},
+                                {"source":"overall_search_area","revision":"overall-rev"},
+                                {"source":"op_search_areas","revision":"areas-rev"},
+                                {"source":"search_paths","revision":"paths-rev"},
+                                {"source":"live_markers","revision":"markers-rev"}
+                              ]
+                            }
+                            """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                responseCache = cache
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
+                )
+            )
+
+        assertEquals("캐시 사건", state.incidentTitle)
+        assertTrue(state.layers.any { layer -> layer.overlayId == PATH_ID })
+        assertTrue(state.layers.any { layer -> layer.overlayId == MARKER_ID })
+    }
+
+    @Test
     fun missingPolicePhoneDoesNotReadSearchPaths() = runBlocking {
         var searchPathsCalled = false
         val loader =
@@ -1052,7 +1200,7 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canWritePath)
         assertFalse(state.canCreateMarker)
-        assertTrue(state.visibleText().any { it.contains("수색 차수 새로고침") })
+        assertTrue(state.visibleText().any { it.contains("수색 차수 확인") })
         assertTrue(state.visibleText().any { it.contains("경로·마커 기록 차단") })
     }
 
@@ -1096,7 +1244,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("MarkerRepository"))
         assertTrue(source.contains("listMarkers"))
         assertTrue(source.contains("onOpenFocusedMarkerDetail"))
-        assertTrue(source.contains("MarkerDetailDeepLink.route(markerId)"))
+        assertTrue(source.contains("markerDetailModalId = markerId"))
+        assertTrue(source.contains("MarkerDetailModal("))
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))
@@ -1150,9 +1299,14 @@ class SearchMapStateLoaderTest {
         assertTrue(refreshEffectIndex > routeIndex)
         assertTrue(nextEffectIndex > refreshEffectIndex)
 
+        val routeBody = source.substring(routeIndex, nextEffectIndex)
         val refreshEffect = source.substring(refreshEffectIndex, nextEffectIndex)
+        assertTrue(routeBody.contains("suspend fun loadServerStatePreservingMapContent()"))
+        assertTrue(routeBody.contains("loader.cached(sessionContext)"))
+        assertTrue(routeBody.contains(".preserveMapContentFrom(searchMapState)"))
+        assertTrue(routeBody.contains(".restoreViewport(initialRestoredViewportBounds)"))
         assertTrue(refreshEffect.contains("suspend fun refreshServerState()"))
-        assertTrue(refreshEffect.contains("loader.load(sessionContext).withFocusedMarker(focusMarkerId)"))
+        assertTrue(refreshEffect.contains("loadServerStatePreservingMapContent()"))
         assertTrue(refreshEffect.contains("outboxDao.observeStatusSummary"))
         assertTrue(refreshEffect.contains("while (true)"))
         assertTrue(refreshEffect.contains("delay(SEARCH_MAP_SERVER_REFRESH_MS)"))
@@ -1181,6 +1335,34 @@ class SearchMapStateLoaderTest {
         assertEquals(west, actual.west, 0.000001)
         assertEquals(north, actual.north, 0.000001)
         assertEquals(east, actual.east, 0.000001)
+    }
+
+    private class InMemorySearchMapResponseCache(
+        initialResponses: Map<String, String> = emptyMap(),
+        initialRevisions: Map<String, String> = emptyMap()
+    ) : SearchMapResponseCache {
+        val responses = initialResponses.toMutableMap()
+        private val sourceRevisions = initialRevisions.toMutableMap()
+
+        override suspend fun read(
+            context: SearchMapSessionContext,
+            source: String
+        ): String? = responses[source]
+
+        override suspend fun revisions(context: SearchMapSessionContext): Map<String, String> =
+            sourceRevisions.toMap()
+
+        override suspend fun upsertIfChanged(
+            context: SearchMapSessionContext,
+            source: String,
+            body: String,
+            sourceRevision: String?
+        ) {
+            responses[source] = body
+            sourceRevision?.takeIf(String::isNotBlank)?.let { revision ->
+                sourceRevisions[source] = revision
+            }
+        }
     }
 
     private companion object {

@@ -17,12 +17,13 @@ class BlockedOutboxUiStateTest {
         assertEquals(4, state.blockedCount)
         assertTrue(state.canEnterDiagnostic)
         assertTrue(state.visibleText().any { it.contains("처리 불가 4건") })
-        assertTrue(state.visibleText().any { it.contains("IT 부서 문의") })
-        assertTrue(state.visibleText().any { it.contains("incident_closed") })
-        assertTrue(state.visibleText().any { it.contains("police_phone_not_assigned") })
-        assertTrue(state.visibleText().any { it.contains("retry_exhausted") })
+        assertTrue(state.visibleText().any { it.contains("문의 안내") })
+        assertTrue(state.visibleText().any { it.contains("종료된 사건 전송 차단") })
+        assertTrue(state.visibleText().any { it.contains("단말 배정 확인 필요") })
+        assertTrue(state.visibleText().any { it.contains("자동 재시도 한도 초과") })
         assertTrue(state.visibleText().any { it.contains("지금 재시도") })
-        assertTrue(state.visibleText().any { it.contains("payload_validation_failure") })
+        assertTrue(state.visibleText().any { it.contains("저장 데이터 검증 실패") })
+        assertFalse(state.visibleText().any { it.contains("batch") || it.contains("finalize") || it.contains("패키지") })
     }
 
     @Test
@@ -31,7 +32,7 @@ class BlockedOutboxUiStateTest {
 
         assertEquals(0, normal.blockedCount)
         assertFalse(normal.canEnterDiagnostic)
-        assertFalse(normal.visibleText().any { it.contains("IT 부서 문의") })
+        assertFalse(normal.visibleText().any { it.contains("문의 안내") })
         assertFalse(normal.visibleText().any { it.contains("처리 불가") })
         assertTrue(normal.visibleText().any { it.contains("자동 처리 대기 12건") })
         assertTrue(normal.visibleText().any { it.contains("사용자 조치 불요") })
@@ -53,7 +54,15 @@ class BlockedOutboxUiStateTest {
             ),
             labels
         )
-        assertFalse(BlockedOutboxUiState.blockedFixture().visibleText().any { it.contains("Exception") || it.contains("http_") })
+        val visibleText = BlockedOutboxUiState.blockedFixture().visibleText()
+
+        assertFalse(
+            visibleText.any { text ->
+                text.contains("Exception") ||
+                    text.contains("http_") ||
+                    labels.any(text::contains)
+            }
+        )
     }
 
     @Test

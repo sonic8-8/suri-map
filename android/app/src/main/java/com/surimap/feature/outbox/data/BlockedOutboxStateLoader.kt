@@ -34,8 +34,8 @@ class BlockedOutboxStateLoader(
                 }
         val summary = statusSummary(incidentId, policePhoneId)
         return BlockedOutboxUiState(
-            title = "미전송 진단",
-            subtitle = "$policePhoneId · $incidentId",
+            title = "미전송 기록",
+            subtitle = "현재 사건 · 단말 기록",
             blockedItems = rows.mapNotNull(::blockedItem).sortedBy { it.timestampLabel },
             pendingSummary = summary?.pendingSummary()
         )
@@ -43,7 +43,7 @@ class BlockedOutboxStateLoader(
 
     private fun fallback(incidentId: String?, policePhoneId: String?): BlockedOutboxUiState =
         BlockedOutboxUiState(
-            title = "미전송 진단",
+            title = "미전송 기록",
             subtitle = listOfNotNull(policePhoneId, incidentId).joinToString(" · ").ifBlank { "사건 선택 필요" },
             blockedItems = emptyList(),
             pendingSummary = null
@@ -76,7 +76,7 @@ class BlockedOutboxStateLoader(
                 ?: "확인 중"
         return PendingOutboxSummaryUiState(
             count = count,
-            detailLabel = "대기 $pendingCount · 재시도 $retryableCount",
+            detailLabel = "자동 대기 $pendingCount · 재전송 $retryableCount",
             oldestAgeLabel = oldestAgeLabel
         )
     }
@@ -88,7 +88,7 @@ class BlockedOutboxStateLoader(
             "PHOTO" -> "사진 첨부"
             "HANDOVER_MEMO" -> "인수인계 메모"
             "DUTY_SHIFT" -> "근무 교대"
-            "PACKAGE_INSTALLATION" -> "패키지 상태 보고"
+            "PACKAGE_INSTALLATION" -> "지도 데이터 상태"
             else -> requestPath
         }
 

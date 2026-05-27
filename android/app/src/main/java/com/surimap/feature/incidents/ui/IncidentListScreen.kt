@@ -540,7 +540,7 @@ private fun OfflinePackageIconButton(
             modifier
                 .height(58.dp)
                 .semantics {
-                    contentDescription = "오프라인 패키지 ${status.label}"
+                    contentDescription = "지도 데이터 ${status.label}"
                     role = Role.Button
                 }
     ) {

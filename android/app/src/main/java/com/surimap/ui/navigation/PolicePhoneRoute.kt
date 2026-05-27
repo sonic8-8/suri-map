@@ -12,6 +12,7 @@ import org.json.JSONObject
 enum class PolicePhoneRoute(val route: String) {
     AuthBootstrap("auth_bootstrap"),
     IncidentList("incident_list"),
+    IncidentHome("incident_home"),
     OfflinePackage("offline_package"),
     SearchMap("search_map"),
     HandoverSummary("handover_summary"),
@@ -25,6 +26,7 @@ object PolicePhoneRoutes {
         listOf(
             PolicePhoneRoute.AuthBootstrap,
             PolicePhoneRoute.IncidentList,
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.OfflinePackage,
             PolicePhoneRoute.SearchMap,
             PolicePhoneRoute.HandoverSummary,
@@ -53,9 +55,9 @@ object PolicePhoneBottomNavigation {
     val items: List<PolicePhoneBottomNavItem> =
         listOf(
             PolicePhoneBottomNavItem(
-                route = PolicePhoneRoute.OfflinePackage,
+                route = PolicePhoneRoute.IncidentHome,
                 label = "사건",
-                contentDescription = "사건 및 오프라인 패키지"
+                contentDescription = "현재 사건 정보"
             ),
             PolicePhoneBottomNavItem(
                 route = PolicePhoneRoute.SearchMap,
@@ -76,13 +78,14 @@ object PolicePhoneBottomNavigation {
 
     private val itemRoutes: Set<PolicePhoneRoute> = items.mapTo(mutableSetOf()) { it.route }
     private val incidentContextRoutes: Set<PolicePhoneRoute> =
-        itemRoutes + PolicePhoneRoute.HandoverMemo + PolicePhoneRoute.MarkerDetail
+        itemRoutes + PolicePhoneRoute.OfflinePackage + PolicePhoneRoute.HandoverMemo + PolicePhoneRoute.MarkerDetail
 
     fun shouldShow(currentRoute: PolicePhoneRoute?, hasIncidentContext: Boolean): Boolean =
         hasIncidentContext && currentRoute != null && currentRoute in incidentContextRoutes
 
     fun selectedRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
         when (currentRoute) {
+            PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentHome
             PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
             PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
             else -> currentRoute?.takeIf(itemRoutes::contains)
@@ -92,12 +95,13 @@ object PolicePhoneBottomNavigation {
 object PolicePhoneBackNavigation {
     fun parentRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
         when (currentRoute) {
-            PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentList
-            PolicePhoneRoute.SearchMap,
-            PolicePhoneRoute.HandoverSummary,
-            PolicePhoneRoute.BlockedOutbox -> PolicePhoneRoute.IncidentList
+            PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentHome
             PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
             PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
+            PolicePhoneRoute.IncidentHome,
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneRoute.HandoverSummary,
+            PolicePhoneRoute.BlockedOutbox,
             PolicePhoneRoute.AuthBootstrap,
             PolicePhoneRoute.IncidentList,
             null -> null
