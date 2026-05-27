@@ -106,6 +106,7 @@ import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliOverlayDim
 import com.surimap.ui.theme.PoliPrimary
 import com.surimap.ui.theme.PoliPrimaryBorder
+import com.surimap.ui.theme.PoliPrimaryFillSoft
 import com.surimap.ui.theme.PoliPrimaryHi
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
@@ -1432,7 +1433,7 @@ private fun SearchPanelActionGrid(
                     text = "수색 종료",
                     onClick = onStopSearch,
                     modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.Danger,
+                    variant = PoliButtonVariant.SubtleDanger,
                     size = PoliButtonSize.Large
                 )
             } else {
@@ -1460,11 +1461,24 @@ private fun SearchMarkerCreateSquareButton(
                 onClick = onClick
             ),
         shape = MaterialTheme.shapes.medium,
-        color = if (enabled) PoliPrimary else PoliBgInput,
+        color = Color.Transparent,
         contentColor = if (enabled) Color.White else PoliFgMuted,
-        border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder)
+        border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder),
+        shadowElevation = if (enabled) 3.dp else 0.dp
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (enabled) {
+                            Brush.verticalGradient(colors = listOf(PoliPrimaryHi, PoliPrimary))
+                        } else {
+                            Brush.verticalGradient(colors = listOf(PoliBgInput, PoliBgInput))
+                        }
+                    ),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
                 text = "마커 생성",
                 style =
@@ -1487,9 +1501,9 @@ private fun SearchFilterIconButton(onClick: () -> Unit, modifier: Modifier = Mod
             .clickable(role = Role.Button, onClickLabel = "필터", onClick = onClick)
             .semantics { contentDescription = "필터" },
         shape = MaterialTheme.shapes.medium,
-        color = PoliBgSurface,
-        contentColor = PoliFgSecondary,
-        border = BorderStroke(1.dp, PoliBorderStrong)
+        color = PoliPrimaryFillSoft,
+        contentColor = Color(0xFFEAF4FF),
+        border = BorderStroke(1.dp, PoliPrimaryBorder)
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Canvas(modifier = Modifier.size(30.dp)) {
@@ -1503,14 +1517,14 @@ private fun SearchFilterIconButton(onClick: () -> Unit, modifier: Modifier = Mod
                 )
                 rows.forEach { (y, knobX) ->
                     drawLine(
-                        color = PoliFgSecondary,
+                        color = Color(0xFFEAF4FF),
                         start = Offset(xStart, y),
                         end = Offset(xEnd, y),
                         strokeWidth = strokeWidth,
                         cap = StrokeCap.Round
                     )
                     drawCircle(
-                        color = PoliBgSurface,
+                        color = Color(0xFFEAF4FF),
                         radius = strokeWidth * 1.55f,
                         center = Offset(knobX, y),
                         style = Stroke(width = strokeWidth)
