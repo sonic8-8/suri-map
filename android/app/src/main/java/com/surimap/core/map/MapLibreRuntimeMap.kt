@@ -457,6 +457,7 @@ fun SuriMapLibreMap(
                 }
             }
             mapView.removeOnDidFailLoadingMapListener(failListener)
+            lifecycleBridge.onStop()
         }
     }
 
