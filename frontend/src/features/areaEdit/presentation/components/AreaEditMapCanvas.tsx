@@ -333,7 +333,7 @@ function buildMarkerFeatureCollection(markers: AreaEditMapMarker[]): AreaFeature
 }
 
 function buildDraftFeatureCollection(draftPoints: AreaEditPosition[], colorToken: AreaColorToken | null): AreaFeatureCollection {
-  const visualStyle = areaColorTokens[colorToken ?? 'areaColor001'];
+  const visualStyle = areaColorTokens[colorToken ?? 'AREA_BLUE_01'];
   const features: AreaFeature[] = draftPoints.map((position, index) => ({
     type: 'Feature',
     properties: {

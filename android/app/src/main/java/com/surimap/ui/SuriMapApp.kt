@@ -158,6 +158,7 @@ import com.surimap.feature.handover.data.HandoverSessionContext
 import com.surimap.feature.handover.data.HandoverWriteContext
 import com.surimap.feature.handover.data.HandoverWriteResult
 import com.surimap.feature.handover.ui.DutyHandoverScreen
+import com.surimap.feature.handover.ui.DutyHandoverScreenMode
 import com.surimap.feature.handover.ui.DutyHandoverTab
 import com.surimap.feature.handover.ui.HandoverReplayControlUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -553,7 +554,16 @@ fun SuriMapApp() {
                         HandoverSummaryRoute(
                             incidentSessionState = incidentSessionState,
                             navController = navController,
-                            clockSyncState = clockSyncState
+                            clockSyncState = clockSyncState,
+                            mode = DutyHandoverScreenMode.HandoverFinalize
+                        )
+                    }
+                    composable(PolicePhoneRoute.WorkStatus.route) {
+                        HandoverSummaryRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState,
+                            mode = DutyHandoverScreenMode.WorkStatus
                         )
                     }
                     composable(PolicePhoneRoute.HandoverMemo.route) {
@@ -638,6 +648,7 @@ private fun PolicePhoneBackPolicyHandler(
         val parentRoute = PolicePhoneBackNavigation.parentRouteFor(currentRoute)
         when {
             currentRoute == PolicePhoneRoute.IncidentHome ||
+                currentRoute == PolicePhoneRoute.WorkStatus ||
                 currentRoute == PolicePhoneRoute.HandoverSummary ||
                 currentRoute == PolicePhoneRoute.BlockedOutbox -> onIncidentSupportTabBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
@@ -1192,7 +1203,8 @@ private fun BlockedOutboxRoute(
 private fun HandoverSummaryRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
-    clockSyncState: ClockSyncState
+    clockSyncState: ClockSyncState,
+    mode: DutyHandoverScreenMode = DutyHandoverScreenMode.HandoverFinalize
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -1304,16 +1316,24 @@ private fun HandoverSummaryRoute(
     }
 
     DutyHandoverScreen(
+        mode = mode,
         state =
         handoverState.copy(
             selectedTab = selectedHandoverTab,
             selectedOriginalRecordKey = selectedOriginalRecordKey,
             replayControl = currentReplayControl,
-            canEndDutyShift = !sessionContext.dutyShiftId.isNullOrBlank(),
+            canEndDutyShift =
+                mode == DutyHandoverScreenMode.HandoverFinalize &&
+                    !sessionContext.dutyShiftId.isNullOrBlank(),
             endingDutyShift = endingDutyShift
         ),
         mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-        onBack = { navController.navigateToIncidentHomeRoot() },
+        onBack = {
+            when (mode) {
+                DutyHandoverScreenMode.WorkStatus -> navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap)
+                DutyHandoverScreenMode.HandoverFinalize -> navController.navigateToIncidentHomeRoot()
+            }
+        },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
@@ -2237,6 +2257,8 @@ private fun SearchMapRoute(
                 pendingCreateCameraPhotoUri = null
                 markerSheetOpen = true
             },
+            onOpenIncidentInfo = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.IncidentHome) },
+            onOpenWorkStatus = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.WorkStatus) },
             onOpenHandover = { openHandoverFromSearchMap() },
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onDismissIncidentAlert = {
@@ -2928,6 +2950,20 @@ private fun AuthBootstrapRoute(
                 Log.w(AUTH_BOOTSTRAP_LOG_TAG, "login activity returned without a usable response")
             }
         }
+    val switchAccountLogin = {
+        oidcLoginLauncher.launch(
+            oidcLoginClient.createAuthorizationIntent(
+                apiBaseUrl = managedConfigurationReader.read().apiBaseUrl,
+                toolbarColor = PoliPrimary.toArgb(),
+                navigationBarColor = PoliBgBase.toArgb(),
+                forceLogin = true
+            )
+        )
+    }
+    val oidcEndSessionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            switchAccountLogin()
+        }
     DisposableEffect(oidcLoginClient) {
         onDispose { oidcLoginClient.dispose() }
     }
@@ -2988,6 +3024,20 @@ private fun AuthBootstrapRoute(
             } else {
                 retryNonce += 1
             }
+        },
+        onSwitchAccount = {
+            val previousIdToken = oidcSession?.idToken
+            oidcSession = null
+            incidentSessionState.clearPolicePhoneContext()
+            onOidcSessionChanged(null)
+            oidcEndSessionLauncher.launch(
+                oidcLoginClient.createEndSessionIntent(
+                    apiBaseUrl = bootstrapCoordinator.readConfig().apiBaseUrl,
+                    idTokenHint = previousIdToken,
+                    toolbarColor = PoliPrimary.toArgb(),
+                    navigationBarColor = PoliBgBase.toArgb()
+                )
+            )
         },
         onRefresh = { retryNonce += 1 },
         refreshing = refreshing,
@@ -3998,6 +4048,7 @@ private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneR
     when (route) {
         PolicePhoneRoute.IncidentHome -> navigateToIncidentHomeRoot()
         PolicePhoneRoute.SearchMap,
+        PolicePhoneRoute.WorkStatus,
         PolicePhoneRoute.HandoverSummary,
         PolicePhoneRoute.BlockedOutbox -> navigateToIncidentTopLevel(route)
         PolicePhoneRoute.OfflinePackage,

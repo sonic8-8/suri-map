@@ -55,6 +55,7 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
 import org.maplibre.android.style.layers.PropertyFactory.iconOptional
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
@@ -133,10 +134,11 @@ data class MapLibreGeometryVisualStyle(
     val fillOpacity: Float? = null,
     val lineColor: String? = null,
     val lineWidth: Float? = null,
-    val lineOpacity: Float? = null
+    val lineOpacity: Float? = null,
+    val opacityScale: Float? = null
 ) {
     fun signature(): String =
-        "${fillColor.orEmpty()}:${fillOpacity ?: ""}:${lineColor.orEmpty()}:${lineWidth ?: ""}:${lineOpacity ?: ""}"
+        "${fillColor.orEmpty()}:${fillOpacity ?: ""}:${lineColor.orEmpty()}:${lineWidth ?: ""}:${lineOpacity ?: ""}:${opacityScale ?: ""}"
 }
 
 internal data class MapLibreOverlayPaint(
@@ -286,7 +288,8 @@ internal fun mapLibreOverlayPaint(
                 textOffset = listOf(0.0f, 1.2f)
             )
     }
-    return visualStyle?.let { style ->
+    val styledPaint =
+        visualStyle?.let { style ->
         basePaint.copy(
             fillColor = style.fillColor ?: basePaint.fillColor,
             fillOpacity = style.fillOpacity ?: basePaint.fillOpacity,
@@ -297,6 +300,12 @@ internal fun mapLibreOverlayPaint(
             textColor = style.lineColor ?: basePaint.textColor
         )
     } ?: basePaint
+    val opacityScale = visualStyle?.opacityScale?.coerceIn(0f, 1f) ?: 1f
+    return styledPaint.copy(
+        fillOpacity = styledPaint.fillOpacity * opacityScale,
+        lineOpacity = styledPaint.lineOpacity * opacityScale,
+        circleOpacity = styledPaint.circleOpacity * opacityScale
+    )
 }
 
 data class MapLibreRuntimeMapState(
@@ -448,6 +457,7 @@ fun SuriMapLibreMap(
                 }
             }
             mapView.removeOnDidFailLoadingMapListener(failListener)
+            lifecycleBridge.onStop()
         }
     }
 
@@ -461,6 +471,12 @@ fun SuriMapLibreMap(
             view.getMapAsync { mapLibreMap ->
                 mapLibreMap.uiSettings.setAttributionEnabled(true)
                 mapLibreMap.uiSettings.setLogoEnabled(true)
+                mapLibreMap.uiSettings.setCompassMargins(
+                    0,
+                    mapLibreCompassTopMarginPx(context),
+                    mapLibreCompassEndMarginPx(context),
+                    0
+                )
                 if (markerClickListener == null) {
                     val listener =
                         MapLibreMap.OnMapClickListener { latLng ->
@@ -634,7 +650,7 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         removeLayer(overlay.circleLayerId)
     }
     if (overlay.supportsMarkerIconLayer) {
-        upsertMarkerIconLayer(overlay)
+        upsertMarkerIconLayer(overlay, paint)
     } else {
         removeLayer(overlay.markerIconLayerId)
     }
@@ -715,7 +731,7 @@ private fun Style.upsertCircleLayer(overlay: MapLibreGeometryOverlay, paint: Map
     )
 }
 
-private fun Style.upsertMarkerIconLayer(overlay: MapLibreGeometryOverlay) {
+private fun Style.upsertMarkerIconLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
     upsertMarkerImage(overlay)
     val layer = getLayer(overlay.markerIconLayerId)
     if (layer == null) {
@@ -724,6 +740,7 @@ private fun Style.upsertMarkerIconLayer(overlay: MapLibreGeometryOverlay) {
                 symbolPlacement(SYMBOL_PLACEMENT_POINT),
                 iconImage(Expression.get("markerIcon")),
                 iconSize(MARKER_ICON_SIZE),
+                iconOpacity(paint.circleOpacity),
                 iconAnchor("bottom"),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true),
@@ -736,6 +753,7 @@ private fun Style.upsertMarkerIconLayer(overlay: MapLibreGeometryOverlay) {
         symbolPlacement(SYMBOL_PLACEMENT_POINT),
         iconImage(Expression.get("markerIcon")),
         iconSize(MARKER_ICON_SIZE),
+        iconOpacity(paint.circleOpacity),
         iconAnchor("bottom"),
         iconAllowOverlap(true),
         iconIgnorePlacement(true),
@@ -1371,3 +1389,11 @@ internal class MapViewLifecycleBridge(
 private val UNSAFE_STYLE_ID_CHARS = Regex("[^A-Za-z0-9_-]")
 private const val MAP_FOREGROUND_LOAD_COLOR = -15194566
 private const val INITIAL_BOUNDS_PADDING_PX = 64
+private const val COMPASS_TOP_MARGIN_DP = 64
+private const val COMPASS_END_MARGIN_DP = 12
+
+private fun mapLibreCompassTopMarginPx(context: Context): Int =
+    (COMPASS_TOP_MARGIN_DP * context.resources.displayMetrics.density).toInt()
+
+private fun mapLibreCompassEndMarginPx(context: Context): Int =
+    (COMPASS_END_MARGIN_DP * context.resources.displayMetrics.density).toInt()
