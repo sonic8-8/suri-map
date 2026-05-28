@@ -531,6 +531,7 @@ fun SearchMapScreen(
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit = {},
+    onMapPointClick: (lon: Double, lat: Double) -> Boolean = { _, _ -> false },
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
@@ -581,6 +582,7 @@ fun SearchMapScreen(
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
             onViewportBoundsChanged = onViewportBoundsChanged,
+            onMapPointClick = onMapPointClick,
             modifier = mapModifier
         )
 
@@ -760,6 +762,7 @@ private fun SearchMapShell(
     onOpenBlockedOutbox: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
+    onMapPointClick: (lon: Double, lat: Double) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState, overlayTransparencyLevel.opacityScale)
@@ -777,6 +780,7 @@ private fun SearchMapShell(
                 modifier = Modifier.fillMaxSize(),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail,
+                onMapPointClick = onMapPointClick,
                 onViewportBoundsChanged = { bounds ->
                     onViewportBoundsChanged(bounds.toSearchMapViewportBounds())
                 }

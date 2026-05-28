@@ -470,12 +470,14 @@ fun SuriMapLibreMap(
     mapViewHandle: MapLibreMapViewHandle? = null,
     onLoadFailed: (String) -> Unit = {},
     onMarkerClick: (String) -> Unit = {},
+    onMapPointClick: (lon: Double, lat: Double) -> Boolean = { _, _ -> false },
     onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestLoadFailed by rememberUpdatedState(onLoadFailed)
     val latestMarkerClick by rememberUpdatedState(onMarkerClick)
+    val latestMapPointClick by rememberUpdatedState(onMapPointClick)
     val latestViewportBoundsChanged by rememberUpdatedState(onViewportBoundsChanged)
     val latestMapState by rememberUpdatedState(state)
     var markerClickListener by remember { mutableStateOf<MapLibreMap.OnMapClickListener?>(null) }
@@ -547,7 +549,7 @@ fun SuriMapLibreMap(
                                 latestMarkerClick(markerId)
                                 true
                             } else {
-                                false
+                                latestMapPointClick(latLng.longitude, latLng.latitude)
                             }
                         }
                     mapLibreMap.addOnMapClickListener(listener)
