@@ -154,6 +154,35 @@ class MapLibreRuntimeMapContractTest {
     }
 
     @Test
+    fun overlayPaintScalesOpacityWithoutRemovingOverlays() {
+        val lowOpacityStyle = MapLibreGeometryVisualStyle(opacityScale = 0.3f)
+
+        val areaPaint =
+            mapLibreOverlayPaint(
+                kind = MapLibreGeometryOverlayKind.Overall,
+                highlighted = false,
+                visualStyle = lowOpacityStyle
+            )
+        val pathPaint =
+            mapLibreOverlayPaint(
+                kind = MapLibreGeometryOverlayKind.Path,
+                highlighted = false,
+                visualStyle = lowOpacityStyle
+            )
+        val markerPaint =
+            mapLibreOverlayPaint(
+                kind = MapLibreGeometryOverlayKind.Marker,
+                highlighted = false,
+                visualStyle = lowOpacityStyle
+            )
+
+        assertEquals(0.036f, areaPaint.fillOpacity, 0.0001f)
+        assertEquals(0.282f, pathPaint.lineOpacity, 0.0001f)
+        assertEquals(0.288f, markerPaint.circleOpacity, 0.0001f)
+        assertTrue(markerPaint.circleRadius > 0f)
+    }
+
+    @Test
     fun searchMapScreenUsesRuntimeMapInsteadOfMockCanvas() {
         val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
 

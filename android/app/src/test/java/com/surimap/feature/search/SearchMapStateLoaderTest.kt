@@ -343,14 +343,17 @@ class SearchMapStateLoaderTest {
 
         assertEquals(3, state.layers.size)
         assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
+        assertEquals("#f97316", state.layers[0].visualStyle?.lineColor)
         assertEquals(SearchLayerKind.Unit, state.layers[1].kind)
         assertEquals("기동대 1부대", state.layers[1].label)
         assertEquals(UNIT_AREA_ID, state.layers[1].overlayId)
         assertTrue(state.layers[1].geoJson!!.contains("\"Polygon\""))
+        assertEquals("#22c55e", state.layers[1].visualStyle?.lineColor)
         assertEquals(SearchLayerKind.Team, state.layers[2].kind)
         assertEquals("A팀 담당 구역", state.layers[2].label)
         assertEquals(TEAM_AREA_ID, state.layers[2].overlayId)
         assertTrue(state.layers[2].highlighted)
+        assertEquals("#a855f7", state.layers[2].visualStyle?.lineColor)
         assertEquals("A팀 담당 구역", state.assignmentLabel)
     }
 
@@ -639,10 +642,14 @@ class SearchMapStateLoaderTest {
         assertEquals(PATH_ID, state.activeSearchPathId)
         assertTrue(pathLayers[0].highlighted)
         assertFalse(pathLayers[1].highlighted)
+        assertEquals("#22c55e", pathLayers[0].visualStyle?.lineColor)
+        assertEquals("#22c55e", pathLayers[1].visualStyle?.lineColor)
         assertEquals("현재 위치", positionLayers[0].label)
         assertEquals("다른 대원 위치", positionLayers[1].label)
         assertTrue(positionLayers[0].highlighted)
         assertFalse(positionLayers[1].highlighted)
+        assertEquals("#22c55e", positionLayers[0].visualStyle?.lineColor)
+        assertEquals("#22c55e", positionLayers[1].visualStyle?.lineColor)
         assertTrue(pathLayers[0].geoJson!!.contains("\"LineString\""))
         assertTrue(pathLayers[1].geoJson!!.contains("\"LineString\""))
         assertTrue(positionLayers[0].geoJson!!.contains("\"Point\""))
@@ -1195,7 +1202,7 @@ class SearchMapStateLoaderTest {
                     currentOpId = null,
                     currentDutyShiftId = null
                 )
-            )
+            ).copy(bottomPanelExpanded = true)
 
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canWritePath)

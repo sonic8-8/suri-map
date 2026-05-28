@@ -45,9 +45,9 @@ type ScopedRouteColorMaps = {
 const routeFallbackPalette = Object.values(areaColorTokens).map((token) => token.lineColor);
 
 const defaultAreaColorByLevel: Record<CompletedAreaDraft['kind'], AreaColorToken> = {
-  overall: 'areaColor001',
-  unit: 'areaColor002',
-  team: 'areaColor005',
+  overall: 'AREA_BLUE_01',
+  unit: 'AREA_ORANGE_01',
+  team: 'AREA_CYAN_01',
 };
 
 const defaultDraftLineWidthByKind: Record<CompletedAreaDraft['kind'], number> = {

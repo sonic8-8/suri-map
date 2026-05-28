@@ -15,24 +15,24 @@ describe('assignRouteColorsToMovementPaths', () => {
       {
         id: 'overall',
         kind: 'overall',
-        colorToken: 'areaColor001',
+        colorToken: 'AREA_BLUE_01',
         name: 'overall',
         meta: 'OVERALL',
         status: 'ACTIVE',
         geometryState: 'saved',
         children: [
-          createAreaNode({ id: AREA_ID, opId: OP_ID, colorToken: 'areaColor003' }),
-          createAreaNode({ id: NEXT_AREA_ID, opId: NEXT_OP_ID, colorToken: 'areaColor006' }),
+          createAreaNode({ id: AREA_ID, opId: OP_ID, colorToken: 'AREA_GREEN_01' }),
+          createAreaNode({ id: NEXT_AREA_ID, opId: NEXT_OP_ID, colorToken: 'AREA_ROSE_01' }),
         ],
       },
       [
-        createDraft({ areaId: AREA_ID, colorToken: 'areaColor003' }),
-        createDraft({ areaId: NEXT_AREA_ID, colorToken: 'areaColor006' }),
+        createDraft({ areaId: AREA_ID, colorToken: 'AREA_GREEN_01' }),
+        createDraft({ areaId: NEXT_AREA_ID, colorToken: 'AREA_ROSE_01' }),
       ],
     );
 
-    expect(paths[0].routeColor).toBe(areaColorTokens.areaColor003.lineColor);
-    expect(paths[1].routeColor).toBe(areaColorTokens.areaColor006.lineColor);
+    expect(paths[0].routeColor).toBe(areaColorTokens.AREA_GREEN_01.lineColor);
+    expect(paths[1].routeColor).toBe(areaColorTokens.AREA_ROSE_01.lineColor);
   });
 
   test('uses the actual route geometry area color over stale assignee mapping', () => {
@@ -51,7 +51,7 @@ describe('assignRouteColorsToMovementPaths', () => {
               [126.913, 35.163],
               [126.913, 35.162],
             ],
-            lineColor: areaColorTokens.areaColor003.lineColor,
+            lineColor: areaColorTokens.AREA_GREEN_01.lineColor,
           },
           {
             id: NEXT_AREA_ID,
@@ -64,32 +64,32 @@ describe('assignRouteColorsToMovementPaths', () => {
               [126.916, 35.163],
               [126.916, 35.162],
             ],
-            lineColor: areaColorTokens.areaColor006.lineColor,
+            lineColor: areaColorTokens.AREA_ROSE_01.lineColor,
           },
         ],
         OP_ID,
       ),
-    ).toBe(areaColorTokens.areaColor006.lineColor);
+    ).toBe(areaColorTokens.AREA_ROSE_01.lineColor);
 
     const paths = assignRouteColorsToMovementPaths(
       [createMovementPath({ coordinates: [[126.9162, 35.1625], [126.917, 35.1625]] })],
       {
         id: 'overall',
         kind: 'overall',
-        colorToken: 'areaColor001',
+        colorToken: 'AREA_BLUE_01',
         name: 'overall',
         meta: 'OVERALL',
         status: 'ACTIVE',
         geometryState: 'saved',
         children: [
-          createAreaNode({ id: AREA_ID, opId: OP_ID, colorToken: 'areaColor003' }),
-          createAreaNode({ id: NEXT_AREA_ID, opId: OP_ID, colorToken: 'areaColor006', assignedAccounts: [] }),
+          createAreaNode({ id: AREA_ID, opId: OP_ID, colorToken: 'AREA_GREEN_01' }),
+          createAreaNode({ id: NEXT_AREA_ID, opId: OP_ID, colorToken: 'AREA_ROSE_01', assignedAccounts: [] }),
         ],
       },
       [
         createDraft({
           areaId: AREA_ID,
-          colorToken: 'areaColor003',
+          colorToken: 'AREA_GREEN_01',
           coordinates: [
             [126.913, 35.162],
             [126.914, 35.162],
@@ -100,7 +100,7 @@ describe('assignRouteColorsToMovementPaths', () => {
         }),
         createDraft({
           areaId: NEXT_AREA_ID,
-          colorToken: 'areaColor006',
+          colorToken: 'AREA_ROSE_01',
           coordinates: [
             [126.916, 35.162],
             [126.918, 35.162],
@@ -112,7 +112,7 @@ describe('assignRouteColorsToMovementPaths', () => {
       ],
     );
 
-    expect(paths[0].routeColor).toBe(areaColorTokens.areaColor006.lineColor);
+    expect(paths[0].routeColor).toBe(areaColorTokens.AREA_ROSE_01.lineColor);
   });
 
   test('keeps paths renderable for incident accounts that are not assigned to any area', () => {
@@ -121,7 +121,7 @@ describe('assignRouteColorsToMovementPaths', () => {
       {
         id: 'overall',
         kind: 'overall',
-        colorToken: 'areaColor001',
+        colorToken: 'AREA_BLUE_01',
         name: 'overall',
         meta: 'OVERALL',
         status: 'ACTIVE',
@@ -142,7 +142,7 @@ function createAreaNode(overrides: Partial<SearchAreaTreeNode>): SearchAreaTreeN
     id: AREA_ID,
     opId: OP_ID,
     kind: 'team',
-    colorToken: 'areaColor003',
+    colorToken: 'AREA_GREEN_01',
     name: 'team area',
     meta: 'TEAM',
     status: 'ACTIVE',
@@ -157,7 +157,7 @@ function createDraft(overrides: Partial<CompletedAreaDraft>): CompletedAreaDraft
   return {
     areaId: AREA_ID,
     kind: 'team',
-    colorToken: 'areaColor003',
+    colorToken: 'AREA_GREEN_01',
     label: 'team area',
     coordinates: [
       [126.913, 35.162],
