@@ -116,6 +116,7 @@ import kotlinx.coroutines.launch
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val SearchPanelActionGap = PoliDimens.Space3
+private val CurrentLocationButtonPanelGap = PoliDimens.Space4
 private val BottomSheetCollapsedBottomPadding = PoliDimens.Space3
 private val BottomSheetExpandedBottomPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
@@ -202,6 +203,15 @@ private enum class SearchMapOverlayTransparencyLevel(
 data class SearchMapUiState(
     val incidentTitle: String,
     val missingPersonSummary: String,
+    val incidentStatusLabel: String = "진행 중",
+    val openedAtLabel: String? = null,
+    val missingPersonName: String? = null,
+    val missingPersonPhotoUrl: String? = null,
+    val lastSeenAtLabel: String? = null,
+    val lastSeenLocationLabel: String? = null,
+    val appearanceLabel: String? = null,
+    val assignmentCountLabel: String = "참여 계정 확인 중",
+    val assignmentRoleSummary: String? = null,
     val opLabel: String,
     val dutyShiftLabel: String,
     val assignmentLabel: String,
@@ -306,12 +316,7 @@ data class SearchMapUiState(
             SearchLifecycleStatus.OpTransition -> "수색 차수 확인"
         }
 
-    val secondaryActionLabel: String? =
-        if (canStopSearch) {
-            "수색 종료"
-        } else {
-            null
-        }
+    val secondaryActionLabel: String = "수색 종료"
 
     fun visibleText(): List<String> =
         buildList {
@@ -548,12 +553,13 @@ fun SearchMapScreen(
         }
     }
 
-    val mapBottomInset =
+    val initialBottomPanelHeight =
         if (state.bottomPanelExpanded) {
             ExpandedBottomPanelMapInset
         } else {
             BottomSheetCollapsedHeight
         }
+    var bottomPanelHeight by remember { mutableStateOf(initialBottomPanelHeight) }
     val mapModifier = Modifier.fillMaxSize()
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -562,10 +568,8 @@ fun SearchMapScreen(
             mapState = mapState,
             mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
-            mapBottomInset = mapBottomInset,
             overlayTransparencyLevel = overlayTransparencyLevel,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
-            onCenterCurrentLocation = onCenterCurrentLocation,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
             onViewportBoundsChanged = onViewportBoundsChanged,
             modifier = mapModifier
@@ -623,7 +627,19 @@ fun SearchMapScreen(
                 overlayTransparencyLevel = overlayTransparencyLevel.next()
             },
             onToggleBottomPanel = onToggleBottomPanel,
+            onPanelHeightChanged = { bottomPanelHeight = it },
             modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
+        CurrentLocationButton(
+            onClick = onCenterCurrentLocation,
+            modifier =
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = PoliDimens.Space4,
+                    bottom = bottomPanelHeight + CurrentLocationButtonPanelGap
+                )
         )
 
         visiblePackageWarning?.let {
@@ -731,16 +747,13 @@ private fun SearchMapShell(
     mapState: MapLibreRuntimeMapState,
     mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
-    mapBottomInset: Dp,
     overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
     onOpenBlockedOutbox: () -> Unit,
-    onCenterCurrentLocation: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState, overlayTransparencyLevel.opacityScale)
-    val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgInput)) {
         if (showMapPreview) {
@@ -774,13 +787,6 @@ private fun SearchMapShell(
             )
         }
 
-        CurrentLocationButton(
-            onClick = onCenterCurrentLocation,
-            modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = PoliDimens.Space4, bottom = currentLocationBottomInset)
-        )
     }
 }
 
@@ -1053,6 +1059,7 @@ private fun SearchBottomPanel(
     overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
     onCycleOverlayTransparencyLevel: () -> Unit,
     onToggleBottomPanel: () -> Unit,
+    onPanelHeightChanged: (Dp) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -1068,6 +1075,7 @@ private fun SearchBottomPanel(
         Animatable(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
     }
     val panelHeightPx = panelHeight.value.coerceIn(collapsedHeightPx, expandedHeightPx)
+    val panelHeightDp = with(density) { panelHeightPx.toDp() }
     val expansionThresholdPx = (collapsedHeightPx + expandedHeightPx) / 2f
     val sheetExpanded = panelHeightPx > expansionThresholdPx
     val expandedContentVisible = sheetExpanded
@@ -1091,6 +1099,9 @@ private fun SearchBottomPanel(
                 panelHeight.snapTo(nextHeight)
             }
         }
+    LaunchedEffect(panelHeightDp) {
+        onPanelHeightChanged(panelHeightDp)
+    }
 
     fun toggleBottomPanelFromHandle() {
         val shouldExpand = !sheetExpanded
@@ -1114,7 +1125,7 @@ private fun SearchBottomPanel(
         modifier =
         modifier
             .fillMaxWidth()
-            .height(with(density) { panelHeightPx.toDp() })
+            .height(panelHeightDp)
             .clipToBounds()
             .draggable(
                 state = dragState,
@@ -1154,7 +1165,7 @@ private fun SearchBottomPanel(
             modifier =
             Modifier
                 .fillMaxWidth()
-                .height(with(density) { panelHeightPx.toDp() })
+                .height(panelHeightDp)
                 .align(Alignment.TopCenter),
             shape =
                 RoundedCornerShape(
@@ -1265,17 +1276,14 @@ private fun SearchPanelActionGrid(
                 variant = PoliButtonVariant.Secondary,
                 size = PoliButtonSize.Large
             )
-            if (canStopSearch) {
-                PoliButton(
-                    text = "수색 종료",
-                    onClick = onStopSearch,
-                    modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.SubtleDanger,
-                    size = PoliButtonSize.Large
-                )
-            } else {
-                Spacer(modifier = Modifier.weight(1f))
-            }
+            PoliButton(
+                text = "수색 종료",
+                onClick = onStopSearch,
+                modifier = Modifier.weight(1f),
+                variant = PoliButtonVariant.SubtleDanger,
+                size = PoliButtonSize.Large,
+                enabled = canStopSearch
+            )
         }
     }
 }
@@ -1417,32 +1425,23 @@ private fun SearchCollapsedLifecycleActions(
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit
 ) {
-    val secondaryActionLabel = state.secondaryActionLabel
-    if (secondaryActionLabel == null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+    ) {
         SearchCollapsedPrimaryActionButton(
             text = state.primaryActionLabel,
             onClick = onPrimaryLifecycleAction,
             lifecycleStatus = state.lifecycleStatus,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.weight(1f)
         )
-    } else {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-        ) {
-            SearchCollapsedPrimaryActionButton(
-                text = state.primaryActionLabel,
-                onClick = onPrimaryLifecycleAction,
-                lifecycleStatus = state.lifecycleStatus,
-                modifier = Modifier.weight(1f)
-            )
-            PoliButton(
-                text = secondaryActionLabel,
-                onClick = onStopSearch,
-                modifier = Modifier.weight(0.86f),
-                variant = PoliButtonVariant.Danger
-            )
-        }
+        PoliButton(
+            text = state.secondaryActionLabel,
+            onClick = onStopSearch,
+            modifier = Modifier.weight(0.86f),
+            variant = PoliButtonVariant.Danger,
+            enabled = state.canStopSearch
+        )
     }
 }
 

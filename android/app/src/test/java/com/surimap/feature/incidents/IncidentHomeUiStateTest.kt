@@ -13,8 +13,16 @@ class IncidentHomeUiStateTest {
             IncidentHomeUiState(
                 incidentTitle = "광주 광산구 황룡강 생태길 실종 신고",
                 missingPersonSummary = "70대 남성 · 회색 점퍼",
+                openedAtLabel = "2026-05-28 09:10",
+                missingPersonName = "홍길동",
+                missingPersonPhotoUrl = "https://api.surimap.test/mock-upload/missing-person/hong.jpg",
+                lastSeenAtLabel = "2026-05-28 08:40",
+                lastSeenLocationLabel = "황룡강 생태길 북측 진입로",
+                appearanceLabel = "회색 점퍼",
                 opLabel = "2차 수색",
                 assignmentLabel = "팀 담당 구역",
+                assignmentCountLabel = "3개",
+                assignmentRoleSummary = "사건 지휘 1 · 현장 지휘 1 · 수색 대원 1",
                 mapDataStatus = IncidentHomeMapDataStatus.Ready,
                 mapDataDetail = "오프라인 지도와 사건 기본 정보가 준비되어 있습니다.",
                 syncLabel = "자동 전송 대기",
@@ -24,6 +32,13 @@ class IncidentHomeUiStateTest {
             )
 
         assertTrue(state.visibleText().contains("사건 정보"))
+        assertTrue(state.visibleText().contains("2026-05-28 09:10"))
+        assertTrue(state.visibleText().contains("홍길동"))
+        assertTrue(state.visibleText().contains("실종자 사진"))
+        assertTrue(state.visibleText().contains("2026-05-28 08:40"))
+        assertTrue(state.visibleText().contains("황룡강 생태길 북측 진입로"))
+        assertTrue(state.visibleText().contains("3개"))
+        assertTrue(state.visibleText().contains("사건 지휘 1 · 현장 지휘 1 · 수색 대원 1"))
         assertTrue(state.visibleText().contains("지도 데이터 준비 완료"))
         assertTrue(state.visibleText().contains("자동 전송 대기 3건"))
         assertTrue(state.visibleText().contains("현장 기록 열기"))

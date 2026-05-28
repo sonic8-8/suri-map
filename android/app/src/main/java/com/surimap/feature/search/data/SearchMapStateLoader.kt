@@ -18,6 +18,8 @@ import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.SearchMapViewportBounds
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -27,7 +29,9 @@ data class SearchMapSessionContext(
     val currentDutyShiftId: String?,
     val currentOpLabel: String? = null,
     val policePhoneId: String? = null,
-    val accountId: String? = null
+    val accountId: String? = null,
+    val apiBaseUrl: String? = null,
+    val objectStorageBaseUrl: String? = null
 )
 
 class SearchMapStateLoader(
@@ -223,11 +227,12 @@ class SearchMapStateLoader(
                     overlayId = area.optString("id").ifBlank { "overall-search-area" },
                     geoJson = geometry.toString(),
                     visualStyle =
-                        searchAreaVisualStyle(
-                            areaId = area.optString("id").ifBlank { "overall-search-area" },
-                            kind = SearchLayerKind.Overall,
-                            highlighted = false,
-                            areaColorRegistry = areaColorRegistry
+                            searchAreaVisualStyle(
+                                areaId = area.optString("id").ifBlank { "overall-search-area" },
+                                colorToken = area.areaColorToken(),
+                                kind = SearchLayerKind.Overall,
+                                highlighted = false,
+                                areaColorRegistry = areaColorRegistry
                         )
                 )
             ) + fallback.layers.filterNot { layer ->
@@ -286,7 +291,12 @@ class SearchMapStateLoader(
         val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
         val accountId = context.accountId?.takeIf(String::isNotBlank)
         if (!shouldFetch(CACHE_SOURCE_SEARCH_PATHS, revisionSnapshot)) {
-            return state
+            val cachedBody = responseCache?.read(context, CACHE_SOURCE_SEARCH_PATHS)
+            return if (cachedBody.isNullOrBlank()) {
+                state
+            } else {
+                withSearchPathsBody(context, state, cachedBody)
+            }
         }
         val response =
             runCatching {
@@ -498,13 +508,24 @@ class SearchMapStateLoader(
         fallback: SearchMapUiState
     ): SearchMapUiState {
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return fallback
+        val missingPerson = json.optJSONObject("missingPerson")
+        val assignments = json.optJSONArray("assignments").toIncidentAssignmentReadModel()
         return fallback.copy(
             incidentTitle = json.optString("title").ifBlank {
                 json.optString("incidentId").ifBlank {
                     json.optString("id").ifBlank { fallback.incidentTitle }
                 }
             },
-            missingPersonSummary = missingPersonSummary(json.optJSONObject("missingPerson")),
+            incidentStatusLabel = json.optString("status").toIncidentStatusLabel(),
+            openedAtLabel = json.optString("openedAt").toKstDateTimeLabel(),
+            missingPersonSummary = missingPersonSummary(missingPerson),
+            missingPersonName = missingPersonDisplayName(missingPerson),
+            missingPersonPhotoUrl = missingPerson.photoUrl(context.objectStorageBaseUrl ?: context.apiBaseUrl),
+            lastSeenAtLabel = missingPerson?.optString("lastSeenAt").toKstDateTimeLabel(),
+            lastSeenLocationLabel = missingPerson?.optString("lastSeenLocationText")?.takeIf(String::isNotBlank),
+            appearanceLabel = missingPerson?.optString("appearanceText")?.takeIf(String::isNotBlank),
+            assignmentCountLabel = assignments.countLabel,
+            assignmentRoleSummary = assignments.roleSummary,
             opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
                 ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
                 ?: fallback.opLabel,
@@ -520,16 +541,77 @@ class SearchMapStateLoader(
         if (missingPerson == null) {
             return "실종자 정보 없음"
         }
-        val displayName =
-            missingPerson.optString("displayName")
-                .ifBlank { missingPerson.optString("name") }
-                .withoutMissingPersonCode()
-                .ifBlank { "실종자" }
+        val displayName = missingPersonDisplayName(missingPerson) ?: "실종자"
         val appearanceText = missingPerson.optString("appearanceText")
         return listOf(displayName, appearanceText)
             .filter(String::isNotBlank)
             .joinToString(" · ")
     }
+
+    private fun missingPersonDisplayName(missingPerson: JSONObject?): String? =
+        missingPerson
+            ?.optString("displayName")
+            ?.ifBlank { missingPerson.optString("name") }
+            ?.withoutMissingPersonCode()
+            ?.takeIf(String::isNotBlank)
+
+    private fun JSONObject?.photoUrl(resourceBaseUrl: String?): String? {
+        val rawUrl = this?.optString("photoUrl")?.takeIf(String::isNotBlank) ?: return null
+        if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+            return rawUrl
+        }
+        val baseUrl = resourceBaseUrl?.takeIf(String::isNotBlank) ?: return rawUrl
+        return "${baseUrl.trimEnd('/').removeSuffix("/api")}/${rawUrl.trimStart('/')}"
+    }
+
+    private fun JSONArray?.toIncidentAssignmentReadModel(): IncidentAssignmentReadModel {
+        val assignments = this ?: return IncidentAssignmentReadModel("참여 계정 확인 중", null)
+        if (assignments.length() == 0) {
+            return IncidentAssignmentReadModel("0개", "참여 계정 없음")
+        }
+        val roleCounts = linkedMapOf(
+            "INCIDENT_COMMANDER" to 0,
+            "FIELD_COMMANDER" to 0,
+            "MEMBER" to 0
+        )
+        repeat(assignments.length()) { index ->
+            val role = assignments.optJSONObject(index)?.optString("incidentRole")?.uppercase().orEmpty()
+            if (role in roleCounts) {
+                roleCounts[role] = roleCounts.getValue(role) + 1
+            }
+        }
+        val roleSummary =
+            roleCounts
+                .mapNotNull { (role, count) ->
+                    if (count > 0) {
+                        "${role.toIncidentRoleLabel()} $count"
+                    } else {
+                        null
+                    }
+                }
+                .joinToString(" · ")
+                .ifBlank { "역할 확인 필요" }
+        return IncidentAssignmentReadModel("${assignments.length()}개", roleSummary)
+    }
+
+    private fun String.toIncidentRoleLabel(): String =
+        when (this) {
+            "INCIDENT_COMMANDER" -> "사건 지휘"
+            "FIELD_COMMANDER" -> "현장 지휘"
+            "MEMBER" -> "수색 대원"
+            else -> "참여 계정"
+        }
+
+    private fun String.toIncidentStatusLabel(): String =
+        when (uppercase()) {
+            "CLOSED" -> "종료"
+            "OPEN" -> "진행 중"
+            else -> takeIf(String::isNotBlank) ?: "진행 상태 확인 중"
+        }
+
+    private fun String?.toKstDateTimeLabel(): String? =
+        this?.takeIf(String::isNotBlank)
+            ?.let { value -> runCatching { KstDateTimeFormatter.format(Instant.parse(value)) }.getOrNull() }
 
     private suspend fun SearchMapSessionContext.outboxSummaryOrNull(): OutboxStatusSummary? {
         val incidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
@@ -564,6 +646,7 @@ class SearchMapStateLoader(
                         visualStyle =
                             searchAreaVisualStyle(
                                 areaId = id,
+                                colorToken = area.areaColorToken(),
                                 kind = kind,
                                 highlighted = highlighted,
                                 areaColorRegistry = areaColorRegistry
@@ -685,8 +768,7 @@ class SearchMapStateLoader(
         }
 
     private fun List<SearchMapLayerUiState>.assignmentLabel(): String? =
-        (firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
-            ?: firstOrNull { layer -> layer.kind == SearchLayerKind.Unit })
+        firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
             ?.label
             ?.takeIf(String::isNotBlank)
 
@@ -708,12 +790,10 @@ class SearchMapStateLoader(
                 val status = path.optString("status").uppercase()
                 val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
                 val pathAccountId = path.optString("accountId").takeIf(String::isNotBlank)
+                val pathPolicePhoneId = path.optString("policePhoneId").takeIf(String::isNotBlank)
                 val belongsToCurrentActor =
-                    if (!currentAccountId.isNullOrBlank() && !pathAccountId.isNullOrBlank()) {
-                        pathAccountId.equals(currentAccountId, ignoreCase = true)
-                    } else {
-                        path.optString("policePhoneId").equals(currentPolicePhoneId, ignoreCase = true)
-                    }
+                    pathPolicePhoneId.equals(currentPolicePhoneId, ignoreCase = true) ||
+                        (!currentAccountId.isNullOrBlank() && pathAccountId.equals(currentAccountId, ignoreCase = true))
                 val activeForCurrentActor = active && belongsToCurrentActor
                 if (activeForCurrentActor) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
@@ -786,11 +866,12 @@ class SearchMapStateLoader(
 
     private fun searchAreaVisualStyle(
         areaId: String,
+        colorToken: String?,
         kind: SearchLayerKind,
         highlighted: Boolean,
         areaColorRegistry: WebAreaColorRegistry
     ): SearchMapLayerVisualStyle {
-        val token = areaColorRegistry.token(areaId)
+        val token = areaColorRegistry.token(areaId, colorToken)
         val baseLineWidth =
             when (kind) {
                 SearchLayerKind.Overall -> 2.0f
@@ -874,6 +955,11 @@ class SearchMapStateLoader(
                 .ifBlank { pathId }
         return routeFallbackColor(routeKey)
     }
+
+    private fun JSONObject.areaColorToken(): String? =
+        optString("colorToken")
+            .ifBlank { optString("color_token") }
+            .takeIf(String::isNotBlank)
 
     private fun SearchMapUiState.routeAreaColorCandidates(): List<RouteAreaColorCandidate> =
         layers.mapNotNull { layer ->
@@ -1241,6 +1327,8 @@ class SearchMapStateLoader(
         const val CACHE_SOURCE_INITIAL_MARKERS = "initial_markers"
         const val MILLIS_PER_MINUTE = 60_000L
         const val POINT_VIEWPORT_DELTA = 0.003
+        val KstDateTimeFormatter: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"))
         val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
         val WEB_AREA_COLOR_TOKENS =
             listOf(
@@ -1317,6 +1405,83 @@ class SearchMapStateLoader(
                 WebAreaColorToken("#60a5fa", "rgba(96, 165, 250, 0.18)", 0.18f),
                 WebAreaColorToken("#fdba74", "rgba(253, 186, 116, 0.18)", 0.18f)
             )
+        val WEB_AREA_COLOR_TOKEN_NAMES =
+            listOf(
+                "AREA_BLUE_01",
+                "AREA_ORANGE_01",
+                "AREA_GREEN_01",
+                "AREA_PURPLE_01",
+                "AREA_CYAN_01",
+                "AREA_ROSE_01",
+                "AREA_YELLOW_01",
+                "AREA_RED_01",
+                "AREA_TEAL_01",
+                "AREA_VIOLET_01",
+                "AREA_LIME_01",
+                "AREA_AMBER_01",
+                "AREA_PINK_01",
+                "AREA_SKY_01",
+                "AREA_EMERALD_01",
+                "AREA_FUCHSIA_01",
+                "AREA_RED_02",
+                "AREA_VIOLET_02",
+                "AREA_CYAN_02",
+                "AREA_YELLOW_02",
+                "AREA_GREEN_02",
+                "AREA_PINK_02",
+                "AREA_INDIGO_01",
+                "AREA_ORANGE_02",
+                "AREA_BLUE_02",
+                "AREA_ORANGE_03",
+                "AREA_GREEN_03",
+                "AREA_PURPLE_02",
+                "AREA_SKY_02",
+                "AREA_ROSE_02",
+                "AREA_YELLOW_03",
+                "AREA_RED_03",
+                "AREA_TEAL_02",
+                "AREA_VIOLET_03",
+                "AREA_LIME_02",
+                "AREA_AMBER_02",
+                "AREA_FUCHSIA_02",
+                "AREA_SKY_03",
+                "AREA_EMERALD_02",
+                "AREA_FUCHSIA_03",
+                "AREA_ROSE_03",
+                "AREA_INDIGO_02",
+                "AREA_TEAL_03",
+                "AREA_ORANGE_04",
+                "AREA_BLUE_03",
+                "AREA_ROSE_04",
+                "AREA_PURPLE_03",
+                "AREA_AMBER_03",
+                "AREA_SKY_04",
+                "AREA_ORANGE_05",
+                "AREA_GREEN_04",
+                "AREA_FUCHSIA_04",
+                "AREA_CYAN_03",
+                "AREA_ROSE_05",
+                "AREA_YELLOW_04",
+                "AREA_RED_04",
+                "AREA_TEAL_04",
+                "AREA_VIOLET_04",
+                "AREA_LIME_03",
+                "AREA_AMBER_04",
+                "AREA_PINK_03",
+                "AREA_SKY_05",
+                "AREA_EMERALD_03",
+                "AREA_FUCHSIA_05",
+                "AREA_RED_05",
+                "AREA_INDIGO_03",
+                "AREA_CYAN_04",
+                "AREA_YELLOW_05",
+                "AREA_GREEN_05",
+                "AREA_FUCHSIA_06",
+                "AREA_BLUE_04",
+                "AREA_ORANGE_06"
+            )
+        val WEB_AREA_COLOR_TOKENS_BY_NAME =
+            WEB_AREA_COLOR_TOKEN_NAMES.zip(WEB_AREA_COLOR_TOKENS).toMap()
     }
 
     private class WebAreaColorRegistry(incidentId: String?) {
@@ -1325,7 +1490,11 @@ class SearchMapStateLoader(
                 ?.let { linkedMapOf("$it:overall" to 0) }
                 ?: linkedMapOf()
 
-        fun token(areaId: String): WebAreaColorToken {
+        fun token(areaId: String, colorToken: String?): WebAreaColorToken {
+            WEB_AREA_COLOR_TOKENS_BY_NAME[colorToken]?.let { token ->
+                tokenIndicesByAreaId[areaId] = WEB_AREA_COLOR_TOKENS.indexOf(token)
+                return token
+            }
             tokenIndicesByAreaId[areaId]?.let { index -> return WEB_AREA_COLOR_TOKENS[index] }
             val usedTokenIndices = tokenIndicesByAreaId.values.toSet()
             val nextTokenIndex =
@@ -1377,6 +1546,11 @@ private val SearchLayerKind.routeAreaPriority: Int
 private data class LiveMarkerLoadResult(
     val state: SearchMapUiState,
     val loaded: Boolean
+)
+
+private data class IncidentAssignmentReadModel(
+    val countLabel: String,
+    val roleSummary: String?
 )
 
 private data class MapRevisionSnapshot(

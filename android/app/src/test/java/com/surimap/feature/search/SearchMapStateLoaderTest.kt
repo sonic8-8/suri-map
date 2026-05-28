@@ -68,12 +68,32 @@ class SearchMapStateLoaderTest {
                           "incidentId": "$INCIDENT_ID",
                           "title": "광주 북구 산악 실종",
                           "status": "OPEN",
+                          "openedAt": "2026-05-28T00:10:00Z",
                           "version": 8,
                           "missingPerson": {
                             "displayName": "김실종",
-                            "appearanceText": "회색 점퍼"
+                            "photoUrl": "/mock-upload/missing-person/kim.jpg",
+                            "appearanceText": "회색 점퍼",
+                            "lastSeenLocationText": "무등산 증심사 입구",
+                            "lastSeenAt": "2026-05-27T23:40:00Z"
                           },
-                          "assignments": []
+                          "assignments": [
+                            {
+                              "accountId": "acct-command",
+                              "incidentRole": "INCIDENT_COMMANDER",
+                              "assignedAt": "2026-05-28T00:12:00Z"
+                            },
+                            {
+                              "accountId": "acct-field",
+                              "incidentRole": "FIELD_COMMANDER",
+                              "assignedAt": "2026-05-28T00:15:00Z"
+                            },
+                            {
+                              "accountId": "acct-member",
+                              "incidentRole": "MEMBER",
+                              "assignedAt": "2026-05-28T00:18:00Z"
+                            }
+                          ]
                         }
                         """.trimIndent(),
                         errorCode = null
@@ -88,12 +108,23 @@ class SearchMapStateLoaderTest {
                 SearchMapSessionContext(
                     incidentId = INCIDENT_ID,
                     currentOpId = OP_ID,
-                    currentDutyShiftId = DUTY_SHIFT_ID
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    apiBaseUrl = "https://api.surimap.test/api",
+                    objectStorageBaseUrl = "https://storage.surimap.test/api"
                 )
             )
 
         assertEquals("광주 북구 산악 실종", state.incidentTitle)
         assertEquals("김실종 · 회색 점퍼", state.missingPersonSummary)
+        assertEquals("진행 중", state.incidentStatusLabel)
+        assertEquals("2026-05-28 09:10", state.openedAtLabel)
+        assertEquals("김실종", state.missingPersonName)
+        assertEquals("https://storage.surimap.test/mock-upload/missing-person/kim.jpg", state.missingPersonPhotoUrl)
+        assertEquals("2026-05-28 08:40", state.lastSeenAtLabel)
+        assertEquals("무등산 증심사 입구", state.lastSeenLocationLabel)
+        assertEquals("회색 점퍼", state.appearanceLabel)
+        assertEquals("3개", state.assignmentCountLabel)
+        assertEquals("사건 지휘 1 · 현장 지휘 1 · 수색 대원 1", state.assignmentRoleSummary)
         assertEquals(SearchLifecycleStatus.Active, state.lifecycleStatus)
         assertTrue(state.canCreateMarker)
     }
@@ -358,6 +389,74 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun searchAreasUseServerColorTokenBeforeLocalFallbackColor() = runBlocking {
+        val areaGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[
+                [126.910000, 37.510000],
+                [126.930000, 37.510000],
+                [126.930000, 37.530000],
+                [126.910000, 37.530000],
+                [126.910000, 37.510000]
+              ]]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ ->
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "areas": [
+                            {
+                              "id": "$UNIT_AREA_ID",
+                              "opId": "$OP_ID",
+                              "areaLevel": "UNIT",
+                              "name": "기동대 1부대",
+                              "status": "ACTIVE",
+                              "colorToken": "AREA_CYAN_01",
+                              "geometry": $areaGeometry
+                            },
+                            {
+                              "id": "$TEAM_AREA_ID",
+                              "opId": "$OP_ID",
+                              "parentAreaId": "$UNIT_AREA_ID",
+                              "areaLevel": "TEAM",
+                              "name": "A팀 담당 구역",
+                              "status": "ACTIVE",
+                              "colorToken": "AREA_AMBER_02",
+                              "geometry": $areaGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
+                )
+            )
+
+        val unitLayer = state.layers.single { it.overlayId == UNIT_AREA_ID }
+        val teamLayer = state.layers.single { it.overlayId == TEAM_AREA_ID }
+        assertEquals("#06b6d4", unitLayer.visualStyle?.lineColor)
+        assertEquals("#d97706", teamLayer.visualStyle?.lineColor)
+    }
+
+    @Test
     fun manifestAssignedAreasMarkOnlyCurrentPolicePhoneTeamBoundary() = runBlocking {
         val areaGeometry =
             """
@@ -459,7 +558,7 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
-    fun unitAreaLabelFallsBackAsAssignmentWhenTeamAreaIsMissing() = runBlocking {
+    fun unitAreaLabelDoesNotFallbackAsAssignmentWhenTeamAreaIsMissing() = runBlocking {
         val areaGeometry =
             """
             {
@@ -503,8 +602,8 @@ class SearchMapStateLoaderTest {
                 )
             )
 
-        assertEquals("기동대 1부대", state.assignmentLabel)
-        assertEquals("기동대 1부대", state.assignmentDisplayLabel)
+        assertTrue(state.assignmentLabel.isBlank())
+        assertEquals("담당구역 미배정", state.assignmentDisplayLabel)
     }
 
     @Test
@@ -803,6 +902,74 @@ class SearchMapStateLoaderTest {
         assertEquals("캐시 사건", state.incidentTitle)
         assertTrue(state.layers.any { layer -> layer.overlayId == PATH_ID })
         assertTrue(state.layers.any { layer -> layer.overlayId == MARKER_ID })
+    }
+
+    @Test
+    fun changedAreaColorRecolorsCachedSearchPathsWithoutPathFetch() = runBlocking {
+        val areaGeometry =
+            """{"type":"Polygon","coordinates":[[[126.91,37.51],[126.93,37.51],[126.93,37.53],[126.91,37.53],[126.91,37.51]]]}"""
+        val pathGeometry = """{"type":"LineString","coordinates":[[126.912,37.512],[126.918,37.518]]}"""
+        val cache =
+            InMemorySearchMapResponseCache(
+                initialResponses =
+                    mapOf(
+                        "op_search_areas" to
+                            """{"areas":[{"id":"$TEAM_AREA_ID","opId":"$OP_ID","areaLevel":"TEAM","name":"A팀","status":"ACTIVE","colorToken":"AREA_GREEN_01","geometry":$areaGeometry}]}""",
+                        "search_paths" to
+                            """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}"""
+                    ),
+                initialRevisions =
+                    mapOf(
+                        "op_search_areas" to "areas-old",
+                        "search_paths" to "paths-rev"
+                    )
+            )
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ ->
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                            """{"areas":[{"id":"$TEAM_AREA_ID","opId":"$OP_ID","areaLevel":"TEAM","name":"A팀","status":"ACTIVE","colorToken":"AREA_ROSE_01","geometry":$areaGeometry}]}""",
+                        errorCode = null
+                    )
+                },
+                searchPaths = { error("unchanged search paths must be recolored from cache without fetching") },
+                mapRevisions = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                            """
+                            {
+                              "sources": [
+                                {"source":"op_search_areas","revision":"areas-new"},
+                                {"source":"search_paths","revision":"paths-rev"}
+                              ]
+                            }
+                            """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                responseCache = cache
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
+                )
+            )
+
+        val areaLayer = state.layers.single { layer -> layer.kind == SearchLayerKind.Team }
+        val pathLayer = state.layers.single { layer -> layer.kind == SearchLayerKind.Path }
+        assertEquals("#e11d48", areaLayer.visualStyle?.lineColor)
+        assertEquals("#e11d48", pathLayer.visualStyle?.lineColor)
     }
 
     @Test
