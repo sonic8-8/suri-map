@@ -8,7 +8,7 @@ import org.junit.Test
 
 class IncidentHomeUiStateTest {
     @Test
-    fun incidentHomeCollectsFieldReadinessWithoutCommandLanguage() {
+    fun incidentHomeCollectsFieldStatusWithoutCommandLanguage() {
         val state =
             IncidentHomeUiState(
                 incidentTitle = "광주 광산구 황룡강 생태길 실종 신고",
@@ -39,18 +39,19 @@ class IncidentHomeUiStateTest {
         assertTrue(state.visibleText().contains("황룡강 생태길 북측 진입로"))
         assertTrue(state.visibleText().contains("3개"))
         assertTrue(state.visibleText().contains("사건 지휘 1 · 현장 지휘 1 · 수색 대원 1"))
+        assertTrue(state.visibleText().contains("현장 상태"))
         assertTrue(state.visibleText().contains("지도 데이터 준비 완료"))
         assertTrue(state.visibleText().contains("자동 전송 대기 3건"))
-        assertTrue(state.visibleText().contains("현장 기록 열기"))
-        assertTrue(state.visibleText().contains("지도 데이터 확인"))
+        assertFalse(state.visibleText().contains("현장 기록 열기"))
+        assertFalse(state.visibleText().contains("지도 데이터 확인"))
         assertFalse(state.visibleText().any { it.contains("오프라인 패키지") || it.contains("manifest") })
     }
 
     @Test
-    fun blockedOutboxCountPromotesDiagnosticEntry() {
+    fun blockedOutboxCountStaysAsStatusInsteadOfDuplicatingNavigationAction() {
         val state = IncidentHomeUiState.sample()
 
         assertTrue(state.visibleText().contains("처리 불가 2건"))
-        assertTrue(state.visibleText().contains("미전송 진단 보기"))
+        assertFalse(state.visibleText().contains("미전송 진단 보기"))
     }
 }

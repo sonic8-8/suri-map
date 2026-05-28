@@ -27,7 +27,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.time.Instant
@@ -48,6 +51,9 @@ import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliField
 import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.components.PoliSkeletonCard
+import com.surimap.ui.components.PoliSkeletonLine
+import com.surimap.ui.components.rememberPoliShimmerBrush
 import com.surimap.ui.theme.PoliBgInput
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
@@ -492,7 +498,6 @@ fun DutyHandoverScreen(
     mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
-    onOpenSearch: () -> Unit,
     onSelectTab: (DutyHandoverTab) -> Unit = {},
     onSelectDutyShift: (String) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
@@ -502,9 +507,16 @@ fun DutyHandoverScreen(
     onSelectOriginalRecord: (HandoverRecord) -> Unit = {},
     onRefresh: () -> Unit = {},
     refreshing: Boolean = false,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var showEndDutyShiftConfirm by remember { mutableStateOf(false) }
+    val shimmerBrush =
+        if (loading) {
+            rememberPoliShimmerBrush(label = "handover-summary-skeleton")
+        } else {
+            null
+        }
     PoliPullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -531,42 +543,44 @@ fun DutyHandoverScreen(
                     .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
-                when (mode) {
-                    DutyHandoverScreenMode.WorkStatus ->
-                        when (state.selectedTab) {
-                            DutyHandoverTab.Replay ->
-                                ReplayTab(
-                                    state = state,
-                                    mapState = mapState,
-                                    onSelectDutyShift = onSelectDutyShift,
-                                    onReplayPlayPause = onReplayPlayPause,
-                                    onReplaySeek = onReplaySeek,
-                                    onReplaySpeedSelect = onReplaySpeedSelect
-                                )
-                            DutyHandoverTab.Report ->
-                                ReportTab(
-                                    state = state,
-                                    onSelectOriginalRecord = onSelectOriginalRecord
-                                )
-                        }
-                    DutyHandoverScreenMode.HandoverFinalize ->
-                        HandoverFinalizeContent(state = state)
+                if (loading && shimmerBrush != null) {
+                    HandoverLoadingContent(shimmerBrush = shimmerBrush, mode = mode)
+                } else {
+                    when (mode) {
+                        DutyHandoverScreenMode.WorkStatus ->
+                            when (state.selectedTab) {
+                                DutyHandoverTab.Replay ->
+                                    ReplayTab(
+                                        state = state,
+                                        mapState = mapState,
+                                        onSelectDutyShift = onSelectDutyShift,
+                                        onReplayPlayPause = onReplayPlayPause,
+                                        onReplaySeek = onReplaySeek,
+                                        onReplaySpeedSelect = onReplaySpeedSelect
+                                    )
+                                DutyHandoverTab.Report ->
+                                    ReportTab(
+                                        state = state,
+                                        onSelectOriginalRecord = onSelectOriginalRecord
+                                    )
+                            }
+                        DutyHandoverScreenMode.HandoverFinalize ->
+                            HandoverFinalizeContent(state = state)
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-            ) {
+            if (loading && shimmerBrush != null) {
+                HandoverActionSkeleton(shimmerBrush = shimmerBrush)
+            } else {
                 PoliButton(
                     text = if (mode == DutyHandoverScreenMode.HandoverFinalize) "인계 메모 작성" else "메모 작성",
                     onClick = onWriteMemo,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
                     variant = PoliButtonVariant.Secondary
                 )
-                PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
             }
-            if (state.canEndDutyShift) {
+            if (!loading && state.canEndDutyShift) {
                 PoliButton(
                     text = state.dutyShiftActionLabel,
                     onClick = { showEndDutyShiftConfirm = true },
@@ -593,6 +607,37 @@ fun DutyHandoverScreen(
             }
         )
     }
+}
+
+@Composable
+private fun HandoverLoadingContent(shimmerBrush: Brush, mode: DutyHandoverScreenMode) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "${mode.title} 불러오는 중" },
+        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+    ) {
+        if (mode == DutyHandoverScreenMode.WorkStatus) {
+            PoliSkeletonCard(title = "리플레이 근무 선택", lineCount = 2, shimmerBrush = shimmerBrush)
+            PoliSkeletonCard(title = "지도 리플레이", lineCount = 2, shimmerBrush = shimmerBrush, strong = true)
+            PoliSkeletonCard(title = "경로 개요", lineCount = 3, shimmerBrush = shimmerBrush)
+            PoliSkeletonCard(title = "타임라인", lineCount = 3, shimmerBrush = shimmerBrush)
+        } else {
+            PoliSkeletonCard(title = "인수인계 요약", lineCount = 3, shimmerBrush = shimmerBrush, strong = true)
+            PoliSkeletonCard(title = "인계 메모", lineCount = 2, shimmerBrush = shimmerBrush)
+            PoliSkeletonCard(title = "동기화 상태", lineCount = 2, shimmerBrush = shimmerBrush)
+        }
+    }
+}
+
+@Composable
+private fun HandoverActionSkeleton(shimmerBrush: Brush) {
+    PoliSkeletonLine(
+        shimmerBrush = shimmerBrush,
+        modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+        minHeight = PoliDimens.CtaHeight
+    )
 }
 
 @Composable
@@ -1276,8 +1321,7 @@ private fun DutyHandoverPreview() {
         DutyHandoverScreen(
             state = sampleDutyHandoverState(),
             onBack = {},
-            onWriteMemo = {},
-            onOpenSearch = {}
+            onWriteMemo = {}
         )
     }
 }

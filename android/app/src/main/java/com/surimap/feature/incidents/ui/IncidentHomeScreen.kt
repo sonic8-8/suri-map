@@ -27,22 +27,23 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
-import com.surimap.ui.components.PoliBanner
-import com.surimap.ui.components.PoliBannerVariant
-import com.surimap.ui.components.PoliButton
-import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.components.PoliSkeletonCard
+import com.surimap.ui.components.rememberPoliShimmerBrush
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
@@ -145,11 +146,7 @@ data class IncidentHomeUiState(
             add(syncLabel)
             add(lastUpdatedLabel)
             add(outboxSummaryLabel)
-            add("현장 기록 열기")
-            add("지도 데이터 확인")
-            if (blockedOutboxCount > 0) {
-                add("미전송 진단 보기")
-            }
+            add("현장 상태")
         }
 
     companion object {
@@ -180,12 +177,16 @@ data class IncidentHomeUiState(
 @Composable
 fun IncidentHomeScreen(
     state: IncidentHomeUiState,
-    onOpenSearchMap: () -> Unit,
-    onOpenMapData: () -> Unit,
-    onOpenBlockedOutbox: () -> Unit,
     onRefresh: () -> Unit,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val shimmerBrush =
+        if (loading) {
+            rememberPoliShimmerBrush(label = "incident-home-skeleton")
+        } else {
+            null
+        }
     PoliPullToRefresh(
         refreshing = state.refreshing,
         onRefresh = onRefresh,
@@ -205,34 +206,34 @@ fun IncidentHomeScreen(
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
                 Text(text = "사건 정보", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-                IncidentSummaryHeader(state = state)
-                Spacer(modifier = Modifier.height(PoliDimens.Space6))
-                MissingPersonDetailCard(state = state)
-                AssignmentSummaryCard(state = state)
-                FieldReadinessCard(
-                    state = state,
-                    onOpenMapData = onOpenMapData,
-                    onOpenBlockedOutbox = onOpenBlockedOutbox
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-            ) {
-                PoliButton(
-                    text = "지도 데이터 확인",
-                    onClick = onOpenMapData,
-                    modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.Secondary
-                )
-                PoliButton(
-                    text = "현장 기록 열기",
-                    onClick = onOpenSearchMap,
-                    modifier = Modifier.weight(1f)
-                )
+                if (loading && shimmerBrush != null) {
+                    IncidentHomeLoadingContent(shimmerBrush = shimmerBrush)
+                } else {
+                    IncidentSummaryHeader(state = state)
+                    Spacer(modifier = Modifier.height(PoliDimens.Space6))
+                    MissingPersonDetailCard(state = state)
+                    AssignmentSummaryCard(state = state)
+                    FieldStatusCard(state = state)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun IncidentHomeLoadingContent(shimmerBrush: Brush) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "사건 정보 불러오는 중" },
+        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+    ) {
+        PoliSkeletonCard(title = "사건 개요", lineCount = 3, shimmerBrush = shimmerBrush, strong = true)
+        Spacer(modifier = Modifier.height(PoliDimens.Space2))
+        PoliSkeletonCard(title = "실종자 정보", lineCount = 4, shimmerBrush = shimmerBrush)
+        PoliSkeletonCard(title = "참여/지휘 정보", lineCount = 3, shimmerBrush = shimmerBrush)
+        PoliSkeletonCard(title = "현장 상태", lineCount = 3, shimmerBrush = shimmerBrush)
     }
 }
 
@@ -461,43 +462,28 @@ private fun AssignmentSummaryCard(state: IncidentHomeUiState) {
 }
 
 @Composable
-private fun FieldReadinessCard(
-    state: IncidentHomeUiState,
-    onOpenMapData: () -> Unit,
-    onOpenBlockedOutbox: () -> Unit
-) {
+private fun FieldStatusCard(state: IncidentHomeUiState) {
     PoliCard {
-        Text(text = "현장 기록 준비", style = MaterialTheme.typography.titleMedium)
-        PoliRow(title = state.mapDataLabel, subtitle = state.mapDataDetail) {
+        Text(text = "현장 상태", style = MaterialTheme.typography.titleMedium)
+        PoliRow(title = "지도 데이터", subtitle = state.mapDataDetail) {
             PoliChip(text = state.mapDataLabel.shortStatusLabel(), variant = state.mapDataVariant)
         }
         PoliRow(title = "동기화 상태", subtitle = state.lastUpdatedLabel) {
             PoliChip(text = state.syncLabel, variant = PoliChipVariant.Neutral)
         }
-        PoliRow(title = "미전송 기록", subtitle = "정상 대기는 자동 전송됩니다.") {
+        PoliRow(title = "미전송 기록", subtitle = state.outboxStatusDetailLabel) {
             PoliChip(text = state.outboxSummaryLabel, variant = state.outboxVariant)
-        }
-        if (state.blockedOutboxCount > 0) {
-            PoliBanner(
-                text = "자동 전송으로 해결되지 않는 항목이 있습니다. 원인과 재시도 가능 여부를 확인하세요.",
-                variant = PoliBannerVariant.Bad
-            )
-            PoliButton(
-                text = "미전송 진단 보기",
-                onClick = onOpenBlockedOutbox,
-                modifier = Modifier.fillMaxWidth(),
-                variant = PoliButtonVariant.Secondary
-            )
-        } else {
-            PoliButton(
-                text = "지도 데이터 확인",
-                onClick = onOpenMapData,
-                modifier = Modifier.fillMaxWidth(),
-                variant = PoliButtonVariant.Secondary
-            )
         }
     }
 }
+
+private val IncidentHomeUiState.outboxStatusDetailLabel: String
+    get() =
+        when {
+            blockedOutboxCount > 0 -> "사용자 확인 필요 항목이 있습니다."
+            pendingOutboxCount > 0 -> "연결 복구 시 자동 전송됩니다."
+            else -> "전송 대기 항목 없음"
+        }
 
 private fun String.shortStatusLabel(): String =
     when {
@@ -536,9 +522,6 @@ private fun IncidentHomeScreenPreview() {
     SuriMapTheme {
         IncidentHomeScreen(
             state = IncidentHomeUiState.sample(),
-            onOpenSearchMap = {},
-            onOpenMapData = {},
-            onOpenBlockedOutbox = {},
             onRefresh = {}
         )
     }

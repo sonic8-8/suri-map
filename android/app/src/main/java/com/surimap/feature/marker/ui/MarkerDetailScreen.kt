@@ -2,11 +2,6 @@ package com.surimap.feature.marker.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,7 +26,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -51,6 +45,8 @@ import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliProgress
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.components.PoliSkeletonCard
+import com.surimap.ui.components.rememberPoliShimmerBrush
 import com.surimap.ui.theme.PoliBgBase
 import com.surimap.ui.theme.PoliBgInput
 import com.surimap.ui.theme.PoliBorder
@@ -436,24 +432,7 @@ private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> U
 
 @Composable
 private fun MarkerDetailLoadingContent(state: MarkerDetailUiState) {
-    val shimmerOffset =
-        rememberInfiniteTransition(label = "marker-detail-skeleton")
-            .animateFloat(
-                initialValue = -320f,
-                targetValue = 960f,
-                animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 1_100),
-                    repeatMode = RepeatMode.Restart
-                ),
-                label = "marker-detail-shimmer-offset"
-            ).value
-    val shimmerBrush =
-        Brush.linearGradient(
-            colors = listOf(PoliBgInput, PoliBorder.copy(alpha = 0.62f), PoliBgInput),
-            start = Offset(shimmerOffset, 0f),
-            end = Offset(shimmerOffset + 320f, 0f)
-        )
+    val shimmerBrush = rememberPoliShimmerBrush(label = "marker-detail-skeleton")
     MarkerSummaryCard(state = state, showPermission = false)
     MarkerDetailSkeletonCard(
         title = "메모",
@@ -472,19 +451,12 @@ private fun MarkerDetailSkeletonCard(
     shimmerBrush: Brush,
     modifier: Modifier = Modifier
 ) {
-    PoliCard(modifier = modifier) {
-        Text(text = title, style = MaterialTheme.typography.titleMedium)
-        repeat(lineCount) { index ->
-            Box(
-                modifier =
-                Modifier
-                    .fillMaxWidth(if (index == lineCount - 1) 0.68f else 1f)
-                    .heightIn(min = if (index == 0) 44.dp else 28.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(shimmerBrush)
-            )
-        }
-    }
+    PoliSkeletonCard(
+        title = title,
+        lineCount = lineCount,
+        shimmerBrush = shimmerBrush,
+        modifier = modifier
+    )
 }
 
 @Composable

@@ -1128,6 +1128,7 @@ private fun BlockedOutboxRoute(
     val coroutineScope = rememberCoroutineScope()
     var refreshNonce by remember { mutableStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
+    var initialLoading by remember(incidentContext?.incidentId, policePhoneContext?.policePhoneId) { mutableStateOf(true) }
     var state by remember {
         mutableStateOf(
             BlockedOutboxUiState(
@@ -1140,7 +1141,8 @@ private fun BlockedOutboxRoute(
     }
 
     LaunchedEffect(incidentContext?.incidentId, policePhoneContext?.policePhoneId, refreshNonce, loader) {
-        if (refreshNonce > 0) {
+        val isInitialLoad = initialLoading && refreshNonce == 0
+        if (!isInitialLoad) {
             refreshing = true
         }
         try {
@@ -1152,6 +1154,7 @@ private fun BlockedOutboxRoute(
                     )
                 )
         } finally {
+            initialLoading = false
             refreshing = false
         }
     }
@@ -1162,6 +1165,7 @@ private fun BlockedOutboxRoute(
         onOpenSupportGuide = {},
         onRefresh = { refreshNonce += 1 },
         refreshing = refreshing,
+        loading = initialLoading,
         onRetry = { item ->
             coroutineScope.launch {
                 val row = outboxDao.findByOperationId(item.operationId) ?: return@launch
@@ -1270,20 +1274,25 @@ private fun HandoverSummaryRoute(
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
     var refreshNonce by remember(sessionContext) { mutableStateOf(0) }
     var refreshing by remember(sessionContext) { mutableStateOf(false) }
+    var initialLoading by remember(sessionContext) { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(loader, sessionContext, selectedDutyShiftId, refreshNonce) {
-        if (refreshNonce > 0) {
+        val isInitialLoad = initialLoading && refreshNonce == 0
+        if (!isInitialLoad) {
             refreshing = true
         }
         try {
-            handoverState = loader.fallback(sessionContext)
+            if (isInitialLoad) {
+                handoverState = loader.fallback(sessionContext)
+            }
             handoverState =
                 loader.load(
                     context = sessionContext,
                     selectedDutyShiftId = selectedDutyShiftId
                 )
         } finally {
+            initialLoading = false
             refreshing = false
         }
     }
@@ -1335,7 +1344,6 @@ private fun HandoverSummaryRoute(
             }
         },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
-        onOpenSearch = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
         onSelectDutyShift = { dutyShiftId ->
             selectedDutyShiftId = dutyShiftId
@@ -1356,6 +1364,7 @@ private fun HandoverSummaryRoute(
         },
         onRefresh = { refreshNonce += 1 },
         refreshing = refreshing,
+        loading = initialLoading,
         onEndDutyShift = {
             coroutineScope.launch {
                 if (endingDutyShift) {
@@ -2768,14 +2777,22 @@ private fun IncidentHomeRoute(
     }.collectAsState(initial = null)
     var refreshNonce by remember { mutableStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
+    var initialLoading by remember(sessionContext) { mutableStateOf(true) }
     var mapState by remember(sessionContext) {
         mutableStateOf(loader.fallbackForRemember(sessionContext))
     }
 
     LaunchedEffect(loader, sessionContext, refreshNonce) {
-        refreshing = true
-        mapState = loader.load(sessionContext)
-        refreshing = false
+        val isInitialLoad = initialLoading && refreshNonce == 0
+        if (!isInitialLoad) {
+            refreshing = true
+        }
+        try {
+            mapState = loader.load(sessionContext)
+        } finally {
+            initialLoading = false
+            refreshing = false
+        }
     }
 
     IncidentHomeScreen(
@@ -2786,10 +2803,8 @@ private fun IncidentHomeRoute(
                 blockedOutboxCount = outboxSummary?.finalFailedCount ?: mapState.blockedOutboxCount,
                 refreshing = refreshing
             ),
-        onOpenSearchMap = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
-        onOpenMapData = { navController.navigateToIncidentContextRoute(PolicePhoneRoute.OfflinePackage) },
-        onOpenBlockedOutbox = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox) },
-        onRefresh = { refreshNonce += 1 }
+        onRefresh = { refreshNonce += 1 },
+        loading = initialLoading
     )
 }
 

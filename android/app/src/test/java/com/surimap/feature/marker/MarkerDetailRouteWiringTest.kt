@@ -66,6 +66,7 @@ class MarkerDetailRouteWiringTest {
     fun markerDetailModalShowsStablePreviewLoadingStateBeforeDetailHydrates() {
         val routeSource = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
         val screenSource = java.io.File("src/main/java/com/surimap/feature/marker/ui/MarkerDetailScreen.kt").readText()
+        val skeletonSource = java.io.File("src/main/java/com/surimap/ui/components/PoliSkeleton.kt").readText()
 
         assertTrue(routeSource.contains("searchMapState.markerDetailLoadingState(markerId)"))
         assertTrue(routeSource.contains("initialLoadingState: MarkerDetailUiState? = null"))
@@ -74,11 +75,13 @@ class MarkerDetailRouteWiringTest {
         assertTrue(screenSource.contains("state.loading"))
         assertTrue(screenSource.contains("MarkerDetailLoadingContent"))
         assertTrue(screenSource.contains("MarkerDetailSkeletonCard"))
-        assertTrue(screenSource.contains("rememberInfiniteTransition"))
-        assertTrue(screenSource.contains("Brush.linearGradient"))
+        assertTrue(screenSource.contains("rememberPoliShimmerBrush"))
+        assertTrue(screenSource.contains("PoliSkeletonCard"))
         assertTrue(screenSource.contains("shimmerBrush"))
-        assertTrue(screenSource.contains("shimmerOffset"))
-        assertTrue(screenSource.contains(".background(shimmerBrush)"))
+        assertTrue(skeletonSource.contains("rememberInfiniteTransition"))
+        assertTrue(skeletonSource.contains("Brush.linearGradient"))
+        assertTrue(skeletonSource.contains("shimmerOffset"))
+        assertTrue(skeletonSource.contains(".background(shimmerBrush)"))
         assertFalse(screenSource.contains(".alpha(skeletonAlpha)"))
 
         val loadingContentStart = screenSource.indexOf("private fun MarkerDetailLoadingContent")

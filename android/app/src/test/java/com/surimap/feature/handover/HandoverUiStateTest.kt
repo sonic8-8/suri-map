@@ -423,6 +423,16 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun handoverScreenDoesNotDuplicateSearchMapNavigationBarAction() {
+        val screenSource = File("src/main/java/com/surimap/feature/handover/ui/DutyHandoverScreen.kt").readText()
+        val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertFalse(screenSource.contains("수색 화면"))
+        assertFalse(screenSource.contains("onOpenSearch"))
+        assertFalse(appSource.contains("onOpenSearch = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }"))
+    }
+
+    @Test
     fun handoverMemoSaveRefreshesClockBeforeOutboxWrite() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 

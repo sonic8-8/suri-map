@@ -13,6 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliButton
@@ -23,6 +26,9 @@ import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.components.PoliSkeletonCard
+import com.surimap.ui.components.PoliSkeletonLine
+import com.surimap.ui.components.rememberPoliShimmerBrush
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliWarning
@@ -186,8 +192,15 @@ fun BlockedOutboxScreen(
     onRetry: (BlockedOutboxItemUiState) -> Unit = {},
     onRefresh: () -> Unit = {},
     refreshing: Boolean = false,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val shimmerBrush =
+        if (loading) {
+            rememberPoliShimmerBrush(label = "blocked-outbox-skeleton")
+        } else {
+            null
+        }
     PoliPullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -215,7 +228,9 @@ fun BlockedOutboxScreen(
                     .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
-                if (state.canEnterDiagnostic) {
+                if (loading && shimmerBrush != null) {
+                    BlockedOutboxLoadingContent(shimmerBrush = shimmerBrush)
+                } else if (state.canEnterDiagnostic) {
                     BlockedGroup(state = state, onRetry = onRetry)
                 } else {
                     PoliCard {
@@ -237,7 +252,9 @@ fun BlockedOutboxScreen(
                 }
             }
 
-            if (state.canEnterDiagnostic) {
+            if (loading && shimmerBrush != null) {
+                BlockedOutboxActionSkeleton(shimmerBrush = shimmerBrush)
+            } else if (state.canEnterDiagnostic) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
                     horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
@@ -251,6 +268,30 @@ fun BlockedOutboxScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BlockedOutboxLoadingContent(shimmerBrush: Brush) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "미전송 기록 불러오는 중" },
+        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+    ) {
+        PoliSkeletonCard(title = "처리 불가 항목", lineCount = 3, shimmerBrush = shimmerBrush, strong = true)
+        PoliSkeletonCard(title = "자동 처리 대기", lineCount = 2, shimmerBrush = shimmerBrush)
+    }
+}
+
+@Composable
+private fun BlockedOutboxActionSkeleton(shimmerBrush: Brush) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+    ) {
+        PoliSkeletonLine(shimmerBrush = shimmerBrush, modifier = Modifier.weight(1f), minHeight = PoliDimens.CtaHeight)
     }
 }
 

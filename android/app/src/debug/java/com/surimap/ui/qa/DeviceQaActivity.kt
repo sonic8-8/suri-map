@@ -186,8 +186,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 mode = DutyHandoverScreenMode.HandoverFinalize,
                 state = sampleDutyHandoverState(),
                 onBack = {},
-                onWriteMemo = {},
-                onOpenSearch = {}
+                onWriteMemo = {}
             )
 
         DeviceQaRoute.HandoverMemo -> {
