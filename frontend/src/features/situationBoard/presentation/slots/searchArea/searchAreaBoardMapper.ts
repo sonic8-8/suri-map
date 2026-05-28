@@ -5,7 +5,7 @@ import {
   type SearchAreaHierarchyStatus,
 } from '../../../../../shared/model/searchAreaHierarchy';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import { type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
+import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
 import { getAreaColorToken } from '../../../../../shared/model/areaColorRegistry';
 import type {
   SearchAreaAssignedAccount,
@@ -31,6 +31,7 @@ export type BoardSearchAreaRow = {
   status: SearchAreaHierarchyStatus;
   name: string;
   version: number | null;
+  colorToken?: AreaColorToken | null;
   coordinates: CompletedAreaDraft['coordinates'];
   bbox?: CompletedAreaDraft['bbox'];
   assignedAccounts: SearchAreaAssignedAccount[];
@@ -62,6 +63,7 @@ export function toSearchAreaRows(board: SituationBoardResponseDto): BoardSearchA
         status: readSearchAreaStatus(row),
         name: readString(row, 'name') ?? areaLevel,
         version: readNumber(row, 'version'),
+        colorToken: readAreaColorToken(row),
         coordinates,
         bbox: readBbox(row),
         assignedAccounts: readAssignedAccounts(row),
@@ -189,7 +191,7 @@ function toSearchAreaTreeNode(
     id: row.id,
     opId: row.opId,
     kind: row.areaLevel === 'OVERALL' ? 'overall' : row.areaLevel === 'TEAM' ? 'team' : 'unit',
-    colorToken: colorTokensByAreaId.get(row.id) ?? getAreaColorToken(row.id),
+    colorToken: row.colorToken ?? colorTokensByAreaId.get(row.id) ?? getAreaColorToken(row.id),
     name: row.name,
     meta: createAreaMeta(row),
     status: row.status,
@@ -382,9 +384,14 @@ function toSearchAreaDraft(row: BoardSearchAreaRow): CompletedAreaDraft {
     areaId: row.id,
     opId: row.opId,
     kind: row.areaLevel === 'OVERALL' ? 'overall' : row.areaLevel === 'TEAM' ? 'team' : 'unit',
-    colorToken: getAreaColorToken(row.id),
+    colorToken: row.colorToken ?? getAreaColorToken(row.id),
     label: row.name,
     coordinates: row.coordinates,
     bbox: row.bbox,
   };
+}
+
+function readAreaColorToken(row: Record<string, unknown>): AreaColorToken | null {
+  const colorToken = readString(row, 'colorToken') ?? readString(row, 'color_token');
+  return colorToken && colorToken in areaColorTokens ? (colorToken as AreaColorToken) : null;
 }

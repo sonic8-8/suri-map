@@ -36,9 +36,6 @@ export function getAreaVisualStyle(areaId: string): AreaVisualStyle {
 }
 
 export function rememberAreaColorToken(areaId: string, colorToken: AreaColorToken): AreaColorToken {
-  const existingToken = areaColorRegistry.get(areaId);
-  if (existingToken) return existingToken;
-
   areaColorRegistry.set(areaId, colorToken);
   return colorToken;
 }

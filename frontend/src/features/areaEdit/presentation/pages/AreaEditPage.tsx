@@ -859,7 +859,7 @@ export function AreaEditPage({
               return [
                 {
                   ...draft,
-                  colorToken: rememberAreaColorToken(child.id, parentDrafts[index]?.colorToken ?? draft.colorToken),
+                  colorToken: rememberAreaColorToken(child.id, child.colorToken ?? parentDrafts[index]?.colorToken ?? draft.colorToken),
                   label: parentDrafts[index]?.label ?? draft.label,
                 },
               ];
@@ -896,7 +896,7 @@ export function AreaEditPage({
       };
       const nextSavedOverallDraft = {
         ...savedOverallDraftBase,
-        colorToken: rememberAreaColorToken(savedOverallAreaResult.id, overallDraft.colorToken),
+        colorToken: rememberAreaColorToken(savedOverallAreaResult.id, savedOverallAreaResult.colorToken ?? overallDraft.colorToken),
       };
 
       setHasDraftChanges(false);

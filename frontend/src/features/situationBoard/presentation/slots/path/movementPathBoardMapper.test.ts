@@ -38,7 +38,10 @@ describe('assignRouteColorsToMovementPaths', () => {
   test('uses the actual route geometry area color over stale assignee mapping', () => {
     expect(
       resolveRouteColorByGeometry(
-        [[126.9162, 35.1625], [126.917, 35.1625]],
+        [
+          [126.9162, 35.1625],
+          [126.917, 35.1625],
+        ],
         [
           {
             id: AREA_ID,
@@ -72,7 +75,14 @@ describe('assignRouteColorsToMovementPaths', () => {
     ).toBe(areaColorTokens.AREA_ROSE_01.lineColor);
 
     const paths = assignRouteColorsToMovementPaths(
-      [createMovementPath({ coordinates: [[126.9162, 35.1625], [126.917, 35.1625]] })],
+      [
+        createMovementPath({
+          coordinates: [
+            [126.9162, 35.1625],
+            [126.917, 35.1625],
+          ],
+        }),
+      ],
       {
         id: 'overall',
         kind: 'overall',
