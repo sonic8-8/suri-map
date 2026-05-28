@@ -7,13 +7,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
 import com.surimap.ui.components.PoliBannerVariant
@@ -26,8 +33,10 @@ import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliProgress
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliDimens
+import com.surimap.ui.theme.PoliEmphasis
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.SuriMapTheme
 
 enum class OfflinePackageDownloadStatus {
@@ -518,10 +527,31 @@ private fun PackageSequenceCard(state: OfflinePackageUiState) {
     PoliCard {
         Text(text = "준비 항목", style = MaterialTheme.typography.titleMedium)
         state.packageItems.forEach { item ->
-            PoliRow(title = item.label, subtitle = item.statusLabel) {
-                PoliChip(text = "${(item.progress * 100).toInt()}%", variant = item.variant)
+            PoliRow(
+                title = item.label,
+                subtitle = item.statusLabel.takeUnless { item.progress >= 1f && it == "완료" }
+            ) {
+                PackageItemProgressIndicator(item)
             }
         }
+    }
+}
+
+@Composable
+private fun PackageItemProgressIndicator(item: OfflinePackageItemUiState) {
+    if (item.progress >= 1f) {
+        Icon(
+            imageVector = MdOutlineCheckCircleOutline,
+            contentDescription = "100%",
+            modifier = Modifier.size(PoliDimens.Space6),
+            tint = PoliSuccess
+        )
+    } else {
+        Text(
+            text = "${(item.progress * 100).toInt()}%",
+            style = MaterialTheme.typography.bodyLarge,
+            color = PoliEmphasis
+        )
     }
 }
 
@@ -585,15 +615,6 @@ private val OfflinePackageUiState.statusVariant: PoliChipVariant
             OfflinePackageDownloadStatus.PermissionDenied -> PoliChipVariant.Bad
         }
 
-private val OfflinePackageItemUiState.variant: PoliChipVariant
-    get() =
-        when {
-            failed -> PoliChipVariant.Bad
-            progress >= 1f -> PoliChipVariant.Good
-            progress > 0f -> PoliChipVariant.Warn
-            else -> PoliChipVariant.Neutral
-        }
-
 fun sampleOfflinePackageState(): OfflinePackageUiState =
     OfflinePackageUiState.downloading(
         incidentTitle = "광주 북구 산악 실종",
@@ -613,3 +634,43 @@ private fun OfflinePackageScreenPreview() {
         )
     }
 }
+
+private val MdOutlineCheckCircleOutline: ImageVector
+    get() {
+        if (_mdOutlineCheckCircleOutline != null) {
+            return _mdOutlineCheckCircleOutline!!
+        }
+        _mdOutlineCheckCircleOutline = ImageVector.Builder(
+            name = "MdOutlineCheckCircleOutline",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(16.59f, 7.58f)
+                lineTo(10f, 14.17f)
+                lineTo(6.41f, 10.59f)
+                lineTo(5f, 12f)
+                lineTo(10f, 17f)
+                lineTo(18f, 9f)
+                lineTo(16.59f, 7.58f)
+                close()
+                moveTo(12f, 2f)
+                curveTo(6.48f, 2f, 2f, 6.48f, 2f, 12f)
+                reflectiveCurveTo(6.48f, 22f, 12f, 22f)
+                reflectiveCurveTo(22f, 17.52f, 22f, 12f)
+                reflectiveCurveTo(17.52f, 2f, 12f, 2f)
+                close()
+                moveTo(12f, 20f)
+                curveTo(7.58f, 20f, 4f, 16.42f, 4f, 12f)
+                reflectiveCurveTo(7.58f, 4f, 12f, 4f)
+                reflectiveCurveTo(20f, 7.58f, 20f, 12f)
+                reflectiveCurveTo(16.42f, 20f, 12f, 20f)
+                close()
+            }
+        }.build()
+        return _mdOutlineCheckCircleOutline!!
+    }
+
+private var _mdOutlineCheckCircleOutline: ImageVector? = null
