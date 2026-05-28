@@ -12,6 +12,7 @@ import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchMapAssignmentUiState
 import com.surimap.feature.search.ui.SearchMapLayerVisualStyle
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
@@ -526,6 +527,7 @@ class SearchMapStateLoader(
             appearanceLabel = missingPerson?.optString("appearanceText")?.takeIf(String::isNotBlank),
             assignmentCountLabel = assignments.countLabel,
             assignmentRoleSummary = assignments.roleSummary,
+            assignmentItems = assignments.items,
             opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
                 ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
                 ?: fallback.opLabel,
@@ -565,19 +567,31 @@ class SearchMapStateLoader(
     }
 
     private fun JSONArray?.toIncidentAssignmentReadModel(): IncidentAssignmentReadModel {
-        val assignments = this ?: return IncidentAssignmentReadModel("참여 계정 확인 중", null)
+        val assignments = this ?: return IncidentAssignmentReadModel("참여 계정 확인 중", null, emptyList())
         if (assignments.length() == 0) {
-            return IncidentAssignmentReadModel("0개", "참여 계정 없음")
+            return IncidentAssignmentReadModel("0개", "참여 계정 없음", emptyList())
         }
         val roleCounts = linkedMapOf(
             "INCIDENT_COMMANDER" to 0,
             "FIELD_COMMANDER" to 0,
             "MEMBER" to 0
         )
+        val items = mutableListOf<SearchMapAssignmentUiState>()
         repeat(assignments.length()) { index ->
-            val role = assignments.optJSONObject(index)?.optString("incidentRole")?.uppercase().orEmpty()
+            val assignment = assignments.optJSONObject(index)
+            val role = assignment?.optString("incidentRole")?.uppercase().orEmpty()
             if (role in roleCounts) {
                 roleCounts[role] = roleCounts.getValue(role) + 1
+            }
+            if (assignment != null) {
+                items +=
+                    SearchMapAssignmentUiState(
+                        displayName = assignment.displayName(role),
+                        roleLabel = role.toIncidentRoleLabel(),
+                        accountTypeLabel = assignment.optString("accountType").toAccountTypeLabel(),
+                        organizationLabel = assignment.optString("organizationType").toOrganizationTypeLabel(),
+                        assignedAtLabel = assignment.optString("assignedAt").toKstDateTimeLabel()
+                    )
             }
         }
         val roleSummary =
@@ -591,7 +605,16 @@ class SearchMapStateLoader(
                 }
                 .joinToString(" · ")
                 .ifBlank { "역할 확인 필요" }
-        return IncidentAssignmentReadModel("${assignments.length()}개", roleSummary)
+        val sortedItems =
+            items.sortedWith(
+                compareBy<SearchMapAssignmentUiState> { it.roleLabel.assignmentRolePriority() }
+                    .thenBy { it.assignedAtLabel ?: "" }
+            )
+        return IncidentAssignmentReadModel(
+            countLabel = "${assignments.length()}개",
+            roleSummary = roleSummary,
+            items = sortedItems
+        )
     }
 
     private fun String.toIncidentRoleLabel(): String =
@@ -600,6 +623,45 @@ class SearchMapStateLoader(
             "FIELD_COMMANDER" -> "현장 지휘"
             "MEMBER" -> "수색 대원"
             else -> "참여 계정"
+        }
+
+    private fun String.assignmentRolePriority(): Int =
+        when (this) {
+            "사건 지휘" -> 0
+            "현장 지휘" -> 1
+            "수색 대원" -> 2
+            else -> 3
+        }
+
+    private fun JSONObject.displayName(role: String): String {
+        optString("accountDisplayName").takeIf(String::isNotBlank)?.let { return it }
+        val fallback =
+            listOfNotNull(
+                optString("organizationType").toOrganizationTypeLabel(),
+                optString("accountType").toAccountTypeLabel(),
+                role.toIncidentRoleLabel()
+            )
+                .filter(String::isNotBlank)
+                .joinToString(" ")
+        return fallback.ifBlank { "참여 계정" }
+    }
+
+    private fun String.toAccountTypeLabel(): String? =
+        when (uppercase()) {
+            "TEAM" -> "팀"
+            "PATROL_CAR" -> "순찰차"
+            "COMMAND" -> "지휘"
+            "" -> null
+            else -> "기타 계정"
+        }
+
+    private fun String.toOrganizationTypeLabel(): String? =
+        when (uppercase()) {
+            "MISSING_TEAM" -> "실종팀"
+            "SUPPORT_UNIT" -> "지원부대"
+            "POLICE_SUBSTATION" -> "파출소"
+            "" -> null
+            else -> "기타 조직"
         }
 
     private fun String.toIncidentStatusLabel(): String =
@@ -1550,7 +1612,8 @@ private data class LiveMarkerLoadResult(
 
 private data class IncidentAssignmentReadModel(
     val countLabel: String,
-    val roleSummary: String?
+    val roleSummary: String?,
+    val items: List<SearchMapAssignmentUiState>
 )
 
 private data class MapRevisionSnapshot(

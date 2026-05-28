@@ -168,6 +168,7 @@ import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentAssignmentUiState
 import com.surimap.feature.incidents.ui.IncidentHomeMapDataStatus
 import com.surimap.feature.incidents.ui.IncidentHomeScreen
 import com.surimap.feature.incidents.ui.IncidentHomeUiState
@@ -3366,6 +3367,15 @@ private fun SearchMapUiState.toIncidentHomeUiState(
         assignmentLabel = assignmentLabel.ifBlank { "담당 구역 확인 중" },
         assignmentCountLabel = assignmentCountLabel,
         assignmentRoleSummary = assignmentRoleSummary,
+        assignmentItems = assignmentItems.map { assignment ->
+            IncidentAssignmentUiState(
+                displayName = assignment.displayName,
+                roleLabel = assignment.roleLabel,
+                accountTypeLabel = assignment.accountTypeLabel,
+                organizationLabel = assignment.organizationLabel,
+                assignedAtLabel = assignment.assignedAtLabel
+            )
+        },
         mapDataStatus = mapData.status,
         mapDataDetail = mapData.detail,
         syncLabel =

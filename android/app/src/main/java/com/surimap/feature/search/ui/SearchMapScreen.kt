@@ -200,6 +200,14 @@ private enum class SearchMapOverlayTransparencyLevel(
         }
 }
 
+data class SearchMapAssignmentUiState(
+    val displayName: String,
+    val roleLabel: String,
+    val accountTypeLabel: String? = null,
+    val organizationLabel: String? = null,
+    val assignedAtLabel: String? = null
+)
+
 data class SearchMapUiState(
     val incidentTitle: String,
     val missingPersonSummary: String,
@@ -212,6 +220,7 @@ data class SearchMapUiState(
     val appearanceLabel: String? = null,
     val assignmentCountLabel: String = "참여 계정 확인 중",
     val assignmentRoleSummary: String? = null,
+    val assignmentItems: List<SearchMapAssignmentUiState> = emptyList(),
     val opLabel: String,
     val dutyShiftLabel: String,
     val assignmentLabel: String,
