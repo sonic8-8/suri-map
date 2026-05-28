@@ -143,6 +143,7 @@ data class DutyHandoverUiState(
                 add("선택된 원본 기록")
                 add(selectedRecord.title)
                 add(selectedRecord.subtitle)
+                selectedRecord.detailLines.forEach(::add)
             }
             if (selectedTab == DutyHandoverTab.Replay) {
                 addAll(replaySectionTitles)
@@ -302,9 +303,24 @@ data class DutyHandoverUiState(
                 ),
             records: List<HandoverRecord> =
                 listOf(
-                    HandoverRecord("도보 경로 · 동쪽 능선", "12:07-13:18 · GPS 일부 약함", "보기"),
-                    HandoverRecord("단서 마커 · 배수로 입구", "사진 2장 · 작성 13:36", "열기"),
-                    HandoverRecord("운영 메모 · 북측 진입로", "주민 진술 대기, 배수로 아래 확인 필요", "열기")
+                    HandoverRecord(
+                        title = "도보 경로 · 동쪽 능선",
+                        subtitle = "12:07-13:18 · GPS 일부 약함",
+                        actionLabel = "보기",
+                        detailLines = listOf("이동 방식: 도보", "시간: 12:07-13:18", "기록 품질: GPS 일부 약함")
+                    ),
+                    HandoverRecord(
+                        title = "단서 마커 · 배수로 입구",
+                        subtitle = "사진 2장 · 작성 13:36",
+                        actionLabel = "열기",
+                        detailLines = listOf("유형: 단서", "사진: 2장", "메모: 배수로 입구 확인")
+                    ),
+                    HandoverRecord(
+                        title = "운영 메모 · 북측 진입로",
+                        subtitle = "주민 진술 대기, 배수로 아래 확인 필요",
+                        actionLabel = "열기",
+                        detailLines = listOf("대상: 근무 인수인계", "내용: 주민 진술 대기, 배수로 아래 확인 필요")
+                    )
                 ),
             replayPoints: List<HandoverReplayPointUi> = emptyList(),
             replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
@@ -363,7 +379,8 @@ data class HandoverRecord(
     val title: String,
     val subtitle: String,
     val actionLabel: String,
-    val sourceKey: String = "$title|$subtitle"
+    val sourceKey: String = "$title|$subtitle",
+    val detailLines: List<String> = emptyList()
 )
 data class HandoverReplayPointUi(
     val elapsedMs: Long,
@@ -1059,6 +1076,9 @@ private fun ReportTab(
         selectedRecordKey = state.selectedOriginalRecordKey,
         onSelectRecord = onSelectOriginalRecord
     )
+    state.selectedOriginalRecord?.let { selectedRecord ->
+        SelectedOriginalRecordCard(record = selectedRecord)
+    }
     ReportSectionCard(title = "동기화 상태") {
         PoliChip(text = state.sourceReadiness.reportLabel, variant = state.sourceReadiness.variant)
         Text(
@@ -1066,6 +1086,21 @@ private fun ReportTab(
             style = MaterialTheme.typography.bodyMedium,
             color = PoliFgMuted
         )
+    }
+}
+
+@Composable
+private fun SelectedOriginalRecordCard(record: HandoverRecord) {
+    ReportSectionCard(title = "선택된 원본 기록") {
+        PoliField(label = "기록", value = record.title)
+        PoliField(label = "요약", value = record.subtitle)
+        if (record.detailLines.isEmpty()) {
+            EmptyReportText("추가 원본 정보 없음")
+        } else {
+            record.detailLines.forEach { detail ->
+                Text(text = detail, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
+            }
+        }
     }
 }
 
@@ -1142,9 +1177,16 @@ private fun SummaryCard(state: DutyHandoverUiState) {
 
 @Composable
 private fun MetricRow(metrics: List<HandoverMetric>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-        metrics.forEach { metric ->
-            PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
+    Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+        metrics.chunked(3).forEach { rowMetrics ->
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                rowMetrics.forEach { metric ->
+                    PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
+                }
+                repeat(3 - rowMetrics.size) {
+                    Box(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -1202,9 +1244,9 @@ private val HandoverRecordScope.emptyRecordLabel: String
 private val SummarySourceReadiness.reportCopy: String
     get() =
         when (this) {
-            SummarySourceReadiness.PendingSync -> "서버 반영 전 기록이 있어 원본 기록을 함께 확인합니다."
+            SummarySourceReadiness.PendingSync -> "경로·마커·사진·메모 중 서버 반영 전 기록이 있을 수 있어 원본 기록을 함께 확인합니다."
             SummarySourceReadiness.Ready -> "서버 기록 기준으로 보고서를 표시합니다."
-            SummarySourceReadiness.Stale -> "새 기록 반영 전 상태입니다. 원본 기록을 함께 확인합니다."
+            SummarySourceReadiness.Stale -> "요약 생성 뒤 새 기록이 반영된 상태입니다. 최종 요약 전까지 원본 기록을 함께 확인합니다."
         }
 
 private val SummarySourceReadiness.variant: PoliChipVariant

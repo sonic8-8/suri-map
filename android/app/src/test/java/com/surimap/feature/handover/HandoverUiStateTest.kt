@@ -126,6 +126,7 @@ class HandoverUiStateTest {
         assertEquals(originalRecord, selected.selectedOriginalRecord)
         assertTrue(selected.visibleText().any { it.contains("선택된 원본 기록") })
         assertTrue(selected.visibleText().any { it.contains(originalRecord.title) })
+        assertTrue(selected.visibleText().any { it.contains("이동 방식: 도보") })
         assertFalse(selected.visibleText().any { it.contains("AI") })
         assertFalse(selected.visibleText().any { it.contains("추천") })
         assertFalse(selected.visibleText().any { it.contains("위험") })

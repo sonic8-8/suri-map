@@ -134,6 +134,17 @@ class DutyHandoverStateLoaderTest {
         assertEquals(300_000L, state.replayMarkers.single().elapsedMs)
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
         assertTrue(state.metrics.any { it.label == "총 이동" && it.value == "1.8km" })
+        assertTrue(state.metrics.any { it.label == "도보" && it.value == "1.8km" })
+        assertTrue(state.metrics.any { it.label == "차량" && it.value == "0m" })
+        assertTrue(state.metrics.any { it.label == "평균 속도" && it.value == "2.1km/h" })
+        assertTrue(state.metrics.any { it.label == "정지 구간" && it.value == "0회" })
+        val markerRecord = state.records.first { it.sourceKey == "marker-1" }
+        assertTrue(markerRecord.detailLines.any { it.contains("유형: 단서") })
+        assertTrue(markerRecord.detailLines.any { it.contains("사진: 2장") })
+        assertTrue(markerRecord.detailLines.any { it.contains("위치: 37.10500, 127.11000") })
+        val memoRecord = state.records.first { it.sourceKey == "memo-1" }
+        assertTrue(memoRecord.detailLines.any { it.contains("작성자: 순찰차 1") })
+        assertTrue(memoRecord.detailLines.any { it.contains("내용: 북측 진입로 주민 진술 대기") })
     }
 
     @Test
