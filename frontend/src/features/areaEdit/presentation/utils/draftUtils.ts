@@ -1,4 +1,5 @@
 import { getAreaColorToken } from '../../../../shared/model/areaColorRegistry';
+import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
 import { buildSearchAreaHierarchy } from '../../../../shared/model/searchAreaHierarchy';
 import type { GeoJsonPolygon, SearchAreaResponse as SearchAreaDto } from '../../../searchArea/api/searchAreaApi';
 import { areaTree } from '../constants/mockAreaEdit';
@@ -32,6 +33,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function readAreaColorToken(area: SearchAreaDto): AreaColorToken {
+  const colorToken = area.colorToken ?? (area as SearchAreaDto & { color_token?: AreaColorToken }).color_token;
+  return colorToken && colorToken in areaColorTokens ? colorToken : getAreaColorToken(area.id);
+}
+
 export function toGeoJsonPolygon(coordinates: AreaEditPosition[]): GeoJsonPolygon {
   return {
     type: 'Polygon',
@@ -45,7 +51,7 @@ export function createOverallAreaTree(overallArea: SearchAreaDto | null, unitAre
   return {
     ...areaTree,
     id: overallArea.id,
-    colorToken: getAreaColorToken(overallArea.id),
+    colorToken: readAreaColorToken(overallArea),
     status: overallArea.status,
     geometryState: 'saved',
     meta: `ACTIVE / v${overallArea.version}`,
@@ -60,7 +66,7 @@ export function createOverallDraft(overallArea: SearchAreaDto): CompletedAreaDra
   return {
     areaId: overallArea.id,
     kind: 'overall',
-    colorToken: getAreaColorToken(overallArea.id),
+    colorToken: readAreaColorToken(overallArea),
     label: areaTree.name,
     coordinates: outerRing.map((point) => [point[0], point[1]]),
     bbox: toAreaBbox(overallArea.bbox),
@@ -75,7 +81,7 @@ export function createAreaDraft(area: SearchAreaDto, fallbackIndex: number): Com
   return {
     areaId: area.id,
     kind,
-    colorToken: getAreaColorToken(area.id),
+    colorToken: readAreaColorToken(area),
     label: kind === 'overall' ? areaTree.name : `${kind.toUpperCase()} ${fallbackIndex}`,
     coordinates: outerRing.map((point) => [point[0], point[1]]),
     bbox: toAreaBbox(area.bbox),
@@ -86,7 +92,7 @@ export function createUnitAreaNode(area: SearchAreaDto, fallbackIndex: number, c
   return {
     id: area.id,
     kind: 'unit',
-    colorToken: getAreaColorToken(area.id),
+    colorToken: readAreaColorToken(area),
     name: `UNIT ${fallbackIndex}`,
     meta: `ACTIVE / v${area.version}`,
     status: area.status,
@@ -100,7 +106,7 @@ export function createTeamAreaNode(area: SearchAreaDto, fallbackIndex: number): 
   return {
     id: area.id,
     kind: 'team',
-    colorToken: getAreaColorToken(area.id),
+    colorToken: readAreaColorToken(area),
     name: `TEAM ${fallbackIndex}`,
     meta: `ACTIVE / v${area.version}`,
     status: area.status,

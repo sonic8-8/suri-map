@@ -75,6 +75,16 @@ describe('searchAreaBoardMapper', () => {
     expect(tree.children?.[0]?.name).toBe('광주경찰청 기동대');
     expect(tree.children?.[0]?.children?.[0]?.name).toBe('1제대');
   });
+
+  test('server colorToken is used before local registry fallback', () => {
+    const tree = buildSearchAreaTree(
+      fallbackSearchAreaTree(),
+      [createAreaRow({ id: 'team-001', colorToken: 'AREA_ROSE_01' })],
+      [],
+    );
+
+    expect(tree.children?.[0]?.colorToken).toBe('AREA_ROSE_01');
+  });
 });
 
 function createAreaRow(overrides: Partial<BoardSearchAreaRow>): BoardSearchAreaRow {

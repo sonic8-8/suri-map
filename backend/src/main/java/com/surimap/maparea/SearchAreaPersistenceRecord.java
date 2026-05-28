@@ -10,6 +10,7 @@ public record SearchAreaPersistenceRecord(
     UUID parentSearchAreaId,
     String name,
     String areaLevel,
+    String colorToken,
     Polygon geometry,
     String status,
     long version,

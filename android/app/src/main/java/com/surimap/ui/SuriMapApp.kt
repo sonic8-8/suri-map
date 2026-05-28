@@ -3355,8 +3355,17 @@ private fun SearchMapUiState.toIncidentHomeUiState(
     return IncidentHomeUiState(
         incidentTitle = incidentTitle,
         missingPersonSummary = missingPersonSummary,
+        incidentStatusLabel = incidentStatusLabel,
+        openedAtLabel = openedAtLabel,
+        missingPersonName = missingPersonName,
+        missingPersonPhotoUrl = missingPersonPhotoUrl,
+        lastSeenAtLabel = lastSeenAtLabel,
+        lastSeenLocationLabel = lastSeenLocationLabel,
+        appearanceLabel = appearanceLabel,
         opLabel = opLabel.toSearchRoundLabelForHome(),
         assignmentLabel = assignmentLabel.ifBlank { "담당 구역 확인 중" },
+        assignmentCountLabel = assignmentCountLabel,
+        assignmentRoleSummary = assignmentRoleSummary,
         mapDataStatus = mapData.status,
         mapDataDetail = mapData.detail,
         syncLabel =
@@ -3461,7 +3470,10 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         currentDutyShiftId = this?.currentDutyShiftId,
         currentOpLabel = this?.currentOpLabel,
         policePhoneId = policePhoneContext?.policePhoneId,
-        accountId = policePhoneContext?.accountId
+        accountId = policePhoneContext?.accountId,
+        apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
+        objectStorageBaseUrl = policePhoneContext?.objectStorageBaseUrl
+            ?: BuildConfig.SURI_MAP_API_BASE_URL.trimEnd('/').removeSuffix("/api")
     )
 
 private suspend fun DutyShiftRepository.currentDutyShiftStartedAt(context: SearchMapSessionContext): Instant? {

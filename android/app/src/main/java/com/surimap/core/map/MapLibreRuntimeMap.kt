@@ -1,5 +1,6 @@
 package com.surimap.core.map
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -8,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.os.Bundle
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -82,11 +84,15 @@ import org.maplibre.android.style.sources.GeoJsonSource
 private val SURI_MAP_LABEL_FONT_STACK = arrayOf("Pretendard GOV")
 private const val CURRENT_LOCATION_IMAGE_ID = "suri-current-location"
 private const val CURRENT_LOCATION_HEADING_IMAGE_ID = "suri-current-location-heading"
+private const val CURRENT_LOCATION_ACTIVE_IMAGE_ID = "suri-current-location-active"
+private const val CURRENT_LOCATION_ACTIVE_HEADING_IMAGE_ID = "suri-current-location-heading-active"
 private const val CURRENT_LOCATION_IMAGE_SIZE_PX = 76
-private const val CURRENT_LOCATION_MARKER_RADIUS_PX = 17f
-private const val CURRENT_LOCATION_MARKER_STROKE_WIDTH_PX = 5f
+private const val CURRENT_LOCATION_MARKER_RADIUS_PX = 15.5f
+private const val CURRENT_LOCATION_BREATHING_MARKER_RADIUS_PX = 17.8f
+private const val CURRENT_LOCATION_MARKER_STROKE_WIDTH_PX = 4.5f
 private const val CURRENT_LOCATION_ICON_SIZE = 1.35f
 private const val CURRENT_LOCATION_HEADING_IMAGE_SDF = false
+private const val CURRENT_LOCATION_BREATHING_DURATION_MS = 2200L
 private const val MARKER_ICON_PREFIX = "suri-board-marker"
 private const val MARKER_ICON_WIDTH = 40
 private const val MARKER_ICON_HEIGHT = 46
@@ -332,6 +338,9 @@ class MapLibreMapViewHandle {
     internal var appliedOverlaySignature: String? = null
     internal var appliedOverlayStyleIds: Set<String> = emptySet()
     internal var appliedCameraSignature: String? = null
+    private var currentLocationBreathingAnimator: ValueAnimator? = null
+    private var currentLocationBreathingFillColor: String? = null
+    private var currentLocationBreathingStrokeColor: String? = null
 
     internal fun mapView(context: Context): MapView {
         val existing = cachedMapView
@@ -380,6 +389,10 @@ class MapLibreMapViewHandle {
     }
 
     internal fun destroy() {
+        currentLocationBreathingAnimator?.cancel()
+        currentLocationBreathingAnimator = null
+        currentLocationBreathingFillColor = null
+        currentLocationBreathingStrokeColor = null
         cachedLifecycleBridge?.onDestroy()
         cachedLifecycleBridge = null
         cachedMapView = null
@@ -387,6 +400,52 @@ class MapLibreMapViewHandle {
         appliedOverlaySignature = null
         appliedOverlayStyleIds = emptySet()
         appliedCameraSignature = null
+    }
+
+    internal fun syncCurrentLocationBreathing(
+        mapLibreMap: MapLibreMap,
+        fillColor: String?,
+        strokeColor: String?
+    ) {
+        currentLocationBreathingFillColor = fillColor
+        currentLocationBreathingStrokeColor = strokeColor
+        if (fillColor.isNullOrBlank() || strokeColor.isNullOrBlank()) {
+            currentLocationBreathingAnimator?.cancel()
+            currentLocationBreathingAnimator = null
+            return
+        }
+        if (currentLocationBreathingAnimator != null) {
+            return
+        }
+        currentLocationBreathingAnimator =
+            ValueAnimator.ofFloat(CURRENT_LOCATION_MARKER_RADIUS_PX, CURRENT_LOCATION_BREATHING_MARKER_RADIUS_PX).apply {
+                duration = CURRENT_LOCATION_BREATHING_DURATION_MS
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = AccelerateDecelerateInterpolator()
+                addUpdateListener { animator ->
+                    val markerRadius = animator.animatedValue as Float
+                    val activeFillColor = currentLocationBreathingFillColor ?: return@addUpdateListener
+                    val activeStrokeColor = currentLocationBreathingStrokeColor ?: return@addUpdateListener
+                    mapLibreMap.getStyle { style ->
+                        style.replaceCurrentLocationImage(
+                            imageId = CURRENT_LOCATION_ACTIVE_IMAGE_ID,
+                            fillColor = activeFillColor,
+                            strokeColor = activeStrokeColor,
+                            withHeading = false,
+                            markerRadius = markerRadius
+                        )
+                        style.replaceCurrentLocationImage(
+                            imageId = CURRENT_LOCATION_ACTIVE_HEADING_IMAGE_ID,
+                            fillColor = activeFillColor,
+                            strokeColor = activeStrokeColor,
+                            withHeading = true,
+                            markerRadius = markerRadius
+                        )
+                    }
+                }
+                start()
+            }
     }
 }
 
@@ -523,6 +582,13 @@ fun SuriMapLibreMap(
                         state.geometryOverlays.forEach { overlay ->
                             style.upsertGeometryOverlay(overlay)
                         }
+                        style.bringCurrentLocationLayersToFront(state.geometryOverlays)
+                        val breathingPaint = state.geometryOverlays.currentLocationBreathingPaint()
+                        activeMapViewHandle.syncCurrentLocationBreathing(
+                            mapLibreMap,
+                            breathingPaint?.circleColor,
+                            breathingPaint?.circleStrokeColor
+                        )
                         activeMapViewHandle.appliedOverlayStyleIds = currentStyleIds
                         activeMapViewHandle.appliedOverlaySignature = overlaySignature
                     }
@@ -622,6 +688,10 @@ private val MapLibreGeometryOverlay.headingLayerId: String
 
 private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
     geometryOverlays.joinToString("|") { it.signature() }
+
+private fun List<MapLibreGeometryOverlay>.currentLocationBreathingPaint(): MapLibreOverlayPaint? =
+    firstOrNull { overlay -> overlay.supportsBreathingLayer }
+        ?.let { overlay -> mapLibreOverlayPaint(overlay.kind, overlay.highlighted, overlay.visualStyle) }
 
 private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
     val sourceJson = overlay.featureCollectionJson() ?: return
@@ -810,28 +880,52 @@ private fun Style.upsertHeadingLayer(overlay: MapLibreGeometryOverlay, paint: Ma
 }
 
 private fun Style.upsertCurrentLocationImages(paint: MapLibreOverlayPaint) {
-    if (getImage(CURRENT_LOCATION_IMAGE_ID) == null) {
+    upsertCurrentLocationImage(CURRENT_LOCATION_IMAGE_ID, paint.circleColor, paint.circleStrokeColor, withHeading = false)
+    upsertCurrentLocationImage(CURRENT_LOCATION_HEADING_IMAGE_ID, paint.circleColor, paint.circleStrokeColor, withHeading = true)
+    upsertCurrentLocationImage(CURRENT_LOCATION_ACTIVE_IMAGE_ID, paint.circleColor, paint.circleStrokeColor, withHeading = false)
+    upsertCurrentLocationImage(CURRENT_LOCATION_ACTIVE_HEADING_IMAGE_ID, paint.circleColor, paint.circleStrokeColor, withHeading = true)
+}
+
+private fun Style.upsertCurrentLocationImage(
+    imageId: String,
+    fillColor: String,
+    strokeColor: String,
+    withHeading: Boolean
+) {
+    if (getImage(imageId) == null) {
         addImage(
-            CURRENT_LOCATION_IMAGE_ID,
+            imageId,
             currentLocationBitmap(
-                fillColor = paint.circleColor,
-                strokeColor = paint.circleStrokeColor,
-                withHeading = false
+                fillColor = fillColor,
+                strokeColor = strokeColor,
+                withHeading = withHeading,
+                markerRadius = CURRENT_LOCATION_MARKER_RADIUS_PX
             ),
             CURRENT_LOCATION_HEADING_IMAGE_SDF
         )
     }
-    if (getImage(CURRENT_LOCATION_HEADING_IMAGE_ID) == null) {
-        addImage(
-            CURRENT_LOCATION_HEADING_IMAGE_ID,
-            currentLocationBitmap(
-                fillColor = paint.circleColor,
-                strokeColor = paint.circleStrokeColor,
-                withHeading = true
-            ),
-            CURRENT_LOCATION_HEADING_IMAGE_SDF
-        )
+}
+
+private fun Style.replaceCurrentLocationImage(
+    imageId: String,
+    fillColor: String,
+    strokeColor: String,
+    withHeading: Boolean,
+    markerRadius: Float
+) {
+    if (getImage(imageId) != null) {
+        removeImage(imageId)
     }
+    addImage(
+        imageId,
+        currentLocationBitmap(
+            fillColor = fillColor,
+            strokeColor = strokeColor,
+            withHeading = withHeading,
+            markerRadius = markerRadius
+        ),
+        CURRENT_LOCATION_HEADING_IMAGE_SDF
+    )
 }
 
 private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
@@ -871,6 +965,23 @@ private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapL
     )
 }
 
+private fun Style.bringCurrentLocationLayersToFront(overlays: List<MapLibreGeometryOverlay>) {
+    overlays
+        .filter { overlay -> overlay.kind == MapLibreGeometryOverlayKind.CurrentLocation }
+        .forEach { overlay ->
+            if (getSourceAs<GeoJsonSource>(overlay.sourceId) == null) {
+                return@forEach
+            }
+            val paint = mapLibreOverlayPaint(overlay.kind, overlay.highlighted, overlay.visualStyle)
+            removeLayer(overlay.headingLayerId)
+            upsertHeadingLayer(overlay, paint)
+            if (overlay.supportsLabelLayer) {
+                removeLayer(overlay.labelLayerId)
+                upsertLabelLayer(overlay, paint)
+            }
+        }
+}
+
 private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     styleIds.forEach { styleId ->
         removeLayer("$styleId-label")
@@ -905,7 +1016,14 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String? {
                                     put("markerIcon", markerIconImageId)
                                 }
                                 if (kind == MapLibreGeometryOverlayKind.CurrentLocation) {
-                                    put("currentLocationIcon", if (bearingDegrees == null) CURRENT_LOCATION_IMAGE_ID else CURRENT_LOCATION_HEADING_IMAGE_ID)
+                                    val currentLocationIcon =
+                                        when {
+                                            highlighted && bearingDegrees == null -> CURRENT_LOCATION_ACTIVE_IMAGE_ID
+                                            highlighted -> CURRENT_LOCATION_ACTIVE_HEADING_IMAGE_ID
+                                            bearingDegrees == null -> CURRENT_LOCATION_IMAGE_ID
+                                            else -> CURRENT_LOCATION_HEADING_IMAGE_ID
+                                        }
+                                    put("currentLocationIcon", currentLocationIcon)
                                     put("bearingDegrees", bearingDegrees ?: 0.0)
                                 }
                             }
@@ -1200,7 +1318,8 @@ private fun markerLegendColor(typeKey: String, supportRequestType: String?, glyp
 private fun currentLocationBitmap(
     fillColor: String,
     strokeColor: String,
-    withHeading: Boolean
+    withHeading: Boolean,
+    markerRadius: Float = CURRENT_LOCATION_MARKER_RADIUS_PX
 ): Bitmap {
     val bitmap =
         Bitmap.createBitmap(
@@ -1235,8 +1354,8 @@ private fun currentLocationBitmap(
         canvas.drawPath(headingPath, fillPaint)
         canvas.drawPath(headingPath, strokePaint)
     }
-    canvas.drawCircle(center, center, CURRENT_LOCATION_MARKER_RADIUS_PX, fillPaint)
-    canvas.drawCircle(center, center, CURRENT_LOCATION_MARKER_RADIUS_PX, strokePaint)
+    canvas.drawCircle(center, center, markerRadius, fillPaint)
+    canvas.drawCircle(center, center, markerRadius, strokePaint)
     return bitmap
 }
 
@@ -1317,6 +1436,10 @@ private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
 
 private val MapLibreGeometryOverlay.supportsMarkerIconLayer: Boolean
     get() = kind == MapLibreGeometryOverlayKind.Marker
+
+private val MapLibreGeometryOverlay.supportsBreathingLayer: Boolean
+    get() =
+        kind == MapLibreGeometryOverlayKind.CurrentLocation && highlighted
 
 private val MapLibreGeometryOverlay.supportsLabelLayer: Boolean
     get() =

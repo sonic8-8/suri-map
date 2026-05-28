@@ -209,7 +209,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request for overall area: `incidentId`, `areaLevel=OVERALL`, `geometry`, `clientTs`
 - Request for normal area: `incidentId`, `opId`, `areaLevel=UNIT|TEAM`, `geometry`, optional `memo`, `clientTs`
-- Response: `201 {id, incidentId, opId?, status, historyCount?, version, geometry}`
+- Response: `201 {id, incidentId, opId?, areaLevel, colorToken, status, historyCount?, version, geometry}`
 - Errors: `invalid_geometry`, `overall_search_area_required`, `area_state_conflict`, `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - Note: DB 기준으로 전체 수색 구역은 `search_area.area_level = OVERALL`이다. 별도 `/overall` resource를 만들지 않는다.
 
@@ -222,7 +222,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
 - Query: `incidentId`, optional `opId`, `areaLevel`, `status`
-- Response for active overall query: `200 {id, incidentId, geometry, status, version}`
+- Response for active overall query: `200 {id, incidentId, geometry, areaLevel, colorToken, status, version}`
+- Response for collection query: `200 {incidentId, sourceVersion, areas:[{id, incidentId, opId?, parentAreaId?, areaLevel, colorToken, status, historyCount, version, geometry, bbox, updatedAt}]}`
 - Response for not found overall query: `409 {error: "overall_search_area_required"}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `overall_search_area_required`
 - Canonical active overall query: `GET /api/search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE`
@@ -237,7 +238,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request for geometry/memo update: `opId?`, `geometry`, optional `memo`, `expectedVersion`, `clientTs`
 - Request for status update: `opId`, `nextStatus`, optional `memo`, `clientTs`
-- Response: `200 {id, incidentId?, opId?, status, historyCount?, version, geometry?}`
+- Response: `200 {id, incidentId?, opId?, areaLevel?, colorToken, status, historyCount?, version, geometry?}`
 - Errors: `invalid_geometry`, `overall_search_area_required`, `area_state_conflict`, `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - Note: status 변경도 `search_area.status`와 `search_area_history` 변경으로 처리한다. `/state`와 `/status` endpoint는 canonical에서 제외한다.
 

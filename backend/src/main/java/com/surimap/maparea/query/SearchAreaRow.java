@@ -18,8 +18,37 @@ public record SearchAreaRow(
     UUID parentAreaId,
     String status,
     String areaLevel,
+    String colorToken,
     long version,
     GeoJsonPolygon geometry,
     List<BigDecimal> bbox,
     Instant updatedAt,
-    long historyCount) {}
+    long historyCount) {
+
+  public SearchAreaRow(
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      UUID parentAreaId,
+      String status,
+      String areaLevel,
+      long version,
+      GeoJsonPolygon geometry,
+      List<BigDecimal> bbox,
+      Instant updatedAt,
+      long historyCount) {
+    this(
+        id,
+        incidentId,
+        opId,
+        parentAreaId,
+        status,
+        areaLevel,
+        "AREA_BLUE_01",
+        version,
+        geometry,
+        bbox,
+        updatedAt,
+        historyCount);
+  }
+}

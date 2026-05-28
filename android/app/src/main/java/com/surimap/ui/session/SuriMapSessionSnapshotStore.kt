@@ -25,7 +25,9 @@ data class SuriMapSessionSnapshot(
             incidentId = normalizedIncidentId,
             currentOpId = currentOpId?.takeIf(String::isNotBlank),
             currentDutyShiftId = currentDutyShiftId?.takeIf(String::isNotBlank),
-            policePhoneId = policePhoneId?.takeIf(String::isNotBlank)
+            policePhoneId = policePhoneId?.takeIf(String::isNotBlank),
+            apiBaseUrl = apiBaseUrl?.takeIf(String::isNotBlank),
+            objectStorageBaseUrl = objectStorageBaseUrl?.takeIf(String::isNotBlank)
         )
     }
 

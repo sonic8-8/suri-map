@@ -77,7 +77,9 @@ export function createSearchAreaDraftFeatureCollection(
     team: 2,
   };
 
-  const drawOrderedDrafts = [...drafts].sort((leftDraft, rightDraft) => drawPriority[leftDraft.kind] - drawPriority[rightDraft.kind]);
+  const drawOrderedDrafts = [...drafts].sort(
+    (leftDraft, rightDraft) => drawPriority[leftDraft.kind] - drawPriority[rightDraft.kind],
+  );
 
   return {
     type: 'FeatureCollection',
@@ -219,7 +221,7 @@ function resolveRouteColor(
   const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
   if (accountRouteColor) return accountRouteColor;
 
-  return path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null;
+  return path.policePhoneId ? (routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null) : null;
 }
 
 export function createRouteColorAssigneeKey(opId: string, assigneeId: string) {

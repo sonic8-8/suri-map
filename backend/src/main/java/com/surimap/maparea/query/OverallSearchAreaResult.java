@@ -15,7 +15,20 @@ public record OverallSearchAreaResult(
     UUID id,
     UUID incidentId,
     String status,
+    String colorToken,
     long version,
     GeoJsonPolygon geometry,
     List<BigDecimal> bbox,
-    Instant updatedAt) {}
+    Instant updatedAt) {
+
+  public OverallSearchAreaResult(
+      UUID id,
+      UUID incidentId,
+      String status,
+      long version,
+      GeoJsonPolygon geometry,
+      List<BigDecimal> bbox,
+      Instant updatedAt) {
+    this(id, incidentId, status, "AREA_BLUE_01", version, geometry, bbox, updatedAt);
+  }
+}

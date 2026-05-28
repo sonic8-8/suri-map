@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
+import type { AreaColorToken } from '../../../shared/constants/areaColorTokens';
 
 export type SearchAreaLevel = 'OVERALL' | 'UNIT' | 'TEAM';
 export type SearchAreaStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
@@ -57,6 +58,7 @@ export interface SearchAreaResponse {
   parentAreaId?: string;
   areaLevel?: SearchAreaLevel;
   status: SearchAreaStatus;
+  colorToken?: AreaColorToken;
   historyCount?: number;
   version: number;
   geometry: GeoJsonPolygon;

@@ -351,6 +351,8 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
     assertThat(response.parent().geometry()).isEqualTo(parent.geometry());
     assertThat(response.createdAreaIds()).hasSize(2);
     assertThat(response.children()).hasSize(2);
+    assertThat(response.children().stream().map(SearchAreaResponse::colorToken).toList())
+        .doesNotHaveDuplicates();
     assertThat(response.children())
         .allSatisfy(
             child -> {

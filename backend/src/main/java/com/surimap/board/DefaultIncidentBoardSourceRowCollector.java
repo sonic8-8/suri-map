@@ -387,6 +387,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("incidentId", row.incidentId().toString());
     payload.put("areaLevel", "OVERALL");
+    payload.put("colorToken", row.colorToken());
     payload.put("geometryHash", sourceHash("overall_search_area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());
@@ -415,6 +416,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "parentAreaId", row.parentAreaId());
     payload.put("areaLevel", row.areaLevel());
+    payload.put("colorToken", row.colorToken());
     payload.put("geometryHash", sourceHash("area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());

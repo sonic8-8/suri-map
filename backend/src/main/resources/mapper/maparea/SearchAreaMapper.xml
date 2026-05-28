@@ -12,6 +12,7 @@
             <arg column="operational_period_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="parent_search_area_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="area_level" javaType="string"/>
+            <arg column="color_token" javaType="string"/>
             <arg column="status" javaType="string"/>
             <arg column="version" javaType="_long"/>
             <arg column="geometry" javaType="org.locationtech.jts.geom.Polygon" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
@@ -27,6 +28,7 @@
             parent_search_area_id,
             name,
             area_level,
+            color_token,
             geometry,
             status,
             version,
@@ -40,6 +42,7 @@
             #{parentSearchAreaId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{name},
             #{areaLevel},
+            #{colorToken},
             ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
             #{status},
             #{version},
@@ -103,6 +106,7 @@
         area.operational_period_id,
         area.parent_search_area_id,
         area.area_level,
+        area.color_token,
         area.status,
         area.version,
         ST_AsEWKT(area.geometry) AS geometry,
@@ -215,5 +219,17 @@
         </if>
         GROUP BY area.id, op.incident_id
         ORDER BY area.operational_period_id ASC, area.status ASC, area.updated_at ASC, area.id ASC
+    </select>
+
+    <select id="findAdjacentColorTokens" resultType="string">
+        SELECT DISTINCT area.color_token
+        FROM search_area area
+        WHERE area.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND area.status = 'ACTIVE'
+          AND area.color_token IS NOT NULL
+          AND (
+              ST_Touches(area.geometry, ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}))
+              OR ST_Intersects(area.geometry, ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}))
+          )
     </select>
 </mapper>
