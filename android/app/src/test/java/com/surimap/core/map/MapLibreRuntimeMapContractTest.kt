@@ -227,6 +227,8 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("mapViewHandle: MapLibreMapViewHandle? = null"))
         assertTrue(source.contains("val activeMapViewHandle = mapViewHandle ?: ownedMapViewHandle"))
         assertTrue(source.contains("activeMapViewHandle.mapView(context)"))
+        assertTrue(source.contains("import android.view.ViewGroup"))
+        assertTrue(source.contains("(mapView.parent as? ViewGroup)?.removeView(mapView)"))
         assertTrue(source.contains("lifecycleBridge.onStop()"))
         assertTrue(source.contains("activeMapViewHandle.appliedStyleUrl != styleUrl"))
         assertTrue(source.contains("activeMapViewHandle.appliedStyleUrl = styleUrl"))

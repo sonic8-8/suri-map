@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.os.Bundle
+import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -462,7 +463,10 @@ fun SuriMapLibreMap(
     }
 
     AndroidView(
-        factory = { mapView },
+        factory = {
+            (mapView.parent as? ViewGroup)?.removeView(mapView)
+            mapView
+        },
         modifier = modifier,
         update = { view ->
             val styleUrl = state.tileSourceConfig().styleUrl
