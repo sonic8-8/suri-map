@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +17,8 @@ import com.surimap.common.auth.Role;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.support.auth.WithMockAccount;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -86,5 +89,17 @@ class AppMapRevisionApiContractTest {
             eq("APP"),
             eq("MAP_REVISION_READ"),
             any(Instant.class));
+  }
+
+  @Test
+  @DisplayName("search_area 색상 토큰 변경은 앱 지도 캐시 revision을 갱신한다")
+  void searchAreaColorTokenParticipatesInMapRevisionFingerprint() throws Exception {
+    String mapperXml =
+        Files.readString(Path.of("src/main/resources/mapper/app/AppMapRevisionMapper.xml"));
+
+    assertThat(mapperXml).contains("area.color_token");
+    assertThat(mapperXml)
+        .contains(
+            "CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT, area.color_token) AS fingerprint");
   }
 }

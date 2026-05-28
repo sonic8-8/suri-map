@@ -67,6 +67,154 @@ public class SearchAreaApiService implements SearchAreaQuery {
   private static final String TEAM = "TEAM";
   private static final int SRID = 4326;
   private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+  private static final List<String> AREA_COLOR_TOKENS =
+      List.of(
+          "AREA_BLUE_01",
+          "AREA_ORANGE_01",
+          "AREA_GREEN_01",
+          "AREA_PURPLE_01",
+          "AREA_CYAN_01",
+          "AREA_ROSE_01",
+          "AREA_YELLOW_01",
+          "AREA_RED_01",
+          "AREA_TEAL_01",
+          "AREA_VIOLET_01",
+          "AREA_LIME_01",
+          "AREA_AMBER_01",
+          "AREA_PINK_01",
+          "AREA_SKY_01",
+          "AREA_EMERALD_01",
+          "AREA_FUCHSIA_01",
+          "AREA_RED_02",
+          "AREA_VIOLET_02",
+          "AREA_CYAN_02",
+          "AREA_YELLOW_02",
+          "AREA_GREEN_02",
+          "AREA_PINK_02",
+          "AREA_INDIGO_01",
+          "AREA_ORANGE_02",
+          "AREA_BLUE_02",
+          "AREA_ORANGE_03",
+          "AREA_GREEN_03",
+          "AREA_PURPLE_02",
+          "AREA_SKY_02",
+          "AREA_ROSE_02",
+          "AREA_YELLOW_03",
+          "AREA_RED_03",
+          "AREA_TEAL_02",
+          "AREA_VIOLET_03",
+          "AREA_LIME_02",
+          "AREA_AMBER_02",
+          "AREA_FUCHSIA_02",
+          "AREA_SKY_03",
+          "AREA_EMERALD_02",
+          "AREA_FUCHSIA_03",
+          "AREA_ROSE_03",
+          "AREA_INDIGO_02",
+          "AREA_TEAL_03",
+          "AREA_ORANGE_04",
+          "AREA_BLUE_03",
+          "AREA_ROSE_04",
+          "AREA_PURPLE_03",
+          "AREA_AMBER_03",
+          "AREA_SKY_04",
+          "AREA_ORANGE_05",
+          "AREA_GREEN_04",
+          "AREA_FUCHSIA_04",
+          "AREA_CYAN_03",
+          "AREA_ROSE_05",
+          "AREA_YELLOW_04",
+          "AREA_RED_04",
+          "AREA_TEAL_04",
+          "AREA_VIOLET_04",
+          "AREA_LIME_03",
+          "AREA_AMBER_04",
+          "AREA_PINK_03",
+          "AREA_SKY_05",
+          "AREA_EMERALD_03",
+          "AREA_FUCHSIA_05",
+          "AREA_RED_05",
+          "AREA_INDIGO_03",
+          "AREA_CYAN_04",
+          "AREA_YELLOW_05",
+          "AREA_GREEN_05",
+          "AREA_FUCHSIA_06",
+          "AREA_BLUE_04",
+          "AREA_ORANGE_06");
+  private static final Map<String, String> AREA_COLOR_GROUPS =
+      Map.ofEntries(
+          Map.entry("AREA_BLUE_01", "BLUE"),
+          Map.entry("AREA_ORANGE_01", "ORANGE"),
+          Map.entry("AREA_GREEN_01", "GREEN"),
+          Map.entry("AREA_PURPLE_01", "PURPLE"),
+          Map.entry("AREA_CYAN_01", "CYAN"),
+          Map.entry("AREA_ROSE_01", "ROSE"),
+          Map.entry("AREA_YELLOW_01", "YELLOW"),
+          Map.entry("AREA_RED_01", "RED"),
+          Map.entry("AREA_TEAL_01", "TEAL"),
+          Map.entry("AREA_VIOLET_01", "VIOLET"),
+          Map.entry("AREA_LIME_01", "LIME"),
+          Map.entry("AREA_AMBER_01", "AMBER"),
+          Map.entry("AREA_PINK_01", "PINK"),
+          Map.entry("AREA_SKY_01", "SKY"),
+          Map.entry("AREA_EMERALD_01", "EMERALD"),
+          Map.entry("AREA_FUCHSIA_01", "FUCHSIA"),
+          Map.entry("AREA_RED_02", "RED"),
+          Map.entry("AREA_VIOLET_02", "VIOLET"),
+          Map.entry("AREA_CYAN_02", "CYAN"),
+          Map.entry("AREA_YELLOW_02", "YELLOW"),
+          Map.entry("AREA_GREEN_02", "GREEN"),
+          Map.entry("AREA_PINK_02", "PINK"),
+          Map.entry("AREA_INDIGO_01", "INDIGO"),
+          Map.entry("AREA_ORANGE_02", "ORANGE"),
+          Map.entry("AREA_BLUE_02", "BLUE"),
+          Map.entry("AREA_ORANGE_03", "ORANGE"),
+          Map.entry("AREA_GREEN_03", "GREEN"),
+          Map.entry("AREA_PURPLE_02", "PURPLE"),
+          Map.entry("AREA_SKY_02", "SKY"),
+          Map.entry("AREA_ROSE_02", "ROSE"),
+          Map.entry("AREA_YELLOW_03", "YELLOW"),
+          Map.entry("AREA_RED_03", "RED"),
+          Map.entry("AREA_TEAL_02", "TEAL"),
+          Map.entry("AREA_VIOLET_03", "VIOLET"),
+          Map.entry("AREA_LIME_02", "LIME"),
+          Map.entry("AREA_AMBER_02", "AMBER"),
+          Map.entry("AREA_FUCHSIA_02", "FUCHSIA"),
+          Map.entry("AREA_SKY_03", "SKY"),
+          Map.entry("AREA_EMERALD_02", "EMERALD"),
+          Map.entry("AREA_FUCHSIA_03", "FUCHSIA"),
+          Map.entry("AREA_ROSE_03", "ROSE"),
+          Map.entry("AREA_INDIGO_02", "INDIGO"),
+          Map.entry("AREA_TEAL_03", "TEAL"),
+          Map.entry("AREA_ORANGE_04", "ORANGE"),
+          Map.entry("AREA_BLUE_03", "BLUE"),
+          Map.entry("AREA_ROSE_04", "ROSE"),
+          Map.entry("AREA_PURPLE_03", "PURPLE"),
+          Map.entry("AREA_AMBER_03", "AMBER"),
+          Map.entry("AREA_SKY_04", "SKY"),
+          Map.entry("AREA_ORANGE_05", "ORANGE"),
+          Map.entry("AREA_GREEN_04", "GREEN"),
+          Map.entry("AREA_FUCHSIA_04", "FUCHSIA"),
+          Map.entry("AREA_CYAN_03", "CYAN"),
+          Map.entry("AREA_ROSE_05", "ROSE"),
+          Map.entry("AREA_YELLOW_04", "YELLOW"),
+          Map.entry("AREA_RED_04", "RED"),
+          Map.entry("AREA_TEAL_04", "TEAL"),
+          Map.entry("AREA_VIOLET_04", "VIOLET"),
+          Map.entry("AREA_LIME_03", "LIME"),
+          Map.entry("AREA_AMBER_04", "AMBER"),
+          Map.entry("AREA_PINK_03", "PINK"),
+          Map.entry("AREA_SKY_05", "SKY"),
+          Map.entry("AREA_EMERALD_03", "EMERALD"),
+          Map.entry("AREA_FUCHSIA_05", "FUCHSIA"),
+          Map.entry("AREA_RED_05", "RED"),
+          Map.entry("AREA_INDIGO_03", "INDIGO"),
+          Map.entry("AREA_CYAN_04", "CYAN"),
+          Map.entry("AREA_YELLOW_05", "YELLOW"),
+          Map.entry("AREA_GREEN_05", "GREEN"),
+          Map.entry("AREA_FUCHSIA_06", "FUCHSIA"),
+          Map.entry("AREA_BLUE_04", "BLUE"),
+          Map.entry("AREA_ORANGE_06", "ORANGE"));
 
   private final GeometryValidator geometryValidator;
   private final SearchAreaMapper searchAreaMapper;
@@ -159,6 +307,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   request.opId(),
                   null,
                   areaLevel,
+                  nextColorToken(request.incidentId(), request.opId(), null, List.of()),
                   ACTIVE,
                   1L,
                   1L,
@@ -194,6 +343,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     UUID opId = operationalPeriod.getId();
     UUID createdByAccountId =
         actorAccountId().orElseGet(() -> fallbackCreatedByAccountId(operationalPeriod, request));
+    Polygon polygon = toJtsPolygon(request.geometry());
+    String colorToken = nextColorToken(request.incidentId(), opId, polygon, List.of());
     SearchAreaPersistenceRecord row =
         new SearchAreaPersistenceRecord(
             id,
@@ -201,7 +352,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
             parentSearchAreaId,
             searchAreaName(areaLevel, request.memo()),
             areaLevel,
-            toJtsPolygon(request.geometry()),
+            colorToken,
+            polygon,
             ACTIVE,
             1L,
             createdByAccountId,
@@ -228,6 +380,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             opId,
             parentSearchAreaId,
             areaLevel,
+            colorToken,
             ACTIVE,
             1L,
             1L,
@@ -260,6 +413,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             dbRecord.operationalPeriodId(),
             dbRecord.parentSearchAreaId(),
             dbRecord.areaLevel(),
+            dbRecord.colorToken(),
             dbRecord.status(),
             dbRecord.historyCount(),
             dbRecord.version(),
@@ -305,6 +459,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             overall.id(),
             overall.incidentId(),
             overall.status(),
+            overall.colorToken(),
             overall.version(),
             overall.geometry(),
             computeBbox(overall.geometry()),
@@ -439,7 +594,12 @@ public class SearchAreaApiService implements SearchAreaQuery {
           String childAreaLevel = overallParent ? UNIT : TEAM;
           UUID childOpId = overallParent ? request.opId() : parent.opId();
           List<SearchAreaRecord> children = new ArrayList<>();
+          List<String> reservedColorTokens = new ArrayList<>();
           for (GeoJsonPolygon geometry : request.children()) {
+            Polygon childPolygon = toJtsPolygon(geometry);
+            String colorToken =
+                nextColorToken(parent.incidentId(), childOpId, childPolygon, reservedColorTokens);
+            reservedColorTokens.add(colorToken);
             SearchAreaRecord child =
                 new SearchAreaRecord(
                     UUID.randomUUID(),
@@ -447,6 +607,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                     childOpId,
                     parent.id(),
                     childAreaLevel,
+                    colorToken,
                     ACTIVE,
                     1L,
                     1L,
@@ -582,6 +743,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedRecord.operationalPeriodId(),
             updatedRecord.parentSearchAreaId(),
             updatedRecord.areaLevel(),
+            updatedRecord.colorToken(),
             updatedRecord.status(),
             updatedRecord.historyCount(),
             updatedRecord.version(),
@@ -708,6 +870,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedRecord.operationalPeriodId(),
             updatedRecord.parentSearchAreaId(),
             updatedRecord.areaLevel(),
+            updatedRecord.colorToken(),
             updatedRecord.status(),
             updatedRecord.historyCount(),
             updatedRecord.version(),
@@ -773,9 +936,12 @@ public class SearchAreaApiService implements SearchAreaQuery {
     List<SearchAreaResponse> children = new ArrayList<>();
     UUID childOpId = overallParent ? request.opId() : parent.operationalPeriodId();
     String childAreaLevel = overallParent ? UNIT : TEAM;
+    List<String> reservedColorTokens = new ArrayList<>();
     for (GeoJsonPolygon childGeometry : request.children()) {
       UUID childId = UUID.randomUUID();
       Polygon childPolygon = toJtsPolygon(childGeometry);
+      String colorToken = nextColorToken(parent.incidentId(), childOpId, childPolygon, reservedColorTokens);
+      reservedColorTokens.add(colorToken);
       SearchAreaPersistenceRecord childRow =
           new SearchAreaPersistenceRecord(
               childId,
@@ -783,6 +949,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
               parent.id(),
               searchAreaName(childAreaLevel, request.memo()),
               childAreaLevel,
+              colorToken,
               childPolygon,
               ACTIVE,
               1L,
@@ -812,6 +979,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
               childRecord.operationalPeriodId(),
               childRecord.parentSearchAreaId(),
               childRecord.areaLevel(),
+              childRecord.colorToken(),
               childRecord.status(),
               childRecord.historyCount(),
               childRecord.version(),
@@ -836,6 +1004,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedParent.operationalPeriodId(),
             updatedParent.parentSearchAreaId(),
             updatedParent.areaLevel(),
+            updatedParent.colorToken(),
             updatedParent.status(),
             updatedParent.historyCount(),
             updatedParent.version(),
@@ -917,6 +1086,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.opId(),
         record.parentAreaId(),
         record.areaLevel(),
+        record.colorToken(),
         record.status(),
         record.historyCount(),
         record.version(),
@@ -933,6 +1103,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.operationalPeriodId(),
         record.parentSearchAreaId(),
         record.areaLevel(),
+        record.colorToken(),
         record.status(),
         record.historyCount(),
         record.version(),
@@ -952,6 +1123,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
       payload.put("parentAreaId", response.parentAreaId().toString());
     }
     payload.put("areaLevel", response.areaLevel());
+    payload.put("colorToken", response.colorToken());
     payload.put("status", response.status());
     payload.put("version", response.version());
     payload.put("sequence", response.version());
@@ -1053,6 +1225,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.parentAreaId(),
         record.status(),
         record.areaLevel(),
+        record.colorToken(),
         record.version(),
         record.geometry(),
         computeBbox(record.geometry()),
@@ -1069,6 +1242,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.parentSearchAreaId(),
         record.status(),
         record.areaLevel(),
+        record.colorToken(),
         record.version(),
         geometry,
         computeBbox(geometry),
@@ -1082,6 +1256,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.id(),
         record.incidentId(),
         record.status(),
+        record.colorToken(),
         record.version(),
         geometry,
         computeBbox(geometry),
@@ -1172,6 +1347,51 @@ public class SearchAreaApiService implements SearchAreaQuery {
       return memo;
     }
     return areaLevel;
+  }
+
+  private String nextColorToken(
+      UUID incidentId, UUID opId, Polygon geometry, List<String> reservedTokens) {
+    HashSet<String> usedTokens = new HashSet<>(reservedTokens);
+    searchAreas.values().stream()
+        .filter(area -> incidentId == null || incidentId.equals(area.incidentId()))
+        .map(SearchAreaRecord::colorToken)
+        .filter(Objects::nonNull)
+        .forEach(usedTokens::add);
+    HashSet<String> adjacentTokens = new HashSet<>();
+    if (persistentReadAvailable() && incidentId != null) {
+      SearchAreaFilters filters = new SearchAreaFilters(null, opId, null, null, null, true);
+      searchAreaMapper.findByIncident(incidentId, filters).stream()
+          .map(SearchAreaReadRecord::colorToken)
+          .filter(Objects::nonNull)
+          .forEach(usedTokens::add);
+      if (opId != null && geometry != null) {
+        adjacentTokens.addAll(searchAreaMapper.findAdjacentColorTokens(opId, geometry));
+      }
+    }
+    adjacentTokens.addAll(reservedTokens);
+    HashSet<String> adjacentGroups = new HashSet<>();
+    adjacentTokens.stream()
+        .map(AREA_COLOR_GROUPS::get)
+        .filter(Objects::nonNull)
+        .forEach(adjacentGroups::add);
+    return colorCandidate(usedTokens, adjacentTokens, adjacentGroups, true, true)
+        .or(() -> colorCandidate(usedTokens, adjacentTokens, adjacentGroups, true, false))
+        .or(() -> colorCandidate(usedTokens, adjacentTokens, adjacentGroups, false, true))
+        .or(() -> colorCandidate(usedTokens, adjacentTokens, adjacentGroups, false, false))
+        .orElse(AREA_COLOR_TOKENS.get(Math.floorMod(usedTokens.size(), AREA_COLOR_TOKENS.size())));
+  }
+
+  private Optional<String> colorCandidate(
+      HashSet<String> usedTokens,
+      HashSet<String> adjacentTokens,
+      HashSet<String> adjacentGroups,
+      boolean avoidUsedTokens,
+      boolean avoidAdjacentGroups) {
+    return AREA_COLOR_TOKENS.stream()
+        .filter(token -> !adjacentTokens.contains(token))
+        .filter(token -> !avoidUsedTokens || !usedTokens.contains(token))
+        .filter(token -> !avoidAdjacentGroups || !adjacentGroups.contains(AREA_COLOR_GROUPS.get(token)))
+        .findFirst();
   }
 
   private GeoJsonPolygon toGeoJsonPolygon(Polygon polygon) {
@@ -1281,6 +1501,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
       UUID opId,
       UUID parentAreaId,
       String areaLevel,
+      String colorToken,
       String status,
       long historyCount,
       long version,
@@ -1295,6 +1516,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
           opId,
           parentAreaId,
           areaLevel,
+          colorToken,
           nextStatus,
           nextHistoryCount,
           nextVersion,

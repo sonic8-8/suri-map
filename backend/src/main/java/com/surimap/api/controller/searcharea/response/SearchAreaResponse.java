@@ -12,6 +12,7 @@ public record SearchAreaResponse(
     UUID opId,
     UUID parentAreaId,
     String areaLevel,
+    String colorToken,
     String status,
     long historyCount,
     long version,

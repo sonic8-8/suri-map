@@ -310,6 +310,7 @@ Android Room 로컬 엔티티
 - `parent_search_area_id`: 상위 수색 구역
 - `name`: 구역 이름
 - `area_level`: 전체 범위, 부대 권역, 팀 구역 구분
+- `color_token`: 웹/앱 공통 팔레트에서 사용할 표시 색상 슬롯
 - `geometry`: 지도상 구역 Polygon
 - `status`: 구역 상태
 - `version`: 구역 변경 버전

@@ -50,7 +50,7 @@
             SELECT
                 area.version AS version,
                 area.updated_at AS updated_at,
-                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT) AS fingerprint
+                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT, area.color_token) AS fingerprint
             FROM search_area area
             JOIN operational_period op
               ON op.id = area.operational_period_id
@@ -67,7 +67,7 @@
             SELECT
                 area.version AS version,
                 area.updated_at AS updated_at,
-                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT) AS fingerprint
+                CONCAT_WS('|', area.id::TEXT, area.status, area.version::TEXT, area.color_token) AS fingerprint
             FROM search_area area
             JOIN operational_period op
               ON op.id = area.operational_period_id

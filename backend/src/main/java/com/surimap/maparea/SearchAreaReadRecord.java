@@ -10,6 +10,7 @@ public record SearchAreaReadRecord(
     UUID operationalPeriodId,
     UUID parentSearchAreaId,
     String areaLevel,
+    String colorToken,
     String status,
     long version,
     Polygon geometry,

@@ -34,4 +34,7 @@ public interface SearchAreaMapper {
 
   List<SearchAreaReadRecord> findByOp(
       @Param("opId") UUID opId, @Param("filters") SearchAreaFilters filters);
+
+  List<String> findAdjacentColorTokens(
+      @Param("opId") UUID opId, @Param("geometry") Polygon geometry);
 }
