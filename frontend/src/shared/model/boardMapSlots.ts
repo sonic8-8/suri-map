@@ -55,8 +55,9 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
   return readBoardSlotRows(board, 'path').flatMap((row, pathIndex) => {
     const segments = row.segments;
     if (Array.isArray(segments)) {
-      return segments.filter(isRecord).flatMap((segment, segmentIndex) => {
-        const coordinates = readLineStringCoordinates(segment);
+      const segmentRows = segments.filter(isRecord);
+      return segmentRows.flatMap((segment, segmentIndex) => {
+        const coordinates = readConnectedSegmentCoordinates(segmentRows, segmentIndex);
         if (!coordinates) return [];
 
         const rowId = readString(row, 'id') ?? readString(row, 'pathId') ?? 'path';
@@ -102,6 +103,28 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
       },
     ];
   });
+}
+
+function readConnectedSegmentCoordinates(
+  segments: Record<string, unknown>[],
+  segmentIndex: number,
+): BoardPosition[] | null {
+  const coordinates = readLineStringCoordinates(segments[segmentIndex]);
+  if (!coordinates) return null;
+  if (segmentIndex === 0) return coordinates;
+
+  const previousCoordinates = readLineStringCoordinates(segments[segmentIndex - 1]);
+  const previousLastCoordinate = previousCoordinates?.at(-1);
+  const currentFirstCoordinate = coordinates[0];
+  if (!previousLastCoordinate || !currentFirstCoordinate || isSamePosition(previousLastCoordinate, currentFirstCoordinate)) {
+    return coordinates;
+  }
+
+  return [previousLastCoordinate, ...coordinates];
+}
+
+function isSamePosition(left: BoardPosition, right: BoardPosition) {
+  return left[0] === right[0] && left[1] === right[1];
 }
 
 function createAccountIdsByPolicePhoneId(board: BoardResponseLike) {

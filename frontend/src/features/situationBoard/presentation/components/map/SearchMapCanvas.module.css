@@ -114,14 +114,85 @@
   font-weight: 700;
 }
 
-.routeEditorHeader span {
+.routeEditorTitleBlock {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.routeEditorTitleBlock span,
+.routeEditorMeta {
   color: #526071;
   font-weight: 600;
 }
 
+.routeEditorTitleBlock span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeEditorCloseButton {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routeEditorMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.routeEditorFields,
+.routeEditorMarkerFields {
+  display: grid;
+  gap: 8px;
+}
+
+.routeEditorFields label,
+.routeEditorMarkerFields label {
+  display: grid;
+  gap: 4px;
+  color: #526071;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.routeEditorFields input,
+.routeEditorMarkerFields input,
+.routeEditorMarkerFields select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 12px;
+}
+
+.routeEditorFields input:disabled,
+.routeEditorMarkerFields input:disabled,
+.routeEditorMarkerFields select:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
 .routeEditorCoordinates {
   min-height: 76px;
-  max-height: 220px;
+  max-height: 150px;
   margin: 0;
   padding: 8px;
   overflow: auto;
@@ -153,8 +224,30 @@
   cursor: pointer;
 }
 
-.routeEditorActions button:hover {
+.routeEditorActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.routeEditorActions button:not(:disabled):hover {
   background: #edf6f8;
+}
+
+.routeEditorActions .routeEditorPrimaryAction {
+  border-color: rgba(30, 58, 95, 0.28);
+  background: #1e3a5f;
+  color: #f8fafc;
+}
+
+.routeEditorActions .routeEditorPrimaryAction:not(:disabled):hover {
+  background: #274c78;
+}
+
+.routeEditorError {
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .markerDefaultRoot {

@@ -42,14 +42,78 @@ export interface CorrectSearchPathSegmentResponse {
   version: number;
 }
 
+export interface StartSearchPathResponse {
+  id: string;
+  incidentId: string;
+  opId: string;
+  policePhoneId: string;
+  accountId?: string;
+  version: number;
+  status: string;
+}
+
+export interface AppendSearchPathBatchResponse {
+  id: string;
+  dutyShiftId?: string | null;
+  opId: string;
+  policePhoneId: string;
+  accountId?: string | null;
+  acceptedPointCount: number;
+  excludedPointCount: number;
+  version: number;
+  status: string;
+}
+
+export interface PatchSearchPathResponse {
+  id: string;
+  version: number;
+  status: string;
+}
+
+export interface ManualSearchPathPointInput {
+  pointId: string;
+  lon: number;
+  lat: number;
+  clientTs: string;
+  speedMps?: number | null;
+  horizontalAccuracyM?: number | null;
+}
+
+export interface CreateManualSearchPathRequest {
+  incidentId: string;
+  opId: string;
+  policePhoneId: string;
+  searchPathId: string;
+  startedAt: string;
+  endedAt: string;
+  points: ManualSearchPathPointInput[];
+  clockOffsetMs?: number | null;
+}
+
+export interface CreateManualSearchPathResponse {
+  searchPathId: string;
+  start: StartSearchPathResponse;
+  batch: AppendSearchPathBatchResponse;
+  end: PatchSearchPathResponse;
+}
+
 export interface CorrectSearchPathSegmentMutationVariables {
   searchPathSegmentId: string;
   request: CorrectSearchPathSegmentRequest;
   idempotencyKey: string;
 }
 
+export interface CreateManualSearchPathMutationVariables {
+  request: CreateManualSearchPathRequest;
+  idempotencyKey: string;
+}
+
 export interface SearchPathApi {
   list(query: SearchPathListQuery): Promise<SearchPathListResponse>;
+  createManualPath(
+    request: CreateManualSearchPathRequest,
+    idempotencyKey: string,
+  ): Promise<CreateManualSearchPathResponse>;
   correctSegment(
     searchPathSegmentId: string,
     request: CorrectSearchPathSegmentRequest,
@@ -68,6 +132,40 @@ export function createSearchPathApi(client: ApiClient = apiClient): SearchPathAp
       client.get<SearchPathListResponse>('/search-paths', {
         query: toApiQuery(query),
       }),
+    createManualPath: async (request, idempotencyKey) => {
+      const start = await client.post<StartSearchPathResponse, StartSearchPathRequest>(
+        '/search-paths',
+        {
+          searchPathId: request.searchPathId,
+          incidentId: request.incidentId,
+          opId: request.opId,
+          clientTs: request.startedAt,
+          ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
+        },
+        appWriteOptions(`${idempotencyKey}:start`, request.policePhoneId),
+      );
+      const batch = await client.post<AppendSearchPathBatchResponse, AppendSearchPathBatchRequest>(
+        '/search-paths/batch',
+        {
+          incidentId: request.incidentId,
+          opId: request.opId,
+          pathId: request.searchPathId,
+          points: request.points.map(toPathBatchPointRequest),
+          ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
+        },
+        appWriteOptions(`${idempotencyKey}:batch`, request.policePhoneId),
+      );
+      const end = await client.patch<PatchSearchPathResponse, PatchSearchPathRequest>(
+        `/search-paths/${request.searchPathId}`,
+        {
+          action: 'END',
+          clientTs: request.endedAt,
+          ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
+        },
+        appWriteOptions(`${idempotencyKey}:end`, request.policePhoneId),
+      );
+      return { searchPathId: request.searchPathId, start, batch, end };
+    },
     correctSegment: (searchPathSegmentId, request, idempotencyKey) =>
       client.patch<CorrectSearchPathSegmentResponse, CorrectSearchPathSegmentRequest>(
         `/search-path-segments/${searchPathSegmentId}`,
@@ -105,11 +203,72 @@ export function useCorrectSearchPathSegmentMutation(api: SearchPathApi = searchP
   });
 }
 
+export function useCreateManualSearchPathMutation(api: SearchPathApi = searchPathApi) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ request, idempotencyKey }: CreateManualSearchPathMutationVariables) =>
+      api.createManualPath(request, idempotencyKey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: searchPathQueryKeys.all });
+    },
+  });
+}
+
+interface StartSearchPathRequest {
+  searchPathId?: string;
+  incidentId: string;
+  opId: string;
+  clientTs: string;
+  clockOffsetMs?: number | null;
+}
+
+interface AppendSearchPathBatchRequest {
+  incidentId: string;
+  opId: string;
+  pathId: string;
+  points: PathBatchPointRequest[];
+  clockOffsetMs?: number | null;
+}
+
+interface PathBatchPointRequest {
+  pointId: string;
+  lon: number;
+  lat: number;
+  speedMps?: number | null;
+  horizontalAccuracyM?: number | null;
+  clientTs: string;
+}
+
+interface PatchSearchPathRequest {
+  action: 'END';
+  clientTs: string;
+  clockOffsetMs?: number | null;
+}
+
 function idempotencyOptions(idempotencyKey: string) {
   return {
     headers: {
       'Idempotency-Key': idempotencyKey,
     },
+  };
+}
+
+function appWriteOptions(idempotencyKey: string, policePhoneId: string) {
+  return {
+    idempotencyKey,
+    clientChannel: 'APP' as const,
+    policePhoneId,
+  };
+}
+
+function toPathBatchPointRequest(point: ManualSearchPathPointInput): PathBatchPointRequest {
+  return {
+    pointId: point.pointId,
+    lon: point.lon,
+    lat: point.lat,
+    speedMps: point.speedMps ?? null,
+    horizontalAccuracyM: point.horizontalAccuracyM ?? null,
+    clientTs: point.clientTs,
   };
 }
 

@@ -9,6 +9,7 @@ import com.surimap.feature.handover.ui.HandoverReplayPointUi
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
+import com.surimap.feature.handover.ui.HandoverRecord
 import com.surimap.feature.handover.domain.HandoverReplaySpeed
 import com.surimap.feature.handover.ui.toReplayRuntimeMapState
 import com.surimap.core.map.MapLibreRuntimeMapState
@@ -92,6 +93,7 @@ class HandoverUiStateTest {
                 "이전 근무 요약",
                 "이동 통계",
                 "발견·기록 시간순",
+                "구역 메모",
                 "인수인계 메모",
                 "마커 사진",
                 "동기화 상태"
@@ -115,6 +117,27 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun reportTabSeparatesSearchAreaMemosFromGeneralHandoverRecords() {
+        val areaMemo =
+            HandoverRecord(
+                title = "구역 메모",
+                subtitle = "A-3 계곡 입구 접근로 유실",
+                actionLabel = "보기",
+                sourceKey = "area-memo-1",
+                detailLines = listOf("대상: 구역", "내용: A-3 계곡 입구 접근로 유실")
+            )
+        val base = DutyHandoverUiState.ready()
+        val report =
+            base.copy(records = base.records + areaMemo)
+                .selectTab(DutyHandoverTab.Report)
+
+        assertEquals(listOf(areaMemo), report.areaMemoRecords)
+        assertTrue(report.visibleText().any { it.contains("구역 메모") })
+        assertTrue(report.visibleText().any { it.contains("A-3 계곡 입구 접근로 유실") })
+        assertFalse(report.visibleText().any { it.contains("추천") || it.contains("위험") || it.contains("미수색") })
+    }
+
+    @Test
     fun reportTabSelectsAndHighlightsOriginalRecordRows() {
         val report = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Report)
         val originalRecord = report.records.first()
@@ -126,6 +149,7 @@ class HandoverUiStateTest {
         assertEquals(originalRecord, selected.selectedOriginalRecord)
         assertTrue(selected.visibleText().any { it.contains("선택된 원본 기록") })
         assertTrue(selected.visibleText().any { it.contains(originalRecord.title) })
+        assertTrue(selected.visibleText().any { it.contains("이동 방식: 도보") })
         assertFalse(selected.visibleText().any { it.contains("AI") })
         assertFalse(selected.visibleText().any { it.contains("추천") })
         assertFalse(selected.visibleText().any { it.contains("위험") })

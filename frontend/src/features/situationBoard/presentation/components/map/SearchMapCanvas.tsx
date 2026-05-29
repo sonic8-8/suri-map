@@ -13,7 +13,15 @@ import { createIdempotencyKey } from '../../../../../shared/api/client';
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
-import { useUpdateMarkerMutation, type UpdateMarkerRequest } from '../../../../marker/api/markerCommandApi';
+import {
+  useCreateMarkerMutation,
+  useUpdateMarkerMutation,
+  type UpdateMarkerRequest,
+} from '../../../../marker/api/markerCommandApi';
+import {
+  useCreateManualSearchPathMutation,
+  type ManualSearchPathPointInput,
+} from '../../../../path/api/searchPathApi';
 import {
   handoverApi,
   handoverQueryKeys,
@@ -72,8 +80,8 @@ import {
 import { MarkerGlyph, markerTypeGlyphName, type MarkerGlyphName } from '../../../../../shared/ui/markerGlyph/MarkerGlyph';
 import { SearchAreaInspectorCard } from './SearchAreaInspectorCard';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
-import { RouteEditorPanel } from './RouteEditorPanel';
-import { addRouteEditorLayers, getIsRouteEditorEnabled, syncRouteEditorDraft } from './routeEditorLayer';
+import { RouteEditorPanel, type ManualRouteMarkerType } from './RouteEditorPanel';
+import { addRouteEditorLayers, syncRouteEditorDraft } from './routeEditorLayer';
 import {
   filterMovementPathsByPolicePhoneLegendFilters,
   filterSearchAreasByLegendFilters,
@@ -201,6 +209,45 @@ function createReferenceMarkerCorrectionIdempotencyKey(markerId: string) {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `web-reference-marker-correction:${markerId}:${suffix}`;
+}
+
+function createUuid() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const randomValue = (Math.random() * 16) | 0;
+    const value = character === 'x' ? randomValue : (randomValue & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
+function toDatetimeLocalValue(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function parseDatetimeLocalValue(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function createManualSearchPathPoints(
+  coordinates: Position[],
+  startedAt: Date,
+  endedAt: Date,
+): ManualSearchPathPointInput[] {
+  const durationMs = Math.max(endedAt.getTime() - startedAt.getTime(), coordinates.length - 1);
+  const stepMs = coordinates.length > 1 ? Math.max(Math.floor(durationMs / (coordinates.length - 1)), 1) : 0;
+  return coordinates.map(([lon, lat], index) => ({
+    pointId: createUuid(),
+    lon,
+    lat,
+    speedMps: null,
+    horizontalAccuracyM: 5,
+    clientTs: new Date(startedAt.getTime() + stepMs * index).toISOString(),
+  }));
 }
 
 function createMarkerPopupStyle(
@@ -860,9 +907,11 @@ export function SearchMapCanvas({
 }: SearchMapCanvasProps) {
   const queryClient = useQueryClient();
   const updateMarkerMutation = useUpdateMarkerMutation();
+  const createMarkerMutation = useCreateMarkerMutation();
+  const createManualSearchPathMutation = useCreateManualSearchPathMutation();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const isRouteEditorEnabledRef = useRef(getIsRouteEditorEnabled());
+  const isRouteEditorEnabledRef = useRef(false);
   const selectedSearchAreaIdRef = useRef(selectedSearchAreaId);
   const areaEditMapPropsRef = useRef(areaEditMapProps);
   const layerVisibilityRef = useRef(layerVisibility);
@@ -874,7 +923,17 @@ export function SearchMapCanvas({
   const hoveredMarkerIdRef = useRef<string | null>(null);
   const selectedMarkerIdRef = useRef<string | null>(null);
   const onSelectSearchAreaRef = useRef(onSelectSearchArea);
+  const [isRouteEditorEnabled, setIsRouteEditorEnabled] = useState(false);
   const [routeEditorCoordinates, setRouteEditorCoordinates] = useState<Position[]>([]);
+  const [routeEditorPolicePhoneId, setRouteEditorPolicePhoneId] = useState('');
+  const [routeEditorStartedAtLocal, setRouteEditorStartedAtLocal] = useState(() =>
+    toDatetimeLocalValue(new Date(Date.now() - 5 * 60_000)),
+  );
+  const [routeEditorEndedAtLocal, setRouteEditorEndedAtLocal] = useState(() => toDatetimeLocalValue(new Date()));
+  const [routeEditorMarkerType, setRouteEditorMarkerType] = useState<ManualRouteMarkerType>('CLUE');
+  const [routeEditorMarkerMemo, setRouteEditorMarkerMemo] = useState('');
+  const [routeEditorStatus, setRouteEditorStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [routeEditorErrorMessage, setRouteEditorErrorMessage] = useState('');
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [mapViewportVersion, setMapViewportVersion] = useState(0);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -891,7 +950,6 @@ export function SearchMapCanvas({
   const [searchAreaPopupLngLat, setSearchAreaPopupLngLat] = useState<maplibregl.LngLatLike | null>(null);
   const searchAreaPopupOverlayRef = useRef<HTMLDivElement | null>(null);
   const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
-  const isRouteEditorEnabled = isRouteEditorEnabledRef.current;
   const assignedSearchAreas = useMemo(
     () =>
       applySearchAreaStatuses(
@@ -1126,6 +1184,168 @@ export function SearchMapCanvas({
     closeSearchAreaPopup();
     onOpenSearchAreaAssign();
   }, [closeSearchAreaPopup, onOpenSearchAreaAssign]);
+
+  const resetRouteEditorTimes = useCallback(() => {
+    const now = new Date();
+    setRouteEditorStartedAtLocal(toDatetimeLocalValue(new Date(now.getTime() - 5 * 60_000)));
+    setRouteEditorEndedAtLocal(toDatetimeLocalValue(now));
+  }, []);
+
+  const handleOpenRouteEditor = useCallback(() => {
+    if (!selectedSearchAreaId || areaEditMapPropsRef.current) {
+      return;
+    }
+    removeSearchAreaPopup();
+    setSelectedMarkerId(null);
+    setRouteEditorCoordinates([]);
+    setRouteEditorStatus('idle');
+    setRouteEditorErrorMessage('');
+    resetRouteEditorTimes();
+    setIsRouteEditorEnabled(true);
+  }, [removeSearchAreaPopup, resetRouteEditorTimes, selectedSearchAreaId]);
+
+  const handleCloseRouteEditor = useCallback(() => {
+    setIsRouteEditorEnabled(false);
+    setRouteEditorCoordinates([]);
+    setRouteEditorStatus('idle');
+    setRouteEditorErrorMessage('');
+  }, []);
+
+  const handleUndoRouteEditorPoint = useCallback(() => {
+    setRouteEditorCoordinates((currentCoordinates) => currentCoordinates.slice(0, -1));
+    setRouteEditorStatus('idle');
+    setRouteEditorErrorMessage('');
+  }, []);
+
+  const handleClearRouteEditor = useCallback(() => {
+    setRouteEditorCoordinates([]);
+    setRouteEditorStatus('idle');
+    setRouteEditorErrorMessage('');
+  }, []);
+
+  const getRouteEditorWriteContext = useCallback(() => {
+    const opId = resolveSearchAreaMemoOpId(searchAreaTree, selectedSearchAreaId, activeOperationalPeriodId);
+    const policePhoneId = routeEditorPolicePhoneId.trim();
+    const startedAt = parseDatetimeLocalValue(routeEditorStartedAtLocal);
+    const endedAt = parseDatetimeLocalValue(routeEditorEndedAtLocal);
+    if (!selectedSearchAreaId) {
+      return { error: '수색구역을 먼저 선택하세요.' as const };
+    }
+    if (!opId) {
+      return { error: '활성 OP를 확인할 수 없습니다.' as const };
+    }
+    if (!policePhoneId) {
+      return { error: 'PolicePhone ID를 입력하세요.' as const };
+    }
+    if (!startedAt || !endedAt || startedAt.getTime() >= endedAt.getTime()) {
+      return { error: '시작/종료 시각을 확인하세요.' as const };
+    }
+    return { opId, policePhoneId, startedAt, endedAt };
+  }, [
+    activeOperationalPeriodId,
+    routeEditorEndedAtLocal,
+    routeEditorPolicePhoneId,
+    routeEditorStartedAtLocal,
+    searchAreaTree,
+    selectedSearchAreaId,
+  ]);
+
+  const handleSaveRouteEditorPath = useCallback(async () => {
+    if (routeEditorCoordinates.length < 2 || routeEditorStatus === 'saving') {
+      return;
+    }
+    const context = getRouteEditorWriteContext();
+    if ('error' in context) {
+      setRouteEditorStatus('error');
+      setRouteEditorErrorMessage(context.error ?? '저장 조건을 확인하세요.');
+      return;
+    }
+
+    const searchPathId = createUuid();
+    setRouteEditorStatus('saving');
+    setRouteEditorErrorMessage('');
+    try {
+      await createManualSearchPathMutation.mutateAsync({
+        request: {
+          incidentId,
+          opId: context.opId,
+          policePhoneId: context.policePhoneId,
+          searchPathId,
+          startedAt: context.startedAt.toISOString(),
+          endedAt: context.endedAt.toISOString(),
+          points: createManualSearchPathPoints(routeEditorCoordinates, context.startedAt, context.endedAt),
+        },
+        idempotencyKey: createIdempotencyKey('web-manual-path'),
+      });
+      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      setRouteEditorStatus('saved');
+    } catch {
+      setRouteEditorStatus('error');
+      setRouteEditorErrorMessage('경로 저장에 실패했습니다.');
+    }
+  }, [
+    createManualSearchPathMutation,
+    getRouteEditorWriteContext,
+    incidentId,
+    queryClient,
+    routeEditorCoordinates,
+    routeEditorStatus,
+  ]);
+
+  const handleCreateRouteEditorMarker = useCallback(async () => {
+    const coordinate = routeEditorCoordinates.at(-1);
+    if (!coordinate || routeEditorStatus === 'saving') {
+      return;
+    }
+    const context = getRouteEditorWriteContext();
+    if ('error' in context) {
+      setRouteEditorStatus('error');
+      setRouteEditorErrorMessage(context.error ?? '저장 조건을 확인하세요.');
+      return;
+    }
+
+    setRouteEditorStatus('saving');
+    setRouteEditorErrorMessage('');
+    try {
+      await createMarkerMutation.mutateAsync({
+        request: {
+          id: createUuid(),
+          incidentId,
+          opId: context.opId,
+          type: routeEditorMarkerType,
+          location: {
+            type: 'Point',
+            coordinates: [coordinate[0], coordinate[1]],
+          },
+          clientTs: context.endedAt.toISOString(),
+          memo: routeEditorMarkerMemo.trim() || null,
+          photos: [],
+        },
+        idempotencyKey: createIdempotencyKey('web-manual-marker'),
+        policePhoneId: context.policePhoneId,
+      });
+      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      setRouteEditorStatus('saved');
+    } catch {
+      setRouteEditorStatus('error');
+      setRouteEditorErrorMessage('마커 저장에 실패했습니다.');
+    }
+  }, [
+    createMarkerMutation,
+    getRouteEditorWriteContext,
+    incidentId,
+    queryClient,
+    routeEditorCoordinates,
+    routeEditorMarkerMemo,
+    routeEditorMarkerType,
+    routeEditorStatus,
+  ]);
+
+  useEffect(() => {
+    if (isRouteEditorEnabled && !selectedSearchAreaId) {
+      handleCloseRouteEditor();
+    }
+  }, [handleCloseRouteEditor, isRouteEditorEnabled, selectedSearchAreaId]);
 
   const openMapMemoComposer = useCallback((target: MapMemoTarget) => {
     setMapMemoTarget(target);
@@ -1484,6 +1704,10 @@ export function SearchMapCanvas({
 
   useEffect(() => {
     if (!isRouteEditorEnabled) {
+      const map = mapRef.current;
+      if (map?.loaded()) {
+        syncRouteEditorDraft(map, []);
+      }
       return;
     }
 
@@ -1492,36 +1716,13 @@ export function SearchMapCanvas({
       return;
     }
 
+    addRouteEditorLayers(map);
     syncRouteEditorDraft(map, routeEditorCoordinates);
-    console.info('[routeEditor] draft coordinates', routeEditorCoordinates);
   }, [isRouteEditorEnabled, routeEditorCoordinates]);
 
-  const handleClearRouteEditor = () => {
-    setRouteEditorCoordinates([]);
-  };
-
-  const handleCopyRouteEditorGeoJson = () => {
-    const geoJson = {
-      type: 'Feature',
-      properties: {
-        slot: 'dev_route_editor',
-        target: 'PolicePhone mock route',
-      },
-      geometry: {
-        type: 'LineString',
-        coordinates: routeEditorCoordinates,
-      },
-    };
-    const serializedGeoJson = JSON.stringify(geoJson, null, 2);
-
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(serializedGeoJson).catch((error: unknown) => {
-        console.error('[routeEditor] failed to copy GeoJSON', error);
-      });
-    }
-
-    console.info('[routeEditor] GeoJSON', geoJson);
-  };
+  useEffect(() => {
+    isRouteEditorEnabledRef.current = isRouteEditorEnabled;
+  }, [isRouteEditorEnabled]);
 
   useEffect(() => {
     if (!mapContainerRef.current) {
@@ -1596,7 +1797,9 @@ export function SearchMapCanvas({
       }
 
       const routeEditorCoordinate: Position = [event.lngLat.lng, event.lngLat.lat];
-      setRouteEditorCoordinates((currentCoordinates) => [...currentCoordinates, routeEditorCoordinate]);
+      setRouteEditorCoordinates((currentCoordinates) => [...currentCoordinates, routeEditorCoordinate].slice(-120));
+      setRouteEditorStatus('idle');
+      setRouteEditorErrorMessage('');
     };
 
     map.on('click', handleMapClick);
@@ -1680,6 +1883,8 @@ export function SearchMapCanvas({
     selectedSearchAreaId,
     activeOperationalPeriodId,
   );
+  const routeEditorSearchArea = selectedSearchAreaId ? findSearchAreaNode(searchAreaTree, selectedSearchAreaId) : null;
+  const routeEditorAreaLabel = routeEditorSearchArea?.name?.trim() || routeEditorSearchArea?.id || '선택 구역';
   const selectedMarkerMemoOpId = resolveMarkerMemoOpId(selectedMarker, activeOperationalPeriodId);
   const selectedSearchAreaMemoKey = selectedSearchAreaId
     ? createMapMemoTargetKey('SEARCH_AREA', selectedSearchAreaId)
@@ -1768,6 +1973,7 @@ export function SearchMapCanvas({
                     memoDisabledReason="OP 확인 후 메모를 추가할 수 있습니다."
                     onClose={handleCloseSearchAreaPopup}
                     onOpenMemo={handleOpenSearchAreaMemoComposer}
+                    onOpenRouteEditor={handleOpenRouteEditor}
                     onOpenAssign={handleOpenSearchAreaAssign}
                     onOpenSplit={handleOpenSearchAreaSplit}
                   />
@@ -1945,11 +2151,27 @@ export function SearchMapCanvas({
             <span>초기 기준 마커 또는 관할 기본 위치로 지도를 열었습니다.</span>
           </aside>
         ) : null}
-        {isRouteEditorEnabled ? (
+        {isRouteEditorEnabled && selectedSearchAreaId ? (
           <RouteEditorPanel
+            areaLabel={routeEditorAreaLabel}
             coordinates={routeEditorCoordinates}
+            policePhoneId={routeEditorPolicePhoneId}
+            startedAtLocal={routeEditorStartedAtLocal}
+            endedAtLocal={routeEditorEndedAtLocal}
+            markerType={routeEditorMarkerType}
+            markerMemo={routeEditorMarkerMemo}
+            status={routeEditorStatus}
+            errorMessage={routeEditorErrorMessage}
+            onPolicePhoneIdChange={setRouteEditorPolicePhoneId}
+            onStartedAtLocalChange={setRouteEditorStartedAtLocal}
+            onEndedAtLocalChange={setRouteEditorEndedAtLocal}
+            onMarkerTypeChange={setRouteEditorMarkerType}
+            onMarkerMemoChange={setRouteEditorMarkerMemo}
+            onUndo={handleUndoRouteEditorPoint}
             onClear={handleClearRouteEditor}
-            onCopyGeoJson={handleCopyRouteEditorGeoJson}
+            onSave={handleSaveRouteEditorPath}
+            onCreateMarker={handleCreateRouteEditorMarker}
+            onClose={handleCloseRouteEditor}
           />
         ) : null}
       </div>

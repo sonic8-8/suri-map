@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,7 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -168,6 +171,7 @@ import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentAssignmentUiState
 import com.surimap.feature.incidents.ui.IncidentHomeMapDataStatus
 import com.surimap.feature.incidents.ui.IncidentHomeScreen
 import com.surimap.feature.incidents.ui.IncidentHomeUiState
@@ -267,7 +271,6 @@ private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
 private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L
 private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
-
 private val SearchRecordingSessionStateSaver =
     listSaver<MutableState<SearchRecordingSessionState>, Any>(
         save = { state ->
@@ -2288,6 +2291,7 @@ private fun SearchMapRoute(
                     onViewportBoundsChanged(incidentId, bounds)
                 }
             },
+            onMapPointClick = { _, _ -> false },
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
@@ -3366,6 +3370,15 @@ private fun SearchMapUiState.toIncidentHomeUiState(
         assignmentLabel = assignmentLabel.ifBlank { "담당 구역 확인 중" },
         assignmentCountLabel = assignmentCountLabel,
         assignmentRoleSummary = assignmentRoleSummary,
+        assignmentItems = assignmentItems.map { assignment ->
+            IncidentAssignmentUiState(
+                displayName = assignment.displayName,
+                roleLabel = assignment.roleLabel,
+                accountTypeLabel = assignment.accountTypeLabel,
+                organizationLabel = assignment.organizationLabel,
+                assignedAtLabel = assignment.assignedAtLabel
+            )
+        },
         mapDataStatus = mapData.status,
         mapDataDetail = mapData.detail,
         syncLabel =

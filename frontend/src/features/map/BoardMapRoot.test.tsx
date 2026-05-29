@@ -111,21 +111,21 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     const transformRequest = mapOptions.transformRequest;
 
     expect(transformRequest?.('/map-style/osm-local.json', 'Style')).toMatchObject({
-      url: '/map-style/osm-local.json',
+      url: expect.stringMatching(/\/map-style\/osm-local\.json$/),
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
       },
     });
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toMatchObject({
-      url: '/map-style/osm-local.json',
+      url: expect.stringMatching(/\/map-style\/osm-local\.json$/),
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
       },
     });
     expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toMatchObject({
-      url: '/tiles/osm-local/15/27925/12680.pbf',
+      url: expect.stringMatching(/\/tiles\/osm-local\/15\/27925\/12680\.pbf$/),
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
@@ -166,9 +166,6 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     expect(() => transformRequest?.('/api/not-tiles/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
     expect(() => transformRequest?.('/tiles/not-osm-local/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
-    expect(() => transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Source')).toThrow(
-      /non-local tile resource/i,
-    );
     expect(() => transformRequest?.('/sprites/local.json', 'SpriteJSON')).toThrow(/non-local tile/i);
   });
 

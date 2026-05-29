@@ -116,7 +116,6 @@ import kotlinx.coroutines.launch
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val SearchPanelActionGap = PoliDimens.Space3
-private val CurrentLocationButtonPanelGap = PoliDimens.Space4
 private val BottomSheetCollapsedBottomPadding = PoliDimens.Space3
 private val BottomSheetExpandedBottomPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
@@ -200,6 +199,14 @@ private enum class SearchMapOverlayTransparencyLevel(
         }
 }
 
+data class SearchMapAssignmentUiState(
+    val displayName: String,
+    val roleLabel: String,
+    val accountTypeLabel: String? = null,
+    val organizationLabel: String? = null,
+    val assignedAtLabel: String? = null
+)
+
 data class SearchMapUiState(
     val incidentTitle: String,
     val missingPersonSummary: String,
@@ -212,6 +219,7 @@ data class SearchMapUiState(
     val appearanceLabel: String? = null,
     val assignmentCountLabel: String = "참여 계정 확인 중",
     val assignmentRoleSummary: String? = null,
+    val assignmentItems: List<SearchMapAssignmentUiState> = emptyList(),
     val opLabel: String,
     val dutyShiftLabel: String,
     val assignmentLabel: String,
@@ -522,6 +530,7 @@ fun SearchMapScreen(
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit = {},
+    onMapPointClick: (lon: Double, lat: Double) -> Boolean = { _, _ -> false },
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
@@ -561,6 +570,8 @@ fun SearchMapScreen(
         }
     var bottomPanelHeight by remember { mutableStateOf(initialBottomPanelHeight) }
     val mapModifier = Modifier.fillMaxSize()
+    val mapBottomInset = bottomPanelHeight
+    val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
         SearchMapShell(
@@ -569,9 +580,11 @@ fun SearchMapScreen(
             mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
             overlayTransparencyLevel = overlayTransparencyLevel,
+            mapBottomInset = mapBottomInset,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
             onViewportBoundsChanged = onViewportBoundsChanged,
+            onMapPointClick = onMapPointClick,
             modifier = mapModifier
         )
 
@@ -638,7 +651,7 @@ fun SearchMapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(
                     end = PoliDimens.Space4,
-                    bottom = bottomPanelHeight + CurrentLocationButtonPanelGap
+                    bottom = currentLocationBottomInset
                 )
         )
 
@@ -748,9 +761,11 @@ private fun SearchMapShell(
     mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
     overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
+    mapBottomInset: Dp,
     onOpenBlockedOutbox: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
+    onMapPointClick: (lon: Double, lat: Double) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState, overlayTransparencyLevel.opacityScale)
@@ -759,15 +774,16 @@ private fun SearchMapShell(
         if (showMapPreview) {
             SearchMapPreviewScene(
                 state = state,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset)
             )
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
                 mapViewHandle = mapViewHandle,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail,
+                onMapPointClick = onMapPointClick,
                 onViewportBoundsChanged = { bounds ->
                     onViewportBoundsChanged(bounds.toSearchMapViewportBounds())
                 }

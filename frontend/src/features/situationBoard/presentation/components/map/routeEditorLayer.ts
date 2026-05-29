@@ -6,6 +6,7 @@ const ENABLE_LOCAL_ROUTE_EDITOR = false;
 const ROUTE_EDITOR_SOURCE_ID = 'dev-route-editor-draft';
 const ROUTE_EDITOR_LINE_LAYER_ID = 'dev-route-editor-draft-line';
 const ROUTE_EDITOR_POINT_LAYER_ID = 'dev-route-editor-draft-point';
+const ROUTE_EDITOR_ANCHOR_POINT_LAYER_ID = 'dev-route-editor-draft-anchor-point';
 
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
@@ -19,7 +20,7 @@ type RouteEditorFeatureCollection = {
       }
     | {
         type: 'Feature';
-        properties: { slot: 'dev_route_editor'; geometryType: 'point'; index: string };
+        properties: { slot: 'dev_route_editor'; geometryType: 'point'; index: string; pointKind: 'generated' | 'anchor' };
         geometry: PointGeometry;
       }
   >;
@@ -56,7 +57,10 @@ export function getIsRouteEditorEnabled(): boolean {
   return new URLSearchParams(window.location.search).get('routeEditor') === '1';
 }
 
-function createRouteEditorGeoJson(coordinates: Position[]): RouteEditorFeatureCollection {
+function createRouteEditorGeoJson(
+  coordinates: Position[],
+  anchorCoordinates: Position[] = coordinates,
+): RouteEditorFeatureCollection {
   return {
     type: 'FeatureCollection',
     features: [
@@ -67,7 +71,22 @@ function createRouteEditorGeoJson(coordinates: Position[]): RouteEditorFeatureCo
       },
       ...coordinates.map((coordinate, index) => ({
         type: 'Feature' as const,
-        properties: { slot: 'dev_route_editor' as const, geometryType: 'point' as const, index: String(index + 1) },
+        properties: {
+          slot: 'dev_route_editor' as const,
+          geometryType: 'point' as const,
+          pointKind: 'generated' as const,
+          index: String(index + 1),
+        },
+        geometry: { type: 'Point' as const, coordinates: coordinate },
+      })),
+      ...anchorCoordinates.map((coordinate, index) => ({
+        type: 'Feature' as const,
+        properties: {
+          slot: 'dev_route_editor' as const,
+          geometryType: 'point' as const,
+          pointKind: 'anchor' as const,
+          index: String(index + 1),
+        },
         geometry: { type: 'Point' as const, coordinates: coordinate },
       })),
     ],
@@ -94,21 +113,34 @@ export function addRouteEditorLayers(map: maplibregl.Map) {
     id: ROUTE_EDITOR_POINT_LAYER_ID,
     type: 'circle',
     source: ROUTE_EDITOR_SOURCE_ID,
-    filter: ['==', ['get', 'geometryType'], 'point'],
+    filter: ['all', ['==', ['get', 'geometryType'], 'point'], ['==', ['get', 'pointKind'], 'generated']],
     paint: {
       'circle-color': '#0b7285',
-      'circle-radius': 5,
+      'circle-radius': 3,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 1,
+    },
+  });
+
+  addRouteEditorLayer(map, {
+    id: ROUTE_EDITOR_ANCHOR_POINT_LAYER_ID,
+    type: 'circle',
+    source: ROUTE_EDITOR_SOURCE_ID,
+    filter: ['all', ['==', ['get', 'geometryType'], 'point'], ['==', ['get', 'pointKind'], 'anchor']],
+    paint: {
+      'circle-color': '#f97316',
+      'circle-radius': 6,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 2,
     },
   });
 }
 
-export function syncRouteEditorDraft(map: maplibregl.Map, coordinates: Position[]) {
+export function syncRouteEditorDraft(map: maplibregl.Map, coordinates: Position[], anchorCoordinates?: Position[]) {
   const source = map.getSource(ROUTE_EDITOR_SOURCE_ID);
   if (!source || !('setData' in source)) {
     return;
   }
 
-  (source as GeoJSONSource).setData(createRouteEditorGeoJson(coordinates));
+  (source as GeoJSONSource).setData(createRouteEditorGeoJson(coordinates, anchorCoordinates));
 }

@@ -36,6 +36,7 @@ type SearchAreaInspectorCardProps = {
   memoDisabledReason?: string;
   onClose: () => void;
   onOpenMemo?: () => void;
+  onOpenRouteEditor?: () => void;
   onOpenSplit: () => void;
   onOpenAssign: () => void;
 };
@@ -559,6 +560,7 @@ export function SearchAreaInspectorCard({
   memoDisabledReason,
   onClose,
   onOpenMemo,
+  onOpenRouteEditor,
   onOpenSplit,
   onOpenAssign,
 }: SearchAreaInspectorCardProps) {
@@ -705,6 +707,12 @@ export function SearchAreaInspectorCard({
             >
               <MessageSquarePlus size={14} aria-hidden="true" />
               <span>메모 추가</span>
+            </button>
+          ) : null}
+          {onOpenRouteEditor ? (
+            <button type="button" className={styles.actionButtonSecondary} onClick={onOpenRouteEditor}>
+              <Route size={14} aria-hidden="true" />
+              <span>경로 그리기</span>
             </button>
           ) : null}
         </div>

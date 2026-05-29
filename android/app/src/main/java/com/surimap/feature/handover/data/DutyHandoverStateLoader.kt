@@ -538,22 +538,80 @@ class DutyHandoverStateLoader(
                 val label = event.optString("label").ifBlank { type.toTimelineLabel() }
                 val actor = actors[event.optString("actorId")] ?: "현장 기록자"
                 val detail = event.optJSONObject("detail") ?: JSONObject()
+                val title =
+                    if (type == "HANDOVER_MEMO") {
+                        detail.optString("targetType").toHandoverMemoTitle(label)
+                    } else {
+                        label
+                    }
                 val subtitle =
                     when (type) {
                         "HANDOVER_MEMO" -> detail.optString("content").ifBlank { "${event.optString("occurredAt").toTimeLabel()} · $actor" }
                         "MARKER" -> markerSubtitle(event, detail, actor)
                         else -> "${event.optString("occurredAt").toTimeLabel()} · $actor"
                     }
+                val details = timelineRecordDetails(event, detail, actor)
                 add(
                     HandoverRecord(
-                        title = label,
+                        title = title,
                         subtitle = subtitle,
                         actionLabel = "보기",
-                        sourceKey = eventId
+                        sourceKey = eventId,
+                        detailLines = details
                     )
                 )
             }
         }
+
+    private fun timelineRecordDetails(event: JSONObject, detail: JSONObject, actor: String): List<String> {
+        val type = event.optString("type").uppercase()
+        return when (type) {
+            "MARKER" -> markerRecordDetails(event, detail, actor)
+            "HANDOVER_MEMO" -> handoverMemoRecordDetails(event, detail, actor)
+            else -> pathRecordDetails(event, detail, actor)
+        }
+    }
+
+    private fun markerRecordDetails(event: JSONObject, detail: JSONObject, actor: String): List<String> {
+        val markerType = detail.optString("markerType").toMarkerTypeLabel()
+        val memo = detail.optString("memo").takeIf(String::isNotBlank)
+        val photoCount = detail.optInt("photoCount", 0).coerceAtLeast(0)
+        val location = detail.optJSONObject("location")
+        return listOfNotNull(
+            "시간: ${event.optString("occurredAt").toTimeLabel()}",
+            "기록자: $actor",
+            "유형: $markerType",
+            "사진: ${photoCount}장",
+            memo?.let { "메모: $it" },
+            location?.toLocationLabel()
+        )
+    }
+
+    private fun handoverMemoRecordDetails(event: JSONObject, detail: JSONObject, actor: String): List<String> =
+        listOfNotNull(
+            "시간: ${event.optString("occurredAt").toTimeLabel()}",
+            "작성자: $actor",
+            detail.optString("targetType").takeIf(String::isNotBlank)?.let { "대상: ${it.toHandoverTargetLabel()}" },
+            detail.optString("content").takeIf(String::isNotBlank)?.let { "내용: $it" }
+        )
+
+    private fun pathRecordDetails(event: JSONObject, detail: JSONObject, actor: String): List<String> {
+        val mode =
+            detail.optString("mode")
+                .ifBlank { detail.optString("movementMode") }
+                .ifBlank { detail.optString("segmentMode") }
+                .takeIf(String::isNotBlank)
+                ?.toMovementLabel()
+        val pointCount = detail.optInt("pointCount", -1).takeIf { it >= 0 }
+        val distance = detail.optLong("distanceMeters", -1L).takeIf { it >= 0L }
+        return listOfNotNull(
+            "시간: ${event.optString("occurredAt").toTimeLabel()}",
+            "기록자: $actor",
+            mode?.let { "이동 방식: $it" },
+            distance?.let { "거리: ${it.toDistanceLabel()}" },
+            pointCount?.let { "GPS 점: ${it}개" }
+        )
+    }
 
     private fun markerSubtitle(event: JSONObject, detail: JSONObject, actor: String): String {
         val markerType = detail.optString("markerType").toMarkerTypeLabel()
@@ -572,8 +630,12 @@ class DutyHandoverStateLoader(
         if (metrics == null) {
             return emptyList()
         }
-        return listOf(
+        return listOfNotNull(
             HandoverMetric(metrics.optLong("distanceMeters", 0L).toDistanceLabel(), "총 이동"),
+            metrics.optionalLongMetric("walkingDistanceMeters")?.let { HandoverMetric(it.toDistanceLabel(), "도보") },
+            metrics.optionalLongMetric("drivingDistanceMeters")?.let { HandoverMetric(it.toDistanceLabel(), "차량") },
+            metrics.optionalDoubleMetric("averageSpeedKmh")?.let { HandoverMetric("%.1fkm/h".format(it), "평균 속도") },
+            metrics.optionalIntMetric("stoppedSegmentCount")?.let { HandoverMetric("${it}회", "정지 구간") },
             HandoverMetric("${metrics.optInt("markerCount", 0).coerceAtLeast(0)}건", "마커"),
             HandoverMetric("${metrics.optInt("handoverMemoCount", 0).coerceAtLeast(0)}건", "메모")
         )
@@ -581,10 +643,11 @@ class DutyHandoverStateLoader(
 
     private fun HandoverMemoReadModel.toRecord(): HandoverRecord =
         HandoverRecord(
-            title = "운영 메모 · $targetType",
+            title = "운영 메모 · ${targetType.toHandoverTargetLabel()}",
             subtitle = content,
             actionLabel = "열기",
-            sourceKey = sourceKey
+            sourceKey = sourceKey,
+            detailLines = listOf("대상: ${targetType.toHandoverTargetLabel()}", "내용: $content")
         )
 
     private fun HandoverSessionContext.valid(): RequiredHandoverSessionContext? {
@@ -756,12 +819,63 @@ class DutyHandoverStateLoader(
             else -> "타임라인 기록"
         }
 
+    private fun String.toHandoverTargetLabel(): String =
+        when (uppercase()) {
+            "OPERATIONAL_PERIOD", "OP" -> "OP"
+            "DUTY_SHIFT" -> "근무"
+            "SEARCH_PATH", "PATH" -> "경로"
+            "SEARCH_AREA", "AREA" -> "구역"
+            "MARKER" -> "마커"
+            else -> this
+        }
+
+    private fun String.toHandoverMemoTitle(defaultTitle: String): String =
+        when (toHandoverTargetLabel()) {
+            "OP" -> "OP 메모"
+            "근무" -> "근무 메모"
+            "경로" -> "경로 메모"
+            "구역" -> "구역 메모"
+            "마커" -> "마커 메모"
+            else -> defaultTitle
+        }
+
     private fun Long.toDistanceLabel(): String =
         if (this >= 1_000L) {
             "%.1fkm".format(this / 1_000.0)
         } else {
             "${coerceAtLeast(0L)}m"
         }
+
+    private fun JSONObject.optionalLongMetric(name: String): Long? =
+        if (has(name) && !isNull(name)) {
+            optLong(name, 0L).coerceAtLeast(0L)
+        } else {
+            null
+        }
+
+    private fun JSONObject.optionalIntMetric(name: String): Int? =
+        if (has(name) && !isNull(name)) {
+            optInt(name, 0).coerceAtLeast(0)
+        } else {
+            null
+        }
+
+    private fun JSONObject.optionalDoubleMetric(name: String): Double? =
+        if (has(name) && !isNull(name)) {
+            optDouble(name, Double.NaN).takeIf(Double::isFinite)?.coerceAtLeast(0.0)
+        } else {
+            null
+        }
+
+    private fun JSONObject.toLocationLabel(): String? {
+        val lat = optDouble("lat", Double.NaN)
+        val lng = optDouble("lng", Double.NaN)
+        return if (lat.isFinite() && lng.isFinite()) {
+            "위치: %.5f, %.5f".format(lat, lng)
+        } else {
+            null
+        }
+    }
 
     private fun timeRangeLabel(startAt: String, endAt: String): String {
         val start = startAt.toTimeLabel()

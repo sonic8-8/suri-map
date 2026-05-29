@@ -18,13 +18,44 @@ export interface DeleteMarkerRequest {
   reason?: string;
 }
 
+export interface CreateMarkerRequest {
+  id?: string;
+  incidentId: string;
+  opId: string;
+  type: string;
+  location: MarkerGeoJsonPoint;
+  clientTs: string;
+  supportRequestType?: string | null;
+  memo?: string | null;
+  clockOffsetMs?: number | null;
+  photos?: [];
+}
+
 export interface MarkerMutationResponse {
   id: string;
   status: string;
   version: number;
 }
 
+export interface MarkerCreateResponse extends MarkerMutationResponse {
+  incidentId: string;
+  opId: string;
+  policePhoneId: string;
+  photos?: Array<{
+    photoId: string;
+    status: string;
+    version: number;
+    markerId: string;
+    markerVersion: number;
+  }>;
+}
+
 export interface MarkerCommandApi {
+  createMarker(
+    request: CreateMarkerRequest,
+    idempotencyKey: string,
+    policePhoneId: string,
+  ): Promise<MarkerCreateResponse>;
   updateMarker(
     markerId: string,
     request: UpdateMarkerRequest,
@@ -43,6 +74,12 @@ export interface UpdateMarkerMutationVariables {
   idempotencyKey: string;
 }
 
+export interface CreateMarkerMutationVariables {
+  request: CreateMarkerRequest;
+  idempotencyKey: string;
+  policePhoneId: string;
+}
+
 export interface DeleteMarkerMutationVariables {
   markerId: string;
   request: DeleteMarkerRequest;
@@ -55,6 +92,12 @@ export const markerQueryKeys = {
 
 export function createMarkerCommandApi(client: ApiClient = apiClient): MarkerCommandApi {
   return {
+    createMarker: (request, idempotencyKey, policePhoneId) =>
+      client.post<MarkerCreateResponse, CreateMarkerRequest>(
+        '/markers',
+        request,
+        appWriteOptions(idempotencyKey, policePhoneId),
+      ),
     updateMarker: (markerId, request, idempotencyKey) =>
       client.patch<MarkerMutationResponse, UpdateMarkerRequest>(
         `/markers/${markerId}`,
@@ -70,6 +113,17 @@ export function createMarkerCommandApi(client: ApiClient = apiClient): MarkerCom
 }
 
 export const markerCommandApi = createMarkerCommandApi();
+
+export function useCreateMarkerMutation(api: MarkerCommandApi = markerCommandApi) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ request, idempotencyKey, policePhoneId }: CreateMarkerMutationVariables) =>
+      api.createMarker(request, idempotencyKey, policePhoneId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: markerQueryKeys.all });
+    },
+  });
+}
 
 export function useUpdateMarkerMutation(api: MarkerCommandApi = markerCommandApi) {
   const queryClient = useQueryClient();
@@ -98,5 +152,13 @@ function idempotencyOptions(idempotencyKey: string) {
     headers: {
       'Idempotency-Key': idempotencyKey,
     },
+  };
+}
+
+function appWriteOptions(idempotencyKey: string, policePhoneId: string) {
+  return {
+    idempotencyKey,
+    clientChannel: 'APP' as const,
+    policePhoneId,
   };
 }

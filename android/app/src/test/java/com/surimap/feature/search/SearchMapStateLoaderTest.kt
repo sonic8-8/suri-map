@@ -80,16 +80,25 @@ class SearchMapStateLoaderTest {
                           "assignments": [
                             {
                               "accountId": "acct-command",
+                              "accountDisplayName": "광주 실종팀 상황반",
+                              "accountType": "COMMAND",
+                              "organizationType": "MISSING_TEAM",
                               "incidentRole": "INCIDENT_COMMANDER",
                               "assignedAt": "2026-05-28T00:12:00Z"
                             },
                             {
                               "accountId": "acct-field",
+                              "accountDisplayName": "기동대 1부대 A팀",
+                              "accountType": "TEAM",
+                              "organizationType": "SUPPORT_UNIT",
                               "incidentRole": "FIELD_COMMANDER",
                               "assignedAt": "2026-05-28T00:15:00Z"
                             },
                             {
                               "accountId": "acct-member",
+                              "accountDisplayName": "광산 31호",
+                              "accountType": "PATROL_CAR",
+                              "organizationType": "POLICE_SUBSTATION",
                               "incidentRole": "MEMBER",
                               "assignedAt": "2026-05-28T00:18:00Z"
                             }
@@ -125,6 +134,16 @@ class SearchMapStateLoaderTest {
         assertEquals("회색 점퍼", state.appearanceLabel)
         assertEquals("3개", state.assignmentCountLabel)
         assertEquals("사건 지휘 1 · 현장 지휘 1 · 수색 대원 1", state.assignmentRoleSummary)
+        assertEquals(3, state.assignmentItems.size)
+        assertEquals("광주 실종팀 상황반", state.assignmentItems[0].displayName)
+        assertEquals("사건 지휘", state.assignmentItems[0].roleLabel)
+        assertEquals("지휘", state.assignmentItems[0].accountTypeLabel)
+        assertEquals("실종팀", state.assignmentItems[0].organizationLabel)
+        assertEquals("2026-05-28 09:12", state.assignmentItems[0].assignedAtLabel)
+        assertEquals("기동대 1부대 A팀", state.assignmentItems[1].displayName)
+        assertEquals("현장 지휘", state.assignmentItems[1].roleLabel)
+        assertEquals("광산 31호", state.assignmentItems[2].displayName)
+        assertEquals("수색 대원", state.assignmentItems[2].roleLabel)
         assertEquals(SearchLifecycleStatus.Active, state.lifecycleStatus)
         assertTrue(state.canCreateMarker)
     }

@@ -9,7 +9,12 @@ class PoliComponentVariantContractTest {
     @Test
     fun commonComponentVariantsCoverOperationalStates() {
         assertEquals(
-            listOf(PoliButtonVariant.Primary, PoliButtonVariant.Secondary, PoliButtonVariant.Danger),
+            listOf(
+                PoliButtonVariant.Primary,
+                PoliButtonVariant.Secondary,
+                PoliButtonVariant.SubtleDanger,
+                PoliButtonVariant.Danger
+            ),
             PoliButtonVariant.entries.toList()
         )
         assertEquals(

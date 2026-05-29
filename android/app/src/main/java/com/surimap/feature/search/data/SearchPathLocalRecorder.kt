@@ -37,10 +37,16 @@ class SearchPathLocalRecorder(
     private val repository = SearchPathRepository(syncClient = syncClient)
 
     suspend fun start(context: SearchPathWriteContext): SearchPathWriteResult {
+        return startAt(context = context, clientTs = now())
+    }
+
+    private suspend fun startAt(
+        context: SearchPathWriteContext,
+        clientTs: Instant
+    ): SearchPathWriteResult {
         val valid = context.valid() ?: return SearchPathWriteResult.Blocked
         val operationId = idFactory("op-path-start")
         val searchPathId = idFactory("path")
-        val clientTs = now()
         val result =
             repository.startSearchPath(
                 StartSearchPathCommand(
@@ -135,10 +141,25 @@ class SearchPathLocalRecorder(
         action: SearchPathLifecycleAction,
         operationPrefix: String
     ): SearchPathWriteResult {
+        return patchLifecycleAt(
+            context = context,
+            searchPathId = searchPathId,
+            action = action,
+            operationPrefix = operationPrefix,
+            clientTs = now()
+        )
+    }
+
+    private suspend fun patchLifecycleAt(
+        context: SearchPathWriteContext,
+        searchPathId: String?,
+        action: SearchPathLifecycleAction,
+        operationPrefix: String,
+        clientTs: Instant
+    ): SearchPathWriteResult {
         val valid = context.valid() ?: return SearchPathWriteResult.Blocked
         val pathId = searchPathId?.takeIf(String::isNotBlank) ?: return SearchPathWriteResult.Blocked
         val operationId = idFactory(operationPrefix)
-        val clientTs = now()
         val result =
             repository.patchSearchPath(
                 PatchSearchPathCommand(
