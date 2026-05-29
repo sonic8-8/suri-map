@@ -116,7 +116,6 @@ import kotlinx.coroutines.launch
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val SearchPanelActionGap = PoliDimens.Space3
-private val CurrentLocationButtonPanelGap = PoliDimens.Space4
 private val BottomSheetCollapsedBottomPadding = PoliDimens.Space3
 private val BottomSheetExpandedBottomPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
@@ -571,6 +570,8 @@ fun SearchMapScreen(
         }
     var bottomPanelHeight by remember { mutableStateOf(initialBottomPanelHeight) }
     val mapModifier = Modifier.fillMaxSize()
+    val mapBottomInset = bottomPanelHeight
+    val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
         SearchMapShell(
@@ -579,6 +580,7 @@ fun SearchMapScreen(
             mapViewHandle = mapViewHandle,
             showMapPreview = showMapPreview,
             overlayTransparencyLevel = overlayTransparencyLevel,
+            mapBottomInset = mapBottomInset,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onOpenMarkerDetail = onOpenFocusedMarkerDetail,
             onViewportBoundsChanged = onViewportBoundsChanged,
@@ -649,7 +651,7 @@ fun SearchMapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(
                     end = PoliDimens.Space4,
-                    bottom = bottomPanelHeight + CurrentLocationButtonPanelGap
+                    bottom = currentLocationBottomInset
                 )
         )
 
@@ -759,6 +761,7 @@ private fun SearchMapShell(
     mapViewHandle: MapLibreMapViewHandle?,
     showMapPreview: Boolean,
     overlayTransparencyLevel: SearchMapOverlayTransparencyLevel,
+    mapBottomInset: Dp,
     onOpenBlockedOutbox: () -> Unit,
     onOpenMarkerDetail: (String) -> Unit,
     onViewportBoundsChanged: (SearchMapViewportBounds) -> Unit,
@@ -771,13 +774,13 @@ private fun SearchMapShell(
         if (showMapPreview) {
             SearchMapPreviewScene(
                 state = state,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset)
             )
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
                 mapViewHandle = mapViewHandle,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail,
                 onMapPointClick = onMapPointClick,
