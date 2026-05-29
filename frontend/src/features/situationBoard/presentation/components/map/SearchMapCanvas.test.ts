@@ -138,6 +138,44 @@ describe('manual search path draft', () => {
     ).toBe('phone-current');
   });
 
+  test('prefers selected OP movement path PolicePhone ID over stale assigned account value', () => {
+    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
+      [movementPath({ accountId: 'account-1', opId: 'op-current', policePhoneId: 'phone-current' })],
+      'op-current',
+    );
+
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          opId: 'op-current',
+          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A', policePhoneId: 'phone-previous' }],
+        }),
+        policePhoneIdsByAccountId,
+        'op-current',
+      ),
+    ).toBe('phone-current');
+  });
+
+  test('does not infer PolicePhone ID from a child search area in another OP', () => {
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          opId: 'op-current',
+          assignedAccounts: [],
+          children: [
+            searchAreaNode({
+              id: 'child-previous',
+              opId: 'op-previous',
+              assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A', policePhoneId: 'phone-previous' }],
+            }),
+          ],
+        }),
+        new Map([['account-1', 'phone-current']]),
+        'op-current',
+      ),
+    ).toBeNull();
+  });
+
   test('does not infer PolicePhone ID from another OP movement path', () => {
     const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
       [movementPath({ accountId: 'account-1', opId: 'op-previous', policePhoneId: 'phone-previous' })],

@@ -454,20 +454,26 @@ export function createPolicePhoneIdsByAccountId(
 export function resolveSearchAreaPolicePhoneId(
   searchArea: SearchAreaTreeNode | null,
   policePhoneIdsByAccountId: ReadonlyMap<string, string> = new Map(),
+  targetOpId: string | null = null,
 ): string | null {
   if (!searchArea) {
     return null;
   }
 
+  const searchAreaOpId = searchArea.opId?.trim();
+  if (targetOpId && searchAreaOpId && searchAreaOpId !== targetOpId) {
+    return null;
+  }
+
   const directPhoneId = (searchArea.assignedAccounts ?? [])
-    .map((account) => account.policePhoneId?.trim() ?? policePhoneIdsByAccountId.get(account.accountId)?.trim())
+    .map((account) => policePhoneIdsByAccountId.get(account.accountId)?.trim() || account.policePhoneId?.trim())
     .find((policePhoneId): policePhoneId is string => Boolean(policePhoneId));
   if (directPhoneId) {
     return directPhoneId;
   }
 
   for (const childArea of searchArea.children ?? []) {
-    const childPhoneId = resolveSearchAreaPolicePhoneId(childArea, policePhoneIdsByAccountId);
+    const childPhoneId = resolveSearchAreaPolicePhoneId(childArea, policePhoneIdsByAccountId, targetOpId);
     if (childPhoneId) {
       return childPhoneId;
     }
@@ -1059,9 +1065,13 @@ export function SearchMapCanvas({
     () => interpolateManualRouteCoordinates(routeEditorCoordinates),
     [routeEditorCoordinates],
   );
+  const routeEditorTargetOpId = useMemo(
+    () => resolveSearchAreaMemoOpId(searchAreaTree, selectedSearchAreaId, activeOperationalPeriodId),
+    [activeOperationalPeriodId, searchAreaTree, selectedSearchAreaId],
+  );
   const policePhoneIdsByAccountId = useMemo(
-    () => createPolicePhoneIdsByAccountId(movementPaths, activeOperationalPeriodId),
-    [activeOperationalPeriodId, movementPaths],
+    () => createPolicePhoneIdsByAccountId(movementPaths, routeEditorTargetOpId),
+    [movementPaths, routeEditorTargetOpId],
   );
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [mapViewportVersion, setMapViewportVersion] = useState(0);
@@ -1328,12 +1338,21 @@ export function SearchMapCanvas({
     removeSearchAreaPopup();
     setSelectedMarkerId(null);
     setRouteEditorCoordinates([]);
-    setRouteEditorPolicePhoneId(resolveSearchAreaPolicePhoneId(searchArea, policePhoneIdsByAccountId) ?? '');
+    setRouteEditorPolicePhoneId(
+      resolveSearchAreaPolicePhoneId(searchArea, policePhoneIdsByAccountId, routeEditorTargetOpId) ?? '',
+    );
     setRouteEditorStatus('idle');
     setRouteEditorErrorMessage('');
     resetRouteEditorTimes();
     setIsRouteEditorEnabled(true);
-  }, [policePhoneIdsByAccountId, removeSearchAreaPopup, resetRouteEditorTimes, searchAreaTree, selectedSearchAreaId]);
+  }, [
+    policePhoneIdsByAccountId,
+    removeSearchAreaPopup,
+    resetRouteEditorTimes,
+    routeEditorTargetOpId,
+    searchAreaTree,
+    selectedSearchAreaId,
+  ]);
 
   const handleCloseRouteEditor = useCallback(() => {
     setIsRouteEditorEnabled(false);
@@ -1355,7 +1374,7 @@ export function SearchMapCanvas({
   }, []);
 
   const getRouteEditorWriteContext = useCallback(() => {
-    const opId = resolveSearchAreaMemoOpId(searchAreaTree, selectedSearchAreaId, activeOperationalPeriodId);
+    const opId = routeEditorTargetOpId;
     const policePhoneId = routeEditorPolicePhoneId.trim();
     const startedAt = parseDatetimeLocalValue(routeEditorStartedAtLocal);
     const endedAt = parseDatetimeLocalValue(routeEditorEndedAtLocal);
@@ -1373,11 +1392,10 @@ export function SearchMapCanvas({
     }
     return { opId, policePhoneId, startedAt, endedAt };
   }, [
-    activeOperationalPeriodId,
     routeEditorEndedAtLocal,
     routeEditorPolicePhoneId,
     routeEditorStartedAtLocal,
-    searchAreaTree,
+    routeEditorTargetOpId,
     selectedSearchAreaId,
   ]);
 
