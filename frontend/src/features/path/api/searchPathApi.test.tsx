@@ -148,7 +148,7 @@ describe('search path API', () => {
         opId: OP_ID,
         clientTs: '2026-05-11T06:00:00.000Z',
       },
-      { idempotencyKey: 'idem-manual-path-001:start', clientChannel: 'APP', policePhoneId: POLICE_PHONE_ID },
+      { idempotencyKey: 'idem-manual-path-001:start', clientChannel: 'WEB', policePhoneId: POLICE_PHONE_ID },
     );
     expect(client.post).toHaveBeenNthCalledWith(
       2,
@@ -176,7 +176,7 @@ describe('search path API', () => {
           },
         ],
       },
-      { idempotencyKey: 'idem-manual-path-001:batch', clientChannel: 'APP', policePhoneId: POLICE_PHONE_ID },
+      { idempotencyKey: 'idem-manual-path-001:batch', clientChannel: 'WEB', policePhoneId: POLICE_PHONE_ID },
     );
     expect(client.patch).toHaveBeenCalledWith(
       `/search-paths/${PATH_ID}`,
@@ -184,7 +184,7 @@ describe('search path API', () => {
         action: 'END',
         clientTs: '2026-05-11T06:10:00.000Z',
       },
-      { idempotencyKey: 'idem-manual-path-001:end', clientChannel: 'APP', policePhoneId: POLICE_PHONE_ID },
+      { idempotencyKey: 'idem-manual-path-001:end', clientChannel: 'WEB', policePhoneId: POLICE_PHONE_ID },
     );
   });
 

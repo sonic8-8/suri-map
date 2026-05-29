@@ -5,6 +5,7 @@ export type ManualRouteMarkerType = 'CLUE' | 'NOTE' | 'DANGER' | 'COMPLETED';
 
 interface RouteEditorPanelProps {
   areaLabel: string;
+  anchorCount: number;
   coordinates: Position[];
   policePhoneId: string;
   startedAtLocal: string;
@@ -27,6 +28,7 @@ interface RouteEditorPanelProps {
 
 export function RouteEditorPanel({
   areaLabel,
+  anchorCount,
   coordinates,
   policePhoneId,
   startedAtLocal,
@@ -63,7 +65,9 @@ export function RouteEditorPanel({
       </div>
 
       <div className={styles.routeEditorMeta}>
-        <span>{coordinates.length} points</span>
+        <span>
+          {anchorCount} anchors · {coordinates.length} points
+        </span>
         <span>{status === 'saved' ? '저장 완료' : '지도 클릭으로 점 추가'}</span>
       </div>
 
@@ -122,7 +126,18 @@ export function RouteEditorPanel({
         </label>
       </div>
 
-      <pre className={styles.routeEditorCoordinates}>{JSON.stringify(coordinates, null, 2)}</pre>
+      <div className={styles.routeEditorCoordinates} aria-label="생성된 경로 좌표">
+        {coordinates.length === 0 ? (
+          <span>지도에서 경로 기준점을 클릭하세요.</span>
+        ) : (
+          coordinates.slice(0, 8).map(([lon, lat], index) => (
+            <span key={`${lon}:${lat}:${index}`}>
+              {index + 1}. {lon.toFixed(6)}, {lat.toFixed(6)}
+            </span>
+          ))
+        )}
+        {coordinates.length > 8 ? <span>+{coordinates.length - 8} generated points</span> : null}
+      </div>
 
       <div className={styles.routeEditorActions}>
         <button type="button" onClick={onUndo} disabled={coordinates.length === 0 || isSaving}>

@@ -5,6 +5,7 @@ import com.surimap.app.controller.path.request.StartSearchPathRequest;
 import com.surimap.app.controller.path.response.PatchSearchPathResponse;
 import com.surimap.app.controller.path.response.StartSearchPathResponse;
 import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class PathController {
       @RequestBody StartSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    UUID accountId = currentAccountId();
+    UUID accountId = currentAppAccountIdOrNull();
     var created = service.start(request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(StartSearchPathResponse.from(created));
   }
@@ -49,7 +50,7 @@ public class PathController {
       @RequestBody PatchSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    UUID accountId = currentAccountId();
+    UUID accountId = currentAppAccountIdOrNull();
     var patched =
         service.patch(searchPathId, policePhoneId, accountId, request.toServiceRequest(idempotencyKey));
     return ResponseEntity.ok(PatchSearchPathResponse.from(patched));
@@ -61,9 +62,12 @@ public class PathController {
     }
   }
 
-  private UUID currentAccountId() {
+  private UUID currentAppAccountIdOrNull() {
     var current = SecurityContextHolder.getContext().getAuthentication();
     if (current instanceof SuriMapAuthentication authentication) {
+      if (authentication.getChannel() == Channel.WEB) {
+        return null;
+      }
       return UUID.fromString(authentication.getAccountId());
     }
     throw new SearchPathGuardException("channel_not_allowed");

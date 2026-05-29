@@ -1,5 +1,6 @@
 package com.surimap.path;
 
+import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -135,6 +136,9 @@ public class SearchPathController {
   private UUID currentAccountIdOrNull() {
     var current = SecurityContextHolder.getContext().getAuthentication();
     if (current instanceof SuriMapAuthentication authentication) {
+      if (authentication.getChannel() == Channel.WEB) {
+        return null;
+      }
       return UUID.fromString(authentication.getAccountId());
     }
     return null;

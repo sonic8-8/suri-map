@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.surimap.app.controller.path.PathController;
 import com.surimap.app.controller.path.PathExceptionHandler;
 import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.common.auth.Channel;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
@@ -94,6 +95,53 @@ class PathControllerTest {
                 request ->
                     SEARCH_PATH_ID.equals(request.searchPathId())
                         && ACCOUNT_ID.equals(request.accountId())));
+  }
+
+  @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000099",
+      channel = Channel.WEB)
+  @DisplayName("WEB POST /api/search-paths delegates selected PolicePhone without account binding")
+  void web_start_path_contract_uses_selected_police_phone_without_account_binding()
+      throws Exception {
+    when(service.start(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            new SearchPath(
+                SEARCH_PATH_ID,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                null,
+                SearchPathStatus.RECORDING,
+                1L,
+                Instant.parse("2026-04-28T00:00:00Z"),
+                null));
+
+    mockMvc
+        .perform(
+            post("/api/search-paths")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-web-path-start-001")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "incidentId": "10000000-0000-0000-0000-000000000001",
+                      "opId": "70000000-0000-0000-0000-000000000001",
+                      "searchPathId": "81000000-0000-0000-0000-000000000001",
+                      "clientTs": "2026-04-28T09:00:00+09:00",
+                      "clockOffsetMs": 0
+                    }
+                    """))
+        .andExpect(status().isCreated());
+
+    verify(service)
+        .start(
+            argThat(
+                request ->
+                    SEARCH_PATH_ID.equals(request.searchPathId())
+                        && POLICE_PHONE_ID.equals(request.policePhoneId())
+                        && request.accountId() == null));
   }
 
   @Test

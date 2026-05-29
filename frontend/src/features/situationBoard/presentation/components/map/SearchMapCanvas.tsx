@@ -9,7 +9,7 @@ import maplibregl, {
   type LayerSpecification,
   type LngLatBoundsLike,
 } from 'maplibre-gl';
-import { createIdempotencyKey } from '../../../../../shared/api/client';
+import { ApiHttpError, createIdempotencyKey } from '../../../../../shared/api/client';
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
@@ -94,6 +94,9 @@ const DEFAULT_FIT_PADDING = 44;
 const FOCUSED_SEARCH_AREA_FIT_PADDING = 72;
 const FOCUSED_SEARCH_AREA_FIT_MAX_ZOOM = 16;
 const MARKER_SELECTED_POPUP_OFFSET_PX = 60;
+const MANUAL_ROUTE_SAMPLE_INTERVAL_MS = 5_000;
+const MANUAL_ROUTE_NATURAL_STEP_M = 7;
+const MANUAL_ROUTE_MAX_POINTS = 120;
 const OVERALL_SEARCH_AREA_SOURCE_ID = 'operational-overall_search_area';
 const SEARCH_AREA_FILL_LAYER_ID = 'operational-overall_search_area-fill';
 const SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID = 'operational-completed-search-area-hatch';
@@ -236,18 +239,88 @@ function parseDatetimeLocalValue(value: string) {
 export function createManualSearchPathPoints(
   coordinates: Position[],
   startedAt: Date,
-  endedAt: Date,
 ): ManualSearchPathPointInput[] {
-  const durationMs = Math.max(endedAt.getTime() - startedAt.getTime(), coordinates.length - 1);
-  const stepMs = coordinates.length > 1 ? Math.max(Math.floor(durationMs / (coordinates.length - 1)), 1) : 0;
-  return coordinates.map(([lon, lat], index) => ({
-    pointId: createUuid(),
-    lon,
-    lat,
-    speedMps: null,
-    horizontalAccuracyM: 5,
-    clientTs: new Date(startedAt.getTime() + stepMs * index).toISOString(),
-  }));
+  return coordinates.map(([lon, lat], index) => {
+    const coordinate: Position = [roundManualRouteCoordinate(lon), roundManualRouteCoordinate(lat)];
+    const previousCoordinate = coordinates[index - 1]
+      ? normalizeManualRouteCoordinate(coordinates[index - 1])
+      : null;
+    return {
+      pointId: createUuid(),
+      lon: coordinate[0],
+      lat: coordinate[1],
+      speedMps: previousCoordinate ? Math.min(distanceMeters(previousCoordinate, coordinate) / 5, 2.4) : 0,
+      horizontalAccuracyM: 5,
+      clientTs: new Date(startedAt.getTime() + MANUAL_ROUTE_SAMPLE_INTERVAL_MS * index).toISOString(),
+    };
+  });
+}
+
+export function interpolateManualRouteCoordinates(anchors: Position[]): Position[] {
+  if (anchors.length <= 1) {
+    return anchors;
+  }
+
+  const segmentDistances = anchors.slice(1).map((anchor, index) => distanceMeters(anchors[index], anchor));
+  const totalDistance = segmentDistances.reduce((sum, distance) => sum + distance, 0);
+  const targetStepMeters = Math.max(MANUAL_ROUTE_NATURAL_STEP_M, totalDistance / (MANUAL_ROUTE_MAX_POINTS - 1));
+  const coordinates: Position[] = [anchors[0]];
+
+  anchors.slice(1).forEach((end, index) => {
+    const start = anchors[index];
+    const distance = segmentDistances[index] ?? 0;
+    const steps = Math.max(1, Math.ceil(distance / targetStepMeters));
+    for (let step = 1; step <= steps; step += 1) {
+      const ratio = step / steps;
+      coordinates.push([
+        start[0] + (end[0] - start[0]) * ratio,
+        start[1] + (end[1] - start[1]) * ratio,
+      ]);
+    }
+  });
+
+  if (coordinates.length <= MANUAL_ROUTE_MAX_POINTS) {
+    return coordinates;
+  }
+
+  return downsampleRouteCoordinates(coordinates, MANUAL_ROUTE_MAX_POINTS);
+}
+
+function calculateManualRouteEndedAt(startedAt: Date, pointCount: number) {
+  return new Date(startedAt.getTime() + Math.max(pointCount, 1) * MANUAL_ROUTE_SAMPLE_INTERVAL_MS);
+}
+
+function normalizeManualRouteCoordinate([lon, lat]: Position): Position {
+  return [roundManualRouteCoordinate(lon), roundManualRouteCoordinate(lat)];
+}
+
+function roundManualRouteCoordinate(value: number) {
+  return Number(value.toFixed(6));
+}
+
+function distanceMeters(start: Position, end: Position) {
+  const earthRadiusM = 6_371_000;
+  const startLat = toRadians(start[1]);
+  const endLat = toRadians(end[1]);
+  const deltaLat = toRadians(end[1] - start[1]);
+  const deltaLon = toRadians(end[0] - start[0]);
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLon / 2) ** 2;
+  return 2 * earthRadiusM * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function downsampleRouteCoordinates(coordinates: Position[], maxPoints: number): Position[] {
+  const lastIndex = coordinates.length - 1;
+  return Array.from({ length: maxPoints }, (_, index) => {
+    if (index === 0) return coordinates[0];
+    if (index === maxPoints - 1) return coordinates[lastIndex];
+    return coordinates[Math.round((lastIndex * index) / (maxPoints - 1))];
+  });
 }
 
 function createMarkerPopupStyle(
@@ -353,6 +426,45 @@ function resolveSearchAreaMemoOpId(
 
   const searchArea = findSearchAreaNode(searchAreaTree, searchAreaId);
   return searchArea?.opId?.trim() || activeOperationalPeriodId;
+}
+
+function createPolicePhoneIdsByAccountId(movementPaths: MovementPath[]) {
+  const policePhoneIdsByAccountId = new Map<string, string>();
+
+  for (const path of movementPaths) {
+    const accountId = path.accountId?.trim();
+    const policePhoneId = path.policePhoneId?.trim();
+    if (accountId && policePhoneId && !policePhoneIdsByAccountId.has(accountId)) {
+      policePhoneIdsByAccountId.set(accountId, policePhoneId);
+    }
+  }
+
+  return policePhoneIdsByAccountId;
+}
+
+export function resolveSearchAreaPolicePhoneId(
+  searchArea: SearchAreaTreeNode | null,
+  policePhoneIdsByAccountId: ReadonlyMap<string, string> = new Map(),
+): string | null {
+  if (!searchArea) {
+    return null;
+  }
+
+  const directPhoneId = (searchArea.assignedAccounts ?? [])
+    .map((account) => account.policePhoneId?.trim() ?? policePhoneIdsByAccountId.get(account.accountId)?.trim())
+    .find((policePhoneId): policePhoneId is string => Boolean(policePhoneId));
+  if (directPhoneId) {
+    return directPhoneId;
+  }
+
+  for (const childArea of searchArea.children ?? []) {
+    const childPhoneId = resolveSearchAreaPolicePhoneId(childArea, policePhoneIdsByAccountId);
+    if (childPhoneId) {
+      return childPhoneId;
+    }
+  }
+
+  return null;
 }
 
 function resolveMarkerMemoOpId(marker: RecentMarker | null, activeOperationalPeriodId: string | null) {
@@ -934,6 +1046,14 @@ export function SearchMapCanvas({
   const [routeEditorMarkerMemo, setRouteEditorMarkerMemo] = useState('');
   const [routeEditorStatus, setRouteEditorStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [routeEditorErrorMessage, setRouteEditorErrorMessage] = useState('');
+  const routeEditorGeneratedCoordinates = useMemo(
+    () => interpolateManualRouteCoordinates(routeEditorCoordinates),
+    [routeEditorCoordinates],
+  );
+  const policePhoneIdsByAccountId = useMemo(
+    () => createPolicePhoneIdsByAccountId(movementPaths),
+    [movementPaths],
+  );
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [mapViewportVersion, setMapViewportVersion] = useState(0);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -1195,14 +1315,16 @@ export function SearchMapCanvas({
     if (!selectedSearchAreaId || areaEditMapPropsRef.current) {
       return;
     }
+    const searchArea = findSearchAreaNode(searchAreaTree, selectedSearchAreaId);
     removeSearchAreaPopup();
     setSelectedMarkerId(null);
     setRouteEditorCoordinates([]);
+    setRouteEditorPolicePhoneId(resolveSearchAreaPolicePhoneId(searchArea, policePhoneIdsByAccountId) ?? '');
     setRouteEditorStatus('idle');
     setRouteEditorErrorMessage('');
     resetRouteEditorTimes();
     setIsRouteEditorEnabled(true);
-  }, [removeSearchAreaPopup, resetRouteEditorTimes, selectedSearchAreaId]);
+  }, [policePhoneIdsByAccountId, removeSearchAreaPopup, resetRouteEditorTimes, searchAreaTree, selectedSearchAreaId]);
 
   const handleCloseRouteEditor = useCallback(() => {
     setIsRouteEditorEnabled(false);
@@ -1251,7 +1373,7 @@ export function SearchMapCanvas({
   ]);
 
   const handleSaveRouteEditorPath = useCallback(async () => {
-    if (routeEditorCoordinates.length < 2 || routeEditorStatus === 'saving') {
+    if (routeEditorGeneratedCoordinates.length < 2 || routeEditorStatus === 'saving') {
       return;
     }
     const context = getRouteEditorWriteContext();
@@ -1262,6 +1384,7 @@ export function SearchMapCanvas({
     }
 
     const searchPathId = createUuid();
+    const routeEndedAt = calculateManualRouteEndedAt(context.startedAt, routeEditorGeneratedCoordinates.length);
     setRouteEditorStatus('saving');
     setRouteEditorErrorMessage('');
     try {
@@ -1272,23 +1395,37 @@ export function SearchMapCanvas({
           policePhoneId: context.policePhoneId,
           searchPathId,
           startedAt: context.startedAt.toISOString(),
-          endedAt: context.endedAt.toISOString(),
-          points: createManualSearchPathPoints(routeEditorCoordinates, context.startedAt, context.endedAt),
+          endedAt: routeEndedAt.toISOString(),
+          points: createManualSearchPathPoints(routeEditorGeneratedCoordinates, context.startedAt),
         },
         idempotencyKey: createIdempotencyKey('web-manual-path'),
       });
       await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      setRouteEditorEndedAtLocal(toDatetimeLocalValue(routeEndedAt));
       setRouteEditorStatus('saved');
-    } catch {
+    } catch (error) {
+      console.error('Failed to save manual search path', error);
       setRouteEditorStatus('error');
-      setRouteEditorErrorMessage('경로 저장에 실패했습니다.');
+      if (error instanceof ApiHttpError && error.code === 'police_phone_required') {
+        setRouteEditorErrorMessage('선택 구역의 폴리폰 ID를 찾을 수 없습니다.');
+      } else if (error instanceof ApiHttpError && error.code === 'police_phone_not_assigned') {
+        setRouteEditorErrorMessage('선택 구역의 폴리폰이 현재 OP에 근무 배정되어 있지 않습니다.');
+      } else if (error instanceof ApiHttpError && error.code === 'invalid_geometry') {
+        setRouteEditorErrorMessage('경로 좌표가 서버 검증 조건을 통과하지 못했습니다.');
+      } else if (error instanceof ApiHttpError && error.code === 'write_conflict') {
+        setRouteEditorErrorMessage('서버가 동일 요청을 처리 중입니다. 잠시 후 다시 시도하세요.');
+      } else if (error instanceof ApiHttpError) {
+        setRouteEditorErrorMessage(`경로 저장에 실패했습니다. (${error.code})`);
+      } else {
+        setRouteEditorErrorMessage('경로 저장에 실패했습니다.');
+      }
     }
   }, [
     createManualSearchPathMutation,
     getRouteEditorWriteContext,
     incidentId,
     queryClient,
-    routeEditorCoordinates,
+    routeEditorGeneratedCoordinates,
     routeEditorStatus,
   ]);
 
@@ -1717,8 +1854,8 @@ export function SearchMapCanvas({
     }
 
     addRouteEditorLayers(map);
-    syncRouteEditorDraft(map, routeEditorCoordinates);
-  }, [isRouteEditorEnabled, routeEditorCoordinates]);
+    syncRouteEditorDraft(map, routeEditorGeneratedCoordinates);
+  }, [isRouteEditorEnabled, routeEditorGeneratedCoordinates]);
 
   useEffect(() => {
     isRouteEditorEnabledRef.current = isRouteEditorEnabled;
@@ -2154,7 +2291,8 @@ export function SearchMapCanvas({
         {isRouteEditorEnabled && selectedSearchAreaId ? (
           <RouteEditorPanel
             areaLabel={routeEditorAreaLabel}
-            coordinates={routeEditorCoordinates}
+            anchorCount={routeEditorCoordinates.length}
+            coordinates={routeEditorGeneratedCoordinates}
             policePhoneId={routeEditorPolicePhoneId}
             startedAtLocal={routeEditorStartedAtLocal}
             endedAtLocal={routeEditorEndedAtLocal}
