@@ -24,21 +24,28 @@ describe('local tile map contract', () => {
     localStorage.setItem('accessToken', 'local-tile-token');
 
     expect(transformLocalTileRequest('/map-style/osm-local.json', 'Style')).toMatchObject({
-      url: '/map-style/osm-local.json',
+      url: expect.stringMatching(/\/map-style\/osm-local\.json$/),
       headers: {
         Authorization: 'Bearer local-tile-token',
         'X-Client-Channel': 'WEB',
       },
     });
     expect(transformLocalTileRequest('/tiles/styles/osm-local.json', 'Style')).toMatchObject({
-      url: '/map-style/osm-local.json',
+      url: expect.stringMatching(/\/map-style\/osm-local\.json$/),
       headers: {
         Authorization: 'Bearer local-tile-token',
         'X-Client-Channel': 'WEB',
       },
     });
     expect(transformLocalTileRequest('/tiles/osm-local/15/27935/12960.pbf', 'Tile')).toMatchObject({
-      url: '/tiles/osm-local/15/27935/12960.pbf',
+      url: expect.stringMatching(/\/tiles\/osm-local\/15\/27935\/12960\.pbf$/),
+      headers: {
+        Authorization: 'Bearer local-tile-token',
+        'X-Client-Channel': 'WEB',
+      },
+    });
+    expect(transformLocalTileRequest('/tiles/osm-local/{z}/{x}/{y}.pbf', 'Source')).toMatchObject({
+      url: expect.stringMatching(/\/tiles\/osm-local\/%7Bz%7D\/%7Bx%7D\/%7By%7D\.pbf$/),
       headers: {
         Authorization: 'Bearer local-tile-token',
         'X-Client-Channel': 'WEB',
@@ -56,7 +63,7 @@ describe('local tile map contract', () => {
       },
     });
     expect(transformLocalTileRequest('/tiles/styles/osm-local.json', 'Style')).toMatchObject({
-      url: '/map-style/osm-local.json',
+      url: expect.stringMatching(/\/map-style\/osm-local\.json$/),
       headers: {
         Authorization: 'Bearer env-local-token',
         'X-Client-Channel': 'WEB',

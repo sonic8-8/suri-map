@@ -26,26 +26,29 @@ export function transformLocalTileRequest(url: string, resourceType?: string) {
 
   if (resourceType === 'Style') {
     if (requestUrl.pathname === LOCAL_TILE_STYLE_PATH) {
-      return { url, headers: buildWebTileRequestHeaders() };
+      return { url: requestUrl.href, headers: buildWebTileRequestHeaders() };
     }
 
     if (requestUrl.pathname === LEGACY_LOCAL_TILE_STYLE_PATH) {
-      return { url: LOCAL_TILE_STYLE_PATH, headers: buildWebTileRequestHeaders() };
+      return {
+        url: new URL(LOCAL_TILE_STYLE_PATH, window.location.origin).href,
+        headers: buildWebTileRequestHeaders(),
+      };
     }
 
     throw new Error(`non-local tile style rejected: ${url}`);
   }
 
-  if (resourceType === 'Tile') {
+  if (resourceType === 'Tile' || resourceType === 'Source') {
     const localVectorTilePathPattern = new RegExp(
-      `^${escapeRegExp(tileBasePath)}/(?:${LOCAL_TILE_STYLE_ID}|${LOCAL_TILE_LABEL_STYLE_ID})/\\d+/\\d+/\\d+\\.pbf$`,
+      `^${escapeRegExp(tileBasePath)}/(?:${LOCAL_TILE_STYLE_ID}|${LOCAL_TILE_LABEL_STYLE_ID})/(?:\\d+|(?:\\{|%7B)z(?:\\}|%7D))/(?:\\d+|(?:\\{|%7B)x(?:\\}|%7D))/(?:\\d+|(?:\\{|%7B)y(?:\\}|%7D))\\.pbf$`,
     );
 
     if (!localVectorTilePathPattern.test(requestUrl.pathname)) {
       throw new Error(`non-local tile rejected: ${url}`);
     }
 
-    return { url, headers: buildWebTileRequestHeaders() };
+    return { url: requestUrl.href, headers: buildWebTileRequestHeaders() };
   }
 
   if (resourceType === 'Glyphs') {
@@ -55,7 +58,7 @@ export function transformLocalTileRequest(url: string, resourceType?: string) {
       throw new Error(`non-local glyph rejected: ${url}`);
     }
 
-    return { url, headers: buildWebTileRequestHeaders() };
+    return { url: requestUrl.href, headers: buildWebTileRequestHeaders() };
   }
 
   throw new Error(`non-local tile resource rejected: ${url}`);

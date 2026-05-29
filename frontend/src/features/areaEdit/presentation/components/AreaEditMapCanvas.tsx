@@ -8,6 +8,7 @@ import maplibregl, {
 import { getVWorldApiKey } from '../../../../shared/config';
 import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
 import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
+import { transformLocalTileRequest } from '../../../../shared/map/localTileMap';
 import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
 import type { AreaEditPosition, CompletedAreaDraft } from '../constants/mockAreaEdit';
 import styles from './AreaEditMapCanvas.module.css';
@@ -1137,6 +1138,7 @@ export function AreaEditMapCanvas({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: createVWorldBaseStyle(vWorldApiKey),
+      transformRequest: vWorldApiKey ? undefined : transformLocalTileRequest,
       center: DEFAULT_GWANGJU_CENTER,
       zoom: INITIAL_MAP_FALLBACK_ZOOM,
       maxZoom: V_WORLD_MAX_ZOOM,

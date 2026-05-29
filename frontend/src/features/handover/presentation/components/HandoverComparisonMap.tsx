@@ -4,6 +4,7 @@ import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBou
 import { getVWorldApiKey } from '../../../../shared/config';
 import { MapControls } from '../../../../shared/ui';
 import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
+import { transformLocalTileRequest } from '../../../../shared/map/localTileMap';
 import {
   createComparisonBoardMarkers,
   createComparisonFeatureCollections,
@@ -226,6 +227,7 @@ export function HandoverComparisonMap({
       map = new maplibregl.Map({
         container: containerRef.current,
         style: createVWorldBaseStyle(apiKey),
+        transformRequest: apiKey ? undefined : transformLocalTileRequest,
         center: DEFAULT_JURISDICTION_CENTER,
         zoom: DEFAULT_ZOOM,
         maxZoom: V_WORLD_MAX_ZOOM,

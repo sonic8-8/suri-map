@@ -76,6 +76,30 @@ describe('createBoardMovementPaths', () => {
 
     expect(paths.map((path) => path.freshnessStatus)).toEqual(['STALE', 'STALE']);
   });
+
+  test('connects adjacent rendered segments across batch boundaries', () => {
+    const board = createBoardWithPathSegments();
+    const pathRow = (board.slots.path as Record<string, unknown>[])[0];
+    const segments = pathRow.segments as Record<string, unknown>[];
+    segments[1] = {
+      ...segments[1],
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [126.9145, 35.1635],
+          [126.915, 35.164],
+        ],
+      },
+    };
+
+    const paths = createBoardMovementPaths(board);
+
+    expect(paths[1]?.coordinates).toEqual([
+      [126.914, 35.163],
+      [126.9145, 35.1635],
+      [126.915, 35.164],
+    ]);
+  });
 });
 
 function createBoardWithPathSegments(): BoardResponseLike {

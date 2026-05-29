@@ -2,8 +2,9 @@ import { describe, expect, test } from 'vitest';
 
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import type { BoardSearchAreaRow } from './searchAreaBoardMapper';
-import { buildSearchAreaTree } from './searchAreaBoardMapper';
+import { buildSearchAreaTree, toAssignmentsByAreaId, toSearchAreaRows } from './searchAreaBoardMapper';
 
 describe('searchAreaBoardMapper', () => {
   test('generic UNIT names are replaced with the common parent organization from child teams', () => {
@@ -85,6 +86,54 @@ describe('searchAreaBoardMapper', () => {
 
     expect(tree.children?.[0]?.colorToken).toBe('AREA_ROSE_01');
   });
+
+  test('assigned account policePhoneId is resolved from freshness rows', () => {
+    const board = createBoard({
+      area: [
+        {
+          id: 'team-001',
+          opId: 'op-001',
+          areaLevel: 'TEAM',
+          name: 'TEAM',
+          version: 1,
+          geometry: polygonGeometry(),
+          assignedAccounts: [{ accountId: 'account-001', displayName: 'Team A' }],
+        },
+      ],
+      police_phone_freshness: [
+        {
+          accountId: 'account-001',
+          policePhoneId: 'phone-001',
+          status: 'ONLINE',
+        },
+      ],
+    });
+
+    expect(toSearchAreaRows(board)[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-001');
+    expect(toAssignmentsByAreaId(board).get('team-001')?.[0]?.policePhoneId).toBe('phone-001');
+  });
+
+  test('assigned account policePhoneId falls back to path and marker rows', () => {
+    const board = createBoard({
+      area: [
+        createAreaPayload({
+          id: 'team-001',
+          assignedAccounts: [{ accountId: 'account-001', displayName: 'Team A' }],
+        }),
+        createAreaPayload({
+          id: 'team-002',
+          assignedAccounts: [{ accountId: 'account-002', displayName: 'Team B' }],
+        }),
+      ],
+      path: [{ accountId: 'account-001', policePhoneId: 'phone-from-path' }],
+      marker: [{ accountId: 'account-002', policePhoneId: 'phone-from-marker' }],
+    });
+
+    const rows = toSearchAreaRows(board);
+
+    expect(rows[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-path');
+    expect(rows[1]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-marker');
+  });
 });
 
 function createAreaRow(overrides: Partial<BoardSearchAreaRow>): BoardSearchAreaRow {
@@ -118,5 +167,47 @@ function fallbackSearchAreaTree(): SearchAreaTreeNode {
     geometryState: 'saved',
     assignedAccounts: [],
     children: [],
+  };
+}
+
+function createBoard(slots: Record<string, unknown>): SituationBoardResponseDto {
+  return {
+    incidentId: 'incident-001',
+    boardResponseVersion: 1,
+    serverTs: '2026-05-29T00:00:00Z',
+    activeOpId: 'op-001',
+    selectedOpIds: ['op-001'],
+    slots,
+    sourceVersions: {},
+    geometryHash: null,
+    sourceHashes: {},
+    slotSources: {},
+  };
+}
+
+function createAreaPayload(overrides: Record<string, unknown>) {
+  return {
+    id: 'team-001',
+    opId: 'op-001',
+    areaLevel: 'TEAM',
+    name: 'TEAM',
+    version: 1,
+    geometry: polygonGeometry(),
+    assignedAccounts: [],
+    ...overrides,
+  };
+}
+
+function polygonGeometry() {
+  return {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [126.8, 35.1],
+        [126.81, 35.1],
+        [126.81, 35.11],
+        [126.8, 35.1],
+      ],
+    ],
   };
 }
