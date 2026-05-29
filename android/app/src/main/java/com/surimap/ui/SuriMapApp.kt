@@ -214,8 +214,6 @@ import com.surimap.feature.outbox.ui.BlockedOutboxUiState
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.data.RoomSearchMapResponseCache
-import com.surimap.feature.search.data.ManualSearchPathCommand
-import com.surimap.feature.search.data.ManualSearchPathPoint
 import com.surimap.feature.search.data.SearchAreaBoundaryAlertLocalRecorder
 import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
@@ -228,7 +226,6 @@ import com.surimap.feature.search.domain.SearchAreaBoundaryMonitor
 import com.surimap.feature.search.domain.SearchAreaBoundarySignal
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
-import com.surimap.feature.search.ui.SearchMapLayerVisualStyle
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapSyncStatus
@@ -261,9 +258,6 @@ import com.surimap.ui.theme.PoliPrimaryFg
 import com.surimap.ui.theme.PoliPrimaryFillSoft
 import java.io.File
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -277,11 +271,6 @@ private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
 private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L
 private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
-private const val DEV_MANUAL_PATH_DRAFT_LAYER_ID = "dev-manual-path-draft"
-private const val DEV_MANUAL_PATH_MAX_POINTS = 120
-private val DevManualPathZoneId: ZoneId = ZoneId.of("Asia/Seoul")
-private val DevManualPathTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-
 private val SearchRecordingSessionStateSaver =
     listSaver<MutableState<SearchRecordingSessionState>, Any>(
         save = { state ->
@@ -1751,16 +1740,6 @@ private fun SearchMapRoute(
     var markerDetailModalId by rememberSaveable(sessionContext.incidentId) { mutableStateOf<String?>(null) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var showMarkerDiscardConfirm by remember { mutableStateOf(false) }
-    var manualPathSelectedAreaKey by rememberSaveable(sessionContext.incidentId) { mutableStateOf<String?>(null) }
-    var manualPathDrawing by rememberSaveable(sessionContext.incidentId) { mutableStateOf(false) }
-    var manualPathSaving by remember { mutableStateOf(false) }
-    var manualPathPoints by remember(sessionContext.incidentId) { mutableStateOf(emptyList<DevManualPathPoint>()) }
-    var manualPathStartedAtText by rememberSaveable(sessionContext.incidentId) {
-        mutableStateOf(formatDevManualPathTime(Instant.now().minusSeconds(300L)))
-    }
-    var manualPathEndedAtText by rememberSaveable(sessionContext.incidentId) {
-        mutableStateOf(formatDevManualPathTime(Instant.now()))
-    }
     var showSearchLeaveConfirm by remember { mutableStateOf(false) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
@@ -2051,17 +2030,6 @@ private fun SearchMapRoute(
             handoverPrompt = handoverPromptState,
             localWarnings = LocalWarningUiState.from(localWarningSnapshot)
         ).withCurrentLocationViewport(latestLocationFix)
-    val manualPathAreaOptions = displayedSearchMapState.devManualPathAreaOptions()
-    val selectedManualPathArea = manualPathAreaOptions.firstOrNull { option -> option.key == manualPathSelectedAreaKey }
-    val displayedSearchMapStateWithManualPath =
-        displayedSearchMapState.withDevManualPathDraft(manualPathPoints)
-    LaunchedEffect(manualPathAreaOptions, manualPathSelectedAreaKey) {
-        if (manualPathSelectedAreaKey != null && selectedManualPathArea == null) {
-            manualPathSelectedAreaKey = null
-            manualPathDrawing = false
-            manualPathPoints = emptyList()
-        }
-    }
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
     BackHandler {
         when {
@@ -2210,7 +2178,7 @@ private fun SearchMapRoute(
 
     Box(modifier = Modifier.fillMaxSize()) {
         SearchMapScreen(
-            state = displayedSearchMapStateWithManualPath,
+            state = displayedSearchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
             mapViewHandle = mapViewHandle,
             onPrimaryLifecycleAction = {
@@ -2323,104 +2291,12 @@ private fun SearchMapRoute(
                     onViewportBoundsChanged(incidentId, bounds)
                 }
             },
-            onMapPointClick = { lon, lat ->
-                if (manualPathDrawing && selectedManualPathArea != null) {
-                    manualPathPoints = (manualPathPoints + DevManualPathPoint(lon = lon, lat = lat))
-                        .takeLast(DEV_MANUAL_PATH_MAX_POINTS)
-                    true
-                } else {
-                    false
-                }
-            },
+            onMapPointClick = { _, _ -> false },
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
-        if (manualPathAreaOptions.isNotEmpty()) {
-            DevManualPathPanel(
-                areaOptions = manualPathAreaOptions,
-                selectedAreaKey = manualPathSelectedAreaKey,
-                drawing = manualPathDrawing,
-                saving = manualPathSaving,
-                pointCount = manualPathPoints.size,
-                startedAtText = manualPathStartedAtText,
-                endedAtText = manualPathEndedAtText,
-                onSelectArea = { option ->
-                    manualPathSelectedAreaKey = option.key
-                    manualPathDrawing = false
-                    manualPathPoints = emptyList()
-                    searchMapState = searchMapState.centerOnSearchLayer(option.kind, option.overlayId)
-                },
-                onStartDrawing = {
-                    val now = Instant.now()
-                    manualPathStartedAtText = formatDevManualPathTime(now.minusSeconds(300L))
-                    manualPathEndedAtText = formatDevManualPathTime(now)
-                    manualPathPoints = emptyList()
-                    manualPathDrawing = true
-                },
-                onStartedAtChange = { manualPathStartedAtText = it },
-                onEndedAtChange = { manualPathEndedAtText = it },
-                onUndoPoint = {
-                    manualPathPoints = manualPathPoints.dropLast(1)
-                },
-                onCreateMarker = {
-                    manualPathPoints.lastOrNull()?.let { point ->
-                        markerSheetState =
-                            MarkerCreateSheetUiState.default()
-                                .withManualLocation(MarkerLocation(lon = point.lon, lat = point.lat))
-                        createPhotoUriById = emptyMap()
-                        pendingCreateCameraPhotoUri = null
-                        markerSheetOpen = true
-                    }
-                },
-                onCancel = {
-                    manualPathDrawing = false
-                    manualPathPoints = emptyList()
-                },
-                onSave = {
-                    val startedAt = parseDevManualPathTime(manualPathStartedAtText)
-                    val endedAt = parseDevManualPathTime(manualPathEndedAtText)
-                    if (startedAt == null || endedAt == null || !startedAt.isBefore(endedAt)) {
-                        Toast.makeText(context, "수동 경로 시간이 올바르지 않습니다.", Toast.LENGTH_SHORT).show()
-                        return@DevManualPathPanel
-                    }
-                    coroutineScope.launch {
-                        manualPathSaving = true
-                        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
-                        val result =
-                            searchPathRecorder.saveManualPath(
-                                context = sessionContext.toSearchPathWriteContext(),
-                                command =
-                                ManualSearchPathCommand(
-                                    points = manualPathPoints.map { point ->
-                                        ManualSearchPathPoint(lon = point.lon, lat = point.lat)
-                                    },
-                                    startedAt = startedAt,
-                                    endedAt = endedAt
-                                )
-                            )
-                        manualPathSaving = false
-                        if (result is SearchPathWriteResult.Enqueued) {
-                            immediateOutboxReplay.flushPendingIfReady(
-                                incidentId = sessionContext.incidentId,
-                                policePhoneId = sessionContext.policePhoneId
-                            )
-                            manualPathDrawing = false
-                            manualPathPoints = emptyList()
-                            searchMapState = loadServerStatePreservingMapContent()
-                            Toast.makeText(context, "개발용 수동 경로를 저장했습니다.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "수동 경로 저장 조건을 확인하세요.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(PoliDimens.SectionPadding)
-            )
-        }
         markerDetailModalId?.let { markerId ->
             val markerDetailInitialState = remember(searchMapState.layers, markerId) {
                 searchMapState.markerDetailLoadingState(markerId)
@@ -4012,192 +3888,6 @@ private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSe
                 geoJson = layer.geoJson.orEmpty()
             )
         }
-
-@Composable
-private fun DevManualPathPanel(
-    areaOptions: List<DevManualPathAreaOption>,
-    selectedAreaKey: String?,
-    drawing: Boolean,
-    saving: Boolean,
-    pointCount: Int,
-    startedAtText: String,
-    endedAtText: String,
-    onSelectArea: (DevManualPathAreaOption) -> Unit,
-    onStartDrawing: () -> Unit,
-    onStartedAtChange: (String) -> Unit,
-    onEndedAtChange: (String) -> Unit,
-    onUndoPoint: () -> Unit,
-    onCreateMarker: () -> Unit,
-    onCancel: () -> Unit,
-    onSave: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val selectedArea = areaOptions.firstOrNull { option -> option.key == selectedAreaKey }
-    PoliCard(modifier = modifier.fillMaxWidth(), strong = true) {
-        Text(
-            text = "개발 경로",
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1
-        )
-        Text(
-            text = selectedArea?.label ?: "구역을 선택하세요",
-            style = MaterialTheme.typography.bodySmall,
-            color = PoliFgMuted,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-            areaOptions.take(3).forEach { option ->
-                PoliButton(
-                    text = option.shortLabel,
-                    onClick = { onSelectArea(option) },
-                    modifier = Modifier.weight(1f),
-                    variant =
-                    if (option.key == selectedAreaKey) {
-                        PoliButtonVariant.Primary
-                    } else {
-                        PoliButtonVariant.Secondary
-                    }
-                )
-            }
-        }
-        if (!drawing) {
-            PoliButton(
-                text = "경로 그리기",
-                onClick = onStartDrawing,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = selectedArea != null
-            )
-            return@PoliCard
-        }
-
-        Text(
-            text = "지도 탭으로 점 추가 · ${pointCount}개",
-            style = MaterialTheme.typography.bodySmall,
-            color = PoliFgMuted,
-            maxLines = 1
-        )
-        OutlinedTextField(
-            value = startedAtText,
-            onValueChange = onStartedAtChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("시작 시각") }
-        )
-        OutlinedTextField(
-            value = endedAtText,
-            onValueChange = onEndedAtChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("종료 시각") }
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-            PoliButton(
-                text = "되돌리기",
-                onClick = onUndoPoint,
-                modifier = Modifier.weight(1f),
-                enabled = pointCount > 0,
-                variant = PoliButtonVariant.Secondary
-            )
-            PoliButton(
-                text = "마킹",
-                onClick = onCreateMarker,
-                modifier = Modifier.weight(1f),
-                enabled = pointCount > 0,
-                variant = PoliButtonVariant.Secondary
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-            PoliButton(
-                text = "취소",
-                onClick = onCancel,
-                modifier = Modifier.weight(1f),
-                variant = PoliButtonVariant.Secondary
-            )
-            PoliButton(
-                text = if (saving) "저장 중" else "저장",
-                onClick = onSave,
-                modifier = Modifier.weight(1f),
-                enabled = pointCount >= 2 && !saving
-            )
-        }
-    }
-}
-
-private data class DevManualPathPoint(
-    val lon: Double,
-    val lat: Double
-)
-
-private data class DevManualPathAreaOption(
-    val key: String,
-    val label: String,
-    val kind: SearchLayerKind,
-    val overlayId: String?
-) {
-    val shortLabel: String
-        get() =
-            when (kind) {
-                SearchLayerKind.Overall -> "전체"
-                SearchLayerKind.Unit -> "부대"
-                SearchLayerKind.Team -> "팀"
-                SearchLayerKind.Path,
-                SearchLayerKind.Marker,
-                SearchLayerKind.CurrentLocation -> label
-            }
-}
-
-private fun SearchMapUiState.devManualPathAreaOptions(): List<DevManualPathAreaOption> =
-    layers
-        .filter { layer ->
-            layer.kind in setOf(SearchLayerKind.Overall, SearchLayerKind.Unit, SearchLayerKind.Team) &&
-                !layer.geoJson.isNullOrBlank()
-        }
-        .map { layer ->
-            DevManualPathAreaOption(
-                key = "${layer.kind.name}:${layer.overlayId ?: layer.label}",
-                label = layer.label,
-                kind = layer.kind,
-                overlayId = layer.overlayId
-            )
-        }
-
-private fun SearchMapUiState.withDevManualPathDraft(points: List<DevManualPathPoint>): SearchMapUiState {
-    if (points.size < 2) {
-        return copy(layers = layers.filterNot { layer -> layer.overlayId == DEV_MANUAL_PATH_DRAFT_LAYER_ID })
-    }
-    val coordinates =
-        points.joinToString(",") { point ->
-            "[${point.lon},${point.lat}]"
-        }
-    return copy(
-        layers =
-        layers.filterNot { layer -> layer.overlayId == DEV_MANUAL_PATH_DRAFT_LAYER_ID } +
-            SearchMapLayerUiState(
-                label = "개발 경로 미리보기",
-                kind = SearchLayerKind.Path,
-                highlighted = true,
-                overlayId = DEV_MANUAL_PATH_DRAFT_LAYER_ID,
-                geoJson = """{"type":"LineString","coordinates":[$coordinates]}""",
-                visualStyle =
-                SearchMapLayerVisualStyle(
-                    lineColor = "#F97316",
-                    lineWidth = 5.5f,
-                    lineOpacity = 0.96f
-                )
-            )
-    )
-}
-
-private fun formatDevManualPathTime(instant: Instant): String =
-    DevManualPathTimeFormatter.format(instant.atZone(DevManualPathZoneId))
-
-private fun parseDevManualPathTime(value: String): Instant? =
-    runCatching {
-        LocalDateTime.parse(value.trim(), DevManualPathTimeFormatter)
-            .atZone(DevManualPathZoneId)
-            .toInstant()
-    }.getOrNull()
 
 private fun GpsLocationFix.toSearchMapViewportBounds(): SearchMapViewportBounds {
     val delta = 0.003

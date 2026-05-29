@@ -7,8 +7,6 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
-import com.surimap.feature.search.data.ManualSearchPathCommand
-import com.surimap.feature.search.data.ManualSearchPathPoint
 import com.surimap.feature.search.data.SearchPathLocalRecorder
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.data.SearchPathWriteResult
@@ -71,46 +69,6 @@ class SearchPathLocalRecorderTest {
         assertEquals(OP_PAUSE_ID, pause.operationId)
         assertEquals(OP_RESUME_ID, resume.operationId)
         assertEquals(OP_END_ID, end.operationId)
-    }
-
-    @Test
-    fun manualSearchPathEnqueuesStartBatchAndEndWithSpecifiedTimes() = runBlocking {
-        val syncClient = CapturingSyncClient()
-        val recorder =
-            SearchPathLocalRecorder(
-                syncClient = syncClient,
-                sequenceSource = sequenceSource(30),
-                idFactory = manualPathIdFactory()
-            )
-
-        val result =
-            recorder.saveManualPath(
-                CONTEXT,
-                ManualSearchPathCommand(
-                    points =
-                    listOf(
-                        ManualSearchPathPoint(lon = 126.969123, lat = 37.579123),
-                        ManualSearchPathPoint(lon = 126.969223, lat = 37.579223),
-                        ManualSearchPathPoint(lon = 126.969323, lat = 37.579323)
-                    ),
-                    startedAt = CLIENT_TS,
-                    endedAt = CLIENT_TS.plusSeconds(20L)
-                )
-            ) as SearchPathWriteResult.Enqueued
-
-        assertEquals(PATH_ID, result.entityId)
-        assertEquals(listOf(OP_START_ID, OP_BATCH_ID, OP_END_ID), syncClient.operations.map { it.operationId })
-        assertEquals(listOf(30L, 31L, 32L), syncClient.operations.map { it.sequence })
-        assertEquals(
-            listOf("/api/search-paths", "/api/search-paths/batch", "/api/search-paths/$PATH_ID"),
-            syncClient.operations.map { it.endpoint }
-        )
-        assertTrue(syncClient.operations[1].payload.contains(""""pointId":"pt-manual-001""""))
-        assertTrue(syncClient.operations[1].payload.contains(""""clientTs":"2026-05-11T06:00:10Z""""))
-        assertEquals(
-            """{"action":"END","clientTs":"2026-05-11T06:00:20Z","clockOffsetMs":0}""",
-            syncClient.operations[2].payload
-        )
     }
 
     @Test
@@ -201,21 +159,6 @@ class SearchPathLocalRecorderTest {
 
     private fun idFactory(): (String) -> String {
         val ids = listOf(OP_START_ID, PATH_ID, OP_BATCH_ID, OP_PAUSE_ID, OP_RESUME_ID, OP_END_ID)
-        var next = 0
-        return { ids[next++] }
-    }
-
-    private fun manualPathIdFactory(): (String) -> String {
-        val ids =
-            listOf(
-                OP_START_ID,
-                PATH_ID,
-                OP_BATCH_ID,
-                "pt-manual-001",
-                "pt-manual-002",
-                "pt-manual-003",
-                OP_END_ID
-            )
         var next = 0
         return { ids[next++] }
     }
