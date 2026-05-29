@@ -428,10 +428,19 @@ function resolveSearchAreaMemoOpId(
   return searchArea?.opId?.trim() || activeOperationalPeriodId;
 }
 
-function createPolicePhoneIdsByAccountId(movementPaths: MovementPath[]) {
+export function createPolicePhoneIdsByAccountId(
+  movementPaths: MovementPath[],
+  activeOperationalPeriodId: string | null,
+) {
   const policePhoneIdsByAccountId = new Map<string, string>();
+  if (!activeOperationalPeriodId) {
+    return policePhoneIdsByAccountId;
+  }
 
   for (const path of movementPaths) {
+    if (path.opId !== activeOperationalPeriodId) {
+      continue;
+    }
     const accountId = path.accountId?.trim();
     const policePhoneId = path.policePhoneId?.trim();
     if (accountId && policePhoneId && !policePhoneIdsByAccountId.has(accountId)) {
@@ -1051,8 +1060,8 @@ export function SearchMapCanvas({
     [routeEditorCoordinates],
   );
   const policePhoneIdsByAccountId = useMemo(
-    () => createPolicePhoneIdsByAccountId(movementPaths),
-    [movementPaths],
+    () => createPolicePhoneIdsByAccountId(movementPaths, activeOperationalPeriodId),
+    [activeOperationalPeriodId, movementPaths],
   );
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [mapViewportVersion, setMapViewportVersion] = useState(0);

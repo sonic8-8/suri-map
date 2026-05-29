@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.surimap.dutyshift.DutyShift;
+import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.incident.domain.IncidentRecord;
@@ -79,6 +81,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
   private static final UUID POLICE_PHONE_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
+  private static final UUID ACTIVE_DUTY_POLICE_PHONE_ID =
+      UUID.fromString("50000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNED_BY_ACCOUNT_ID =
       UUID.fromString("70000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNMENT_ID =
@@ -205,6 +209,41 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .containsEntry("displayName", ACCOUNT_DISPLAY_NAME)
         .containsEntry("assignedByAccountId", ASSIGNED_BY_ACCOUNT_ID.toString())
         .containsEntry("status", "ACTIVE");
+  }
+
+  @Test
+  @DisplayName("area assignment policePhoneId follows active duty shift for the selected OP")
+  void area_assignment_police_phone_id_follows_active_duty_shift_for_selected_op() {
+    DutyShiftMapper dutyShiftMapper = mock(DutyShiftMapper.class);
+    DutyShift activeShift = new DutyShift();
+    activeShift.setPolicePhoneId(ACTIVE_DUTY_POLICE_PHONE_ID);
+    when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, null, ACCOUNT_ID, "ACTIVE"))
+        .thenReturn(List.of(activeShift));
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(new FakeSearchAreaQuery()),
+            provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
+            new CapturingMarkerQuery(),
+            new FakePackageQuery(),
+            new FakeOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(new FakeIncidentReadMapper()),
+            provider(null),
+            provider(null),
+            provider(dutyShiftMapper),
+            provider(new FakeSearchAreaAssignmentQuery()));
+
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> assignedAccounts =
+        (List<Map<String, Object>>) row(snapshot, "area").payload().get("assignedAccounts");
+    assertThat(assignedAccounts.get(0))
+        .containsEntry("policePhoneId", ACTIVE_DUTY_POLICE_PHONE_ID.toString());
   }
 
   @Test
