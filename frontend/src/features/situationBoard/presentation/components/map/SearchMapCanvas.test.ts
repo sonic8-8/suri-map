@@ -1,8 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 import type maplibregl from 'maplibre-gl';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
-import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
+import type { MovementPath, SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
 import {
+  createPolicePhoneIdsByAccountId,
   canCorrectReferenceMarker,
   createManualSearchPathPoints,
   createReferenceMarkerCorrectionRequest,
@@ -118,6 +119,41 @@ describe('manual search path draft', () => {
     expect(resolveSearchAreaPolicePhoneId(searchAreaNode({ assignedAccounts: [] }))).toBeNull();
   });
 
+  test('uses only active OP movement paths for PolicePhone ID fallback', () => {
+    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
+      [
+        movementPath({ accountId: 'account-1', opId: 'op-previous', policePhoneId: 'phone-previous' }),
+        movementPath({ accountId: 'account-1', opId: 'op-current', policePhoneId: 'phone-current' }),
+      ],
+      'op-current',
+    );
+
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A' }],
+        }),
+        policePhoneIdsByAccountId,
+      ),
+    ).toBe('phone-current');
+  });
+
+  test('does not infer PolicePhone ID from another OP movement path', () => {
+    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
+      [movementPath({ accountId: 'account-1', opId: 'op-previous', policePhoneId: 'phone-previous' })],
+      'op-current',
+    );
+
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A' }],
+        }),
+        policePhoneIdsByAccountId,
+      ),
+    ).toBeNull();
+  });
+
   test('creates point timestamps at the Android GPS sample interval', () => {
     const points = createManualSearchPathPoints(
       [
@@ -200,6 +236,26 @@ function searchAreaNode(overrides: Partial<SearchAreaTreeNode> = {}): SearchArea
     status: 'ACTIVE',
     geometryState: 'saved',
     children: [],
+    ...overrides,
+  };
+}
+
+function movementPath(overrides: Partial<MovementPath> = {}): MovementPath {
+  return {
+    id: 'path-1',
+    policePhoneId: 'phone-1',
+    accountId: 'account-1',
+    freshnessStatus: 'ONLINE',
+    routeColor: null,
+    opId: 'op-current',
+    label: 'Team A',
+    movementType: 'FOOT',
+    coordinates: [
+      [126.9, 35.1],
+      [126.91, 35.11],
+    ],
+    startedAt: '2026-05-11T06:00:00.000Z',
+    endedAt: null,
     ...overrides,
   };
 }
