@@ -78,6 +78,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID MARKER_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
   private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
+  private static final UUID POLICE_PHONE_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
   private static final UUID ASSIGNED_BY_ACCOUNT_ID =
       UUID.fromString("70000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNMENT_ID =
@@ -200,6 +201,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(assignedAccounts.get(0))
         .containsEntry("assignmentId", ASSIGNMENT_ID.toString())
         .containsEntry("accountId", ACCOUNT_ID.toString())
+        .containsEntry("policePhoneId", POLICE_PHONE_ID.toString())
         .containsEntry("displayName", ACCOUNT_DISPLAY_NAME)
         .containsEntry("assignedByAccountId", ASSIGNED_BY_ACCOUNT_ID.toString())
         .containsEntry("status", "ACTIVE");
@@ -595,7 +597,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     @Override
     public List<com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow> findActiveAssignmentTargetsByIncidentId(
         UUID incidentId) {
-      return List.of();
+      com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow row =
+          new com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow();
+      row.setAccountId(ACCOUNT_ID.toString());
+      row.setIncidentRole("MEMBER");
+      row.setAccountType("PATROL_CAR");
+      row.setOrganizationType("POLICE_SUBSTATION");
+      row.setPolicePhoneId(POLICE_PHONE_ID.toString());
+      return List.of(row);
     }
   }
 

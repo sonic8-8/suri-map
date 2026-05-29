@@ -6,6 +6,7 @@ import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
+import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
@@ -412,6 +413,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Map<String, Object> payload = new LinkedHashMap<>();
     long version = areaRowVersion(row, assignments);
     String latestEventId = areaLatestEventId(row, assignments);
+    Map<String, String> activePolicePhoneIdsByAccountId =
+        activePolicePhoneIdsByAccountId(row.incidentId());
     payload.put("incidentId", row.incidentId().toString());
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "parentAreaId", row.parentAreaId());
@@ -425,7 +428,10 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put(
         "assignedAccounts",
         assignments.stream()
-            .map(assignment -> assignmentPayload(assignment, activeAssignmentsByAccountId))
+            .map(
+                assignment ->
+                    assignmentPayload(
+                        assignment, activeAssignmentsByAccountId, activePolicePhoneIdsByAccountId))
             .toList());
     return sourceRow(
         "area",
@@ -492,7 +498,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   }
 
   private Map<String, Object> assignmentPayload(
-      SearchAreaAssignmentRow row, Map<String, AssignmentRow> activeAssignmentsByAccountId) {
+      SearchAreaAssignmentRow row,
+      Map<String, AssignmentRow> activeAssignmentsByAccountId,
+      Map<String, String> activePolicePhoneIdsByAccountId) {
     Map<String, Object> payload = new LinkedHashMap<>();
     AssignmentRow incidentAssignment =
         activeAssignmentsByAccountId.get(row.assignedAccountId().toString());
@@ -501,6 +509,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("accountId", row.assignedAccountId().toString());
     payload.put("displayName", displayName);
     payload.put("accountDisplayName", displayName);
+    payload.put("policePhoneId", activePolicePhoneIdsByAccountId.get(row.assignedAccountId().toString()));
     payload.put("accountType", incidentAssignment == null ? null : incidentAssignment.getAccountType());
     payload.put(
         "organizationType", incidentAssignment == null ? null : incidentAssignment.getOrganizationType());
@@ -524,6 +533,22 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         .filter(row -> row.getAccountId() != null && !row.getAccountId().isBlank())
         .forEach(row -> assignmentsByAccountId.putIfAbsent(row.getAccountId(), row));
     return assignmentsByAccountId;
+  }
+
+  private Map<String, String> activePolicePhoneIdsByAccountId(
+      UUID incidentId) {
+    IncidentReadMapper query = incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
+    if (query == null || incidentId == null) {
+      return Map.of();
+    }
+
+    Map<String, String> policePhoneIdsByAccountId = new LinkedHashMap<>();
+    query.findActiveAssignmentTargetsByIncidentId(incidentId).stream()
+        .filter(Objects::nonNull)
+        .filter(row -> row.getAccountId() != null && !row.getAccountId().isBlank())
+        .filter(row -> row.getPolicePhoneId() != null && !row.getPolicePhoneId().isBlank())
+        .forEach(row -> policePhoneIdsByAccountId.putIfAbsent(row.getAccountId(), row.getPolicePhoneId()));
+    return policePhoneIdsByAccountId;
   }
 
   private static String assignmentDisplayName(AssignmentRow assignment) {
