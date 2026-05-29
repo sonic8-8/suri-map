@@ -142,7 +142,7 @@ export function createSearchPathApi(client: ApiClient = apiClient): SearchPathAp
           clientTs: request.startedAt,
           ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
         },
-        appWriteOptions(`${idempotencyKey}:start`, request.policePhoneId),
+        manualRouteWriteOptions(`${idempotencyKey}:start`, request.policePhoneId),
       );
       const batch = await client.post<AppendSearchPathBatchResponse, AppendSearchPathBatchRequest>(
         '/search-paths/batch',
@@ -153,7 +153,7 @@ export function createSearchPathApi(client: ApiClient = apiClient): SearchPathAp
           points: request.points.map(toPathBatchPointRequest),
           ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
         },
-        appWriteOptions(`${idempotencyKey}:batch`, request.policePhoneId),
+        manualRouteWriteOptions(`${idempotencyKey}:batch`, request.policePhoneId),
       );
       const end = await client.patch<PatchSearchPathResponse, PatchSearchPathRequest>(
         `/search-paths/${request.searchPathId}`,
@@ -162,7 +162,7 @@ export function createSearchPathApi(client: ApiClient = apiClient): SearchPathAp
           clientTs: request.endedAt,
           ...(request.clockOffsetMs === undefined ? {} : { clockOffsetMs: request.clockOffsetMs }),
         },
-        appWriteOptions(`${idempotencyKey}:end`, request.policePhoneId),
+        manualRouteWriteOptions(`${idempotencyKey}:end`, request.policePhoneId),
       );
       return { searchPathId: request.searchPathId, start, batch, end };
     },
@@ -253,10 +253,10 @@ function idempotencyOptions(idempotencyKey: string) {
   };
 }
 
-function appWriteOptions(idempotencyKey: string, policePhoneId: string) {
+function manualRouteWriteOptions(idempotencyKey: string, policePhoneId: string) {
   return {
     idempotencyKey,
-    clientChannel: 'APP' as const,
+    clientChannel: 'WEB' as const,
     policePhoneId,
   };
 }

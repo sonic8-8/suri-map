@@ -91,15 +91,39 @@ describe('manual search path draft', () => {
       ),
     ).toBe('phone-child');
 
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          assignedAccounts: [{ accountId: 'account-3', displayName: 'Team C' }],
+        }),
+        new Map([['account-3', 'phone-from-movement-path']]),
+      ),
+    ).toBe('phone-from-movement-path');
+
+    expect(
+      resolveSearchAreaPolicePhoneId(
+        searchAreaNode({
+          assignedAccounts: [],
+          children: [
+            searchAreaNode({
+              id: 'child-2',
+              assignedAccounts: [{ accountId: 'account-4', displayName: 'Team D' }],
+            }),
+          ],
+        }),
+        new Map([['account-4', 'phone-from-child-movement-path']]),
+      ),
+    ).toBe('phone-from-child-movement-path');
+
     expect(resolveSearchAreaPolicePhoneId(searchAreaNode({ assignedAccounts: [] }))).toBeNull();
   });
 
   test('creates point timestamps at the Android GPS sample interval', () => {
     const points = createManualSearchPathPoints(
       [
-        [126.9, 35.1],
-        [126.91, 35.11],
-        [126.92, 35.12],
+        [126.9000004, 35.1000004],
+        [126.9100004, 35.1100004],
+        [126.9200004, 35.1200004],
       ],
       new Date('2026-05-11T06:00:00Z'),
     );
@@ -125,6 +149,9 @@ describe('manual search path draft', () => {
         horizontalAccuracyM: 5,
       },
     ]);
+    expect(points.every((point) => countDecimalPlaces(point.lon) <= 6 && countDecimalPlaces(point.lat) <= 6)).toBe(
+      true,
+    );
     expect(points.slice(1).every((point) => typeof point.speedMps === 'number' && point.speedMps >= 0)).toBe(true);
     expect(points.every((point) => point.pointId.length > 0)).toBe(true);
   });
@@ -182,4 +209,9 @@ function emptyFeatureCollection(): BoardMapFeatureCollection {
     type: 'FeatureCollection',
     features: [],
   };
+}
+
+function countDecimalPlaces(value: number) {
+  const decimalPart = value.toString().split('.')[1];
+  return decimalPart?.length ?? 0;
 }
