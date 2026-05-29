@@ -85,7 +85,11 @@ class DutyHandoverStateLoaderTest {
                               "type": "HANDOVER_MEMO",
                               "actorId": "actor-1",
                               "label": "인수인계 메모",
-                              "detail": {"content": "북측 진입로 주민 진술 대기"}
+                              "detail": {
+                                "targetType": "SEARCH_AREA",
+                                "targetId": "area-north-entrance",
+                                "content": "북측 진입로 주민 진술 대기"
+                              }
                             }
                           ],
                           "metrics": {
@@ -143,8 +147,11 @@ class DutyHandoverStateLoaderTest {
         assertTrue(markerRecord.detailLines.any { it.contains("사진: 2장") })
         assertTrue(markerRecord.detailLines.any { it.contains("위치: 37.10500, 127.11000") })
         val memoRecord = state.records.first { it.sourceKey == "memo-1" }
+        assertEquals("구역 메모", memoRecord.title)
         assertTrue(memoRecord.detailLines.any { it.contains("작성자: 순찰차 1") })
+        assertTrue(memoRecord.detailLines.any { it.contains("대상: 구역") })
         assertTrue(memoRecord.detailLines.any { it.contains("내용: 북측 진입로 주민 진술 대기") })
+        assertEquals(listOf(memoRecord), state.areaMemoRecords)
     }
 
     @Test
@@ -620,7 +627,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals("동쪽 능선 수색 완료. 원본 메모를 확인하세요.", state.summary)
         assertTrue(state.generatedAtLabel.contains("2026-05-11T06:10:00Z"))
         assertEquals("OP 3차 · 교대 인수인계", state.subtitle)
-        assertTrue(state.records.any { it.title.contains("OPERATIONAL_PERIOD") })
+        assertTrue(state.records.any { it.title.contains("OP") })
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
         assertEquals(MEMO_ID, state.records.single().sourceKey)
         assertTrue(state.metrics.any { it.label == "메모" && it.value == "1건" })

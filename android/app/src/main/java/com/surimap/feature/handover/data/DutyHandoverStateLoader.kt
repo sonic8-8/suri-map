@@ -538,6 +538,12 @@ class DutyHandoverStateLoader(
                 val label = event.optString("label").ifBlank { type.toTimelineLabel() }
                 val actor = actors[event.optString("actorId")] ?: "현장 기록자"
                 val detail = event.optJSONObject("detail") ?: JSONObject()
+                val title =
+                    if (type == "HANDOVER_MEMO") {
+                        detail.optString("targetType").toHandoverMemoTitle(label)
+                    } else {
+                        label
+                    }
                 val subtitle =
                     when (type) {
                         "HANDOVER_MEMO" -> detail.optString("content").ifBlank { "${event.optString("occurredAt").toTimeLabel()} · $actor" }
@@ -547,7 +553,7 @@ class DutyHandoverStateLoader(
                 val details = timelineRecordDetails(event, detail, actor)
                 add(
                     HandoverRecord(
-                        title = label,
+                        title = title,
                         subtitle = subtitle,
                         actionLabel = "보기",
                         sourceKey = eventId,
@@ -637,7 +643,7 @@ class DutyHandoverStateLoader(
 
     private fun HandoverMemoReadModel.toRecord(): HandoverRecord =
         HandoverRecord(
-            title = "운영 메모 · $targetType",
+            title = "운영 메모 · ${targetType.toHandoverTargetLabel()}",
             subtitle = content,
             actionLabel = "열기",
             sourceKey = sourceKey,
@@ -821,6 +827,16 @@ class DutyHandoverStateLoader(
             "SEARCH_AREA", "AREA" -> "구역"
             "MARKER" -> "마커"
             else -> this
+        }
+
+    private fun String.toHandoverMemoTitle(defaultTitle: String): String =
+        when (toHandoverTargetLabel()) {
+            "OP" -> "OP 메모"
+            "근무" -> "근무 메모"
+            "경로" -> "경로 메모"
+            "구역" -> "구역 메모"
+            "마커" -> "마커 메모"
+            else -> defaultTitle
         }
 
     private fun Long.toDistanceLabel(): String =

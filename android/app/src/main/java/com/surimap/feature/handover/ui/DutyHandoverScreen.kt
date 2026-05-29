@@ -102,6 +102,12 @@ data class DutyHandoverUiState(
             record.title.contains("메모") || record.subtitle.contains("메모")
         }
 
+    val areaMemoRecords: List<HandoverRecord> =
+        handoverMemoRecords.filter { record ->
+            record.title.contains("구역") ||
+                record.detailLines.any { line -> line.contains("대상: 구역") }
+        }
+
     val markerPhotoRecords: List<HandoverRecord> =
         records.filter { record ->
             record.title.contains("마커") && record.subtitle.contains("사진")
@@ -169,6 +175,11 @@ data class DutyHandoverUiState(
             if (selectedTab == DutyHandoverTab.Report) {
                 addAll(reportSectionTitles)
                 add(sourceReadiness.reportLabel)
+                areaMemoRecords.forEach {
+                    add(it.title)
+                    add(it.subtitle)
+                    add(it.actionLabel)
+                }
                 handoverMemoRecords.forEach {
                     add(it.title)
                     add(it.subtitle)
@@ -477,6 +488,7 @@ private val HandoverReportSections =
         DUTY_SHIFT_SUMMARY_TITLE,
         "이동 통계",
         "발견·기록 시간순",
+        "구역 메모",
         "인수인계 메모",
         "마커 사진",
         "동기화 상태"
@@ -1059,6 +1071,13 @@ private fun ReportTab(
         title = "발견·기록 시간순",
         records = state.records,
         emptyText = state.emptyRecordLabel,
+        selectedRecordKey = state.selectedOriginalRecordKey,
+        onSelectRecord = onSelectOriginalRecord
+    )
+    RecordCard(
+        title = "구역 메모",
+        records = state.areaMemoRecords,
+        emptyText = "구역 메모 없음",
         selectedRecordKey = state.selectedOriginalRecordKey,
         onSelectRecord = onSelectOriginalRecord
     )
