@@ -7,7 +7,7 @@ import {
   createOverallAreaFeatureCollection,
 } from './handoverComparisonMapData';
 
-describe('handoverComparisonMapData', () => {
+describe('handoverComparisonMapData model', () => {
   test('인수인계 지도는 선택한 OP의 marker, route, searchArea만 표시한다', () => {
     const board = createBoard();
     const selectedOpIds = [OP_1_ID, OP_7_ID];

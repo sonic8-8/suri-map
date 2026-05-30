@@ -22,7 +22,6 @@ import {
   useIncidentBoardQuery,
   type IncidentBoardResponse,
   type SituationBoardResponseDto,
-  type BoardSlotName,
   incidentBoardQueryKeys,
 } from '../../../board/api/incidentBoardApi';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
@@ -52,6 +51,7 @@ import {
   type RecentMarker,
 } from '../../../../shared/model/situationBoardViewModel';
 import { getMarkerLegendColor } from '../../../../shared/constants/markerLegendColors';
+import { isRecord, readBoolean, readNumber, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
 import { toBoardRecentMarkers } from '../../../board/model/markerSlot';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import {
@@ -1728,13 +1728,6 @@ function createEvidenceSummary(
   };
 }
 
-function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record<string, unknown>[] {
-  const raw = board.slots[slot] as unknown;
-  if (!raw) return [];
-  if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
-  return isRecord(raw) && Object.keys(raw).length > 0 ? [raw] : [];
-}
-
 function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds: string[]) {
   if (selectedOpIds.length === 0) return [];
   const selectedOpIdSet = new Set(selectedOpIds);
@@ -1746,25 +1739,6 @@ function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds:
 
 function uniqueNonEmptyStrings(values: string[]) {
   return [...new Set(values.filter((value) => value.trim().length > 0))];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readBoolean(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'boolean' ? value : null;
 }
 
 function readUnknownArray(row: Record<string, unknown>, key: string) {

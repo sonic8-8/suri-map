@@ -1,4 +1,5 @@
 import { createBoardMapMarkers, type BoardResponseLike } from '../../../shared/model/boardMapSlots';
+import { readNumber, readSlotRows, readString } from '../../../shared/model/boardSlotRows';
 import type { RecentMarker } from '../../../shared/model/situationBoardViewModel';
 
 export function toBoardRecentMarkers(board: BoardResponseLike): RecentMarker[] {
@@ -177,25 +178,4 @@ function toMarkerOpLabel(opId: string | null, board: BoardResponseLike) {
     ? readNumber(opRow, 'sequenceNo') ?? readNumber(opRow, 'sequenceNumber') ?? readNumber(opRow, 'sequence')
     : null;
   return sequence ? `OP ${sequence}차` : `OP ${opId}`;
-}
-
-function readSlotRows(board: BoardResponseLike, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' ? value : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

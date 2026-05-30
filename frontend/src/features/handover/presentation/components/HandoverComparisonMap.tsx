@@ -13,7 +13,7 @@ import {
   type ComparisonFeatureCollection,
   type ComparisonFeatureCollections,
   type Position,
-} from './handoverComparisonMapData';
+} from '../model/handoverComparisonMapData';
 import { type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import {
   clearMarkerElements,

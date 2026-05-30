@@ -1,5 +1,12 @@
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
-import { isRecord, readNumber, readPolicePhoneId, readSlotRows, readString } from '../shared/boardApiMappers';
+import {
+  isRecord,
+  readBoolean,
+  readNumber,
+  readPolicePhoneId,
+  readSlotRows,
+  readString,
+} from '../../../../../shared/model/boardSlotRows';
 
 export type PackageBadgeSummary = {
   warningCount: number;
@@ -66,9 +73,4 @@ function isCurrentPackageReady(row: Record<string, unknown>) {
     readyForOfflineUse === true &&
     (activeManifestVersion === null || manifestVersion === activeManifestVersion)
   );
-}
-
-function readBoolean(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'boolean' ? value : null;
 }

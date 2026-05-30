@@ -2,11 +2,8 @@ import { useMemo, useState } from 'react';
 
 import { ActionButton, StatusBadge, SuriMapLogo } from '../../../../shared';
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
-import {
-  useIncidentBoardQuery,
-  type BoardSlotName,
-  type IncidentBoardResponse,
-} from '../../../board/api/incidentBoardApi';
+import { readPolicePhoneId, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
+import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import { useCloseIncidentMutation, type CloseIncidentResponse } from '../../../incident/api/incidentCommandApi';
 import { useIncidentDetailQuery, type IncidentDetailResponse } from '../../../incident/api/incidentReadApi';
 import {
@@ -379,30 +376,10 @@ function countPolicePhones(board: IncidentBoardResponse | null) {
 
   const ids = new Set<string>();
   rows.forEach((row) => {
-    const id =
-      readString(row, 'policePhoneId') ??
-      readString(row, 'police_phone_id') ??
-      readString(row, 'phoneId') ??
-      readString(row, 'id');
+    const id = readPolicePhoneId(row) ?? readString(row, 'id');
     if (id) ids.add(id);
   });
   return ids.size > 0 ? ids.size : rows.length;
-}
-
-function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
 }
 
 function readClosedAt(detail: CloseIncidentResponse | Extract<IncidentDetailResponse, { status: 'CLOSED' }> | null) {

@@ -1,7 +1,7 @@
 import type { MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import type { BoardSearchAreaRow } from '../searchArea/searchAreaBoardMapper';
-import { readNumber, readSlotRows, readString } from '../shared/boardApiMappers';
+import { readNumber, readSlotRows, readString } from '../../../../../shared/model/boardSlotRows';
 
 export function filterSituationBoardSearchAreaRowsForMap(
   searchAreaRows: BoardSearchAreaRow[],

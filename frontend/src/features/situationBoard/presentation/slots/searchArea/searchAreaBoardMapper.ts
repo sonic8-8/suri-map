@@ -20,7 +20,7 @@ import {
   readPolygonCoordinates,
   readSlotRows,
   readString,
-} from '../shared/boardApiMappers';
+} from '../../../../../shared/model/boardSlotRows';
 import { formatAccountDisplayName } from '../../../../../shared/model/accountDisplay';
 
 export type BoardSearchAreaRow = {

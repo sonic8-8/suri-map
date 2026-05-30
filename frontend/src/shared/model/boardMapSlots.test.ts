@@ -1,5 +1,37 @@
 import { describe, expect, test } from 'vitest';
 import { createBoardMovementPaths, type BoardResponseLike } from './boardMapSlots';
+import { readSlotRows, type BoardSlotRowContainer } from './boardSlotRows';
+
+describe('readSlotRows', () => {
+  test('ignores empty object payloads when reading slot rows', () => {
+    const board = { slots: { overall_search_area: {} } } satisfies BoardSlotRowContainer;
+
+    expect(readSlotRows(board, 'overall_search_area')).toEqual([]);
+  });
+
+  test('keeps populated object payloads as a single row', () => {
+    const board = {
+      slots: {
+        overall_search_area: {
+          id: 'area-overall-001',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [126.904, 35.158],
+                [126.923, 35.158],
+                [126.923, 35.173],
+                [126.904, 35.158],
+              ],
+            ],
+          },
+        },
+      },
+    } satisfies BoardSlotRowContainer;
+
+    expect(readSlotRows(board, 'overall_search_area')).toHaveLength(1);
+  });
+});
 
 describe('createBoardMovementPaths', () => {
   test('path slot segment geometry를 segment별 이동 경로로 변환한다', () => {

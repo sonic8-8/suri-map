@@ -1,3 +1,16 @@
+import {
+  isRecord,
+  readAccountId,
+  readLineStringCoordinates,
+  readMarkerType,
+  readMovementType,
+  readNumber,
+  readPointCoordinates,
+  readPolicePhoneId,
+  readSlotRows,
+  readString,
+} from './boardSlotRows';
+
 export type BoardResponseLike = {
   incidentId: string;
   serverTs: string;
@@ -40,10 +53,7 @@ export type BoardMapMarker = {
 };
 
 export function readBoardSlotRows(board: BoardResponseLike, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
+  return readSlotRows(board, slot);
 }
 
 export function createBoardMovementPaths(board: BoardResponseLike | null): BoardMovementPath[] {
@@ -222,54 +232,6 @@ export function readBoardString(row: Record<string, unknown>, key: string) {
   return readString(row, key);
 }
 
-function readLineStringCoordinates(row: Record<string, unknown>): BoardPosition[] | null {
-  const geometry = row.geometry;
-  if (!isRecord(geometry) || geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) {
-    return null;
-  }
-
-  const coordinates = geometry.coordinates.filter(isPosition);
-  return coordinates.length >= 2 ? coordinates : null;
-}
-
-function readPointCoordinates(row: Record<string, unknown>): BoardPosition | null {
-  const geometry = row.geometry ?? row.location;
-  if (isRecord(geometry) && geometry.type === 'Point' && isPosition(geometry.coordinates)) {
-    return geometry.coordinates;
-  }
-
-  const coordinates = row.coordinates;
-  return isPosition(coordinates) ? coordinates : null;
-}
-
-function readMovementType(row: Record<string, unknown>): BoardMovementPath['movementType'] | null {
-  const movementType =
-    readString(row, 'movementType') ??
-    readString(row, 'segmentType') ??
-    readString(row, 'pathType') ??
-    readString(row, 'mobilityType');
-
-  if (movementType === 'VEHICLE' || movementType === 'CAR') return 'VEHICLE';
-  if (movementType === 'FOOT' || movementType === 'WALK') return 'FOOT';
-  if (movementType === 'UNKNOWN') return 'UNKNOWN';
-  return null;
-}
-
-function readMarkerType(row: Record<string, unknown>): BoardMapMarker['markerType'] {
-  const markerType = readString(row, 'markerType') ?? readString(row, 'type');
-  if (
-    markerType === 'CLUE' ||
-    markerType === 'PERSON_FOUND' ||
-    markerType === 'FIELD_CONDITION' ||
-    markerType === 'SUPPORT_REQUEST' ||
-    markerType === 'NOTE'
-  ) {
-    return markerType;
-  }
-
-  return 'UNKNOWN';
-}
-
 function readSupportRequestType(row: Record<string, unknown>): BoardMapMarker['supportRequestType'] {
   const supportRequestType = readString(row, 'supportRequestType') ?? readString(row, 'support_request_type');
   if (supportRequestType === 'DRONE' || supportRequestType === 'POLICE_DOG' || supportRequestType === 'OTHER') {
@@ -290,20 +252,6 @@ function readMarkerSource(row: Record<string, unknown>): BoardMapMarker['source'
 
 function readRowOpId(row: Record<string, unknown>) {
   return readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
-}
-
-function readPolicePhoneId(row: Record<string, unknown>) {
-  return (
-    readString(row, 'policePhoneId') ??
-    readString(row, 'police_phone_id') ??
-    readString(row, 'phoneId') ??
-    readString(row, 'deviceId') ??
-    readString(row, 'device_id')
-  );
-}
-
-function readAccountId(row: Record<string, unknown>) {
-  return readString(row, 'accountId') ?? readString(row, 'account_id');
 }
 
 function readPolicePhoneFreshnessStatus(row: Record<string, unknown>): BoardPolicePhoneFreshnessStatus | null {
@@ -362,27 +310,4 @@ function readDisplayUrl(row: Record<string, unknown>) {
     readString(row, 'contentUrl') ??
     readString(row, 'url')
   );
-}
-
-function isPosition(value: unknown): value is BoardPosition {
-  return (
-    Array.isArray(value) &&
-    value.length >= 2 &&
-    typeof value[0] === 'number' &&
-    typeof value[1] === 'number'
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' ? value : null;
 }
