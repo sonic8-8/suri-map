@@ -1,5 +1,6 @@
 import { ApiHttpError } from '../../../../shared/api/client';
 import { type StatusBadgeTone } from '../../../../shared';
+import { isRecord, readBoolean, readNumber, readString } from '../../../../shared/model/boardSlotRows';
 import {
   formatIncidentContextEyebrow,
   formatMissingPersonIncidentTitle,
@@ -20,10 +21,6 @@ import {
   createTileSummary,
   formatBytes,
   formatKstDateTime,
-  isRecord,
-  readBoolean,
-  readNumber,
-  readString,
   type ManifestGroup,
   type PackageBadgeRow,
 } from './offlinePackageStatusView';
@@ -375,8 +372,8 @@ function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
     packageStatus: readString(value, 'packageStatus') ?? readString(value, 'status') ?? 'UNKNOWN',
     manifestVersion: readNumber(value, 'manifestVersion'),
     activeManifestVersion: readNumber(localWarningInput, 'activeManifestVersion'),
-    readyForOfflineUse: readBoolean(value, 'readyForOfflineUse'),
-    warningRaised: readBoolean(localWarningInput, 'raised'),
+    readyForOfflineUse: readBoolean(value, 'readyForOfflineUse') ?? false,
+    warningRaised: readBoolean(localWarningInput, 'raised') ?? false,
     warningReason: readString(localWarningInput, 'reason') ?? '패키지 미완료',
   };
 }

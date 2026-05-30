@@ -52,25 +52,6 @@ export type PackageLoadGaugeSummary = {
   percentage: number;
 };
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-export function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-export function readBoolean(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'boolean' ? value : false;
-}
-
 export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   const kib = bytes / 1024;

@@ -5,7 +5,7 @@ import {
 } from '../../../../shared/ui';
 import type { AreaEditBoardResponseDto } from '../../data/getAreaEditBoard';
 import type { AreaEditIncidentDetailDto } from '../../data/getAreaEditIncidentDetail';
-import { readNumber, readSlotRows, readString } from './boardReadUtils';
+import { readNumber, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
 
 function formatKstDateTime(date: Date) {
   if (Number.isNaN(date.getTime())) return '-';

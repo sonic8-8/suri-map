@@ -1,3 +1,5 @@
+import { readSlotRows, readString } from '../../../shared/model/boardSlotRows';
+
 type BoardWithSlots = {
   slots: Record<string, unknown>;
 };
@@ -66,20 +68,4 @@ function readLocalPurgeState(value: string | null): IncidentLocalPurgeState | nu
     value === 'failed_retryable'
     ? value
     : null;
-}
-
-function readSlotRows(board: BoardWithSlots, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

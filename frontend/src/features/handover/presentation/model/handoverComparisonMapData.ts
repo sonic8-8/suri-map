@@ -14,7 +14,8 @@ import {
   resolveRouteColorByGeometry,
   type RouteAreaColorCandidate,
 } from '../../../../shared/model/routeAreaColorMatcher';
-import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
+import { isRecord, readPolicePhoneId, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
+import { type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import type { RecentMarker } from '../../../../shared/model/situationBoardViewModel';
 
 export type Position = [number, number];
@@ -369,32 +370,6 @@ function getMarkerColor(markerType: string) {
     NOTE: '#2563eb',
   };
   return colors[markerType] ?? '#0f766e';
-}
-
-function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record<string, unknown>[] {
-  const raw = board.slots[slot] as unknown;
-  if (!raw) return [];
-  if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
-  return isRecord(raw) && Object.keys(raw).length > 0 ? [raw] : [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readPolicePhoneId(row: Record<string, unknown>) {
-  return (
-    readString(row, 'policePhoneId') ??
-    readString(row, 'police_phone_id') ??
-    readString(row, 'phoneId') ??
-    readString(row, 'deviceId') ??
-    readString(row, 'device_id')
-  );
 }
 
 function readAccountId(row: Record<string, unknown>) {
