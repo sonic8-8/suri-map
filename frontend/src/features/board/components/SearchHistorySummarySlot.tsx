@@ -1,6 +1,6 @@
 import { SourceEvidence, type S8BoardCursor } from './s8OpHandoverSlotTypes';
 
-type SearchHistorySummarySlotLoadState =
+export type SearchHistorySummarySlotLoadState =
   | {
       readonly kind: 'idle';
     }
@@ -18,7 +18,7 @@ type SearchHistorySummarySlotLoadState =
       readonly latestEventId?: string;
     };
 
-type SearchHistorySummaryRow = S8BoardCursor & {
+export type SearchHistorySummaryRow = S8BoardCursor & {
   readonly slot: 'search_history_summary';
   readonly summaryId: string;
   readonly opId: string;

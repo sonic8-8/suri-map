@@ -1,13 +1,15 @@
 import { cleanup, render } from '@testing-library/react';
 import { createElement, Fragment } from 'react';
 
-import { OpToggleSlot } from '../components/OpToggleSlot';
-import { SearchHistorySummarySlot } from '../components/SearchHistorySummarySlot';
+import { OpToggleSlot } from '../features/board/components/OpToggleSlot';
+import {
+  SearchHistorySummarySlot,
+  type SearchHistorySummaryRow,
+  type SearchHistorySummarySlotLoadState as S8SlotLoadState,
+} from '../features/board/components/SearchHistorySummarySlot';
 import {
   type OpToggleRow,
-  type SearchHistorySummaryRow,
-  type S8SlotLoadState,
-} from '../components/s8OpHandoverSlotTypes';
+} from '../features/board/components/s8OpHandoverSlotTypes';
 
 export type Sc11HarnessFixtureKey =
   | 'mock_search_history_summary_adapter.success'
