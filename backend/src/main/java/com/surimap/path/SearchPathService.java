@@ -104,11 +104,7 @@ public class SearchPathService {
 
   public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
     List<PathQueryRow> rows =
-        repository.findAll().stream()
-            .filter(path -> incidentId == null || incidentId.equals(path.incidentId()))
-            .filter(path -> opId == null || opId.equals(path.opId()))
-            .filter(path -> policePhoneId == null || policePhoneId.equals(path.policePhoneId()))
-            .filter(path -> accountId == null || accountId.equals(path.accountId()))
+        repository.findByQuery(incidentId, opId, policePhoneId, accountId).stream()
             .sorted(Comparator.comparing(SearchPathAggregate::version).reversed())
             .map(
                 path ->

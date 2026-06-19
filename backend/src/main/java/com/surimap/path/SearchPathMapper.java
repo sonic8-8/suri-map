@@ -42,6 +42,12 @@ public interface SearchPathMapper {
 
   List<SearchPathReadRecord> findAllPaths();
 
+  List<SearchPathReadRecord> findPaths(
+      @Param("incidentId") UUID incidentId,
+      @Param("opId") UUID opId,
+      @Param("policePhoneId") UUID policePhoneId,
+      @Param("accountId") UUID accountId);
+
   void insertLifecycleEvent(SearchPathLifecycleEventPersistenceRecord record);
 
   List<SearchPathLifecycleEventReadRecord> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);

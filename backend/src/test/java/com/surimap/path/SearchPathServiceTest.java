@@ -6,6 +6,7 @@ import com.surimap.path.validation.GpsPathValidator;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,25 @@ class SearchPathServiceTest {
     assertThat(byIncident.paths()).hasSize(2);
     assertThat(byOp.paths()).singleElement().satisfies(path -> assertThat(path.opId()).isEqualTo(opId));
     assertThat(byPolice.paths()).singleElement().satisfies(path -> assertThat(path.policePhoneId()).isEqualTo(policePhoneId));
+  }
+
+  @Test
+  void getSearchPaths는_전체경로를_읽지_않고_repository_조건조회로_위임한다() {
+    UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    QueryBoundaryRepository repository = new QueryBoundaryRepository();
+    SearchPathService queryService =
+        new SearchPathService(repository, publisher, new GpsPathValidator());
+
+    PathQueryResponse response = queryService.query(incidentId, opId, policePhoneId, accountId);
+
+    assertThat(response.paths()).isEmpty();
+    assertThat(repository.queriedIncidentId).isEqualTo(incidentId);
+    assertThat(repository.queriedOpId).isEqualTo(opId);
+    assertThat(repository.queriedPolicePhoneId).isEqualTo(policePhoneId);
+    assertThat(repository.queriedAccountId).isEqualTo(accountId);
   }
 
   @Test
@@ -185,5 +205,38 @@ class SearchPathServiceTest {
         BigDecimal.valueOf(speed),
         5,
         OffsetDateTime.parse(clientTs));
+  }
+
+  private static final class QueryBoundaryRepository implements SearchPathRepository {
+
+    private UUID queriedIncidentId;
+    private UUID queriedOpId;
+    private UUID queriedPolicePhoneId;
+    private UUID queriedAccountId;
+
+    @Override
+    public Optional<SearchPathAggregate> findById(UUID pathId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public SearchPathAggregate save(SearchPathAggregate aggregate) {
+      return aggregate;
+    }
+
+    @Override
+    public List<SearchPathAggregate> findAll() {
+      throw new AssertionError("SearchPathService.query must not load every path");
+    }
+
+    @Override
+    public List<SearchPathAggregate> findByQuery(
+        UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
+      this.queriedIncidentId = incidentId;
+      this.queriedOpId = opId;
+      this.queriedPolicePhoneId = policePhoneId;
+      this.queriedAccountId = accountId;
+      return List.of();
+    }
   }
 }

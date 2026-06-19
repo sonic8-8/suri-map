@@ -10,4 +10,7 @@ public interface SearchPathRepository {
   SearchPathAggregate save(SearchPathAggregate aggregate);
 
   List<SearchPathAggregate> findAll();
+
+  List<SearchPathAggregate> findByQuery(
+      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId);
 }

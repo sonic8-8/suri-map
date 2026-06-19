@@ -27,4 +27,15 @@ public class InMemorySearchPathRepository implements SearchPathRepository {
   public List<SearchPathAggregate> findAll() {
     return new ArrayList<>(storage.values());
   }
+
+  @Override
+  public List<SearchPathAggregate> findByQuery(
+      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
+    return storage.values().stream()
+        .filter(path -> incidentId == null || incidentId.equals(path.incidentId()))
+        .filter(path -> opId == null || opId.equals(path.opId()))
+        .filter(path -> policePhoneId == null || policePhoneId.equals(path.policePhoneId()))
+        .filter(path -> accountId == null || accountId.equals(path.accountId()))
+        .toList();
+  }
 }

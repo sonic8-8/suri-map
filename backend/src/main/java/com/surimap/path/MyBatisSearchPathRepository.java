@@ -84,6 +84,14 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     return mapper.findAllPaths().stream().map(this::toAggregate).toList();
   }
 
+  @Override
+  public List<SearchPathAggregate> findByQuery(
+      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
+    return mapper.findPaths(incidentId, opId, policePhoneId, accountId).stream()
+        .map(this::toAggregate)
+        .toList();
+  }
+
   private List<SearchPathSegment> persistSegments(SearchPathAggregate aggregate, Instant now) {
     mapper.deleteSegments(aggregate.id());
     List<SearchPathPoint> points = aggregate.points();

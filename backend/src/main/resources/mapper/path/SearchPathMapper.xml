@@ -222,6 +222,27 @@
         ORDER BY sp.updated_at DESC, sp.id ASC
     </select>
 
+    <select id="findPaths" resultMap="searchPathReadRecordMap">
+        SELECT
+        <include refid="searchPathReadColumns"/>
+        <include refid="searchPathReadJoins"/>
+        <where>
+            <if test="incidentId != null">
+                op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+            <if test="opId != null">
+                AND ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+            <if test="policePhoneId != null">
+                AND ds.police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+            <if test="accountId != null">
+                AND sp.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+        </where>
+        ORDER BY sp.updated_at DESC, sp.id ASC
+    </select>
+
     <delete id="deleteSegments">
         DELETE FROM search_path_segment
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
