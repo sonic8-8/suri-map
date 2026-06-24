@@ -1,5 +1,9 @@
 package com.surimap.marker.photo.controller;
 
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
@@ -29,6 +33,9 @@ public class PhotoController {
   }
 
   @PostMapping("/upload-url")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoUploadUrlResponse> createUploadUrl(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -43,6 +50,9 @@ public class PhotoController {
   }
 
   @PostMapping("/{photoId}/attach")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoAttachResponse> attach(
       @PathVariable UUID markerId,
       @PathVariable UUID photoId,

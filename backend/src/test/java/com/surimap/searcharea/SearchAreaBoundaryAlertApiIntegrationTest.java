@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
+import com.surimap.common.auth.Channel;
+import com.surimap.support.auth.WithMockAccount;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
@@ -23,6 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc(addFilters = false)
 @DisplayName("Search area boundary alert API")
 @Tag("integration")
+@WithMockAccount(
+    accountId = "62000000-0000-0000-0000-000000004180",
+    channel = Channel.APP,
+    policePhoneId = "50000000-0000-0000-0000-000000004180")
 class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSupport {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-0000-0000-000000004180");
@@ -280,6 +286,49 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
     assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
         .isEqualTo(1);
     assertThat(mockFcmDispatcher.findByEventType("SEARCH_AREA_BOUNDARY_EXITED")).hasSize(1);
+  }
+
+  @Test
+  @WithMockAccount(
+      accountId = "62000000-0000-0000-0000-000000004180",
+      channel = Channel.WEB)
+  @DisplayName("WEB POST /api/search-area-boundary-alerts는 channel_not_allowed로 거부한다")
+  void web_channel_boundary_alert_is_rejected() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/search-area-boundary-alerts")
+                .header("X-Client-Channel", "WEB")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-boundary-alert-web-418")
+                .contentType("application/json")
+                .content(boundaryAlertBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("channel_not_allowed")));
+
+    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
+        .isZero();
+  }
+
+  @Test
+  @WithMockAccount(
+      accountId = "63000000-0000-0000-0000-000000004180",
+      channel = Channel.APP,
+      policePhoneId = "50000000-0000-0000-0000-000000004180")
+  @DisplayName("담당 구역에 배정되지 않은 accountId는 policePhoneId만으로 경계 알림을 생성할 수 없다")
+  void unassigned_account_cannot_create_boundary_alert_with_assigned_phone() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/search-area-boundary-alerts")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-boundary-alert-unassigned-account-418")
+                .contentType("application/json")
+                .content(boundaryAlertBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("team_not_assigned")));
+
+    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
+        .isZero();
   }
 
   private static String boundaryAlertBody() {

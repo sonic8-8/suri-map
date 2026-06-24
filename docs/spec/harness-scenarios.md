@@ -247,7 +247,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   1. 앱 흐름: 앱에서 `수색 시작`을 누르고 5초 주기 GPS 수집, 10초 배치 전송을 수행한다.
   2. 웹 흐름: 상황판에서 이미 저장된 경로의 차량·도보 구간을 확인하고 필요 시 수동 보정한다.
 - **then**:
-  1. 앱 흐름에서 `search_path`이 현재 OP와 로그인 계정 `accountId` 기준으로 생성되고, `policePhoneId`는 단말 인증·배정 컨텍스트로 함께 기록된다.
+  1. 앱 흐름에서 `search_path`이 현재 OP와 로그인 계정 `accountId` 기준으로 생성되고, `policePhoneId`는 등록 단말 확인과 전송 컨텍스트로 함께 기록된다.
   2. 앱 흐름에서 경로 포인트가 `search_path`와 `search_path_segment`에 누적되고 GPS 속도 기반으로 차량·도보 구간이 자동 분리된다.
   3. 앱 흐름에서 `PATH_APPENDED` 발행 후 상황판이 경로와 단말 최신성을 갱신한다.
   4. 앱 흐름에서 현재 로그인 계정의 궤도는 앱·웹 모두에서 별도 스타일로 표시되고, 같은 사건/OP의 다른 계정 경로와 최신 위치도 함께 표시된다.
@@ -287,11 +287,11 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_registered`를 응답하고 경로가 생성되지 않는다"
-  - "등록된 PolicePhone이더라도 로그인 계정·현재 PolicePhone·OP를 묶는 활성 `duty_shift`가 없으면 경로 write는 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
+  - "등록된 PolicePhone이더라도 로그인 계정과 OP를 묶는 활성 `duty_shift`가 없으면 경로 write는 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
   - "상황판에서 차량·도보 구간 수동 보정 중에는 저장 CTA가 로딩·비활성 상태가 되고 실패 시 기존 구간 스타일을 유지한다"
   - "수색 경로 생성, 경로 배치 추가, 구간 수동 보정 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response path row가 같은 경로·구간 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `path` slot + `police_phone_freshness` slot
-- **notes**: 경로 기록 주체는 팀 업무폰 또는 순찰차 업무폰이다. 근무 교대와 지구대/파출소 초동 수색은 OP·duty_shift·PolicePhone 단위로 구분한다.
+- **notes**: 경로 기록 주체는 개인 `accountId`다. `policePhoneId`는 등록 단말 확인과 전송 컨텍스트로 남기고, 근무 교대는 OP와 duty_shift에 연결된 계정 흐름으로 구분한다.
 
 ---
 
@@ -300,7 +300,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **given**: 사건 `OPEN`, 사건 배정 계정이 앱에서 현장 수색 중
 - **when**: 앱 바텀시트에서 마커 유형을 선택하고 메모·사진을 선택 입력
 - **then**:
-  1. `marker`가 현재 OP와 현재 PolicePhone, 로그인 계정 기준으로 생성된다.
+  1. `marker`가 현재 OP와 로그인 계정 `accountId` 기준으로 생성되고, `policePhoneId`는 등록 단말 컨텍스트로 함께 기록된다.
   2. 위치·시간·작성 계정은 자동 입력되고 필요 시 위치 수동 조정이 가능하다.
   3. `MARKER_CREATED` 발행 후 상황판과 다른 단말에 반영된다.
   4. 사진 첨부 시 업로드용 S3-compatible presigned URL 발급, object storage 업로드, attach 흐름으로 저장된다.

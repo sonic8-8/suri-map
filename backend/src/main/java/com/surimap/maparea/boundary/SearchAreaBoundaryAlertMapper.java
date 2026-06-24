@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Param;
 public interface SearchAreaBoundaryAlertMapper {
 
   Optional<SearchAreaBoundaryAlertContextRow> findAssignedTeamAreaContext(
-      @Param("searchAreaId") UUID searchAreaId, @Param("policePhoneId") UUID policePhoneId);
+      @Param("searchAreaId") UUID searchAreaId, @Param("accountId") UUID accountId);
 
   void insert(SearchAreaBoundaryAlertPersistenceRecord record);
 }

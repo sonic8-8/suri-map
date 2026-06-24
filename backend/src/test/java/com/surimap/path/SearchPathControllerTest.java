@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.surimap.common.auth.Channel;
+import com.surimap.config.GuardConfig;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
@@ -27,13 +29,16 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(SearchPathController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({SearchPathExceptionHandler.class, GuardPortTestStubs.class})
+@Import({SearchPathExceptionHandler.class, GuardConfig.class, GuardPortTestStubs.class})
 class SearchPathControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private SearchPathService searchPathService;
 
   @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000001",
+      policePhoneId = "50000000-0000-0000-0000-000000000001")
   @DisplayName("POST /api/search-paths/batch returns 200 with append response")
   void appendBatchContract() throws Exception {
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
@@ -41,7 +46,7 @@ class SearchPathControllerTest {
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
-    when(searchPathService.appendBatch(any(), eq(policePhoneId), isNull()))
+    when(searchPathService.appendBatch(any(), eq(policePhoneId), eq(accountId)))
         .thenReturn(
             new PathBatchAppendResponse(
                 pathId,
@@ -101,31 +106,10 @@ class SearchPathControllerTest {
   }
 
   @Test
-  @WithMockAccount(
-      accountId = "30000000-0000-0000-0000-000000000099",
-      channel = Channel.WEB)
-  @DisplayName("WEB POST /api/search-paths/batch appends selected PolicePhone without account binding")
-  void appendBatchWebChannelDoesNotBindLoginAccount() throws Exception {
-    UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
-    UUID dutyShiftId = UUID.fromString("60000000-0000-0000-0000-000000000001");
-    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+  @WithMockAccount(accountId = "30000000-0000-0000-0000-000000000099", channel = Channel.WEB)
+  @DisplayName("WEB POST /api/search-paths/batch는 channel_not_allowed로 거부한다")
+  void appendBatchWebChannelRejected() throws Exception {
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
-    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
-    when(searchPathService.appendBatch(any(), eq(policePhoneId), isNull()))
-        .thenReturn(
-            new PathBatchAppendResponse(
-                pathId,
-                dutyShiftId,
-                opId,
-                policePhoneId,
-                accountId,
-                2,
-                0,
-                List.of(),
-                List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)),
-                List.of(),
-                2L,
-                SearchPathStatus.RECORDING));
 
     mockMvc
         .perform(
@@ -145,11 +129,16 @@ class SearchPathControllerTest {
                       ]
                     }
                     """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id", is(pathId.toString())));
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("channel_not_allowed")));
+
+    verifyNoInteractions(searchPathService);
   }
 
   @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000001",
+      policePhoneId = "50000000-0000-0000-0000-000000000001")
   @DisplayName("POST /api/search-paths/batch missing Idempotency-Key returns write_conflict")
   void appendBatchRequiresIdempotencyKey() throws Exception {
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
@@ -172,6 +161,37 @@ class SearchPathControllerTest {
                     """))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("write_conflict")));
+  }
+
+  @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000001",
+      policePhoneId = "00000000-0000-0000-0000-000000000201")
+  @DisplayName(
+      "POST /api/search-paths/batch unregistered PolicePhone returns police_phone_not_registered")
+  void appendBatchUnregisteredPolicePhoneRejected() throws Exception {
+    UUID policePhoneId = UUID.fromString("00000000-0000-0000-0000-000000000201");
+    mockMvc
+        .perform(
+            post("/api/search-paths/batch")
+                .header("X-PolicePhone-Id", policePhoneId)
+                .header("Idempotency-Key", "idem-unregistered-path-batch")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "incidentId":"10000000-0000-0000-0000-000000000001",
+                      "opId":"70000000-0000-0000-0000-000000000001",
+                      "pathId":"81000000-0000-0000-0000-000000000001",
+                      "points":[
+                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"}
+                      ]
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
+
+    verifyNoInteractions(searchPathService);
   }
 
   @Test

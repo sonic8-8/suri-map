@@ -13,10 +13,8 @@ public interface SearchPathMapper {
   Optional<UUID> findActiveDutyShiftId(
       @Param("opId") UUID opId, @Param("policePhoneId") UUID policePhoneId);
 
-  Optional<UUID> findActiveDutyShiftIdByAccountAndPhone(
-      @Param("opId") UUID opId,
-      @Param("accountId") UUID accountId,
-      @Param("policePhoneId") UUID policePhoneId);
+  Optional<UUID> findActiveDutyShiftIdByAccount(
+      @Param("opId") UUID opId, @Param("accountId") UUID accountId);
 
   Optional<UUID> findActiveDutyShiftAccountId(
       @Param("opId") UUID opId, @Param("policePhoneId") UUID policePhoneId);
@@ -50,7 +48,8 @@ public interface SearchPathMapper {
 
   void insertLifecycleEvent(SearchPathLifecycleEventPersistenceRecord record);
 
-  List<SearchPathLifecycleEventReadRecord> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);
+  List<SearchPathLifecycleEventReadRecord> findLifecycleEventsByPathId(
+      @Param("pathId") UUID pathId);
 
   void deleteSegments(@Param("pathId") UUID pathId);
 

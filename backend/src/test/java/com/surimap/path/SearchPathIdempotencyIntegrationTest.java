@@ -5,11 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.app.service.path.AppSearchPathCommandService;
 import com.surimap.app.service.path.request.StartSearchPathServiceRequest;
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.OrganizationType;
+import com.surimap.common.auth.Role;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
 import com.surimap.path.fixture.SearchPathFixtures;
 import com.surimap.path.testdouble.CapturingSearchPathEventPublisher;
-import com.surimap.path.testdouble.StubPolicePhoneGuard;
 import com.surimap.path.validation.GpsPathValidator;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -26,6 +30,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -64,7 +70,8 @@ class SearchPathIdempotencyIntegrationTest {
   @Test
   @DisplayName("same path start key with different body is rejected")
   void startSameKeyDifferentBodyIsRejected() {
-    AppSearchPathCommandService service = appCommandService(new CapturingSearchPathEventPublisher());
+    AppSearchPathCommandService service =
+        appCommandService(new CapturingSearchPathEventPublisher());
     service.start(startRequest("idem-s3-path-start-mismatch"));
 
     assertThatThrownBy(
@@ -88,19 +95,9 @@ class SearchPathIdempotencyIntegrationTest {
     SearchPathController controller = searchPathController(publisher);
 
     PathBatchAppendResponse first =
-        controller
-            .appendBatch(
-                SearchPathFixtures.POLICE_PHONE_ID.toString(),
-                "idem-s3-path-batch-db",
-                batchRequest())
-            .getBody();
+        appendBatchThroughController(controller, "idem-s3-path-batch-db", batchRequest());
     PathBatchAppendResponse replayed =
-        controller
-            .appendBatch(
-                SearchPathFixtures.POLICE_PHONE_ID.toString(),
-                "idem-s3-path-batch-db",
-                batchRequest())
-            .getBody();
+        appendBatchThroughController(controller, "idem-s3-path-batch-db", batchRequest());
 
     assertThat(replayed).isEqualTo(first);
     assertThat(first.geometry()).hasSize(8);
@@ -117,12 +114,8 @@ class SearchPathIdempotencyIntegrationTest {
     SearchPathSegmentController segmentController =
         new SearchPathSegmentController(service, cacheProvider);
     PathBatchAppendResponse batch =
-        pathController
-            .appendBatch(
-                SearchPathFixtures.POLICE_PHONE_ID.toString(),
-                "idem-s3-path-batch-before-segment",
-                batchRequest())
-            .getBody();
+        appendBatchThroughController(
+            pathController, "idem-s3-path-batch-before-segment", batchRequest());
     String segmentId = batch.segments().get(0).id();
     PathSegmentCorrectionRequest request =
         new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction");
@@ -153,11 +146,7 @@ class SearchPathIdempotencyIntegrationTest {
   private AppSearchPathCommandService appCommandService(
       CapturingSearchPathEventPublisher publisher) {
     return new AppSearchPathCommandService(
-        new OperationalPeriodQueryMock(),
-        new StubPolicePhoneGuard(),
-        publisher,
-        null,
-        cacheProvider);
+        new OperationalPeriodQueryMock(), publisher, null, cacheProvider);
   }
 
   private SearchPathController searchPathController(CapturingPathEventPublisher publisher) {
@@ -167,6 +156,28 @@ class SearchPathIdempotencyIntegrationTest {
   private SearchPathService searchPathService(CapturingPathEventPublisher publisher) {
     return new SearchPathService(
         new InMemorySearchPathRepository(), publisher, new GpsPathValidator());
+  }
+
+  private PathBatchAppendResponse appendBatchThroughController(
+      SearchPathController controller, String idempotencyKey, PathBatchAppendRequest request) {
+    var previousContext = SecurityContextHolder.getContext();
+    var context = SecurityContextHolder.createEmptyContext();
+    context.setAuthentication(
+        new SuriMapAuthentication(
+            SearchPathFixtures.ACCOUNT_ID.toString(),
+            AccountType.PATROL_CAR,
+            OrganizationType.POLICE_SUBSTATION,
+            Channel.APP,
+            SearchPathFixtures.POLICE_PHONE_ID.toString(),
+            List.of(new SimpleGrantedAuthority(Role.MEMBER.name()))));
+    try {
+      SecurityContextHolder.setContext(context);
+      return controller
+          .appendBatch(SearchPathFixtures.POLICE_PHONE_ID.toString(), idempotencyKey, request)
+          .getBody();
+    } finally {
+      SecurityContextHolder.setContext(previousContext);
+    }
   }
 
   private StartSearchPathServiceRequest startRequest(String idempotencyKey) {

@@ -2,7 +2,6 @@ package com.surimap.app.service.path;
 
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.exception.SearchPathGuardException;
-import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.operationalperiod.query.CurrentOpResult;
@@ -34,14 +33,12 @@ public class PathCommandConfig {
   @Bean
   AppSearchPathCommandService appSearchPathCommandService(
       OperationalPeriodQuery operationalPeriodQuery,
-      PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher searchPathEventPublisher,
       SearchPathMapper searchPathMapper,
       Environment environment,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     return new AppSearchPathCommandService(
         operationalPeriodQuery,
-        policePhoneGuard,
         searchPathEventPublisher,
         postgresqlDataSource(environment) ? searchPathMapper : null,
         idempotentResponseCacheProvider);
@@ -95,23 +92,6 @@ public class PathCommandConfig {
           return dbQuery.list(incidentId);
         }
         return inMemoryQuery.list(incidentId);
-      }
-    };
-  }
-
-  @Bean
-  @Primary
-  PolicePhoneGuard policePhoneGuard(SearchPathMapper searchPathMapper, Environment environment) {
-    return (policePhoneId, opId) -> {
-      if (policePhoneId == null) {
-        throw new SearchPathGuardException("police_phone_not_registered");
-      }
-      if (opId == null) {
-        throw new SearchPathGuardException("police_phone_not_assigned");
-      }
-      if (postgresqlDataSource(environment)
-          && searchPathMapper.findActiveDutyShiftId(opId, policePhoneId).isEmpty()) {
-        throw new SearchPathGuardException("police_phone_not_assigned");
       }
     };
   }

@@ -3,6 +3,8 @@ package com.surimap.marker.controller;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.marker.dto.MarkerCreateRequest;
 import com.surimap.marker.dto.MarkerCreateResponse;
 import com.surimap.marker.dto.MarkerDeleteRequest;
@@ -61,6 +63,9 @@ public class MarkerController {
   }
 
   @PostMapping
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<MarkerCreateResponse> create(
       @RequestHeader(value = "Authorization", required = false) String authorization,
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,
@@ -74,6 +79,9 @@ public class MarkerController {
   }
 
   @PatchMapping("/{markerId}")
+  @RequireChannel({Channel.APP, Channel.WEB})
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<MarkerMutationResponse> update(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -89,6 +97,9 @@ public class MarkerController {
   }
 
   @DeleteMapping("/{markerId}")
+  @RequireChannel({Channel.APP, Channel.WEB})
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<MarkerMutationResponse> delete(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,

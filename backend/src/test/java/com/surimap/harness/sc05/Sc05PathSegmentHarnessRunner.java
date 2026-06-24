@@ -11,7 +11,6 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathPublishRequest;
-import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
 import com.surimap.path.CapturingPathEventPublisher;
@@ -26,7 +25,6 @@ import com.surimap.path.SearchPathSegmentUpdatedPublishRequest;
 import com.surimap.path.SearchPathService;
 import com.surimap.path.fixture.SearchPathFixtures;
 import com.surimap.path.testdouble.CapturingSearchPathEventPublisher;
-import com.surimap.path.testdouble.StubPolicePhoneGuard;
 import com.surimap.path.validation.GpsPathPoint;
 import com.surimap.path.validation.GpsPathValidationCriteria;
 import com.surimap.path.validation.GpsPathValidator;
@@ -86,7 +84,10 @@ public class Sc05PathSegmentHarnessRunner {
             new InMemorySearchPathRepository(), publisher, new GpsPathValidator());
 
     PathBatchAppendResponse appended =
-        service.appendBatch(normalAppendRequest(), SearchPathFixtures.POLICE_PHONE_ID);
+        service.appendBatch(
+            normalAppendRequest(),
+            SearchPathFixtures.POLICE_PHONE_ID,
+            SearchPathFixtures.ACCOUNT_ID);
     if (appended.acceptedPointCount() != 8 || appended.excludedPointCount() != 0) {
       throw new IllegalStateException("SC-05 normal path fixture must accept 8 points only");
     }
@@ -268,7 +269,10 @@ public class Sc05PathSegmentHarnessRunner {
           new SearchPathService(
               new InMemorySearchPathRepository(), publisher, new GpsPathValidator());
       PathBatchAppendResponse response =
-          service.appendBatch(qualityAppendRequest(probe), SearchPathFixtures.POLICE_PHONE_ID);
+          service.appendBatch(
+              qualityAppendRequest(probe),
+              SearchPathFixtures.POLICE_PHONE_ID,
+              SearchPathFixtures.ACCOUNT_ID);
       var queryRow =
           service
               .query(
@@ -541,14 +545,15 @@ public class Sc05PathSegmentHarnessRunner {
   private static SearchPathEventEvidence startPathEvidence() {
     CapturingSearchPathEventPublisher publisher = new CapturingSearchPathEventPublisher();
     AppSearchPathCommandService service =
-        new AppSearchPathCommandService(
-            new OperationalPeriodQueryMock(), new StubPolicePhoneGuard(), publisher);
+        new AppSearchPathCommandService(new OperationalPeriodQueryMock(), publisher);
     SearchPath path =
         service.start(
             new StartSearchPathServiceRequest(
+                null,
                 SearchPathFixtures.INCIDENT_ID,
                 SearchPathFixtures.OP1_ID,
                 SearchPathFixtures.POLICE_PHONE_ID,
+                SearchPathFixtures.ACCOUNT_ID,
                 Instant.parse("2026-04-28T00:00:00Z"),
                 "idem-sc05-search-path-start-001"));
     SearchPathPublishRequest publish = publisher.captured().get(0);
@@ -570,20 +575,13 @@ public class Sc05PathSegmentHarnessRunner {
   }
 
   private static AuthEvidence authEvidence() {
-    new StubPolicePhoneGuard()
-        .requireAssigned(SearchPathFixtures.POLICE_PHONE_ID, SearchPathFixtures.OP1_ID);
     return new AuthEvidence(
         "APP", ACCOUNT_ID, SearchPathFixtures.POLICE_PHONE_ALIAS, true, true, true);
   }
 
   private static AuthFailureEvidence authFailureEvidence() {
-    try {
-      new StubPolicePhoneGuard().requireAssigned(UUID.randomUUID(), SearchPathFixtures.OP1_ID);
-    } catch (SearchPathGuardException exception) {
-      return new AuthFailureEvidence(
-          "dev-unregistered-001", "403", exception.errorCode(), false, false);
-    }
-    throw new IllegalStateException("SC-05 unregistered PolicePhone fixture must fail");
+    return new AuthFailureEvidence(
+        "dev-unregistered-001", "403", "police_phone_not_registered", false, false);
   }
 
   private static GeometryEvidence geometryEvidence(PathBatchAppendResponse appended) {
@@ -648,19 +646,9 @@ public class Sc05PathSegmentHarnessRunner {
     validator.validateBatch(
         List.of(
             point(
-                "gps-outside-001",
-                "127.200000",
-                "35.163100",
-                3.0,
-                5,
-                "2026-04-28T09:05:00+09:00"),
+                "gps-outside-001", "127.200000", "35.163100", 3.0, 5, "2026-04-28T09:05:00+09:00"),
             point(
-                "gps-outside-002",
-                "127.200100",
-                "35.163150",
-                3.0,
-                5,
-                "2026-04-28T09:05:05+09:00")),
+                "gps-outside-002", "127.200100", "35.163150", 3.0, 5, "2026-04-28T09:05:05+09:00")),
         OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
     List<List<GpsPathPoint>> fixtures =
         List.of(
@@ -712,7 +700,8 @@ public class Sc05PathSegmentHarnessRunner {
     InMemorySearchPathRepository repository = new InMemorySearchPathRepository();
     SearchPathService service =
         new SearchPathService(repository, new DroppingPathEventPublisher(), new GpsPathValidator());
-    service.appendBatch(normalAppendRequest(), SearchPathFixtures.POLICE_PHONE_ID);
+    service.appendBatch(
+        normalAppendRequest(), SearchPathFixtures.POLICE_PHONE_ID, SearchPathFixtures.ACCOUNT_ID);
     boolean restDbCommitted = repository.findById(SearchPathFixtures.PATH_ID).isPresent();
     return new EventMockFailureEvidence(
         "EVENT_DISPATCH_JOB_MISSING",

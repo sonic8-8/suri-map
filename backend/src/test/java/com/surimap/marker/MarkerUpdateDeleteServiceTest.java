@@ -318,7 +318,9 @@ class MarkerUpdateDeleteServiceTest {
     private UUID mutationPolicePhoneId = POLICE_PHONE_ID;
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {}
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+      return null;
+    }
 
     @Override
     public MarkerMutationContext requireUpdateAccess(UUID markerId, MarkerRequestContext context) {

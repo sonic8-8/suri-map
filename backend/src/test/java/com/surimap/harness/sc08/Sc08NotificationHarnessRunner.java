@@ -483,7 +483,7 @@ public class Sc08NotificationHarnessRunner {
     private boolean currentOpMatched;
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
       SuriMapAuthentication authentication = context.authentication();
       channelGuardChecked = true;
       if (!"APP".equals(context.authentication().channel())) {
@@ -511,6 +511,7 @@ public class Sc08NotificationHarnessRunner {
       if (!authorizationChecked) {
         throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
       }
+      return null;
     }
 
     @Override

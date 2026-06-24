@@ -15,4 +15,5 @@ public record SearchAreaBoundaryAlertServiceRequest(
     UUID searchPathId,
     Integer clockOffsetMs,
     UUID policePhoneId,
+    UUID accountId,
     String idempotencyKey) {}

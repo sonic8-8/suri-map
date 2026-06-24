@@ -50,8 +50,9 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
 
     requireOpenIncident(marker.getIncidentId());
     requireAccountAssignment(marker.getIncidentId(), accountId);
-    requireRegisteredPolicePhone(policePhoneId);
     requireCurrentOp(marker);
+    requireActiveDutyShift(marker.getOperationalPeriodId(), accountId);
+    requireAppOwnFieldMarker(marker, accountId);
 
     return new PhotoMarkerContext(
         marker.getIncidentId(),
@@ -106,13 +107,6 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
     }
   }
 
-  private void requireRegisteredPolicePhone(UUID policePhoneId) {
-    if (policePhoneId == null
-        || markerRuntimeGuardMapper.countRegisteredPolicePhone(policePhoneId) == 0) {
-      throw new PhotoApiException("police_phone_not_registered", HttpStatus.FORBIDDEN);
-    }
-  }
-
   private void requireCurrentOp(MarkerRecord marker) {
     UUID currentOpId =
         markerRuntimeGuardMapper
@@ -120,6 +114,20 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
             .orElseThrow(() -> new PhotoApiException("op_required", HttpStatus.CONFLICT));
     if (!currentOpId.equals(marker.getOperationalPeriodId())) {
       throw new PhotoApiException("op_mismatch", HttpStatus.CONFLICT);
+    }
+  }
+
+  private void requireActiveDutyShift(UUID opId, UUID accountId) {
+    markerRuntimeGuardMapper
+        .findActiveDutyShiftIdByAccount(opId, accountId)
+        .orElseThrow(
+            () -> new PhotoApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN));
+  }
+
+  private void requireAppOwnFieldMarker(MarkerRecord marker, UUID accountId) {
+    if (!"APP".equals(marker.getMarkerSource())
+        || !accountId.equals(marker.getCreatedByAccountId())) {
+      throw denied();
     }
   }
 

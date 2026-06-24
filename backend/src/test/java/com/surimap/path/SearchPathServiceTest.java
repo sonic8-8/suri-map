@@ -13,13 +13,17 @@ import org.junit.jupiter.api.Test;
 
 class SearchPathServiceTest {
 
+  private static final UUID ACCOUNT_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
+
   private SearchPathService service;
   private CapturingPathEventPublisher publisher;
 
   @BeforeEach
   void setUp() {
     publisher = new CapturingPathEventPublisher();
-    service = new SearchPathService(new InMemorySearchPathRepository(), publisher, new GpsPathValidator());
+    service =
+        new SearchPathService(
+            new InMemorySearchPathRepository(), publisher, new GpsPathValidator());
   }
 
   @Test
@@ -29,7 +33,8 @@ class SearchPathServiceTest {
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
 
-    var response = service.appendBatch(request(incidentId, opId, pathId), policePhoneId);
+    var response =
+        service.appendBatch(request(incidentId, opId, pathId), policePhoneId, ACCOUNT_ID);
 
     assertThat(response.id()).isEqualTo(pathId);
     assertThat(response.status()).isEqualTo(SearchPathStatus.RECORDING);
@@ -37,16 +42,38 @@ class SearchPathServiceTest {
     assertThat(response.acceptedPointCount()).isEqualTo(8);
     assertThat(response.excludedPointCount()).isZero();
     assertThat(response.segments()).hasSize(2);
-    assertThat(response.segments()).extracting(SearchPathSegment::movementType).containsExactly(MovementType.VEHICLE, MovementType.FOOT);
+    assertThat(response.segments())
+        .extracting(SearchPathSegment::movementType)
+        .containsExactly(MovementType.VEHICLE, MovementType.FOOT);
 
-    assertThat(publisher.published()).singleElement().satisfies(
-        event -> {
-          assertThat(event.id()).isEqualTo(pathId);
-          assertThat(event.status()).isEqualTo(SearchPathStatus.RECORDING);
-          assertThat(event.version()).isEqualTo(2L);
-          assertThat(event.opId()).isEqualTo(opId);
-          assertThat(event.policePhoneId()).isEqualTo(policePhoneId);
-        });
+    assertThat(publisher.published())
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.id()).isEqualTo(pathId);
+              assertThat(event.status()).isEqualTo(SearchPathStatus.RECORDING);
+              assertThat(event.version()).isEqualTo(2L);
+              assertThat(event.opId()).isEqualTo(opId);
+              assertThat(event.policePhoneId()).isEqualTo(policePhoneId);
+            });
+  }
+
+  @Test
+  void 기존_path에_다른_업무폰으로_batchAppend하면_요청업무폰을_event와_response에_남긴다() {
+    UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    UUID firstPhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    UUID requestPhoneId = UUID.fromString("50000000-0000-0000-0000-000000000002");
+
+    service.appendBatch(request(incidentId, opId, pathId), firstPhoneId, ACCOUNT_ID);
+
+    var response =
+        service.appendBatch(request(incidentId, opId, pathId), requestPhoneId, ACCOUNT_ID);
+
+    assertThat(response.policePhoneId()).isEqualTo(requestPhoneId);
+    assertThat(publisher.published()).hasSize(2);
+    assertThat(publisher.published().get(1).policePhoneId()).isEqualTo(requestPhoneId);
   }
 
   @Test
@@ -57,16 +84,26 @@ class SearchPathServiceTest {
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     UUID otherPolice = UUID.fromString("50000000-0000-0000-0000-000000000002");
 
-    service.appendBatch(request(incidentId, opId, UUID.fromString("81000000-0000-0000-0000-000000000001")), policePhoneId);
-    service.appendBatch(request(incidentId, otherOpId, UUID.fromString("81000000-0000-0000-0000-000000000002")), otherPolice);
+    service.appendBatch(
+        request(incidentId, opId, UUID.fromString("81000000-0000-0000-0000-000000000001")),
+        policePhoneId,
+        ACCOUNT_ID);
+    service.appendBatch(
+        request(incidentId, otherOpId, UUID.fromString("81000000-0000-0000-0000-000000000002")),
+        otherPolice,
+        ACCOUNT_ID);
 
     var byIncident = service.query(incidentId, null, null);
     var byOp = service.query(incidentId, opId, null);
     var byPolice = service.query(incidentId, null, policePhoneId);
 
     assertThat(byIncident.paths()).hasSize(2);
-    assertThat(byOp.paths()).singleElement().satisfies(path -> assertThat(path.opId()).isEqualTo(opId));
-    assertThat(byPolice.paths()).singleElement().satisfies(path -> assertThat(path.policePhoneId()).isEqualTo(policePhoneId));
+    assertThat(byOp.paths())
+        .singleElement()
+        .satisfies(path -> assertThat(path.opId()).isEqualTo(opId));
+    assertThat(byPolice.paths())
+        .singleElement()
+        .satisfies(path -> assertThat(path.policePhoneId()).isEqualTo(policePhoneId));
   }
 
   @Test
@@ -95,11 +132,12 @@ class SearchPathServiceTest {
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
 
-    service.appendBatch(request(incidentId, opId, pathId), policePhoneId);
+    service.appendBatch(request(incidentId, opId, pathId), policePhoneId, ACCOUNT_ID);
 
     PathQueryRow path = service.query(incidentId, opId, policePhoneId).paths().get(0);
 
-    assertThat(path.startedAt()).isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:00+09:00").toInstant());
+    assertThat(path.startedAt())
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:00+09:00").toInstant());
     assertThat(path.endedAt()).isNull();
     assertThat(path.segments())
         .extracting(PathQuerySegmentRow::movementType)
@@ -135,7 +173,8 @@ class SearchPathServiceTest {
                     point("p3", "126.913300", "35.162100", 1.2, "2026-04-28T09:00:10+09:00"),
                     point("p4", "126.913400", "35.162150", 1.2, "2026-04-28T09:00:15+09:00")),
                 0L),
-            policePhoneId);
+            policePhoneId,
+            ACCOUNT_ID);
 
     assertThat(response.segments())
         .allSatisfy(segment -> assertThat(segment.movementType()).isEqualTo(MovementType.UNKNOWN));
@@ -149,7 +188,8 @@ class SearchPathServiceTest {
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
 
-    var appended = service.appendBatch(request(incidentId, opId, pathId), policePhoneId);
+    var appended =
+        service.appendBatch(request(incidentId, opId, pathId), policePhoneId, ACCOUNT_ID);
     var target = appended.segments().get(0);
 
     var corrected = service.correctSegment(target.id(), MovementType.FOOT, accountId);

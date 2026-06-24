@@ -157,8 +157,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     if (accountId != null) {
       UUID dutyShiftId =
           mapper
-              .findActiveDutyShiftIdByAccountAndPhone(
-                  aggregate.opId(), accountId, aggregate.policePhoneId())
+              .findActiveDutyShiftIdByAccount(aggregate.opId(), accountId)
               .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
       return new ResolvedDutyShift(dutyShiftId, accountId);
     }
@@ -239,8 +238,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
         }
       }
     }
-    int endIndex =
-        coordinates.length == 0 ? fallbackStart : fallbackStart + coordinates.length - 1;
+    int endIndex = coordinates.length == 0 ? fallbackStart : fallbackStart + coordinates.length - 1;
     return new SegmentIndexes(fallbackStart, Math.max(fallbackStart, endIndex));
   }
 
@@ -257,8 +255,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     return coordinates;
   }
 
-  private boolean matches(
-      List<SearchPathPoint> points, int startIndex, Coordinate[] coordinates) {
+  private boolean matches(List<SearchPathPoint> points, int startIndex, Coordinate[] coordinates) {
     for (int i = 0; i < coordinates.length; i++) {
       if (!sameCoordinate(points.get(startIndex + i), coordinates[i])) {
         return false;
@@ -324,15 +321,15 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
       return UUID.fromString(segment.id());
     } catch (IllegalArgumentException ignored) {
       String seed =
-          "search-path-segment:%s:%d:%d".formatted(pathId, segment.startIndex(), segment.endIndex());
+          "search-path-segment:%s:%d:%d"
+              .formatted(pathId, segment.startIndex(), segment.endIndex());
       return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
   }
 
   private UUID excludedPointId(UUID pathId, PathExcludedPoint point) {
     String seed =
-        "search-path-excluded-point:%s:%s:%s"
-            .formatted(pathId, point.pointId(), point.clientTs());
+        "search-path-excluded-point:%s:%s:%s".formatted(pathId, point.pointId(), point.clientTs());
     return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
 
@@ -350,8 +347,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
   }
 
   private static boolean sameCoordinate(Coordinate left, Coordinate right) {
-    return Math.abs(left.x - right.x) < 0.000000001
-        && Math.abs(left.y - right.y) < 0.000000001;
+    return Math.abs(left.x - right.x) < 0.000000001 && Math.abs(left.y - right.y) < 0.000000001;
   }
 
   private record SegmentIndexes(int start, int end) {}

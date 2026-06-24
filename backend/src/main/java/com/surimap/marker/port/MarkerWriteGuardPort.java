@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface MarkerWriteGuardPort {
 
-  void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context);
+  UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context);
 
   MarkerMutationContext requireUpdateAccess(UUID markerId, MarkerRequestContext context);
 

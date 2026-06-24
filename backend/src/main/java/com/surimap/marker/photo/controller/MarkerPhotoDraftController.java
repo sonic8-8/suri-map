@@ -1,5 +1,9 @@
 package com.surimap.marker.photo.controller;
 
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.marker.photo.dto.MarkerCreatePhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.service.MarkerPhotoDraftService;
@@ -20,12 +24,16 @@ public class MarkerPhotoDraftController {
   private final PhotoRequestContextResolver contextResolver;
 
   public MarkerPhotoDraftController(
-      MarkerPhotoDraftService markerPhotoDraftService, PhotoRequestContextResolver contextResolver) {
+      MarkerPhotoDraftService markerPhotoDraftService,
+      PhotoRequestContextResolver contextResolver) {
     this.markerPhotoDraftService = markerPhotoDraftService;
     this.contextResolver = contextResolver;
   }
 
   @PostMapping("/upload-url")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoUploadUrlResponse> createMarkerPhotoUploadUrl(
       @RequestHeader(value = "Authorization", required = false) String authorization,
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,

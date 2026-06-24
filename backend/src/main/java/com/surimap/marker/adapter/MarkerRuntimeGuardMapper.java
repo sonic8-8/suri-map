@@ -20,7 +20,8 @@ public interface MarkerRuntimeGuardMapper {
   int countActiveIncidentAssignment(
       @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
-  int countRegisteredPolicePhone(@Param("policePhoneId") UUID policePhoneId);
+  Optional<UUID> findActiveDutyShiftIdByAccount(
+      @Param("opId") UUID opId, @Param("accountId") UUID accountId);
 
   record MarkerGuardRow(
       UUID id,

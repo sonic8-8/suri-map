@@ -205,10 +205,11 @@ class SupportRequestNotificationPolicyRedTest {
   private static final class AllowingMarkerWriteGuard implements MarkerWriteGuardPort {
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
       if (!"APP".equals(context.authentication().channel())) {
         throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
       }
+      return null;
     }
 
     @Override

@@ -10,7 +10,6 @@ import com.surimap.maparea.fixture.BoundaryAreaFixtures;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
 import com.surimap.path.fixture.SearchPathFixtures;
 import com.surimap.path.testdouble.CapturingSearchPathEventPublisher;
-import com.surimap.path.testdouble.StubPolicePhoneGuard;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,9 +30,7 @@ class SearchPathOpGuardContractTest {
   void setUp() {
     service =
         new AppSearchPathCommandService(
-            new OperationalPeriodQueryMock(),
-            new StubPolicePhoneGuard(),
-            new CapturingSearchPathEventPublisher());
+            new OperationalPeriodQueryMock(), new CapturingSearchPathEventPublisher());
   }
 
   @Test
@@ -41,9 +38,11 @@ class SearchPathOpGuardContractTest {
   void 현재_OP가_없으면_op_required_예외가_발생한다() {
     StartSearchPathServiceRequest request =
         new StartSearchPathServiceRequest(
+            null,
             UUID.randomUUID(),
             SearchPathFixtures.OP1_ID,
             SearchPathFixtures.POLICE_PHONE_ID,
+            SearchPathFixtures.ACCOUNT_ID,
             Instant.now(),
             "idem-path-op-required");
 
@@ -58,9 +57,11 @@ class SearchPathOpGuardContractTest {
   void 요청_opId가_현재_OP와_다르면_op_mismatch_예외가_발생한다() {
     StartSearchPathServiceRequest request =
         new StartSearchPathServiceRequest(
+            null,
             SearchPathFixtures.INCIDENT_ID,
             BoundaryAreaFixtures.OP2_ID,
             SearchPathFixtures.POLICE_PHONE_ID,
+            SearchPathFixtures.ACCOUNT_ID,
             Instant.now(),
             "idem-path-op-mismatch");
 

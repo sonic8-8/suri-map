@@ -215,7 +215,8 @@ public class MarkerCreateService {
   }
 
   private MarkerCreateResult createNewMarker(MarkerCreateRequest request, MarkerRequestContext context) {
-    markerWriteGuardPort.requireCreateAccess(request.incidentId(), request.opId(), context);
+    UUID dutyShiftId =
+        markerWriteGuardPort.requireCreateAccess(request.incidentId(), request.opId(), context);
 
     UUID opId = validateOpBinding(request.incidentId(), request.opId());
     MarkerGeoJsonPoint canonicalLocation = request.location().canonical();
@@ -232,7 +233,7 @@ public class MarkerCreateService {
             request.incidentId(),
             markerId,
             opId,
-            null,
+            dutyShiftId,
             markerType,
             supportRequestType,
             location,

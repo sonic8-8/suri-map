@@ -1,7 +1,6 @@
 package com.surimap.app.service.searcharea;
 
 import com.surimap.app.service.searcharea.request.SearchAreaBoundaryAlertServiceRequest;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
@@ -51,20 +50,17 @@ public class AppSearchAreaBoundaryAlertService {
   private final SearchAreaBoundaryAlertMapper mapper;
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
-  private final PolicePhoneValidationPort policePhoneValidationPort;
   private final EventHub eventHub;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
   private final IdempotentResponseCache idempotentResponseCache;
   private final Clock clock;
-  private final GeometryFactory geometryFactory =
-      new GeometryFactory(new PrecisionModel(), 4326);
+  private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
   public AppSearchAreaBoundaryAlertService(
       SearchAreaBoundaryAlertMapper mapper,
       OperationalPeriodQuery operationalPeriodQuery,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      PolicePhoneValidationPort policePhoneValidationPort,
       EventHub eventHub,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher,
@@ -73,7 +69,6 @@ public class AppSearchAreaBoundaryAlertService {
     this.mapper = mapper;
     this.operationalPeriodQuery = operationalPeriodQuery;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
-    this.policePhoneValidationPort = policePhoneValidationPort;
     this.eventHub = eventHub;
     this.fcmTokenQuery = fcmTokenQuery;
     this.fcmDispatcher = fcmDispatcher;
@@ -114,11 +109,9 @@ public class AppSearchAreaBoundaryAlertService {
     if (!currentOp.opId().equals(request.opId())) {
       throw new SearchAreaBoundaryAlertException("op_mismatch");
     }
-    policePhoneValidationPort.checkRegistered(request.policePhoneId());
-
     SearchAreaBoundaryAlertContextRow context =
         mapper
-            .findAssignedTeamAreaContext(request.searchAreaId(), request.policePhoneId())
+            .findAssignedTeamAreaContext(request.searchAreaId(), request.accountId())
             .orElseThrow(() -> new SearchAreaBoundaryAlertException("team_not_assigned"));
     if (!context.incidentId().equals(request.incidentId())) {
       throw new SearchAreaBoundaryAlertException("incident_access_denied");
@@ -174,7 +167,8 @@ public class AppSearchAreaBoundaryAlertService {
     if (request.incidentId() == null
         || request.opId() == null
         || request.searchAreaId() == null
-        || request.policePhoneId() == null) {
+        || request.policePhoneId() == null
+        || request.accountId() == null) {
       throw new SearchAreaBoundaryAlertException("write_conflict");
     }
     if (!ALERT_TYPE_OUTSIDE.equals(request.alertType())
@@ -187,7 +181,10 @@ public class AppSearchAreaBoundaryAlertService {
   }
 
   private boolean validCoordinate(BigDecimal lon, BigDecimal lat) {
-    if (lon == null || lat == null || lon.scale() > COORDINATE_SCALE || lat.scale() > COORDINATE_SCALE) {
+    if (lon == null
+        || lat == null
+        || lon.scale() > COORDINATE_SCALE
+        || lat.scale() > COORDINATE_SCALE) {
       return false;
     }
     return lon.compareTo(BigDecimal.valueOf(-180)) >= 0
@@ -213,7 +210,11 @@ public class AppSearchAreaBoundaryAlertService {
   private void dispatchFcm(SearchAreaBoundaryAlertResult result) {
     List<FcmTokenRow> tokens = fcmTokenQuery.activeByPolicePhone(result.policePhoneId());
     List<String> recipients =
-        tokens.stream().map(FcmTokenRow::tokenCiphertext).map(this::decryptToken).distinct().toList();
+        tokens.stream()
+            .map(FcmTokenRow::tokenCiphertext)
+            .map(this::decryptToken)
+            .distinct()
+            .toList();
     if (recipients.isEmpty()) {
       return;
     }
@@ -250,7 +251,8 @@ public class AppSearchAreaBoundaryAlertService {
 
   private UUID eventIdFor(UUID alertId, long version) {
     return UUID.nameUUIDFromBytes(
-        ("search-area-boundary-alert:" + alertId + ":v" + version).getBytes(StandardCharsets.UTF_8));
+        ("search-area-boundary-alert:" + alertId + ":v" + version)
+            .getBytes(StandardCharsets.UTF_8));
   }
 
   private String decryptToken(String tokenCiphertext) {

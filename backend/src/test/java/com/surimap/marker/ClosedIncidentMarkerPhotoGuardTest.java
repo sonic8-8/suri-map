@@ -412,7 +412,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
   private static final class ClosedMarkerWriteGuard implements MarkerWriteGuardPort {
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
       throw closed();
     }
 

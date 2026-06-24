@@ -29,8 +29,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.locationtech.jts.geom.Point;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -332,9 +332,9 @@ public class MarkerUpdateDeleteService {
   }
 
   private UUID eventPolicePhoneId(MarkerRecord marker, MarkerMutationContext mutationContext) {
-    return marker.getPolicePhoneId() == null
-        ? mutationContext.policePhoneId()
-        : marker.getPolicePhoneId();
+    return mutationContext.policePhoneId() == null
+        ? marker.getPolicePhoneId()
+        : mutationContext.policePhoneId();
   }
 
   private Instant serverTs() {

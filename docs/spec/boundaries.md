@@ -13,7 +13,7 @@
 
 - 사건은 사용자가 직접 만들지 않는다. MVP/시연은 112/실종프로파일링 mock·seed 배정 사건을 가져온다.
 - 계정은 개인 계정 기준이다. 팀·순찰차·지휘 맥락은 사건 배정 역할, 조직, PolicePhone 단말 컨텍스트로만 파생한다.
-- GPS 경로의 기록 주체는 개인 `accountId`이며, `PolicePhone`은 단말 인증·배정·전송 컨텍스트다.
+- GPS 경로의 기록 주체는 개인 `accountId`이며, `PolicePhone`은 등록 단말 확인과 전송·감사 컨텍스트다.
 - 지도 기준 범위는 `search_area.area_level=OVERALL`로 관리한다. 별도 `map_boundary` resource를 만들지 않는다.
 - 시스템은 수색 누락을 자동 확정하지 않고, 다음 투입 구역을 자동 지시하지 않는다.
 - OP(Operation Period)는 사건 내 수색 차수와 인수인계의 기준이다.
@@ -265,7 +265,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - Login/logout establishes `SecurityContext` fields used by `@RequireIncidentAccess`, `@RequireRole`, and `@RequireChannel`.
-- App-only PolicePhone APIs reject missing, unregistered, or unassigned police phones with the matching guard error code.
+- App-only PolicePhone context rejects missing or unregistered police phones with the matching guard error code. APIs that require active account duty shift return `police_phone_not_assigned` for account/OP assignment failures.
 - `POST /police-phones/{policePhoneId}/heartbeat` updates the single freshness source and emits `POLICE_PHONE_HEARTBEAT_UPDATED`.
 - `POST /fcm/tokens` stores tokens for authenticated app police phones without granting notification routing ownership.
 
@@ -486,7 +486,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- Search path start/end APIs require app channel, assigned PolicePhone, open incident, idempotency key, and current OP.
+- Search path start/end APIs require app channel, registered PolicePhone, active account duty shift for the current OP, open incident, and idempotency key.
 - `POST /api/search-paths/batch` records account-based path points with `accountId`, `policePhoneId`, `opId`, sequence, and timestamps.
 - Path writes publish the matching `PublishRequest.*` contract and can be replayed from S6 Outbox without duplication.
 - `PATCH /api/search-path-segments/{searchPathSegmentId}` applies only the allowed channel policy and emits `PATH_SEGMENT_UPDATED`.
@@ -501,7 +501,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **nfr**
 
 - GPS 수집 및 경로 서버 전송 주기는 `spec/boundaries.md §4.2 Time, Limits, Retention` 기준 적용.
-- 경로 기록 주체는 `accountId`이며, `policePhoneId`는 앱 단말 인증·배정·전송 컨텍스트로 함께 남긴다.
+- 경로 기록 주체는 `accountId`이며, `policePhoneId`는 등록 단말 확인과 전송·감사 컨텍스트로 함께 남긴다.
 - 차량·도보 구간은 GPS 속도 기반으로 자동 분리한다.
 - 구간 유형 수동 보정 채널은 S1-2 `@RequireChannel` 기준 적용.
 - `opId`는 수집 시점 current OP 기준이다. 서버 current OP와 불일치하면 `409 op_mismatch`를 반환한다.
@@ -709,7 +709,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- `POST /api/markers` accepts app-channel marker writes with current OP, assigned PolicePhone, idempotency, valid marker location, and staged photo attach when `id/photos` are supplied.
+- `POST /api/markers` accepts app-channel marker writes with registered PolicePhone, incident access by `accountId`, current OP, idempotency, valid marker location, and staged photo attach when `id/photos` are supplied.
 - Photo upload URL/attach APIs enforce count, size, and TTL limits while keeping official evidence storage out of scope. `POST /api/markers/photos/upload-url` is the marker-create staged upload-url path and `POST /api/markers/{markerId}/photos/upload-url` remains the existing marker detail path.
 - Marker create/update/delete publishes the matching `PublishRequest.*` contract and updates `MarkerQuery.byIncident`.
 - `NotificationRecipientResolver` and `NotificationPayloadFactory` produce marker-derived delivery rows or assignment FCM payload input without owning fanout orchestration.

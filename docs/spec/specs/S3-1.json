@@ -58,7 +58,7 @@
       {
         "item": "PolicePhone 자체를 경로 기록 주체로 사용하는 모델",
         "owner": "S3-1",
-        "reason": "경로 기록 주체는 로그인 accountId이며 PolicePhone은 앱 단말 인증·배정·전송 컨텍스트로만 사용한다."
+        "reason": "경로 기록 주체는 로그인 accountId이며 PolicePhone은 등록 단말 확인과 전송 컨텍스트로만 사용한다."
       },
       {
         "item": "Android local store, Outbox, WorkManager, idempotency 구현",
@@ -91,7 +91,7 @@
     {
       "id": "FR-02",
       "summary": "사건에 배정된 팀 업무폰/순찰차 업무폰의 위치·이동 경로를 자동 기록한다.",
-      "handling": "POST /search-paths와 POST /search-paths/batch가 accountId를 경로 기록 주체로 저장하고 S1-2 policePhoneId는 단말 인증·배정·전송 컨텍스트로 함께 기록한다."
+      "handling": "POST /search-paths와 POST /search-paths/batch가 accountId를 경로 기록 주체로 저장하고 S1-2 policePhoneId는 등록 단말 확인과 전송 컨텍스트로 함께 기록한다."
     },
     {
       "id": "FR-04",
@@ -1682,7 +1682,7 @@
         "FR-02",
         "FR-34"
       ],
-      "given": "사건 OPEN, current OP 존재, 앱 세션에 등록·배정된 PolicePhone과 로그인 계정이 연결됨",
+      "given": "사건 OPEN, current OP 존재, 앱 세션에 등록된 PolicePhone과 로그인 계정이 존재함",
       "when": "앱이 수색 시작을 호출한다",
       "then": "search_path은 current OP와 accountId 기준 RECORDING으로 생성되고 SEARCH_PATH_STARTED가 같은 id/opId/accountId/policePhoneId/version을 포함해 발행된다.",
       "priority": "critical"
@@ -2007,7 +2007,7 @@
       {
         "name": "S3AppPolicePhoneGuardRejectsUnregisteredOrUnassignedPolicePhoneTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "미등록 PolicePhone 또는 사건/OP에 배정되지 않은 PolicePhone이 POST /search-paths 또는 POST /search-paths/batch를 호출하면 police_phone_not_registered/police_phone_not_assigned로 실패하고 path/segment row와 PublishRequest를 생성하지 않는다."
+        "scenario": "미등록 PolicePhone 또는 사건/OP의 활성 duty_shift가 없는 accountId가 POST /search-paths 또는 POST /search-paths/batch를 호출하면 police_phone_not_registered/police_phone_not_assigned로 실패하고 path/segment row와 PublishRequest를 생성하지 않는다."
       },
       {
         "name": "S3PublishRequestFailureDoesNotCommitPathRowsTest",

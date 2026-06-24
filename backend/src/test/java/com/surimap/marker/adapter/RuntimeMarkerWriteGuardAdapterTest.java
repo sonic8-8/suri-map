@@ -23,6 +23,7 @@ class RuntimeMarkerWriteGuardAdapterTest {
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110476");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220476");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("33333333-3333-3333-3333-333333330476");
 
   private final FakeMarkerRuntimeGuardMapper mapper = new FakeMarkerRuntimeGuardMapper();
   private final RuntimeMarkerWriteGuardAdapter guard = new RuntimeMarkerWriteGuardAdapter(mapper);
@@ -37,6 +38,25 @@ class RuntimeMarkerWriteGuardAdapterTest {
     appContext =
         new MarkerRequestContext(
             new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID), "idem-app-marker-patch");
+  }
+
+  @Test
+  @DisplayName("APP POST는 현재 계정의 활성 근무교대가 있으면 dutyShiftId를 반환한다")
+  void appCreateReturnsActiveDutyShiftForCurrentAccount() {
+    UUID dutyShiftId = guard.requireCreateAccess(INCIDENT_ID, OP_ID, appContext);
+
+    assertThat(dutyShiftId).isEqualTo(DUTY_SHIFT_ID);
+  }
+
+  @Test
+  @DisplayName("APP POST는 현재 계정의 활성 근무교대가 없으면 거부한다")
+  void appCreateRejectsMissingActiveDutyShift() {
+    mapper.activeDutyShiftId = null;
+
+    assertThatThrownBy(() -> guard.requireCreateAccess(INCIDENT_ID, OP_ID, appContext))
+        .isInstanceOfSatisfying(
+            MarkerApiException.class,
+            exception -> assertThat(exception.getError()).isEqualTo("police_phone_not_assigned"));
   }
 
   @Test
@@ -77,16 +97,15 @@ class RuntimeMarkerWriteGuardAdapterTest {
   }
 
   @Test
-  @DisplayName("APP PATCH는 다른 단말 현장 생성 마커 수정을 거부한다")
-  void appUpdateRejectsOtherPolicePhoneMarker() {
+  @DisplayName("APP PATCH는 같은 계정이 만든 marker라면 다른 등록 업무폰에서도 수정을 허용한다")
+  void appUpdateAllowsAnotherRegisteredPolicePhoneForSameAccountMarker() {
     mapper.markerSource = MarkerSource.APP;
     mapper.markerAccountId = ACCOUNT_ID;
     mapper.markerPolicePhoneId = UUID.fromString("22222222-2222-2222-2222-222222229999");
 
-    assertThatThrownBy(() -> guard.requireUpdateAccess(MARKER_ID, appContext))
-        .isInstanceOfSatisfying(
-            MarkerApiException.class,
-            exception -> assertThat(exception.getError()).isEqualTo("incident_access_denied"));
+    MarkerMutationContext mutationContext = guard.requireUpdateAccess(MARKER_ID, appContext);
+
+    assertThat(mutationContext.policePhoneId()).isEqualTo(POLICE_PHONE_ID);
   }
 
   private static final class FakeMarkerRuntimeGuardMapper implements MarkerRuntimeGuardMapper {
@@ -94,6 +113,7 @@ class RuntimeMarkerWriteGuardAdapterTest {
     private MarkerSource markerSource = MarkerSource.MOCK_SEED;
     private UUID markerAccountId = ACCOUNT_ID;
     private UUID markerPolicePhoneId = POLICE_PHONE_ID;
+    private UUID activeDutyShiftId = DUTY_SHIFT_ID;
 
     @Override
     public Optional<String> findIncidentStatus(UUID incidentId) {
@@ -126,8 +146,11 @@ class RuntimeMarkerWriteGuardAdapterTest {
     }
 
     @Override
-    public int countRegisteredPolicePhone(UUID policePhoneId) {
-      return POLICE_PHONE_ID.equals(policePhoneId) ? 1 : 0;
+    public Optional<UUID> findActiveDutyShiftIdByAccount(UUID opId, UUID accountId) {
+      if (OP_ID.equals(opId) && ACCOUNT_ID.equals(accountId)) {
+        return Optional.ofNullable(activeDutyShiftId);
+      }
+      return Optional.empty();
     }
   }
 }

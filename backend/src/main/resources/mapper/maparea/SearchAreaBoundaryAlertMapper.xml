@@ -29,14 +29,10 @@
           ON assignment.search_area_id = area.id
          AND assignment.status = 'ACTIVE'
          AND assignment.revoked_at IS NULL
-        JOIN police_phone phone
-          ON phone.account_id = assignment.assigned_account_id
-         AND phone.status = 'ACTIVE'
-         AND phone.registered = TRUE
         WHERE area.id = #{searchAreaId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND area.area_level = 'TEAM'
           AND area.status = 'ACTIVE'
-          AND phone.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND assignment.assigned_account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY assignment.assigned_at DESC, assignment.id ASC
         LIMIT 1
     </select>

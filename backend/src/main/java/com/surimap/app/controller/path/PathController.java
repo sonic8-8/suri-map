@@ -6,12 +6,15 @@ import com.surimap.app.controller.path.response.PatchSearchPathResponse;
 import com.surimap.app.controller.path.response.StartSearchPathResponse;
 import com.surimap.app.service.path.AppSearchPathCommandService;
 import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import java.util.UUID;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,18 +34,24 @@ public class PathController {
   }
 
   @PostMapping
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<StartSearchPathResponse> start(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody StartSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    UUID accountId = currentAppAccountIdOrNull();
+    UUID accountId = currentAppAccountId(policePhoneId);
     var created = service.start(request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(StartSearchPathResponse.from(created));
   }
 
   @PatchMapping("/{searchPathId}")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<PatchSearchPathResponse> patch(
       @PathVariable UUID searchPathId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
@@ -50,9 +59,10 @@ public class PathController {
       @RequestBody PatchSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    UUID accountId = currentAppAccountIdOrNull();
+    UUID accountId = currentAppAccountId(policePhoneId);
     var patched =
-        service.patch(searchPathId, policePhoneId, accountId, request.toServiceRequest(idempotencyKey));
+        service.patch(
+            searchPathId, policePhoneId, accountId, request.toServiceRequest(idempotencyKey));
     return ResponseEntity.ok(PatchSearchPathResponse.from(patched));
   }
 
@@ -62,14 +72,27 @@ public class PathController {
     }
   }
 
-  private UUID currentAppAccountIdOrNull() {
+  private UUID currentAppAccountId(UUID policePhoneId) {
     var current = SecurityContextHolder.getContext().getAuthentication();
     if (current instanceof SuriMapAuthentication authentication) {
       if (authentication.getChannel() == Channel.WEB) {
-        return null;
+        throw new SearchPathGuardException("channel_not_allowed");
       }
+      validatePolicePhoneBinding(policePhoneId, authentication);
       return UUID.fromString(authentication.getAccountId());
     }
     throw new SearchPathGuardException("channel_not_allowed");
+  }
+
+  private void validatePolicePhoneBinding(
+      UUID policePhoneId, SuriMapAuthentication authentication) {
+    try {
+      if (policePhoneId.equals(UUID.fromString(authentication.getPolicePhoneId()))) {
+        return;
+      }
+    } catch (RuntimeException exception) {
+      throw new SearchPathGuardException("police_phone_required");
+    }
+    throw new SearchPathGuardException("police_phone_required");
   }
 }

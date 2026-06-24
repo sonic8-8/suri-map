@@ -9,7 +9,6 @@ import com.surimap.domain.path.SearchPathEventType;
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
-import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
@@ -33,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class AppSearchPathCommandService {
 
   private final OperationalPeriodQuery opQuery;
-  private final PolicePhoneGuard policePhoneGuard;
   private final SearchPathEventPublisher eventPublisher;
   private final SearchPathMapper searchPathMapper;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -41,29 +39,24 @@ public class AppSearchPathCommandService {
   private final Map<String, IdempotencyEntry> idempotencyEntries = new ConcurrentHashMap<>();
 
   public AppSearchPathCommandService(
-      OperationalPeriodQuery opQuery,
-      PolicePhoneGuard policePhoneGuard,
-      SearchPathEventPublisher eventPublisher) {
-    this(opQuery, policePhoneGuard, eventPublisher, null);
+      OperationalPeriodQuery opQuery, SearchPathEventPublisher eventPublisher) {
+    this(opQuery, eventPublisher, null);
   }
 
   public AppSearchPathCommandService(
       OperationalPeriodQuery opQuery,
-      PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper) {
-    this(opQuery, policePhoneGuard, eventPublisher, searchPathMapper, (IdempotentResponseCache) null);
+    this(opQuery, eventPublisher, searchPathMapper, (IdempotentResponseCache) null);
   }
 
   public AppSearchPathCommandService(
       OperationalPeriodQuery opQuery,
-      PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         opQuery,
-        policePhoneGuard,
         eventPublisher,
         searchPathMapper,
         idempotentResponseCacheProvider.getIfAvailable());
@@ -71,12 +64,10 @@ public class AppSearchPathCommandService {
 
   private AppSearchPathCommandService(
       OperationalPeriodQuery opQuery,
-      PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper,
       IdempotentResponseCache idempotentResponseCache) {
     this.opQuery = opQuery;
-    this.policePhoneGuard = policePhoneGuard;
     this.eventPublisher = eventPublisher;
     this.searchPathMapper = searchPathMapper;
     this.idempotentResponseCache = idempotentResponseCache;
@@ -102,13 +93,9 @@ public class AppSearchPathCommandService {
     if (!currentOp.opId().equals(request.opId())) {
       throw new SearchPathGuardException("op_mismatch");
     }
-    policePhoneGuard.requireAssigned(request.policePhoneId(), request.opId());
     UUID accountId = request.accountId();
-    if (accountId == null && searchPathMapper != null) {
-      accountId =
-          searchPathMapper
-              .findActiveDutyShiftAccountId(request.opId(), request.policePhoneId())
-              .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
+    if (accountId == null) {
+      throw new SearchPathGuardException("channel_not_allowed");
     }
 
     SearchPath path =
@@ -138,10 +125,14 @@ public class AppSearchPathCommandService {
 
   @Transactional
   public SearchPath patch(
-      UUID searchPathId, UUID policePhoneId, UUID accountId, PatchSearchPathServiceRequest request) {
+      UUID searchPathId,
+      UUID policePhoneId,
+      UUID accountId,
+      PatchSearchPathServiceRequest request) {
     requireIdempotencyKey(request.idempotencyKey());
     String fingerprint =
-        fingerprint("patch:" + request.action() + ":" + searchPathId + ":" + policePhoneId, request);
+        fingerprint(
+            "patch:" + request.action() + ":" + searchPathId + ":" + policePhoneId, request);
     return replayOrRun(
         request.idempotencyKey(),
         fingerprint,
@@ -153,16 +144,28 @@ public class AppSearchPathCommandService {
   @Transactional
   public SearchPath end(
       UUID searchPathId, UUID policePhoneId, EndSearchPathServiceRequest request) {
+    return end(searchPathId, policePhoneId, null, request);
+  }
+
+  @Transactional
+  public SearchPath end(
+      UUID searchPathId, UUID policePhoneId, UUID accountId, EndSearchPathServiceRequest request) {
     return patch(
         searchPathId,
         policePhoneId,
-        null,
+        accountId,
         new PatchSearchPathServiceRequest(
             SearchPathLifecycleAction.END, request.endedAt(), request.idempotencyKey()));
   }
 
   private SearchPath patchLoadedPath(
-      UUID searchPathId, UUID policePhoneId, UUID accountId, PatchSearchPathServiceRequest request) {
+      UUID searchPathId,
+      UUID policePhoneId,
+      UUID accountId,
+      PatchSearchPathServiceRequest request) {
+    if (accountId == null) {
+      throw new SearchPathGuardException("channel_not_allowed");
+    }
     SearchPath current = loadPersistedPath(searchPathId);
     if (current == null) {
       current = activePaths.get(searchPathId);
@@ -170,14 +173,10 @@ public class AppSearchPathCommandService {
     if (current == null) {
       throw new SearchPathGuardException("write_conflict");
     }
-    if (!current.policePhoneId().equals(policePhoneId)) {
-      throw new SearchPathGuardException("police_phone_not_assigned");
-    }
-    if (accountId != null && current.accountId() != null && !current.accountId().equals(accountId)) {
+    if (current.accountId() != null && !current.accountId().equals(accountId)) {
       throw new SearchPathGuardException("write_conflict");
     }
-    policePhoneGuard.requireAssigned(policePhoneId, current.opId());
-    return transition(current, request);
+    return transition(current, request, policePhoneId);
   }
 
   @Transactional
@@ -190,6 +189,11 @@ public class AppSearchPathCommandService {
 
   @Transactional
   public SearchPath transition(SearchPath current, PatchSearchPathServiceRequest request) {
+    return transition(current, request, current.policePhoneId());
+  }
+
+  private SearchPath transition(
+      SearchPath current, PatchSearchPathServiceRequest request, UUID actorPolicePhoneId) {
     SearchPathStatus nextStatus = nextStatus(current.status(), request.action());
     Instant clientTs = request.clientTs() == null ? Instant.now() : request.clientTs();
     SearchPath patched =
@@ -197,7 +201,7 @@ public class AppSearchPathCommandService {
             current.id(),
             current.incidentId(),
             current.opId(),
-            current.policePhoneId(),
+            actorPolicePhoneId,
             current.accountId(),
             nextStatus,
             current.version() + 1,
@@ -216,22 +220,13 @@ public class AppSearchPathCommandService {
       return;
     }
     UUID accountId = path.accountId();
-    UUID dutyShiftId;
-    if (accountId != null) {
-      dutyShiftId =
-          searchPathMapper
-              .findActiveDutyShiftIdByAccountAndPhone(path.opId(), accountId, path.policePhoneId())
-              .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
-    } else {
-      dutyShiftId =
-          searchPathMapper
-              .findActiveDutyShiftId(path.opId(), path.policePhoneId())
-              .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
-      accountId =
-          searchPathMapper
-              .findActiveDutyShiftAccountId(path.opId(), path.policePhoneId())
-              .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
+    if (accountId == null) {
+      throw new SearchPathGuardException("channel_not_allowed");
     }
+    UUID dutyShiftId =
+        searchPathMapper
+            .findActiveDutyShiftIdByAccount(path.opId(), accountId)
+            .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
     searchPathMapper.insertPath(
         new SearchPathPersistenceRecord(
             path.id(),

@@ -333,7 +333,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: no
 - Query: `incidentId`, `opId`, `policePhoneId`, `accountId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
 - Response: `200 {paths[{id, incidentId, opId, dutyShiftId, policePhoneId, accountId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
-- Note: `search_path.accountId`가 경로 기록 주체이며, `policePhoneId`는 앱 단말 인증·배정·전송 컨텍스트다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
+- Note: `search_path.accountId`가 경로 기록 주체이며, `policePhoneId`는 등록된 업무폰에서 온 요청인지 확인하고 단말 이력을 남기는 컨텍스트다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`
@@ -412,7 +412,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `POST /markers`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned, incident access, current OP, idempotent write
+- Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
 - Idempotency-Key: yes
 - Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
@@ -462,7 +462,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `POST /markers/photos/upload-url`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned, incident access, current OP, idempotent write
+- Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
 - Idempotency-Key: yes
 - Request: `markerId`, `incidentId`, `opId`, `contentType`, `sizeBytes`, optional `checksumSha256`
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`

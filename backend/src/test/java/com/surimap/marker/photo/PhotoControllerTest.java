@@ -3,6 +3,7 @@ package com.surimap.marker.photo;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
+import com.surimap.common.auth.guard.PolicePhoneValidationPort;
+import com.surimap.config.GuardConfig;
 import com.surimap.marker.photo.controller.PhotoController;
 import com.surimap.marker.photo.controller.PhotoRequestContextResolver;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
@@ -25,6 +30,7 @@ import com.surimap.marker.photo.exception.PhotoExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
 import com.surimap.marker.photo.service.PhotoService;
+import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,8 +47,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PhotoController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({PhotoExceptionHandler.class, PhotoRequestContextResolver.class})
+@Import({PhotoExceptionHandler.class, PhotoRequestContextResolver.class, GuardConfig.class})
 @DisplayName("사진 upload-url/attach API")
+@WithMockAccount(
+    accountId = "00000000-0000-0000-0000-000000000501",
+    policePhoneId = "00000000-0000-0000-0000-000000000601")
 class PhotoControllerTest {
 
   private static final UUID MARKER_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
@@ -61,6 +70,7 @@ class PhotoControllerTest {
 
   @MockitoBean private PhotoService photoService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
+  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
 
   @BeforeEach
   void setUp() {
@@ -115,6 +125,29 @@ class PhotoControllerTest {
   }
 
   @Test
+  @DisplayName("APP upload-url은 미등록 업무폰이면 서비스 호출 전에 거부한다")
+  void unregisteredPolicePhoneRejectedBeforePhotoService() throws Exception {
+    doThrow(new PolicePhoneNotRegisteredException())
+        .when(policePhoneValidationPort)
+        .checkRegistered(POLICE_PHONE_ID);
+
+    mockMvc
+        .perform(
+            post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-photo-upload-url-unregistered")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"contentType\":\"image/jpeg\",\"sizeBytes\":1048576}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
+
+    verifyNoInteractions(photoService);
+  }
+
+  @Test
+  @WithMockAccount(accountId = "00000000-0000-0000-0000-000000000501", channel = Channel.WEB)
   @DisplayName("WEB upload-url 요청은 channel_not_allowed로 거부한다")
   void webUploadUrlRejected() throws Exception {
     mockMvc

@@ -1318,7 +1318,7 @@
       {
         "from_spec": "S1-2",
         "interface": "SecurityContext, @RequireChannel, @RequirePolicePhone, FcmTokenQuery.activeByPolicePhone(policePhoneId)",
-        "usage": "앱 전용 마커 생성, PolicePhone 기준 작성자 기록, FCM token 조회"
+        "usage": "앱 전용 마커 생성, accountId 기준 작성자 기록, policePhoneId 단말 컨텍스트 기록, FCM token 조회"
       },
       {
         "from_spec": "S2",
@@ -1995,7 +1995,7 @@
       "MarkerQuery.byIncident는 incidentId/opId/type/status filter로 상황판 marker slot에 필요한 데이터를 p95 1초 이내 반환하는 것을 목표로 한다."
     ],
     "security": [
-      "POST /markers와 photo upload는 APP channel과 registered/assigned PolicePhone를 요구한다.",
+      "POST /markers와 photo upload는 APP channel, registered PolicePhone, accountId 기준 사건/마커 접근 권한을 요구한다.",
       "사진 object key는 incidentId/markerId 기반 namespace를 사용하고 upload URL TTL은 15분이다.",
       "지원 요청은 실제 외부 출동 요청이 아니며 외부 장비 API credential을 보관하지 않는다."
     ],
@@ -2014,7 +2014,7 @@
       {
         "name": "PhotoApiPolicePhoneGuardTest",
         "framework": "JUnit 5 + Spring MVC test",
-        "scenario": "photo 업로드용 presigned URL 발급/attach는 APP channel과 registered/assigned PolicePhone만 허용하며 WEB, 미등록 PolicePhone, 미배정 PolicePhone는 channel_not_allowed/police_phone_not_registered/police_phone_not_assigned로 실패하고 photo row를 완료 상태로 바꾸지 않는다."
+        "scenario": "photo 업로드용 presigned URL 발급/attach는 APP channel, registered PolicePhone, accountId 기준 마커 접근 권한만 허용하며 WEB, 미등록 PolicePhone, 권한 없는 계정은 channel_not_allowed/police_phone_not_registered/incident_access_denied로 실패하고 photo row를 완료 상태로 바꾸지 않는다."
       },
       {
         "name": "MarkerGeometryValidationTest",

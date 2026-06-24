@@ -12,18 +12,21 @@ public class SearchPathExceptionHandler {
 
   @ExceptionHandler(SearchPathApiException.class)
   ResponseEntity<Map<String, String>> handleApi(SearchPathApiException exception) {
-    return ResponseEntity.status(status(exception.errorCode())).body(Map.of("error", exception.errorCode()));
+    return ResponseEntity.status(status(exception.errorCode()))
+        .body(Map.of("error", exception.errorCode()));
   }
 
   @ExceptionHandler(InvalidGpsPathBatchException.class)
   ResponseEntity<Map<String, String>> handleInvalidBatch(InvalidGpsPathBatchException exception) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", exception.errorCode()));
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(Map.of("error", exception.errorCode()));
   }
 
   private HttpStatus status(String code) {
     return switch (code) {
       case "police_phone_required" -> HttpStatus.BAD_REQUEST;
-      case "incident_access_denied" -> HttpStatus.FORBIDDEN;
+      case "channel_not_allowed", "incident_access_denied", "police_phone_not_registered" ->
+          HttpStatus.FORBIDDEN;
       default -> HttpStatus.CONFLICT;
     };
   }

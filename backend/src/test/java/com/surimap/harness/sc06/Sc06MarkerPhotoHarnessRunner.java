@@ -359,12 +359,13 @@ public class Sc06MarkerPhotoHarnessRunner {
     private SuriMapAuthentication authentication;
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
       createAccessChecked = true;
       authentication = context.authentication();
       if (!"APP".equals(authentication.channel())) {
         throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
       }
+      return null;
     }
 
     @Override

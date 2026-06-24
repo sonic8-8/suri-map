@@ -8,7 +8,11 @@ import com.surimap.app.service.path.request.EndSearchPathServiceRequest;
 import com.surimap.app.service.path.request.PatchSearchPathServiceRequest;
 import com.surimap.app.service.path.request.SearchPathLifecycleAction;
 import com.surimap.app.service.path.request.StartSearchPathServiceRequest;
-import com.surimap.domain.path.port.PolicePhoneGuard;
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.OrganizationType;
+import com.surimap.common.auth.Role;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
@@ -26,8 +30,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @DisplayName("SearchPath MyBatis persistence")
 @Tag("integration")
@@ -35,8 +41,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
 
   private static final UUID INCIDENT_ID = SearchPathFixtures.INCIDENT_ID;
   private static final UUID OP_ID = UUID.fromString("65000000-0000-0000-0000-000000002621");
-  private static final UUID DUTY_SHIFT_ID =
-      UUID.fromString("60000000-0000-0000-0000-000000002621");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("60000000-0000-0000-0000-000000002621");
   private static final UUID INCIDENT_ASSIGNMENT_ID =
       UUID.fromString("61000000-0000-0000-0000-000000002621");
   private static final UUID ACCOUNT_ID = UUID.fromString("62000000-0000-0000-0000-000000002621");
@@ -54,8 +59,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
 
   @Autowired private AppSearchPathCommandService appCommandService;
   @Autowired private OperationalPeriodQuery operationalPeriodQuery;
-  @Autowired private PolicePhoneGuard policePhoneGuard;
-  @Autowired private SearchPathEventPublisher searchPathEventPublisher;
+  @Autowired @Autowired private SearchPathEventPublisher searchPathEventPublisher;
   @Autowired private SearchPathMapper searchPathMapper;
   @Autowired private SearchPathService searchPathService;
   @Autowired private SearchPathController searchPathController;
@@ -66,20 +70,26 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   void cleanAndSeedPathContext() {
     jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
     jdbcTemplate.execute(
-        "TRUNCATE TABLE event_dispatch_job, search_area_boundary_alert, search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
-    jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", OTHER_DUTY_SHIFT_ID.toString());
+        "TRUNCATE TABLE event_dispatch_job, search_area_boundary_alert,"
+            + " search_path_lifecycle_event, search_path_excluded_point, search_path_segment,"
+            + " search_path");
+    jdbcTemplate.update(
+        "DELETE FROM duty_shift WHERE id = ?::uuid", OTHER_DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
-        "DELETE FROM incident_assignment WHERE id = ?::uuid", OTHER_INCIDENT_ASSIGNMENT_ID.toString());
+        "DELETE FROM incident_assignment WHERE id = ?::uuid",
+        OTHER_INCIDENT_ASSIGNMENT_ID.toString());
     jdbcTemplate.update(
         "DELETE FROM incident_assignment WHERE id = ?::uuid", INCIDENT_ASSIGNMENT_ID.toString());
-    jdbcTemplate.update("DELETE FROM police_phone WHERE id = ?::uuid", OTHER_POLICE_PHONE_ID.toString());
+    jdbcTemplate.update(
+        "DELETE FROM police_phone WHERE id = ?::uuid", OTHER_POLICE_PHONE_ID.toString());
     jdbcTemplate.update(
         "DELETE FROM police_phone WHERE phone_code = ?", SearchPathFixtures.POLICE_PHONE_ALIAS);
     jdbcTemplate.update("DELETE FROM police_phone WHERE id = ?::uuid", POLICE_PHONE_ID.toString());
     jdbcTemplate.update("DELETE FROM account WHERE id = ?::uuid", ACCOUNT_ID.toString());
-    jdbcTemplate.update("DELETE FROM account WHERE id = ?::uuid", CORRECTED_BY_ACCOUNT_ID.toString());
+    jdbcTemplate.update(
+        "DELETE FROM account WHERE id = ?::uuid", CORRECTED_BY_ACCOUNT_ID.toString());
     jdbcTemplate.update("DELETE FROM incident WHERE id = ?::uuid", INCIDENT_ID.toString());
 
     jdbcTemplate.update(
@@ -224,7 +234,13 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     var created =
         appCommandService.start(
             new StartSearchPathServiceRequest(
-                INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-262"));
+                null,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-start-262"));
 
     Map<String, Object> row =
         jdbcTemplate.queryForMap(
@@ -253,28 +269,44 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   }
 
   @Test
-  @DisplayName("start rejects a police phone whose active duty shift belongs to another account")
-  void start_rejects_police_phone_owned_by_other_account() {
+  @DisplayName("start는 사건에 배치된 계정이면 다른 등록 업무폰 요청도 허용한다")
+  void start_allows_registered_phone_when_account_is_assigned_to_incident() {
     seedOtherAccountDutyShift();
 
-    assertThatThrownBy(
-            () ->
-                appCommandService.start(
-                    new StartSearchPathServiceRequest(
-                        null,
-                        INCIDENT_ID,
-                        OP_ID,
-                        OTHER_POLICE_PHONE_ID,
-                        ACCOUNT_ID,
-                        STARTED_AT,
-                        "idem-path-start-phone-owner-mismatch")))
-        .isInstanceOf(com.surimap.domain.path.exception.SearchPathGuardException.class)
-        .satisfies(
-            exception ->
-                assertThat(
-                        ((com.surimap.domain.path.exception.SearchPathGuardException) exception)
-                            .errorCode())
-                    .isEqualTo("police_phone_not_assigned"));
+    var created =
+        appCommandService.start(
+            new StartSearchPathServiceRequest(
+                null,
+                INCIDENT_ID,
+                OP_ID,
+                OTHER_POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-start-phone-owner-mismatch"));
+
+    Map<String, Object> row =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT sp.id,
+                   sp.duty_shift_id,
+                   ds.police_phone_id
+            FROM search_path sp
+            JOIN duty_shift ds ON ds.id = sp.duty_shift_id
+            WHERE sp.id = ?::uuid
+            """,
+            created.id().toString());
+
+    assertThat(row.get("id")).isEqualTo(created.id());
+    assertThat(row.get("duty_shift_id")).isEqualTo(DUTY_SHIFT_ID);
+    assertThat(row.get("police_phone_id")).isEqualTo(POLICE_PHONE_ID);
+
+    PathQueryRow queried =
+        searchPathService
+            .query(INCIDENT_ID, OP_ID, OTHER_POLICE_PHONE_ID, ACCOUNT_ID)
+            .paths()
+            .get(0);
+    assertThat(queried.id()).isEqualTo(created.id());
+    assertThat(queried.policePhoneId()).isEqualTo(OTHER_POLICE_PHONE_ID);
   }
 
   @Test
@@ -283,15 +315,22 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     var created =
         appCommandService.start(
             new StartSearchPathServiceRequest(
-                INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-262"));
+                null,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-start-262"));
     AppSearchPathCommandService restartedService =
         new AppSearchPathCommandService(
-            operationalPeriodQuery, policePhoneGuard, searchPathEventPublisher, searchPathMapper);
+            operationalPeriodQuery, searchPathEventPublisher, searchPathMapper);
 
     var ended =
         restartedService.end(
             created.id(),
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new EndSearchPathServiceRequest(STARTED_AT.plusSeconds(60), "idem-path-end-262"));
 
     Map<String, Object> row =
@@ -317,15 +356,22 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     var created =
         appCommandService.start(
             new StartSearchPathServiceRequest(
-                INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-lifecycle"));
+                null,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-start-lifecycle"));
     AppSearchPathCommandService restartedService =
         new AppSearchPathCommandService(
-            operationalPeriodQuery, policePhoneGuard, searchPathEventPublisher, searchPathMapper);
+            operationalPeriodQuery, searchPathEventPublisher, searchPathMapper);
 
     var paused =
         restartedService.patch(
             created.id(),
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new PatchSearchPathServiceRequest(
                 SearchPathLifecycleAction.PAUSE,
                 STARTED_AT.plusSeconds(30),
@@ -334,6 +380,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         restartedService.patch(
             created.id(),
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new PatchSearchPathServiceRequest(
                 SearchPathLifecycleAction.RESUME,
                 STARTED_AT.plusSeconds(45),
@@ -368,7 +415,52 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(lifecycleRows)
         .extracting(lifecycle -> lifecycle.get("event_type"))
         .containsExactly("STARTED", "PAUSED", "RESUMED");
-    assertThat(lifecycleRows).extracting(lifecycle -> lifecycle.get("version")).containsExactly(1L, 2L, 3L);
+    assertThat(lifecycleRows)
+        .extracting(lifecycle -> lifecycle.get("version"))
+        .containsExactly(1L, 2L, 3L);
+  }
+
+  @Test
+  @DisplayName("pause는 요청한 등록 업무폰을 lifecycle actor로 남긴다")
+  void pause_records_request_police_phone_as_lifecycle_actor() {
+    seedOtherAccountDutyShift();
+    var created =
+        appCommandService.start(
+            new StartSearchPathServiceRequest(
+                null,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-start-lifecycle-actor"));
+    AppSearchPathCommandService restartedService =
+        new AppSearchPathCommandService(
+            operationalPeriodQuery, searchPathEventPublisher, searchPathMapper);
+
+    var paused =
+        restartedService.patch(
+            created.id(),
+            OTHER_POLICE_PHONE_ID,
+            ACCOUNT_ID,
+            new PatchSearchPathServiceRequest(
+                SearchPathLifecycleAction.PAUSE,
+                STARTED_AT.plusSeconds(30),
+                "idem-path-pause-lifecycle-actor"));
+
+    UUID pausedActorPhoneId =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT actor_police_phone_id
+            FROM search_path_lifecycle_event
+            WHERE search_path_id = ?::uuid
+              AND event_type = 'PAUSED'
+            """,
+            UUID.class,
+            created.id().toString());
+
+    assertThat(paused.policePhoneId()).isEqualTo(OTHER_POLICE_PHONE_ID);
+    assertThat(pausedActorPhoneId).isEqualTo(OTHER_POLICE_PHONE_ID);
   }
 
   @Test
@@ -377,16 +469,21 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     var started =
         appCommandService.start(
             new StartSearchPathServiceRequest(
-                PATH_ID, INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-event-start"));
+                PATH_ID,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                ACCOUNT_ID,
+                STARTED_AT,
+                "idem-path-event-start"));
     PathBatchAppendResponse batch =
-        searchPathController
-            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-event-batch", batchRequest())
-            .getBody();
+        appendBatchThroughController("idem-path-event-batch", batchRequest());
 
     var paused =
         appCommandService.patch(
             PATH_ID,
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new PatchSearchPathServiceRequest(
                 SearchPathLifecycleAction.PAUSE,
                 STARTED_AT.plusSeconds(60),
@@ -395,6 +492,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         appCommandService.patch(
             PATH_ID,
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new PatchSearchPathServiceRequest(
                 SearchPathLifecycleAction.RESUME,
                 STARTED_AT.plusSeconds(90),
@@ -403,6 +501,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         appCommandService.end(
             PATH_ID,
             POLICE_PHONE_ID,
+            ACCOUNT_ID,
             new EndSearchPathServiceRequest(STARTED_AT.plusSeconds(120), "idem-path-event-end"));
 
     assertThat(started.version()).isEqualTo(1L);
@@ -470,9 +569,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
   void segment_correction_stages_event_dispatch_job() {
     PathBatchAppendResponse batch =
-        searchPathController
-            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-event-segment-batch", batchRequest())
-            .getBody();
+        appendBatchThroughController("idem-path-event-segment-batch", batchRequest());
     String segmentId = batch.segments().get(0).id();
 
     searchPathSegmentController
@@ -525,12 +622,17 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   void start_idempotency_replay_survives_service_recreation() {
     StartSearchPathServiceRequest request =
         new StartSearchPathServiceRequest(
-            INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-db-replay");
+            null,
+            INCIDENT_ID,
+            OP_ID,
+            POLICE_PHONE_ID,
+            ACCOUNT_ID,
+            STARTED_AT,
+            "idem-path-start-db-replay");
     var created = appCommandService.start(request);
     AppSearchPathCommandService restartedService =
         new AppSearchPathCommandService(
             operationalPeriodQuery,
-            policePhoneGuard,
             searchPathEventPublisher,
             searchPathMapper,
             idempotentResponseCacheProvider);
@@ -547,15 +649,23 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   void start_same_key_different_body_is_rejected() {
     appCommandService.start(
         new StartSearchPathServiceRequest(
-            INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-mismatch"));
+            null,
+            INCIDENT_ID,
+            OP_ID,
+            POLICE_PHONE_ID,
+            ACCOUNT_ID,
+            STARTED_AT,
+            "idem-path-start-mismatch"));
 
     assertThatThrownBy(
             () ->
                 appCommandService.start(
                     new StartSearchPathServiceRequest(
+                        null,
                         INCIDENT_ID,
                         OP_ID,
                         POLICE_PHONE_ID,
+                        ACCOUNT_ID,
                         STARTED_AT.plusSeconds(1),
                         "idem-path-start-mismatch")))
         .isInstanceOf(IdempotencyMismatchException.class);
@@ -566,16 +676,10 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("batch append idempotency replay does not append geometry twice")
   void batch_append_idempotency_replay_does_not_append_twice() {
     PathBatchAppendResponse first =
-        searchPathController
-            .appendBatch(
-                POLICE_PHONE_ID.toString(), "idem-path-batch-db-replay", batchRequest())
-            .getBody();
+        appendBatchThroughController("idem-path-batch-db-replay", batchRequest());
 
     PathBatchAppendResponse replayed =
-        searchPathController
-            .appendBatch(
-                POLICE_PHONE_ID.toString(), "idem-path-batch-db-replay", batchRequest())
-            .getBody();
+        appendBatchThroughController("idem-path-batch-db-replay", batchRequest());
 
     assertThat(replayed).isEqualTo(first);
     Integer pointCount =
@@ -595,9 +699,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("segment correction idempotency replay does not increment segment twice")
   void segment_correction_idempotency_replay_does_not_increment_twice() {
     PathBatchAppendResponse batch =
-        searchPathController
-            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-batch-for-correction", batchRequest())
-            .getBody();
+        appendBatchThroughController("idem-path-batch-for-correction", batchRequest());
     String segmentId = batch.segments().get(0).id();
     PathSegmentCorrectionRequest request =
         new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction");
@@ -605,12 +707,18 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     PathSegmentCorrectionResponse first =
         searchPathSegmentController
             .correctSegment(
-                segmentId, CORRECTED_BY_ACCOUNT_ID.toString(), "idem-path-segment-db-replay", request)
+                segmentId,
+                CORRECTED_BY_ACCOUNT_ID.toString(),
+                "idem-path-segment-db-replay",
+                request)
             .getBody();
     PathSegmentCorrectionResponse replayed =
         searchPathSegmentController
             .correctSegment(
-                segmentId, CORRECTED_BY_ACCOUNT_ID.toString(), "idem-path-segment-db-replay", request)
+                segmentId,
+                CORRECTED_BY_ACCOUNT_ID.toString(),
+                "idem-path-segment-db-replay",
+                request)
             .getBody();
 
     assertThat(replayed).isEqualTo(first);
@@ -631,7 +739,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("batch append persists path geometry, version, and UUID segment rows")
   void batch_append_persists_path_and_segments() {
     PathBatchAppendResponse response =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
 
     Map<String, Object> pathRow =
         jdbcTemplate.queryForMap(
@@ -671,21 +779,24 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
             PATH_ID.toString());
 
     assertThat(segments).hasSize(2);
-    assertThat(segments).extracting(row -> row.get("movement_type")).containsExactly("VEHICLE", "FOOT");
-    assertThat(segments).allSatisfy(
-        row -> {
-          assertThat(row.get("id")).isInstanceOf(UUID.class);
-          assertThat(row.get("movement_type_source")).isEqualTo("AUTO");
-          assertThat(row.get("srid")).isEqualTo(4326);
-          assertThat(row.get("version")).isEqualTo(1L);
-        });
+    assertThat(segments)
+        .extracting(row -> row.get("movement_type"))
+        .containsExactly("VEHICLE", "FOOT");
+    assertThat(segments)
+        .allSatisfy(
+            row -> {
+              assertThat(row.get("id")).isInstanceOf(UUID.class);
+              assertThat(row.get("movement_type_source")).isEqualTo("AUTO");
+              assertThat(row.get("srid")).isEqualTo(4326);
+              assertThat(row.get("version")).isEqualTo(1L);
+            });
   }
 
   @Test
   @DisplayName("segment correction persists MANUAL movement source and increments segment version")
   void segment_correction_persists_manual_update() {
     PathBatchAppendResponse response =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
     SearchPathSegment target = response.segments().get(0);
 
     SegmentCorrectionResult corrected =
@@ -717,7 +828,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("single-point UNKNOWN segment persists as LineString and keeps query indexes")
   void single_point_segment_persists_and_reconstructs_indexes() {
     PathBatchAppendResponse response =
-        searchPathService.appendBatch(singlePointSegmentRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(singlePointSegmentRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
 
     assertThat(response.segments())
         .extracting(SearchPathSegment::movementType)
@@ -740,19 +851,19 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(segmentRows.get(1).get("movement_type")).isEqualTo("UNKNOWN");
     assertThat(segmentRows.get(1).get("point_count")).isEqualTo(2);
 
-    PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
+    PathQueryRow queried =
+        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
     assertThat(queried.segments())
         .extracting(PathQuerySegmentRow::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.UNKNOWN, MovementType.VEHICLE);
-    assertThat(queried.segments().get(1).geometry())
-        .containsExactly(List.of(126.91485, 35.16254));
+    assertThat(queried.segments().get(1).geometry()).containsExactly(List.of(126.91485, 35.16254));
   }
 
   @Test
   @DisplayName("low-quality excluded point remains in query after DB reload")
   void excluded_point_persists_and_reloads_for_query() {
     PathBatchAppendResponse response =
-        searchPathService.appendBatch(lowQualityPointRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(lowQualityPointRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
 
     assertThat(response.acceptedPointCount()).isEqualTo(2);
     assertThat(response.excludedPointCount()).isEqualTo(1);
@@ -776,7 +887,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(excludedRow.get("point_id")).isEqualTo("gps-precinct-low-accuracy");
     assertThat(excludedRow.get("reason")).isEqualTo("low_accuracy");
 
-    PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
+    PathQueryRow queried =
+        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
 
     assertThat(queried.geometry()).hasSize(2);
     assertThat(queried.excludedPoints())
@@ -785,7 +897,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
             point -> {
               assertThat(point.pointId()).isEqualTo("gps-precinct-low-accuracy");
               assertThat(point.reason()).isEqualTo("low_accuracy");
-              assertThat(point.clientTs()).isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:05+09:00"));
+              assertThat(point.clientTs())
+                  .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:05+09:00"));
             });
   }
 
@@ -793,10 +906,10 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @DisplayName("next batch after DB reload preserves existing movement segments")
   void append_after_reload_keeps_existing_segments() {
     PathBatchAppendResponse first =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
 
     PathBatchAppendResponse second =
-        searchPathService.appendBatch(nextVehicleBatchRequest(), POLICE_PHONE_ID);
+        searchPathService.appendBatch(nextVehicleBatchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
 
     assertThat(first.segments())
         .extracting(SearchPathSegment::movementType)
@@ -807,7 +920,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(second.segments().get(0).id()).isEqualTo(first.segments().get(0).id());
     assertThat(second.segments().get(1).id()).isEqualTo(first.segments().get(1).id());
 
-    PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
+    PathQueryRow queried =
+        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
     assertThat(queried.geometry()).hasSize(11);
     assertThat(queried.segments())
         .extracting(PathQuerySegmentRow::movementType)
@@ -815,6 +929,33 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(queried.segments().get(0).geometry()).hasSize(4);
     assertThat(queried.segments().get(1).geometry()).hasSize(4);
     assertThat(queried.segments().get(2).geometry()).hasSize(3);
+  }
+
+  private PathBatchAppendResponse appendBatchThroughController(
+      String idempotencyKey, PathBatchAppendRequest request) {
+    return appendBatchThroughController(idempotencyKey, request, POLICE_PHONE_ID);
+  }
+
+  private PathBatchAppendResponse appendBatchThroughController(
+      String idempotencyKey, PathBatchAppendRequest request, UUID policePhoneId) {
+    var previousContext = SecurityContextHolder.getContext();
+    var context = SecurityContextHolder.createEmptyContext();
+    context.setAuthentication(
+        new SuriMapAuthentication(
+            ACCOUNT_ID.toString(),
+            AccountType.PATROL_CAR,
+            OrganizationType.POLICE_SUBSTATION,
+            Channel.APP,
+            policePhoneId.toString(),
+            List.of(new SimpleGrantedAuthority(Role.MEMBER.name()))));
+    try {
+      SecurityContextHolder.setContext(context);
+      return searchPathController
+          .appendBatch(policePhoneId.toString(), idempotencyKey, request)
+          .getBody();
+    } finally {
+      SecurityContextHolder.setContext(previousContext);
+    }
   }
 
   private PathBatchAppendRequest batchRequest() {
@@ -862,7 +1003,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
             point("gps-precinct-104", "126.914850", "35.162540", 1.6, "2026-04-28T09:00:15+09:00"),
             point("gps-precinct-105", "126.915000", "35.162700", 13.0, "2026-04-28T09:00:20+09:00"),
             point("gps-precinct-106", "126.915080", "35.162880", 12.5, "2026-04-28T09:00:25+09:00"),
-            point("gps-precinct-107", "126.915160", "35.163050", 11.8, "2026-04-28T09:00:30+09:00")),
+            point(
+                "gps-precinct-107", "126.915160", "35.163050", 11.8, "2026-04-28T09:00:30+09:00")),
         0L);
   }
 
@@ -874,7 +1016,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         List.of(
             point("gps-precinct-201", "126.915400", "35.163400", 13.2, "2026-04-28T09:01:00+09:00"),
             point("gps-precinct-202", "126.916000", "35.163600", 12.9, "2026-04-28T09:01:05+09:00"),
-            point("gps-precinct-203", "126.916600", "35.163800", 12.1, "2026-04-28T09:01:10+09:00")),
+            point(
+                "gps-precinct-203", "126.916600", "35.163800", 12.1, "2026-04-28T09:01:10+09:00")),
         0L);
   }
 
@@ -884,9 +1027,25 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         OP_ID,
         PATH_ID,
         List.of(
-            point("gps-precinct-good-001", "126.913000", "35.162000", 1.4, "2026-04-28T09:00:00+09:00"),
-            point("gps-precinct-low-accuracy", "126.913050", "35.162020", 1.3, "2026-04-28T09:00:05+09:00", 80),
-            point("gps-precinct-good-002", "126.913100", "35.162040", 1.2, "2026-04-28T09:00:10+09:00")),
+            point(
+                "gps-precinct-good-001",
+                "126.913000",
+                "35.162000",
+                1.4,
+                "2026-04-28T09:00:00+09:00"),
+            point(
+                "gps-precinct-low-accuracy",
+                "126.913050",
+                "35.162020",
+                1.3,
+                "2026-04-28T09:00:05+09:00",
+                80),
+            point(
+                "gps-precinct-good-002",
+                "126.913100",
+                "35.162040",
+                1.2,
+                "2026-04-28T09:00:10+09:00")),
         0L);
   }
 

@@ -30,15 +30,15 @@ public class SearchPathService {
     this.gpsPathValidator = gpsPathValidator;
   }
 
-  public PathBatchAppendResponse appendBatch(PathBatchAppendRequest request, UUID policePhoneId) {
-    return appendBatch(request, policePhoneId, null);
-  }
-
   public PathBatchAppendResponse appendBatch(
       PathBatchAppendRequest request, UUID policePhoneId, UUID accountId) {
+    if (accountId == null) {
+      throw new SearchPathApiException("channel_not_allowed");
+    }
     var validationResult =
         gpsPathValidator.validateBatch(
-            toValidatorPoints(request.points()), request.points().get(0).clientTs().plusSeconds(20));
+            toValidatorPoints(request.points()),
+            request.points().get(0).clientTs().plusSeconds(20));
 
     List<SearchPathPoint> acceptedPoints = toAcceptedPoints(validationResult.acceptedPoints());
     List<PathExcludedPoint> excludedPoints = toExcludedPoints(validationResult.excludedPoints());
@@ -55,7 +55,9 @@ public class SearchPathService {
                             request.opId(),
                             policePhoneId,
                             accountId)));
-    if (accountId != null && aggregate.accountId() != null && !accountId.equals(aggregate.accountId())) {
+    if (accountId != null
+        && aggregate.accountId() != null
+        && !accountId.equals(aggregate.accountId())) {
       throw new SearchPathApiException("write_conflict");
     }
     if (aggregate.status() != SearchPathStatus.RECORDING) {
@@ -80,14 +82,14 @@ public class SearchPathService {
             aggregate.status(),
             aggregate.version(),
             aggregate.opId(),
-            aggregate.policePhoneId(),
+            policePhoneId,
             aggregate.accountId()));
 
     return new PathBatchAppendResponse(
         aggregate.id(),
         aggregate.dutyShiftId(),
         aggregate.opId(),
-        aggregate.policePhoneId(),
+        policePhoneId,
         aggregate.accountId(),
         validationResult.acceptedPoints().size(),
         validationResult.excludedPoints().size(),
@@ -130,7 +132,9 @@ public class SearchPathService {
       String segmentId, MovementType movementType, UUID correctedByAccountId) {
     SearchPathAggregate owner =
         repository.findAll().stream()
-            .filter(path -> path.segments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
+            .filter(
+                path ->
+                    path.segments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
             .findFirst()
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
 
@@ -159,7 +163,12 @@ public class SearchPathService {
         .map(
             p ->
                 new GpsPathPoint(
-                    p.pointId(), p.clientTs(), p.lon(), p.lat(), p.speedMps(), p.horizontalAccuracyM()))
+                    p.pointId(),
+                    p.clientTs(),
+                    p.lon(),
+                    p.lat(),
+                    p.speedMps(),
+                    p.horizontalAccuracyM()))
         .toList();
   }
 
@@ -168,7 +177,12 @@ public class SearchPathService {
         .map(
             p ->
                 new SearchPathPoint(
-                    p.pointId(), p.clientTs(), p.lon(), p.lat(), p.speedMps(), p.horizontalAccuracyM()))
+                    p.pointId(),
+                    p.clientTs(),
+                    p.lon(),
+                    p.lat(),
+                    p.speedMps(),
+                    p.horizontalAccuracyM()))
         .toList();
   }
 
@@ -276,9 +290,7 @@ public class SearchPathService {
   }
 
   private List<List<Double>> toGeometry(List<SearchPathPoint> points) {
-    return points.stream()
-        .map(p -> List.of(p.lon().doubleValue(), p.lat().doubleValue()))
-        .toList();
+    return points.stream().map(p -> List.of(p.lon().doubleValue(), p.lat().doubleValue())).toList();
   }
 
   private List<PathQuerySegmentRow> toQuerySegments(

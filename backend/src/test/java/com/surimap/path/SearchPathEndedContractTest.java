@@ -10,7 +10,6 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
 import com.surimap.path.fixture.SearchPathFixtures;
 import com.surimap.path.testdouble.CapturingSearchPathEventPublisher;
-import com.surimap.path.testdouble.StubPolicePhoneGuard;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,9 +29,7 @@ class SearchPathEndedContractTest {
   @BeforeEach
   void setUp() {
     publisher = new CapturingSearchPathEventPublisher();
-    service =
-        new AppSearchPathCommandService(
-            new OperationalPeriodQueryMock(), new StubPolicePhoneGuard(), publisher);
+    service = new AppSearchPathCommandService(new OperationalPeriodQueryMock(), publisher);
   }
 
   @Test

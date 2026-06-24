@@ -3,6 +3,7 @@ package com.surimap.marker;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
+import com.surimap.common.auth.guard.PolicePhoneValidationPort;
+import com.surimap.config.GuardConfig;
 import com.surimap.marker.controller.MarkerController;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerCreateRequest;
@@ -30,6 +35,7 @@ import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
 import com.surimap.marker.service.MarkerCreateService;
 import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
+import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -48,8 +54,11 @@ import org.springframework.test.web.servlet.MockMvc;
 /** S14P31C106-71 L5-T01A marker create API RED/GREEN tests. */
 @WebMvcTest(MarkerController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({MarkerExceptionHandler.class, MarkerRequestContextResolver.class})
+@Import({MarkerExceptionHandler.class, MarkerRequestContextResolver.class, GuardConfig.class})
 @DisplayName("L5-T01A marker create API")
+@WithMockAccount(
+    accountId = "11111111-1111-1111-1111-111111110071",
+    policePhoneId = "22222222-2222-2222-2222-222222220071")
 class MarkerControllerTest {
 
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550071");
@@ -68,6 +77,7 @@ class MarkerControllerTest {
   @MockitoBean private MarkerUpdateDeleteService markerUpdateDeleteService;
   @MockitoBean private MarkerReadService markerReadService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
+  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
 
   @BeforeEach
   void setUp() {
@@ -150,6 +160,36 @@ class MarkerControllerTest {
   }
 
   @Test
+  @DisplayName("APP POST /api/markers는 미등록 업무폰이면 서비스 호출 전에 거부한다")
+  void appCreateUnregisteredPolicePhoneRejectedBeforeService() throws Exception {
+    doThrow(new PolicePhoneNotRegisteredException())
+        .when(policePhoneValidationPort)
+        .checkRegistered(POLICE_PHONE_ID);
+
+    mockMvc
+        .perform(
+            post("/api/markers")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-unregistered")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"incidentId\":\""
+                        + INCIDENT_ID
+                        + "\",\"opId\":\""
+                        + OP_ID
+                        + "\",\"type\":\"CLUE\","
+                        + "\"location\":{\"type\":\"Point\","
+                        + "\"coordinates\":[126.913400,35.163100]},"
+                        + "\"clientTs\":\"2026-04-28T00:05:00Z\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
+
+    verifyNoInteractions(markerCreateService);
+  }
+
+  @Test
   @DisplayName("APP PATCH /api/markers/{markerId}는 200 canonical response를 반환한다")
   void appUpdateReturnsCanonicalResponse() throws Exception {
     MarkerUpdateRequest serviceRequest =
@@ -212,6 +252,7 @@ class MarkerControllerTest {
   }
 
   @Test
+  @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
   @DisplayName("WEB DELETE /api/markers/{markerId}는 PolicePhone 헤더 없이 200 canonical response를 반환한다")
   void webDeleteReturnsCanonicalResponse() throws Exception {
     MarkerDeleteRequest serviceRequest = new MarkerDeleteRequest(2L, "board cleanup");
@@ -262,6 +303,7 @@ class MarkerControllerTest {
   }
 
   @Test
+  @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
   @DisplayName("WEB POST /api/markers는 channel_not_allowed로 거부한다")
   void webCreateRejected() throws Exception {
     mockMvc

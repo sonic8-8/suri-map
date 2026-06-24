@@ -444,7 +444,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                 pathPoint("pt-005", "126.914000", "35.162400", "1.1", "2026-04-28T09:00:20+09:00"),
                 pathPoint("pt-006", "126.915000", "35.162500", "1.0", "2026-04-28T09:00:25+09:00")),
             0L),
-        PHONE_ID);
+        PHONE_ID,
+        ACCOUNT_ID);
     return service;
   }
 

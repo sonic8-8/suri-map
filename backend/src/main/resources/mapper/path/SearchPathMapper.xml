@@ -68,14 +68,14 @@
         LIMIT 1
     </select>
 
-    <select id="findActiveDutyShiftIdByAccountAndPhone" resultType="java.util.UUID">
+    <select id="findActiveDutyShiftIdByAccount" resultType="java.util.UUID">
         SELECT ds.id
         FROM duty_shift ds
         JOIN incident_assignment ia
-          ON ia.id = ds.incident_assignment_id
+            ON ia.id = ds.incident_assignment_id
         WHERE ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND ia.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND ds.police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
           AND ds.status = 'ACTIVE'
         ORDER BY ds.started_at DESC, ds.id ASC
         LIMIT 1
@@ -191,7 +191,7 @@
         op.incident_id,
         ds.operational_period_id AS op_id,
         sp.duty_shift_id,
-        ds.police_phone_id,
+        COALESCE(started_event.actor_police_phone_id, ds.police_phone_id) AS police_phone_id,
         sp.account_id,
         sp.status,
         sp.started_at,
@@ -206,6 +206,10 @@
           ON ds.id = sp.duty_shift_id
         JOIN operational_period op
           ON op.id = ds.operational_period_id
+        LEFT JOIN search_path_lifecycle_event started_event
+          ON started_event.search_path_id = sp.id
+         AND started_event.event_type = 'STARTED'
+         AND started_event.version = 1
     </sql>
 
     <select id="findPathById" resultMap="searchPathReadRecordMap">
@@ -234,7 +238,7 @@
                 AND ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
             </if>
             <if test="policePhoneId != null">
-                AND ds.police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                AND COALESCE(started_event.actor_police_phone_id, ds.police_phone_id) = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
             </if>
             <if test="accountId != null">
                 AND sp.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}

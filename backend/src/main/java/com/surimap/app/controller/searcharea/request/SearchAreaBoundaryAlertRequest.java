@@ -18,7 +18,7 @@ public record SearchAreaBoundaryAlertRequest(
     Integer clockOffsetMs) {
 
   public SearchAreaBoundaryAlertServiceRequest toServiceRequest(
-      UUID policePhoneId, String idempotencyKey) {
+      UUID policePhoneId, UUID accountId, String idempotencyKey) {
     if (location == null) {
       throw new SearchAreaBoundaryAlertException("invalid_geometry");
     }
@@ -33,6 +33,7 @@ public record SearchAreaBoundaryAlertRequest(
         pathId,
         clockOffsetMs,
         policePhoneId,
+        accountId,
         idempotencyKey);
   }
 

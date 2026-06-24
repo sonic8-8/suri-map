@@ -51,6 +51,8 @@ class MarkerCreateServiceTest {
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110071");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220071");
+  private static final UUID DUTY_SHIFT_ID =
+      UUID.fromString("33333333-3333-3333-3333-333333330071");
   private static final UUID OTHER_OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880072");
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:05:00Z");
   private static final Instant SERVER_TS = Instant.parse("2026-04-28T00:05:03Z");
@@ -106,6 +108,7 @@ class MarkerCreateServiceTest {
     assertThat(row.getMarkerSource()).isEqualTo(MarkerSource.APP.name());
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
     assertThat(row.getVersion()).isEqualTo(1L);
+    assertThat(row.getDutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
     assertThat(row.getCreatedByAccountId()).isEqualTo(ACCOUNT_ID);
     assertThat(row.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
     assertThat(row.getOccurredAt()).isEqualTo(CLIENT_TS);
@@ -324,11 +327,12 @@ class MarkerCreateServiceTest {
       implements com.surimap.marker.port.MarkerWriteGuardPort {
 
     @Override
-    public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
       if (!"APP".equals(context.authentication().channel())) {
         throw new MarkerApiException(
             "channel_not_allowed", org.springframework.http.HttpStatus.FORBIDDEN);
       }
+      return DUTY_SHIFT_ID;
     }
 
     @Override

@@ -29,6 +29,9 @@ class RuntimePhotoWriteGuardAdapterTest {
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110003");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000101");
+  private static final UUID OTHER_REGISTERED_POLICE_PHONE_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000301");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("33333333-3333-3333-3333-333333330001");
 
   private final FakeMarkerRepository markerRepository = new FakeMarkerRepository();
   private final FakeMarkerRuntimeGuardMapper guardMapper = new FakeMarkerRuntimeGuardMapper();
@@ -61,21 +64,54 @@ class RuntimePhotoWriteGuardAdapterTest {
   }
 
   @Test
-  @DisplayName("등록되지 않은 PolicePhone은 photo attach가 거부된다")
-  void unregisteredPolicePhoneCannotAttachPhoto() {
+  @DisplayName("같은 계정이 만든 marker라면 다른 등록 업무폰에서도 photo upload-url을 허용한다")
+  void uploadUrlAllowsAnotherRegisteredPhoneForSameAccountMarker() {
     markerRepository.marker = activeMarker();
     guardMapper.currentOpId = OP_ID;
-    guardMapper.registeredPolicePhoneCount = 0;
 
-    assertThatThrownBy(() -> adapter.requireAttachAccess(MARKER_ID, PHOTO_ID, requestContext()))
+    PhotoMarkerContext context =
+        adapter.requireUploadUrlAccess(MARKER_ID, requestContext(OTHER_REGISTERED_POLICE_PHONE_ID));
+
+    assertThat(context)
+        .isEqualTo(
+            new PhotoMarkerContext(
+                INCIDENT_ID, MARKER_ID, OP_ID, OTHER_REGISTERED_POLICE_PHONE_ID, "ACTIVE", 1L));
+  }
+
+  @Test
+  @DisplayName("현재 계정의 활성 근무교대가 없으면 photo upload-url을 거부한다")
+  void uploadUrlRejectsMissingActiveDutyShift() {
+    markerRepository.marker = activeMarker();
+    guardMapper.currentOpId = OP_ID;
+    guardMapper.activeDutyShiftId = null;
+
+    assertThatThrownBy(() -> adapter.requireUploadUrlAccess(MARKER_ID, requestContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error")
-        .isEqualTo("police_phone_not_registered");
+        .isEqualTo("police_phone_not_assigned");
+  }
+
+  @Test
+  @DisplayName("APP photo write는 자신이 생성한 현장 마커에만 허용한다")
+  void uploadUrlRejectsOtherAccountMarker() {
+    markerRepository.marker = activeMarker();
+    markerRepository.marker.setCreatedByAccountId(
+        UUID.fromString("11111111-1111-1111-1111-111111119999"));
+    guardMapper.currentOpId = OP_ID;
+
+    assertThatThrownBy(() -> adapter.requireUploadUrlAccess(MARKER_ID, requestContext()))
+        .isInstanceOf(PhotoApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_access_denied");
   }
 
   private static PhotoRequestContext requestContext() {
+    return requestContext(POLICE_PHONE_ID);
+  }
+
+  private static PhotoRequestContext requestContext(UUID policePhoneId) {
     return new PhotoRequestContext(
-        new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID), "idem-photo-upload-url");
+        new SuriMapAuthentication(ACCOUNT_ID, "APP", policePhoneId), "idem-photo-upload-url");
   }
 
   private static MarkerRecord activeMarker() {
@@ -83,7 +119,10 @@ class RuntimePhotoWriteGuardAdapterTest {
     marker.setId(MARKER_ID);
     marker.setIncidentId(INCIDENT_ID);
     marker.setOperationalPeriodId(OP_ID);
+    marker.setDutyShiftId(DUTY_SHIFT_ID);
+    marker.setCreatedByAccountId(ACCOUNT_ID);
     marker.setPolicePhoneId(POLICE_PHONE_ID);
+    marker.setMarkerSource("APP");
     marker.setStatus("ACTIVE");
     marker.setVersion(1L);
     return marker;
@@ -129,9 +168,9 @@ class RuntimePhotoWriteGuardAdapterTest {
   private static final class FakeMarkerRuntimeGuardMapper implements MarkerRuntimeGuardMapper {
 
     private UUID currentOpId = OP_ID;
+    private UUID activeDutyShiftId = DUTY_SHIFT_ID;
     private int activeAssignmentsByAccountCount = 1;
     private int activeIncidentAssignmentCount = 1;
-    private int registeredPolicePhoneCount = 1;
 
     @Override
     public Optional<String> findIncidentStatus(UUID incidentId) {
@@ -159,8 +198,11 @@ class RuntimePhotoWriteGuardAdapterTest {
     }
 
     @Override
-    public int countRegisteredPolicePhone(UUID policePhoneId) {
-      return registeredPolicePhoneCount;
+    public Optional<UUID> findActiveDutyShiftIdByAccount(UUID opId, UUID accountId) {
+      if (OP_ID.equals(opId) && ACCOUNT_ID.equals(accountId)) {
+        return Optional.ofNullable(activeDutyShiftId);
+      }
+      return Optional.empty();
     }
   }
 }

@@ -32,17 +32,14 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
 
   private static final UUID INCIDENT_ID = PolicePhoneFixtures.INCIDENT_ID;
   private static final UUID OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
-  private static final UUID ASSIGNMENT_ID =
-      UUID.fromString("71000000-0000-0000-0000-000000000303");
+  private static final UUID ASSIGNMENT_ID = UUID.fromString("71000000-0000-0000-0000-000000000303");
   private static final UUID COMMANDER_ASSIGNMENT_ID =
       UUID.fromString("71000000-0000-0000-0000-000000000304");
-  private static final UUID DUTY_SHIFT_ID =
-      UUID.fromString("b340b075-e784-474e-9e2b-d131dcc00303");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("b340b075-e784-474e-9e2b-d131dcc00303");
   private static final UUID OVERALL_AREA_ID =
       UUID.fromString("32000000-0000-0000-0000-000000000303");
   private static final String MARKER_MEMO = "S14P31C106-303 runtime marker";
-  private static final String COMMANDER_MARKER_MEMO =
-      "S14P31C106-400 commander runtime marker";
+  private static final String COMMANDER_MARKER_MEMO = "S14P31C106-400 commander runtime marker";
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private JwtDecoder jwtDecoder;
@@ -53,8 +50,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
     jdbcTemplate.update("DELETE FROM marker WHERE memo = ?", MARKER_MEMO);
     jdbcTemplate.update("DELETE FROM marker WHERE memo = ?", COMMANDER_MARKER_MEMO);
     jdbcTemplate.update(
-        "DELETE FROM idempotency_record WHERE idempotency_key = ?",
-        "idem-marker-runtime-303");
+        "DELETE FROM idempotency_record WHERE idempotency_key = ?", "idem-marker-runtime-303");
     jdbcTemplate.update(
         "DELETE FROM idempotency_record WHERE idempotency_key = ?",
         "idem-marker-runtime-400-commander");
@@ -231,10 +227,12 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
     String markerId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     Integer markerRows =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM marker WHERE id = ?::uuid AND memo = ?",
+            "SELECT COUNT(*) FROM marker WHERE id = ?::uuid AND memo = ? AND duty_shift_id ="
+                + " ?::uuid",
             Integer.class,
             markerId,
-            MARKER_MEMO);
+            MARKER_MEMO,
+            DUTY_SHIFT_ID.toString());
     Integer eventRows =
         jdbcTemplate.queryForObject(
             """
@@ -254,50 +252,54 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
   }
 
   @Test
-  @DisplayName("배정 계정은 다른 계정에 연결된 등록 PolicePhone에서도 marker를 생성할 수 있다")
-  void assignedAccountCanCreateMarkerFromRegisteredPolicePhoneBoundToAnotherAccount()
-      throws Exception {
+  @DisplayName("사건에 배치된 계정이면 다른 등록 업무폰에서도 marker를 생성할 수 있다")
+  void assignedAccountCanCreateMarkerFromAnotherRegisteredPhone() throws Exception {
     String accessToken = loginCommanderAccessTokenOnAssignedPhone();
 
-    MvcResult result =
-        mockMvc
-            .perform(
-                post("/api/markers")
-                    .header("Authorization", "Bearer " + accessToken)
-                    .header("X-Client-Channel", "APP")
-                    .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-                    .header("Idempotency-Key", "idem-marker-runtime-400-commander")
-                    .contentType("application/json")
-                    .content(
-                        """
-                        {
-                          "incidentId": "%s",
-                          "opId": "%s",
-                          "type": "CLUE",
-                          "location": {
-                            "type": "Point",
-                            "coordinates": [126.913450, 35.163150]
-                          },
-                          "memo": "%s",
-                          "clientTs": "2026-04-28T09:06:00+09:00",
-                          "clockOffsetMs": 0
-                        }
-                        """
-                            .formatted(INCIDENT_ID, OP_ID, COMMANDER_MARKER_MEMO)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
-            .andExpect(
-                jsonPath("$.policePhoneId")
-                    .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
-            .andReturn();
+    mockMvc
+        .perform(
+            post("/api/markers")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-marker-runtime-400-commander")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "incidentId": "%s",
+                      "opId": "%s",
+                      "type": "CLUE",
+                      "location": {
+                        "type": "Point",
+                        "coordinates": [126.913450, 35.163150]
+                      },
+                      "memo": "%s",
+                      "clientTs": "2026-04-28T09:06:00+09:00",
+                      "clockOffsetMs": 0
+                    }
+                    """
+                        .formatted(INCIDENT_ID, OP_ID, COMMANDER_MARKER_MEMO)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
+        .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
+        .andExpect(
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()));
 
-    String markerId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     Integer markerRows =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM marker WHERE id = ?::uuid AND memo = ?",
+"""
+SELECT COUNT(*)
+FROM marker
+WHERE memo = ?
+AND created_by_account_id = ?::uuid
+AND police_phone_id = ?::uuid
+""",
             Integer.class,
-            markerId,
-            COMMANDER_MARKER_MEMO);
+            COMMANDER_MARKER_MEMO,
+            AccountIdentityCatalog.PRECINCT_COMMANDER_ID.toString(),
+            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString());
 
     assertThat(markerRows).isEqualTo(1);
   }

@@ -1,6 +1,9 @@
 package com.surimap.path;
 
 import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -41,6 +44,9 @@ public class SearchPathController {
   }
 
   @PostMapping("/batch")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
   public ResponseEntity<PathBatchAppendResponse> appendBatch(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -54,7 +60,9 @@ public class SearchPathController {
             fingerprint,
             "POST /api/search-paths/batch",
             PathBatchAppendResponse.class,
-            () -> searchPathService.appendBatch(request, policePhoneId, currentAccountIdOrNull()),
+            () ->
+                searchPathService.appendBatch(
+                    request, policePhoneId, currentAppAccountId(policePhoneId)),
             this::metadataForBatch);
     return ResponseEntity.ok(response);
   }
@@ -111,8 +119,7 @@ public class SearchPathController {
     }
     T response = operation.get();
     idempotencyEntries.put(
-        idempotencyKey,
-        new IdempotencyEntry<>(fingerprint, (PathBatchAppendResponse) response));
+        idempotencyKey, new IdempotencyEntry<>(fingerprint, (PathBatchAppendResponse) response));
     return response;
   }
 
@@ -133,15 +140,28 @@ public class SearchPathController {
     }
   }
 
-  private UUID currentAccountIdOrNull() {
+  private UUID currentAppAccountId(UUID policePhoneId) {
     var current = SecurityContextHolder.getContext().getAuthentication();
     if (current instanceof SuriMapAuthentication authentication) {
       if (authentication.getChannel() == Channel.WEB) {
-        return null;
+        throw new SearchPathApiException("channel_not_allowed");
       }
+      validatePolicePhoneBinding(policePhoneId, authentication);
       return UUID.fromString(authentication.getAccountId());
     }
-    return null;
+    throw new SearchPathApiException("channel_not_allowed");
+  }
+
+  private void validatePolicePhoneBinding(
+      UUID policePhoneId, SuriMapAuthentication authentication) {
+    try {
+      if (policePhoneId.equals(UUID.fromString(authentication.getPolicePhoneId()))) {
+        return;
+      }
+    } catch (RuntimeException exception) {
+      throw new SearchPathApiException("police_phone_required");
+    }
+    throw new SearchPathApiException("police_phone_required");
   }
 
   private record IdempotencyEntry<T>(String fingerprint, T response) {}

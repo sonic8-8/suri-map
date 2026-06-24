@@ -25,14 +25,17 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
 
   @Override
   @Transactional(readOnly = true)
-  public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+  public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
     requireAppContext(context);
     UUID accountId = context.authentication().accountId();
-    UUID policePhoneId = context.authentication().policePhoneId();
 
     requireOpenIncident(incidentId);
+    requireCurrentOp(incidentId, opId);
     requireAccountAssignment(incidentId, accountId);
-    requireRegisteredPolicePhone(policePhoneId);
+    return markerRuntimeGuardMapper
+        .findActiveDutyShiftIdByAccount(opId, accountId)
+        .orElseThrow(
+            () -> new MarkerApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN));
   }
 
   @Override
@@ -62,7 +65,10 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
       requireAppOwnFieldMarker(marker, context);
     }
     return new MarkerMutationContext(
-        marker.incidentId(), marker.id(), marker.operationalPeriodId(), marker.policePhoneId());
+        marker.incidentId(),
+        marker.id(),
+        marker.operationalPeriodId(),
+        context.authentication().policePhoneId());
   }
 
   private void requireAppContext(MarkerRequestContext context) {
@@ -104,9 +110,7 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
     if (marker.markerSource() != MarkerSource.APP) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
-    requireRegisteredPolicePhone(context.authentication().policePhoneId());
-    if (!context.authentication().accountId().equals(marker.createdByAccountId())
-        || !context.authentication().policePhoneId().equals(marker.policePhoneId())) {
+    if (!context.authentication().accountId().equals(marker.createdByAccountId())) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
   }
@@ -126,19 +130,22 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
     throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
   }
 
+  private void requireCurrentOp(UUID incidentId, UUID opId) {
+    UUID currentOpId =
+        markerRuntimeGuardMapper
+            .findCurrentOpId(incidentId)
+            .orElseThrow(() -> new MarkerApiException("op_required", HttpStatus.CONFLICT));
+    if (!currentOpId.equals(opId)) {
+      throw new MarkerApiException("op_mismatch", HttpStatus.CONFLICT);
+    }
+  }
+
   private void requireAccountAssignment(UUID incidentId, UUID accountId) {
     if (markerRuntimeGuardMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
       throw new MarkerApiException("team_not_assigned", HttpStatus.FORBIDDEN);
     }
     if (markerRuntimeGuardMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
-    }
-  }
-
-  private void requireRegisteredPolicePhone(UUID policePhoneId) {
-    if (policePhoneId == null
-        || markerRuntimeGuardMapper.countRegisteredPolicePhone(policePhoneId) == 0) {
-      throw new MarkerApiException("police_phone_not_registered", HttpStatus.FORBIDDEN);
     }
   }
 }
