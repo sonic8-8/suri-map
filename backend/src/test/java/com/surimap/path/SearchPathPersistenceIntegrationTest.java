@@ -59,7 +59,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
 
   @Autowired private AppSearchPathCommandService appCommandService;
   @Autowired private OperationalPeriodQuery operationalPeriodQuery;
-  @Autowired @Autowired private SearchPathEventPublisher searchPathEventPublisher;
+  @Autowired private SearchPathEventPublisher searchPathEventPublisher;
   @Autowired private SearchPathMapper searchPathMapper;
   @Autowired private SearchPathService searchPathService;
   @Autowired private SearchPathController searchPathController;
