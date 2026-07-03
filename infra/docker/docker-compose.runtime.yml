@@ -17,6 +17,8 @@ services:
       - web_net
 
   tileserver-gl:
+    # ponytail: real tiles need runtime mbtiles; enable the tiles profile when data exists.
+    profiles: ["tiles"]
     image: ${TILESERVER_IMAGE:-maptiler/tileserver-gl:latest}
     container_name: suri-map-tileserver-gl
     restart: unless-stopped
@@ -101,7 +103,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
-      TILESERVER_MODE: ${TILESERVER_MODE:-tileserver-gl}
+      TILESERVER_MODE: ${TILESERVER_MODE:-fixture}
       TILESERVER_BASE_URL: ${TILESERVER_BASE_URL:-http://tileserver-gl:8080}
       MOCK_112_ENABLED: ${MOCK_112_ENABLED:-true}
       MOCK_112_BASE_URL: ${MOCK_112_BASE_URL:-http://mock-112:18112}
