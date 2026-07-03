@@ -10,11 +10,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import com.surimap.support.auth.WithMockAccount;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,6 +33,50 @@ class PathLifecycleIntegrationTest {
   private static final String POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001";
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private JdbcTemplate jdbcTemplate;
+
+  @BeforeEach
+  void seedRegisteredPolicePhone() {
+    jdbcTemplate.update(
+        """
+        UPDATE account SET
+          login_id = 'acct-precinct-car',
+          password_hash = '{noop}fixture',
+          display_name = 'Precinct patrol car',
+          account_type = 'PATROL_CAR',
+          organization_type = 'POLICE_SUBSTATION',
+          status = 'ACTIVE',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = '11111111-1111-1111-1111-111111110002'
+        """);
+    jdbcTemplate.update(
+        """
+        INSERT INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status)
+        SELECT '11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture', 'Precinct patrol car', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM account WHERE id = '11111111-1111-1111-1111-111111110002'
+        )
+        """);
+    jdbcTemplate.update(
+        """
+        UPDATE police_phone SET
+          phone_code = 'dev-precinct-car-01',
+          display_name = 'Precinct patrol phone',
+          account_id = '11111111-1111-1111-1111-111111110002',
+          status = 'ACTIVE',
+          registered = TRUE,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = '50000000-0000-0000-0000-000000000001'
+        """);
+    jdbcTemplate.update(
+        """
+        INSERT INTO police_phone (id, phone_code, display_name, account_id, status, registered)
+        SELECT '50000000-0000-0000-0000-000000000001', 'dev-precinct-car-01', 'Precinct patrol phone', '11111111-1111-1111-1111-111111110002', 'ACTIVE', TRUE
+        WHERE NOT EXISTS (
+          SELECT 1 FROM police_phone WHERE id = '50000000-0000-0000-0000-000000000001'
+        )
+        """);
+  }
 
   @Test
   @DisplayName("start then end succeeds through controller and real service path")
