@@ -242,8 +242,8 @@ pipeline {
                     sh '''
                       docker build \
                         --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
-                        --build-arg VITE_KEYCLOAK_ISSUER_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-}" \
-                        --build-arg VITE_KEYCLOAK_BASE_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-}" \
+                        --build-arg VITE_KEYCLOAK_ISSUER_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map}" \
+                        --build-arg VITE_KEYCLOAK_BASE_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map}" \
                         -t ${FRONTEND_IMAGE} \
                         -f frontend/Dockerfile \
                         frontend
