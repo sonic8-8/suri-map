@@ -4,7 +4,9 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -77,9 +79,15 @@ class S8HandoverApiContractTest {
       UUID.fromString("77777777-7777-7777-7777-777777770001");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000101");
+  private static final UUID OTHER_REGISTERED_POLICE_PHONE_ID =
+      UUID.fromString("50000000-0000-0000-0000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110001");
+  private static final UUID OTHER_ACCOUNT_ID =
+      UUID.fromString("11111111-1111-1111-1111-111111110002");
   private static final UUID INCIDENT_ASSIGNMENT_ID =
       UUID.fromString("66666666-6666-6666-6666-666666660001");
+  private static final UUID OTHER_INCIDENT_ASSIGNMENT_ID =
+      UUID.fromString("66666666-6666-6666-6666-666666660002");
   private static final UUID MEMO_ID = UUID.fromString("55555555-5555-5555-5555-555555550001");
   private static final UUID SUMMARY_READY_ID =
       UUID.fromString("44444444-4444-4444-4444-444444440001");
@@ -104,6 +112,8 @@ class S8HandoverApiContractTest {
         .thenReturn(new IncidentLifecycleSnapshot(INCIDENT_ID, "OPEN", 1L));
     when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, ACCOUNT_ID))
         .thenReturn(Optional.of(INCIDENT_ASSIGNMENT_ID));
+    when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, OTHER_ACCOUNT_ID))
+        .thenReturn(Optional.of(OTHER_INCIDENT_ASSIGNMENT_ID));
     when(dutyShiftMapper.findById(DUTY_SHIFT_ID)).thenReturn(Optional.of(activeDutyShift()));
     when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, POLICE_PHONE_ID, null, "ACTIVE"))
         .thenReturn(List.of(activeDutyShift()));
@@ -257,6 +267,76 @@ class S8HandoverApiContractTest {
                         && INCIDENT_ID.equals(dutyShift.getIncidentId())
                         && OP_ID.equals(dutyShift.getOpId())),
             eq(ACCOUNT_ID));
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.APP,
+      accountId = "11111111-1111-1111-1111-111111110001",
+      policePhoneId = "50000000-0000-0000-0000-000000000001")
+  @DisplayName("APP can end own duty shift from another registered police phone")
+  void appEndsOwnDutyShiftFromAnotherRegisteredPolicePhone() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/duty-shifts/{dutyShiftId}", DUTY_SHIFT_ID)
+                .header("Authorization", "Bearer field")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", OTHER_REGISTERED_POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-duty-end-other-phone-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+                      "opId": "88888888-8888-8888-8888-888888880001",
+                      "action": "END",
+                      "clientTs": "2026-05-11T10:35:00+09:00",
+                      "memo": "다른 등록 업무폰에서 근무교대 종료"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(DUTY_SHIFT_ID.toString())))
+        .andExpect(jsonPath("$.status", is("ENDED")))
+        .andExpect(jsonPath("$.version", is(2)));
+
+    verify(dutyShiftMapper).end(eq(DUTY_SHIFT_ID), eq(ACCOUNT_ID), any(Instant.class), eq(2L));
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.APP,
+      accountId = "11111111-1111-1111-1111-111111110002",
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
+  @DisplayName("APP cannot end another account's duty shift even from matching police phone")
+  void appCannotEndAnotherAccountsDutyShiftFromMatchingPolicePhone() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/duty-shifts/{dutyShiftId}", DUTY_SHIFT_ID)
+                .header("Authorization", "Bearer field")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-duty-end-other-account-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+                      "opId": "88888888-8888-8888-8888-888888880001",
+                      "action": "END",
+                      "clientTs": "2026-05-11T10:36:00+09:00",
+                      "memo": "다른 계정에서 근무교대 종료 시도"
+                    }
+                    """))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("write_conflict")));
+
+    verify(dutyShiftMapper, never()).end(any(UUID.class), any(UUID.class), any(Instant.class), anyLong());
+    verify(searchHistorySummaryGenerationJob, never())
+        .enqueueForDutyShiftEnd(any(DutyShift.class), any(UUID.class));
   }
 
   @Test

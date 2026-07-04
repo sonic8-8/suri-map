@@ -99,7 +99,6 @@ public class AppDutyShiftCommandService {
   public synchronized DutyShiftEndResponse end(
       UUID dutyShiftId,
       EndDutyShiftRequest request,
-      UUID headerPolicePhoneId,
       String idempotencyKey,
       UUID actorAccountId) {
     requireIdempotencyKey(idempotencyKey);
@@ -115,11 +114,11 @@ public class AppDutyShiftCommandService {
           }
           DutyShift existing =
               dutyShiftMapper.findById(dutyShiftId).orElseThrow(HandoverApiException::writeConflict);
-          requirePhoneMatch(headerPolicePhoneId, existing.getPolicePhoneId());
           if (!Objects.equals(existing.getIncidentId(), request.incidentId())
               || !Objects.equals(existing.getOpId(), request.opId())) {
             throw HandoverApiException.writeConflict();
           }
+          requireDutyShiftActor(existing, actorAccountId);
           requireCurrentOp(request.incidentId(), request.opId());
           incidentLifecycleGuard.requireOpen(request.incidentId());
           Instant endedAt = Instant.now();
@@ -163,6 +162,16 @@ public class AppDutyShiftCommandService {
 
   private void requirePhoneMatch(UUID headerPolicePhoneId, UUID requestPolicePhoneId) {
     if (headerPolicePhoneId == null || !headerPolicePhoneId.equals(requestPolicePhoneId)) {
+      throw HandoverApiException.writeConflict();
+    }
+  }
+
+  private void requireDutyShiftActor(DutyShift dutyShift, UUID actorAccountId) {
+    UUID assignmentId =
+        dutyShiftMapper
+            .findActiveAssignmentId(dutyShift.getIncidentId(), actorAccountId)
+            .orElseThrow(HandoverApiException::writeConflict);
+    if (!Objects.equals(dutyShift.getIncidentAssignmentId(), assignmentId)) {
       throw HandoverApiException.writeConflict();
     }
   }

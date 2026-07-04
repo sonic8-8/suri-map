@@ -56,7 +56,7 @@ public class AppDutyShiftController {
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody EndDutyShiftRequest request) {
     return ResponseEntity.ok(
-        service.end(dutyShiftId, request, policePhoneId, idempotencyKey, actorAccountId()));
+        service.end(dutyShiftId, request, idempotencyKey, actorAccountId()));
   }
 
   private UUID actorAccountId() {
