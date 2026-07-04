@@ -25,12 +25,14 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": true,
       "redirectUris": [
+        "https://suri-map.sonic8-8.com/*",
         "https://k14c106.p.ssafy.io/*",
         "http://localhost:3000/*",
         "http://localhost:5173/*",
         "http://127.0.0.1:5173/*"
       ],
       "webOrigins": [
+        "https://suri-map.sonic8-8.com",
         "https://k14c106.p.ssafy.io",
         "http://localhost:3000",
         "http://localhost:5173",
@@ -376,11 +378,13 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": true,
       "redirectUris": [
+        "https://suri-map.sonic8-8.com/mock-112/login/oauth2/code/keycloak",
         "https://k14c106.p.ssafy.io/mock-112/login/oauth2/code/keycloak",
         "http://localhost:18112/mock-112/login/oauth2/code/keycloak",
         "http://127.0.0.1:18112/mock-112/login/oauth2/code/keycloak"
       ],
       "webOrigins": [
+        "https://suri-map.sonic8-8.com",
         "https://k14c106.p.ssafy.io",
         "http://localhost:18112",
         "http://127.0.0.1:18112"

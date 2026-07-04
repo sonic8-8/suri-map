@@ -75,13 +75,14 @@ pipeline {
         KEYCLOAK_ADMIN_PASSWORD = credentials('suri-map-keycloak-admin-password')
         KEYCLOAK_IMPORT_DIR = '/home/ubuntu/infra/keycloak/import'
         KEYCLOAK_THEME_DIR = '/home/ubuntu/infra/keycloak/themes'
-        SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map'
+        SURI_MAP_PUBLIC_ORIGIN = 'https://suri-map.sonic8-8.com'
+        SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://suri-map.sonic8-8.com/keycloak/realms/suri-map'
         SURI_MAP_KEYCLOAK_JWK_SET_URI = 'http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs'
         OBJECT_STORAGE_HOST_PORT = '9000'
         OBJECT_STORAGE_CONSOLE_HOST_PORT = '9001'
         SURI_MAP_OBJECT_STORAGE_PROVIDER = 's3-compatible'
         SURI_MAP_OBJECT_STORAGE_ENDPOINT = 'http://object-storage:9000'
-        SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT = 'https://k14c106.p.ssafy.io'
+        SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT = 'https://suri-map.sonic8-8.com'
         SURI_MAP_OBJECT_STORAGE_BUCKET = 'suri-map-photo'
         SURI_MAP_OBJECT_STORAGE_REGION = 'us-east-1'
         MOCK_112_ENABLED = 'true'
@@ -238,12 +239,14 @@ pipeline {
                             env.FAILED_STAGE = 'Build Runtime Images'
                         }
 
-                        sh '''
-                            docker build \
-                              --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
-                              -t ${FRONTEND_IMAGE} \
-                              -f frontend/Dockerfile \
-                              frontend
+                    sh '''
+                      docker build \
+                        --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
+                        --build-arg VITE_KEYCLOAK_ISSUER_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-}" \
+                        --build-arg VITE_KEYCLOAK_BASE_URL="${SURI_MAP_KEYCLOAK_ISSUER_URI:-}" \
+                        -t ${FRONTEND_IMAGE} \
+                        -f frontend/Dockerfile \
+                        frontend
                         '''
                     }
                 }
@@ -735,9 +738,9 @@ EOF
                             -f "/tmp/suri-map-user-profile.json" >/dev/null
                         }
 
-                        ensure_mock112_client() {
-                          client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
-                            -r suri-map \
+        ensure_mock112_client() {
+          client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
+            -r suri-map \
                             -q clientId="suri-map-mock112" \
                             --fields id \
                             --format csv \
@@ -754,16 +757,18 @@ EOF
   "implicitFlowEnabled": false,
   "directAccessGrantsEnabled": false,
   "serviceAccountsEnabled": false,
-  "frontchannelLogout": true,
-  "redirectUris": [
-    "https://k14c106.p.ssafy.io/mock-112/login/oauth2/code/keycloak",
-    "http://localhost:18112/mock-112/login/oauth2/code/keycloak",
-    "http://127.0.0.1:18112/mock-112/login/oauth2/code/keycloak"
-  ],
-  "webOrigins": [
-    "https://k14c106.p.ssafy.io",
-    "http://localhost:18112",
-    "http://127.0.0.1:18112"
+          "frontchannelLogout": true,
+          "redirectUris": [
+            "${SURI_MAP_PUBLIC_ORIGIN}/mock-112/login/oauth2/code/keycloak",
+            "https://k14c106.p.ssafy.io/mock-112/login/oauth2/code/keycloak",
+            "http://localhost:18112/mock-112/login/oauth2/code/keycloak",
+            "http://127.0.0.1:18112/mock-112/login/oauth2/code/keycloak"
+          ],
+          "webOrigins": [
+            "${SURI_MAP_PUBLIC_ORIGIN}",
+            "https://k14c106.p.ssafy.io",
+            "http://localhost:18112",
+            "http://127.0.0.1:18112"
   ]
 }
 EOF
@@ -775,14 +780,48 @@ EOF
                             /opt/keycloak/bin/kcadm.sh create clients \
                               -r suri-map \
                               -f "/tmp/suri-map-mock112-client.json" >/dev/null
-                          fi
-                        }
+          fi
+        }
 
-                        ensure_user_profile_claim_attributes
-                        echo "keycloak_suri_map_user_profile=ready"
+        ensure_web_client() {
+          client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
+            -r suri-map \
+            -q clientId="suri-map-web" \
+            --fields id \
+            --format csv \
+            --noquotes | tail -n 1)
+          test -n "${client_uuid}"
+          cat >"/tmp/suri-map-web-client.json" <<EOF
+        {
+          "redirectUris": [
+            "${SURI_MAP_PUBLIC_ORIGIN}/*",
+            "https://k14c106.p.ssafy.io/*",
+            "http://localhost:3000/*",
+            "http://localhost:5173/*",
+            "http://127.0.0.1:5173/*"
+          ],
+          "webOrigins": [
+            "${SURI_MAP_PUBLIC_ORIGIN}",
+            "https://k14c106.p.ssafy.io",
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+          ]
+        }
+        EOF
+          /opt/keycloak/bin/kcadm.sh update "clients/${client_uuid}" \
+            -r suri-map \
+            -f "/tmp/suri-map-web-client.json" >/dev/null
+        }
 
-                        ensure_mock112_client
-                        echo "keycloak_suri_map_mock112_client=ready"
+        ensure_user_profile_claim_attributes
+        echo "keycloak_suri_map_user_profile=ready"
+
+        ensure_web_client
+        echo "keycloak_suri_map_web_client=ready"
+
+        ensure_mock112_client
+        echo "keycloak_suri_map_mock112_client=ready"
 
                         ensure_mapper() {
                           client_id="$1"

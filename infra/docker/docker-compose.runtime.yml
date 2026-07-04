@@ -60,10 +60,10 @@ services:
       SURI_MAP_WEBHOOK_SECRET: ${MOCK112_WEBHOOK_SECRET:-}
       MOCK112_INTERNAL_API_TOKEN: ${MOCK112_INTERNAL_API_TOKEN:-}
       MOCK112_KEYCLOAK_CLIENT_ID: ${MOCK112_KEYCLOAK_CLIENT_ID:-suri-map-mock112}
-      MOCK112_KEYCLOAK_AUTHORIZATION_URI: ${MOCK112_KEYCLOAK_AUTHORIZATION_URI:-https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/auth}
-      MOCK112_KEYCLOAK_TOKEN_URI: ${MOCK112_KEYCLOAK_TOKEN_URI:-https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/token}
-      MOCK112_KEYCLOAK_JWK_SET_URI: ${MOCK112_KEYCLOAK_JWK_SET_URI:-https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/certs}
-      MOCK112_KEYCLOAK_USER_INFO_URI: ${MOCK112_KEYCLOAK_USER_INFO_URI:-https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/userinfo}
+      MOCK112_KEYCLOAK_AUTHORIZATION_URI: ${MOCK112_KEYCLOAK_AUTHORIZATION_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map/protocol/openid-connect/auth}
+      MOCK112_KEYCLOAK_TOKEN_URI: ${MOCK112_KEYCLOAK_TOKEN_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map/protocol/openid-connect/token}
+      MOCK112_KEYCLOAK_JWK_SET_URI: ${MOCK112_KEYCLOAK_JWK_SET_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map/protocol/openid-connect/certs}
+      MOCK112_KEYCLOAK_USER_INFO_URI: ${MOCK112_KEYCLOAK_USER_INFO_URI:-https://suri-map.sonic8-8.com/keycloak/realms/suri-map/protocol/openid-connect/userinfo}
       MOCK112_OBJECT_STORAGE_PROVIDER: ${MOCK112_OBJECT_STORAGE_PROVIDER:-${SURI_MAP_OBJECT_STORAGE_PROVIDER:-s3-compatible}}
       MOCK112_OBJECT_STORAGE_ENDPOINT: ${MOCK112_OBJECT_STORAGE_ENDPOINT:-${SURI_MAP_OBJECT_STORAGE_ENDPOINT:-http://object-storage:9000}}
       MOCK112_OBJECT_STORAGE_PUBLIC_ENDPOINT: ${MOCK112_OBJECT_STORAGE_PUBLIC_ENDPOINT:-${SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT:-}}
