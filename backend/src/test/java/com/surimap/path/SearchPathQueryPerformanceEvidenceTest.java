@@ -46,10 +46,12 @@ class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSuppo
       UUID.fromString("60000000-0000-4000-8000-000000099002");
   private static final Instant STARTED_AT = Instant.parse("2026-05-18T00:00:00Z");
   private static final int TARGET_PATH_COUNT = 25;
-  private static final int UNRELATED_PATH_COUNT = 600;
+  private static final int SMALL_UNRELATED_PATH_COUNT = 600;
+  private static final int LARGE_UNRELATED_PATH_COUNT = 6000;
   private static final int POINTS_PER_PATH = 24;
 
   @Autowired private SearchPathService searchPathService;
+  @Autowired private SearchPathRepository searchPathRepository;
 
   @BeforeEach
   void cleanAndSeedPerformanceFixture() {
@@ -71,43 +73,100 @@ class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSuppo
         CASCADE
         """);
     seedAccountsAndIncidents();
-    seedPaths(TARGET_DUTY_SHIFT_ID, TARGET_ACCOUNT_ID, TARGET_PATH_COUNT, "target");
-    seedPaths(OTHER_DUTY_SHIFT_ID, OTHER_ACCOUNT_ID, UNRELATED_PATH_COUNT, "unrelated");
   }
 
   @Test
-  @DisplayName("measure filtered SearchPath query with many unrelated paths")
+  @DisplayName("measure legacy and filtered SearchPath query with growing unrelated paths")
   void measureFilteredQueryWithManyUnrelatedPaths() {
-    warmUp();
+    Measurement small = measureScenario("small", SMALL_UNRELATED_PATH_COUNT);
+    Measurement large = measureScenario("large", LARGE_UNRELATED_PATH_COUNT);
 
-    List<Long> elapsedMillis = new ArrayList<>();
-    PathQueryResponse response = null;
-    for (int index = 0; index < 5; index++) {
-      long started = System.nanoTime();
-      response = searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null);
-      elapsedMillis.add(Duration.ofNanos(System.nanoTime() - started).toMillis());
-    }
+    assertThat(large.legacyMedianMillis()).isGreaterThan(small.legacyMedianMillis());
+    assertThat(large.filteredMedianMillis()).isLessThan(large.legacyMedianMillis());
 
-    assertThat(response).isNotNull();
-    assertThat(response.paths()).hasSize(TARGET_PATH_COUNT);
-    assertThat(totalPathRows()).isEqualTo(TARGET_PATH_COUNT + UNRELATED_PATH_COUNT);
-
-    Collections.sort(elapsedMillis);
-    System.out.println("PATH_QUERY_PERF totalPathRows=" + totalPathRows());
-    System.out.println("PATH_QUERY_PERF targetPathRows=" + TARGET_PATH_COUNT);
-    System.out.println("PATH_QUERY_PERF unrelatedPathRows=" + UNRELATED_PATH_COUNT);
-    System.out.println("PATH_QUERY_PERF pointsPerPath=" + POINTS_PER_PATH);
-    System.out.println("PATH_QUERY_PERF elapsedMillis=" + elapsedMillis);
-    System.out.println("PATH_QUERY_PERF medianMillis=" + elapsedMillis.get(elapsedMillis.size() / 2));
     System.out.println("PATH_QUERY_PERF findAllPlan");
     explainFindAll().forEach(line -> System.out.println("PATH_QUERY_PLAN findAll " + line));
     System.out.println("PATH_QUERY_PERF filteredPlan");
     explainFiltered().forEach(line -> System.out.println("PATH_QUERY_PLAN filtered " + line));
   }
 
+  private Measurement measureScenario(String label, int unrelatedPathCount) {
+    clearSearchPathRows();
+    seedPaths(TARGET_DUTY_SHIFT_ID, TARGET_ACCOUNT_ID, TARGET_PATH_COUNT, label + "-target");
+    seedPaths(OTHER_DUTY_SHIFT_ID, OTHER_ACCOUNT_ID, unrelatedPathCount, label + "-unrelated");
+    assertThat(totalPathRows()).isEqualTo(TARGET_PATH_COUNT + unrelatedPathCount);
+
+    warmUp();
+
+    List<Long> legacyElapsedMillis = measureLegacyQuery();
+    List<Long> filteredElapsedMillis = measureFilteredQuery();
+    long legacyMedianMillis = median(legacyElapsedMillis);
+    long filteredMedianMillis = median(filteredElapsedMillis);
+
+    System.out.println("PATH_QUERY_PERF scenario=" + label);
+    System.out.println("PATH_QUERY_PERF totalPathRows=" + totalPathRows());
+    System.out.println("PATH_QUERY_PERF targetPathRows=" + TARGET_PATH_COUNT);
+    System.out.println("PATH_QUERY_PERF unrelatedPathRows=" + unrelatedPathCount);
+    System.out.println("PATH_QUERY_PERF pointsPerPath=" + POINTS_PER_PATH);
+    System.out.println("PATH_QUERY_PERF legacyElapsedMillis=" + legacyElapsedMillis);
+    System.out.println("PATH_QUERY_PERF legacyMedianMillis=" + legacyMedianMillis);
+    System.out.println("PATH_QUERY_PERF filteredElapsedMillis=" + filteredElapsedMillis);
+    System.out.println("PATH_QUERY_PERF filteredMedianMillis=" + filteredMedianMillis);
+
+    return new Measurement(legacyMedianMillis, filteredMedianMillis);
+  }
+
   private void warmUp() {
-    searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null);
-    searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null);
+    assertThat(legacyQuery()).hasSize(TARGET_PATH_COUNT);
+    assertThat(searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null).paths())
+        .hasSize(TARGET_PATH_COUNT);
+  }
+
+  private List<Long> measureLegacyQuery() {
+    List<Long> elapsedMillis = new ArrayList<>();
+    for (int index = 0; index < 3; index++) {
+      long started = System.nanoTime();
+      assertThat(legacyQuery()).hasSize(TARGET_PATH_COUNT);
+      elapsedMillis.add(Duration.ofNanos(System.nanoTime() - started).toMillis());
+    }
+    Collections.sort(elapsedMillis);
+    return elapsedMillis;
+  }
+
+  private List<Long> measureFilteredQuery() {
+    List<Long> elapsedMillis = new ArrayList<>();
+    for (int index = 0; index < 3; index++) {
+      long started = System.nanoTime();
+      PathQueryResponse response = searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null);
+      assertThat(response.paths()).hasSize(TARGET_PATH_COUNT);
+      elapsedMillis.add(Duration.ofNanos(System.nanoTime() - started).toMillis());
+    }
+    Collections.sort(elapsedMillis);
+    return elapsedMillis;
+  }
+
+  private List<SearchPathAggregate> legacyQuery() {
+    return searchPathRepository.findAll().stream()
+        .filter(path -> TARGET_INCIDENT_ID.equals(path.incidentId()))
+        .filter(path -> TARGET_OP_ID.equals(path.opId()))
+        .toList();
+  }
+
+  private long median(List<Long> elapsedMillis) {
+    return elapsedMillis.get(elapsedMillis.size() / 2);
+  }
+
+  private void clearSearchPathRows() {
+    jdbcTemplate.execute(
+        """
+            TRUNCATE TABLE
+                search_area_boundary_alert,
+                search_path_lifecycle_event,
+                search_path_excluded_point,
+                search_path_segment,
+                search_path
+            CASCADE
+        """);
   }
 
   private void seedAccountsAndIncidents() {
@@ -297,6 +356,8 @@ class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSuppo
   private int totalPathRows() {
     return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_path", Integer.class);
   }
+
+  private record Measurement(long legacyMedianMillis, long filteredMedianMillis) {}
 
   private List<String> explainFindAll() {
     return jdbcTemplate.queryForList(
