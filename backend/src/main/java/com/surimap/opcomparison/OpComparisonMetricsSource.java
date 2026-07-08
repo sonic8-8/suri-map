@@ -1,6 +1,6 @@
 package com.surimap.opcomparison;
 
-import com.surimap.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPathAggregate;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;

@@ -8,7 +8,7 @@ import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
 import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.photo.adapter.RuntimePhotoWriteGuardAdapter;
-import com.surimap.path.SearchPathService;
+import com.surimap.api.service.path.SearchPathService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;

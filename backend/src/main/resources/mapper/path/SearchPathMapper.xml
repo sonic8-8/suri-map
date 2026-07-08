@@ -3,9 +3,9 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.surimap.path.SearchPathMapper">
+<mapper namespace="com.surimap.domain.path.SearchPathMapper">
 
-    <resultMap id="searchPathReadRecordMap" type="com.surimap.path.SearchPathReadRecord">
+    <resultMap id="searchPathReadRecordMap" type="com.surimap.domain.path.SearchPathReadRecord">
         <constructor>
             <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -21,7 +21,7 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="searchPathSegmentReadRecordMap" type="com.surimap.path.SearchPathSegmentReadRecord">
+    <resultMap id="searchPathSegmentReadRecordMap" type="com.surimap.domain.path.SearchPathSegmentReadRecord">
         <constructor>
             <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -36,7 +36,7 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="searchPathExcludedPointReadRecordMap" type="com.surimap.path.SearchPathExcludedPointReadRecord">
+    <resultMap id="searchPathExcludedPointReadRecordMap" type="com.surimap.domain.path.SearchPathExcludedPointReadRecord">
         <constructor>
             <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -46,7 +46,7 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="searchPathLifecycleEventReadRecordMap" type="com.surimap.path.SearchPathLifecycleEventReadRecord">
+    <resultMap id="searchPathLifecycleEventReadRecordMap" type="com.surimap.domain.path.SearchPathLifecycleEventReadRecord">
         <constructor>
             <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -93,7 +93,7 @@
         LIMIT 1
     </select>
 
-    <insert id="insertPath" parameterType="com.surimap.path.SearchPathPersistenceRecord">
+    <insert id="insertPath" parameterType="com.surimap.domain.path.SearchPathPersistenceRecord">
         INSERT INTO search_path (
             id,
             duty_shift_id,
@@ -120,7 +120,7 @@
         )
     </insert>
 
-    <update id="updatePath" parameterType="com.surimap.path.SearchPathPersistenceRecord">
+    <update id="updatePath" parameterType="com.surimap.domain.path.SearchPathPersistenceRecord">
         UPDATE search_path
         SET status = #{status},
             account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
@@ -149,7 +149,7 @@
         WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </update>
 
-    <insert id="insertLifecycleEvent" parameterType="com.surimap.path.SearchPathLifecycleEventPersistenceRecord">
+    <insert id="insertLifecycleEvent" parameterType="com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord">
         INSERT INTO search_path_lifecycle_event (
             id,
             search_path_id,
@@ -252,7 +252,7 @@
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </delete>
 
-    <insert id="insertSegment" parameterType="com.surimap.path.SearchPathSegmentPersistenceRecord">
+    <insert id="insertSegment" parameterType="com.surimap.domain.path.SearchPathSegmentPersistenceRecord">
         INSERT INTO search_path_segment (
             id,
             search_path_id,
@@ -305,7 +305,7 @@
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </delete>
 
-    <insert id="insertExcludedPoint" parameterType="com.surimap.path.SearchPathExcludedPointPersistenceRecord">
+    <insert id="insertExcludedPoint" parameterType="com.surimap.domain.path.SearchPathExcludedPointPersistenceRecord">
         INSERT INTO search_path_excluded_point (
             id,
             search_path_id,

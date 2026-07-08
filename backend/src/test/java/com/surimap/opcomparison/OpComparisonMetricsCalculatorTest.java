@@ -2,11 +2,11 @@ package com.surimap.opcomparison;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.path.MovementType;
-import com.surimap.path.MovementTypeSource;
-import com.surimap.path.SearchPathAggregate;
-import com.surimap.path.SearchPathPoint;
-import com.surimap.path.SearchPathSegment;
+import com.surimap.domain.path.MovementType;
+import com.surimap.domain.path.MovementTypeSource;
+import com.surimap.domain.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPathPoint;
+import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;

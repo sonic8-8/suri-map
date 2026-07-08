@@ -1,0 +1,18 @@
+package com.surimap.domain.path;
+
+import java.time.Instant;
+import java.util.UUID;
+import org.locationtech.jts.geom.Geometry;
+
+public record SearchPathReadRecord(
+    UUID id,
+    UUID incidentId,
+    UUID opId,
+    UUID dutyShiftId,
+    UUID policePhoneId,
+    UUID accountId,
+    String status,
+    Instant startedAt,
+    Instant endedAt,
+    Geometry geometry,
+    long version) {}

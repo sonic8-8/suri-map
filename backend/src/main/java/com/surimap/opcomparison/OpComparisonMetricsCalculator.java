@@ -1,7 +1,7 @@
 package com.surimap.opcomparison;
 
-import com.surimap.path.SearchPathMetrics;
-import com.surimap.path.SearchPathMetricsCalculator;
+import com.surimap.domain.path.SearchPathMetrics;
+import com.surimap.domain.path.SearchPathMetricsCalculator;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;

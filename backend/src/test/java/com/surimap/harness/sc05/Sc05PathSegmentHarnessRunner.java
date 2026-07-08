@@ -13,22 +13,22 @@ import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
-import com.surimap.path.CapturingPathEventPublisher;
-import com.surimap.path.InMemorySearchPathRepository;
-import com.surimap.path.MovementType;
-import com.surimap.path.PathBatchAppendRequest;
-import com.surimap.path.PathBatchAppendResponse;
-import com.surimap.path.PathBatchPointRequest;
-import com.surimap.path.PathEventPublisher;
-import com.surimap.path.SearchPathSegment;
-import com.surimap.path.SearchPathSegmentUpdatedPublishRequest;
-import com.surimap.path.SearchPathService;
-import com.surimap.path.fixture.SearchPathFixtures;
-import com.surimap.path.testdouble.CapturingSearchPathEventPublisher;
-import com.surimap.path.validation.GpsPathPoint;
-import com.surimap.path.validation.GpsPathValidationCriteria;
-import com.surimap.path.validation.GpsPathValidator;
-import com.surimap.path.validation.InvalidGpsPathBatchException;
+import com.surimap.api.service.path.CapturingPathEventPublisher;
+import com.surimap.domain.path.InMemorySearchPathRepository;
+import com.surimap.domain.path.MovementType;
+import com.surimap.api.controller.path.request.PathBatchAppendRequest;
+import com.surimap.api.controller.path.response.PathBatchAppendResponse;
+import com.surimap.api.controller.path.request.PathBatchPointRequest;
+import com.surimap.api.service.path.PathEventPublisher;
+import com.surimap.domain.path.SearchPathSegment;
+import com.surimap.api.service.path.SearchPathSegmentUpdatedPublishRequest;
+import com.surimap.api.service.path.SearchPathService;
+import com.surimap.domain.path.fixture.SearchPathFixtures;
+import com.surimap.domain.path.testdouble.CapturingSearchPathEventPublisher;
+import com.surimap.domain.path.validation.GpsPathPoint;
+import com.surimap.domain.path.validation.GpsPathValidationCriteria;
+import com.surimap.domain.path.validation.GpsPathValidator;
+import com.surimap.domain.path.validation.InvalidGpsPathBatchException;
 import com.surimap.policephone.PolicePhoneFreshnessStatus;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
 import com.surimap.policephone.query.PolicePhoneFreshnessRow;
@@ -861,7 +861,7 @@ public class Sc05PathSegmentHarnessRunner {
   private static final class DroppingPathEventPublisher implements PathEventPublisher {
 
     @Override
-    public void publishPathAppended(com.surimap.path.PathAppendedPublishRequest request) {}
+    public void publishPathAppended(com.surimap.api.service.path.PathAppendedPublishRequest request) {}
 
     @Override
     public void publishSegmentUpdated(SearchPathSegmentUpdatedPublishRequest request) {}

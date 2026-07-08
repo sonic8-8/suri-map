@@ -1,0 +1,14 @@
+package com.surimap.domain.path;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record SearchPathLifecycleEventPersistenceRecord(
+    UUID id,
+    UUID searchPathId,
+    String eventType,
+    Instant clientTs,
+    Instant serverReceivedAt,
+    UUID actorPolicePhoneId,
+    long version,
+    Instant createdAt) {}

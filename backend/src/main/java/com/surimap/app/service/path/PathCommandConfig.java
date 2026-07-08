@@ -8,7 +8,7 @@ import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.path.SearchPathMapper;
+import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.time.Instant;
 import java.util.List;

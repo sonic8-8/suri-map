@@ -29,7 +29,7 @@ import com.surimap.marker.query.MarkerQueryResult;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
-import com.surimap.path.SearchPathRepository;
+import com.surimap.domain.path.SearchPathRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
