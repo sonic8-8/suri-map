@@ -36,6 +36,8 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
   private static final UUID COMMANDER_ASSIGNMENT_ID =
       UUID.fromString("71000000-0000-0000-0000-000000000304");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("b340b075-e784-474e-9e2b-d131dcc00303");
+  private static final UUID COMMANDER_DUTY_SHIFT_ID =
+      UUID.fromString("b340b075-e784-474e-9e2b-d131dcc00404");
   private static final UUID OVERALL_AREA_ID =
       UUID.fromString("32000000-0000-0000-0000-000000000303");
   private static final String MARKER_MEMO = "S14P31C106-303 runtime marker";
@@ -161,7 +163,31 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         AccountIdentityCatalog.PRECINCT_TEAM_ID);
     jdbcTemplate.update(
         """
-        INSERT INTO search_area (
+            INSERT INTO duty_shift (
+                id, operational_period_id, incident_assignment_id, police_phone_id, status,
+                started_by_account_id, ended_by_account_id, started_at, ended_at, version,
+                created_at, updated_at
+            ) VALUES (
+                ?, ?, ?, ?, 'ACTIVE', ?, NULL,
+                '2026-04-28T09:00:00+09:00', NULL, 1,
+                '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00'
+            )
+            ON CONFLICT (id) DO UPDATE SET
+                operational_period_id = EXCLUDED.operational_period_id,
+                incident_assignment_id = EXCLUDED.incident_assignment_id,
+                police_phone_id = EXCLUDED.police_phone_id,
+                status = 'ACTIVE',
+                ended_at = NULL,
+                updated_at = EXCLUDED.updated_at
+            """,
+        COMMANDER_DUTY_SHIFT_ID,
+        OP_ID,
+        COMMANDER_ASSIGNMENT_ID,
+        PolicePhoneFixtures.ASSIGNED_PATH_POLICE_PHONE_ID,
+        AccountIdentityCatalog.PRECINCT_COMMANDER_ID);
+    jdbcTemplate.update(
+        """
+            INSERT INTO search_area (
             id, operational_period_id, parent_search_area_id, name, area_level, geometry, status,
             version, created_by_account_id, created_at, updated_at
         ) VALUES (
