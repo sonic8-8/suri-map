@@ -1,10 +1,12 @@
 package com.surimap.app.controller.path;
 
-import com.surimap.app.controller.path.request.PatchSearchPathRequest;
-import com.surimap.app.controller.path.request.StartSearchPathRequest;
-import com.surimap.app.controller.path.response.PatchSearchPathResponse;
-import com.surimap.app.controller.path.response.StartSearchPathResponse;
+import com.surimap.app.controller.path.request.SearchPathStartRequest;
+import com.surimap.app.controller.path.request.SearchPathStatusUpdateRequest;
+import com.surimap.app.controller.path.response.SearchPathStartResponse;
+import com.surimap.app.controller.path.response.SearchPathStatusUpdateResponse;
 import com.surimap.app.service.path.AppSearchPathService;
+import com.surimap.app.service.path.response.SearchPathStartServiceResponse;
+import com.surimap.app.service.path.response.SearchPathStatusUpdateServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
@@ -25,45 +27,58 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/search-paths")
-public class PathController {
+public class AppSearchPathController {
 
-  private final AppSearchPathService service;
+  private final AppSearchPathService appSearchPathService;
 
-  public PathController(AppSearchPathService service) {
-    this.service = service;
+  public AppSearchPathController(AppSearchPathService appSearchPathService) {
+    this.appSearchPathService = appSearchPathService;
   }
 
   @PostMapping
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
-  public ResponseEntity<StartSearchPathResponse> start(
+  public ResponseEntity<SearchPathStartResponse> start(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-      @RequestBody StartSearchPathRequest request) {
+      @RequestBody SearchPathStartRequest request) {
     requireIdempotencyKey(idempotencyKey);
-    UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
+    UUID policePhoneId = parsePolicePhoneId(policePhoneIdHeader);
     UUID accountId = currentAppAccountId(policePhoneId);
-    var created = service.start(request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
-    return ResponseEntity.status(HttpStatus.CREATED).body(StartSearchPathResponse.from(created));
+    SearchPathStartServiceResponse response =
+        appSearchPathService.start(
+            request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
+    return ResponseEntity.status(HttpStatus.CREATED).body(SearchPathStartResponse.from(response));
   }
 
   @PatchMapping("/{searchPathId}")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
-  public ResponseEntity<PatchSearchPathResponse> patch(
+  public ResponseEntity<SearchPathStatusUpdateResponse> updateStatus(
       @PathVariable UUID searchPathId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-      @RequestBody PatchSearchPathRequest request) {
+      @RequestBody SearchPathStatusUpdateRequest request) {
     requireIdempotencyKey(idempotencyKey);
-    UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
+    UUID policePhoneId = parsePolicePhoneId(policePhoneIdHeader);
     UUID accountId = currentAppAccountId(policePhoneId);
-    var patched =
-        service.patch(
-            searchPathId, policePhoneId, accountId, request.toServiceRequest(idempotencyKey));
-    return ResponseEntity.ok(PatchSearchPathResponse.from(patched));
+    SearchPathStatusUpdateServiceResponse response =
+        appSearchPathService.updateStatus(
+            request.toServiceRequest(searchPathId, policePhoneId, accountId, idempotencyKey));
+    return ResponseEntity.ok(SearchPathStatusUpdateResponse.from(response));
+  }
+
+  private UUID parsePolicePhoneId(String header) {
+    if (header == null || header.isBlank()) {
+      throw new SearchPathGuardException("police_phone_required");
+    }
+    try {
+      return UUID.fromString(header);
+    } catch (IllegalArgumentException exception) {
+      throw new SearchPathGuardException("police_phone_required");
+    }
   }
 
   private void requireIdempotencyKey(String idempotencyKey) {
