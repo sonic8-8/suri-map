@@ -7,15 +7,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.request.SearchPathSegmentCorrectionServiceRequest;
 import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.path.MovementType;
@@ -25,6 +28,7 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -212,6 +216,70 @@ class SearchPathControllerTest {
                     """))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
+
+    verifyNoInteractions(searchPathService);
+  }
+
+  @Test
+  @DisplayName("PATCH /api/search-path-segments/{id} returns manual correction response")
+  void correctSegmentContract() throws Exception {
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    when(searchPathService.correctSegment(any(SearchPathSegmentCorrectionServiceRequest.class)))
+        .thenReturn(
+            SearchPathSegmentCorrectionServiceResponse.builder()
+                .id("seg-001")
+                .movementType(MovementType.FOOT)
+                .movementTypeSource(MovementTypeSource.MANUAL)
+                .opId(opId)
+                .policePhoneId(policePhoneId)
+                .correctedByAccountId(accountId)
+                .correctedAt(OffsetDateTime.parse("2026-04-28T09:12:00+09:00"))
+                .version(2L)
+                .build());
+
+    mockMvc
+        .perform(
+            patch("/api/search-path-segments/{id}", "seg-001")
+                .header("X-Account-Id", accountId.toString())
+                .header("Idempotency-Key", "idem-path-segment-correction")
+                .contentType("application/json")
+                .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is("seg-001")))
+        .andExpect(jsonPath("$.movementType", is("FOOT")))
+        .andExpect(jsonPath("$.movementTypeSource", is("MANUAL")))
+        .andExpect(jsonPath("$.opId", is(opId.toString())))
+        .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.correctedByAccountId", is(accountId.toString())))
+        .andExpect(jsonPath("$.version", is(2)));
+
+    verify(searchPathService)
+        .correctSegment(
+            argThat(
+                request ->
+                    "seg-001".equals(request.getSearchPathSegmentId())
+                        && request.getMovementType() == MovementType.FOOT
+                        && "manual correction".equals(request.getReason())
+                        && accountId.equals(request.getCorrectedByAccountId())
+                        && "idem-path-segment-correction".equals(request.getIdempotencyKey())));
+  }
+
+  @Test
+  @DisplayName(
+      "PATCH /api/search-path-segments/{id} missing Idempotency-Key returns write_conflict")
+  void correctSegmentRequiresIdempotencyKey() throws Exception {
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+
+    mockMvc
+        .perform(
+            patch("/api/search-path-segments/{id}", "seg-001")
+                .header("X-Account-Id", accountId.toString())
+                .contentType("application/json")
+                .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("write_conflict")));
 
     verifyNoInteractions(searchPathService);
   }
