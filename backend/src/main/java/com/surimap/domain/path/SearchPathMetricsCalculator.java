@@ -1,9 +1,5 @@
 package com.surimap.domain.path;
 
-import com.surimap.domain.path.MovementType;
-import com.surimap.domain.path.SearchPath;
-import com.surimap.domain.path.SearchPathPoint;
-import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -29,9 +25,9 @@ public class SearchPathMetricsCalculator {
       totalDistance += distanceMeters(points);
       for (SearchPathSegment segment : path.getSegments()) {
         long segmentDistance = segmentDistanceMeters(points, segment);
-        if (segment.movementType() == MovementType.FOOT) {
+        if (segment.getMovementType() == MovementType.FOOT) {
           walkingDistance += segmentDistance;
-        } else if (segment.movementType() == MovementType.VEHICLE) {
+        } else if (segment.getMovementType() == MovementType.VEHICLE) {
           drivingDistance += segmentDistance;
         } else if (segmentDistance == 0L) {
           stoppedSegments += 1;
@@ -42,34 +38,35 @@ public class SearchPathMetricsCalculator {
 
     Instant effectiveStart = durationStartedAt == null ? first : durationStartedAt;
     Instant effectiveEnd = durationEndedAt == null ? last : durationEndedAt;
-    return new SearchPathMetrics(
-        totalDistance,
-        walkingDistance,
-        drivingDistance,
-        averageSpeedKmh(totalDistance, effectiveStart, effectiveEnd),
-        stoppedSegments,
-        stoppedDurationSeconds);
+    return SearchPathMetrics.builder()
+        .distanceMeters(totalDistance)
+        .walkingDistanceMeters(walkingDistance)
+        .drivingDistanceMeters(drivingDistance)
+        .averageSpeedKmh(averageSpeedKmh(totalDistance, effectiveStart, effectiveEnd))
+        .stoppedSegmentCount(stoppedSegments)
+        .stoppedDurationSeconds(stoppedDurationSeconds)
+        .build();
   }
 
   private static long segmentDistanceMeters(
       List<SearchPathPoint> points, SearchPathSegment segment) {
-    if (segment.startIndex() < 0
-        || segment.endIndex() >= points.size()
-        || segment.endIndex() < segment.startIndex()) {
+    if (segment.getStartIndex() < 0
+        || segment.getEndIndex() >= points.size()
+        || segment.getEndIndex() < segment.getStartIndex()) {
       return 0L;
     }
-    return distanceMeters(points.subList(segment.startIndex(), segment.endIndex() + 1));
+    return distanceMeters(points.subList(segment.getStartIndex(), segment.getEndIndex() + 1));
   }
 
   private static long segmentDurationSeconds(
       List<SearchPathPoint> points, SearchPathSegment segment) {
-    if (segment.startIndex() < 0
-        || segment.endIndex() >= points.size()
-        || segment.endIndex() < segment.startIndex()) {
+    if (segment.getStartIndex() < 0
+        || segment.getEndIndex() >= points.size()
+        || segment.getEndIndex() < segment.getStartIndex()) {
       return 0L;
     }
-    Instant startedAt = points.get(segment.startIndex()).clientTs().toInstant();
-    Instant endedAt = points.get(segment.endIndex()).clientTs().toInstant();
+    Instant startedAt = points.get(segment.getStartIndex()).getClientTs().toInstant();
+    Instant endedAt = points.get(segment.getEndIndex()).getClientTs().toInstant();
     if (!endedAt.isAfter(startedAt)) {
       return 0L;
     }
@@ -83,10 +80,10 @@ public class SearchPathMetricsCalculator {
       SearchPathPoint current = points.get(i);
       distance +=
           haversineMeters(
-              previous.lat().doubleValue(),
-              previous.lon().doubleValue(),
-              current.lat().doubleValue(),
-              current.lon().doubleValue());
+              previous.getLat().doubleValue(),
+              previous.getLon().doubleValue(),
+              current.getLat().doubleValue(),
+              current.getLon().doubleValue());
     }
     return Math.round(distance);
   }

@@ -19,11 +19,11 @@ import com.surimap.api.service.path.response.SearchPathPointsAppendServiceRespon
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
+import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
-import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
@@ -73,17 +73,15 @@ class SearchPathControllerTest {
                 .geometry(List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)))
                 .segments(
                     List.of(
-                        new SearchPathSegment(
-                            "seg-001",
-                            1L,
-                            MovementType.VEHICLE,
-                            MovementTypeSource.AUTO,
-                            0,
-                            1,
-                            "p1",
-                            "p2",
-                            null,
-                            null)))
+                        SearchPathSegmentServiceResponse.builder()
+                            .id("71000000-0000-0000-0000-000000000001")
+                            .movementType(MovementType.VEHICLE)
+                            .movementTypeSource(MovementTypeSource.AUTO)
+                            .startIndex(0)
+                            .endIndex(1)
+                            .startPointId("p1")
+                            .endPointId("p2")
+                            .build()))
                 .version(2L)
                 .status(SearchPathStatus.RECORDING)
                 .build());

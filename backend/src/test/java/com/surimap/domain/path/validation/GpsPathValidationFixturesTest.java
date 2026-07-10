@@ -61,12 +61,12 @@ class GpsPathValidationFixturesTest {
             point -> {
               assertThat(point.lon())
                   .isBetween(
-                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.minLon()),
-                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.maxLon()));
+                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.getMinLon()),
+                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.getMaxLon()));
               assertThat(point.lat())
                   .isBetween(
-                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.minLat()),
-                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.maxLat()));
+                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.getMinLat()),
+                      BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.getMaxLat()));
               assertThat(point.lon().scale())
                   .isLessThanOrEqualTo(GpsPathValidationCriteria.CANONICAL_COORDINATE_SCALE);
               assertThat(point.lat().scale())
@@ -79,7 +79,7 @@ class GpsPathValidationFixturesTest {
                   .isLessThanOrEqualTo(GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS);
             });
     assertThat(GpsPathValidationFixtures.OUTSIDE_SEARCH_AREA_POINTS.get(0).lon())
-        .isGreaterThan(BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.maxLon()));
+        .isGreaterThan(BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.getMaxLon()));
     assertThat(GpsPathValidationFixtures.COORDINATE_LAT_LON_SWAPPED.points().get(0).lat())
         .isGreaterThan(BigDecimal.valueOf(90));
     assertThat(GpsPathValidationFixtures.NON_MONOTONIC_CLIENT_TS.points().get(1).clientTs())

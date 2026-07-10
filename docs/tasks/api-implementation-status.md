@@ -51,12 +51,12 @@
 | `PATCH /api/search-areas/{searchAreaId}` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | search_area_history/MyBatis persistence 연결 |
 | `POST /api/search-areas/{searchAreaId}/split` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | split spatial validation/history persistence 연결 |
 | `POST /api/search-areas/{searchAreaId}/assignments` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | `search_area_assignment` migration/owner 정렬 필요 |
-| `POST /api/search-paths` | S3-1 | 구현 | `PathController` | Android write operation builder 필요 |
-| `PATCH /api/search-paths/{searchPathId}` | S3-1 | 구현 | `PathController` | Android write operation builder 필요 |
+| `POST /api/search-paths` | S3-1 | 구현 | `AppSearchPathController` | Android write operation builder 필요 |
+| `PATCH /api/search-paths/{searchPathId}` | S3-1 | 구현 | `AppSearchPathController` | Android write operation builder 필요 |
 | `POST /api/search-paths/batch` | S3-1 | 구현 | `SearchPathController` | Android real outbox replay 필요 |
 | `POST /api/search-area-boundary-alerts` | S3-1 | 구현 | `SearchAreaBoundaryAlertController`, `search_area_boundary_alert`, mock FCM dispatcher, Android outbox operation builder | 배포 서버 기준 mock location 내부→외부 이동 검증 필요 |
 | `GET /api/search-paths` | S3-1 | 구현 | `SearchPathController` | FE board mapper와 Android read repository 필요 |
-| `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 | `SearchPathSegmentController` | Web correction client 필요 |
+| `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 | `SearchPathController` | Web correction client 필요 |
 | `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape, WEB/incident guard, `@RecordLocationAccess` audit, S2/S3-1/S5/S7/S8의 현재 구현된 query source row collector를 제공. `sinceVersion`은 full snapshot reload watermark로만 취급하며 source-owner delta/minVersion 필터로 쓰지 않는다. | 아직 source owner가 없는 `toast`/`handover_status`/`police_phone_freshness` 세부 source 정리 |
 | `GET /api/incidents/{incidentId}/events` | S4 | 구현 | `EventStreamController` | FE fetch 기반 SSE adapter 추가됨 |
 | `GET /api/incidents/events` | S4 | 구현 | `EventStreamController`, account-scoped `SseStreamService` | Web 사건 목록 refetch signal 연결됨 |

@@ -1,7 +1,5 @@
 package com.surimap.api.service.path.response;
 
-import com.surimap.domain.path.PathExcludedPoint;
-import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.SearchPathStatus;
 import java.util.List;
 import java.util.UUID;
@@ -20,9 +18,9 @@ public class SearchPathPointsAppendServiceResponse {
   private UUID accountId;
   private int acceptedPointCount;
   private int excludedPointCount;
-  private List<PathExcludedPoint> excludedPoints;
+  private List<SearchPathExcludedPointServiceResponse> excludedPoints;
   private List<List<Double>> geometry;
-  private List<SearchPathSegment> segments;
+  private List<SearchPathSegmentServiceResponse> segments;
   private long version;
   private SearchPathStatus status;
 
@@ -35,9 +33,9 @@ public class SearchPathPointsAppendServiceResponse {
       UUID accountId,
       int acceptedPointCount,
       int excludedPointCount,
-      List<PathExcludedPoint> excludedPoints,
+      List<SearchPathExcludedPointServiceResponse> excludedPoints,
       List<List<Double>> geometry,
-      List<SearchPathSegment> segments,
+      List<SearchPathSegmentServiceResponse> segments,
       long version,
       SearchPathStatus status) {
     this.id = id;

@@ -21,41 +21,40 @@
         <result property="updatedAt" column="updated_at" javaType="java.time.Instant"/>
     </resultMap>
 
-    <resultMap id="searchPathSegmentReadRecordMap" type="com.surimap.domain.path.SearchPathSegmentReadRecord">
-        <constructor>
-            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="movement_type" javaType="string"/>
-            <arg column="movement_type_source" javaType="string"/>
-            <arg column="geometry" javaType="org.locationtech.jts.geom.Geometry" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
-            <arg column="started_at" javaType="java.time.Instant"/>
-            <arg column="ended_at" javaType="java.time.Instant"/>
-            <arg column="corrected_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="corrected_at" javaType="java.time.Instant"/>
-            <arg column="version" javaType="_long"/>
-        </constructor>
+    <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
+        <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="movementType" column="movement_type" javaType="com.surimap.domain.path.MovementType"/>
+        <result property="movementTypeSource" column="movement_type_source" javaType="com.surimap.domain.path.MovementTypeSource"/>
+        <result property="geometry" column="geometry" javaType="org.locationtech.jts.geom.Geometry" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+        <result property="startedAt" column="started_at" javaType="java.time.Instant"/>
+        <result property="endedAt" column="ended_at" javaType="java.time.Instant"/>
+        <result property="correctedByAccountId" column="corrected_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="correctedAt" column="corrected_at" javaType="java.time.OffsetDateTime"/>
+        <result property="version" column="version" javaType="_long"/>
+        <result property="createdAt" column="created_at" javaType="java.time.Instant"/>
+        <result property="updatedAt" column="updated_at" javaType="java.time.Instant"/>
     </resultMap>
 
-    <resultMap id="searchPathExcludedPointReadRecordMap" type="com.surimap.domain.path.SearchPathExcludedPointReadRecord">
-        <constructor>
-            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="point_id" javaType="string"/>
-            <arg column="reason" javaType="string"/>
-            <arg column="client_ts" javaType="java.time.Instant"/>
-        </constructor>
+    <resultMap id="searchPathExcludedPointMap" type="com.surimap.domain.path.SearchPathExcludedPoint">
+        <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="pointId" column="point_id" javaType="string"/>
+        <result property="reason" column="reason" javaType="string"/>
+        <result property="clientTs" column="client_ts" javaType="java.time.OffsetDateTime"/>
+        <result property="createdAt" column="created_at" javaType="java.time.Instant"/>
+        <result property="updatedAt" column="updated_at" javaType="java.time.Instant"/>
     </resultMap>
 
-    <resultMap id="searchPathLifecycleEventReadRecordMap" type="com.surimap.domain.path.SearchPathLifecycleEventReadRecord">
-        <constructor>
-            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="event_type" javaType="string"/>
-            <arg column="client_ts" javaType="java.time.Instant"/>
-            <arg column="server_received_at" javaType="java.time.Instant"/>
-            <arg column="actor_police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="version" javaType="_long"/>
-        </constructor>
+    <resultMap id="searchPathLifecycleEventMap" type="com.surimap.domain.path.SearchPathLifecycleEvent">
+        <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="eventType" column="event_type" javaType="string"/>
+        <result property="clientTs" column="client_ts" javaType="java.time.Instant"/>
+        <result property="serverReceivedAt" column="server_received_at" javaType="java.time.Instant"/>
+        <result property="actorPolicePhoneId" column="actor_police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="version" column="version" javaType="_long"/>
+        <result property="createdAt" column="created_at" javaType="java.time.Instant"/>
     </resultMap>
 
     <select id="findActiveDutyShiftId" resultType="java.util.UUID">
@@ -149,7 +148,7 @@
         WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </update>
 
-    <insert id="insertLifecycleEvent" parameterType="com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord">
+    <insert id="insertLifecycleEvent" parameterType="com.surimap.domain.path.SearchPathLifecycleEvent">
         INSERT INTO search_path_lifecycle_event (
             id,
             search_path_id,
@@ -172,7 +171,7 @@
         )
     </insert>
 
-    <select id="findLifecycleEventsByPathId" resultMap="searchPathLifecycleEventReadRecordMap">
+    <select id="findLifecycleEventsByPathId" resultMap="searchPathLifecycleEventMap">
         SELECT
             id,
             search_path_id,
@@ -180,7 +179,8 @@
             client_ts,
             server_received_at,
             actor_police_phone_id,
-            version
+            version,
+            created_at
         FROM search_path_lifecycle_event
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY version ASC, client_ts ASC, id ASC
@@ -254,7 +254,7 @@
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </delete>
 
-    <insert id="insertSegment" parameterType="com.surimap.domain.path.SearchPathSegmentPersistenceRecord">
+    <insert id="insertSegment" parameterType="com.surimap.domain.path.SearchPathSegment">
         INSERT INTO search_path_segment (
             id,
             search_path_id,
@@ -285,7 +285,7 @@
         )
     </insert>
 
-    <select id="findSegmentsByPathId" resultMap="searchPathSegmentReadRecordMap">
+    <select id="findSegmentsByPathId" resultMap="searchPathSegmentMap">
         SELECT
             id,
             search_path_id,
@@ -296,7 +296,9 @@
             ended_at,
             corrected_by_account_id,
             corrected_at,
-            version
+            version,
+            created_at,
+            updated_at
         FROM search_path_segment
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY started_at ASC, id ASC
@@ -307,7 +309,7 @@
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </delete>
 
-    <insert id="insertExcludedPoint" parameterType="com.surimap.domain.path.SearchPathExcludedPointPersistenceRecord">
+    <insert id="insertExcludedPoint" parameterType="com.surimap.domain.path.SearchPathExcludedPoint">
         INSERT INTO search_path_excluded_point (
             id,
             search_path_id,
@@ -328,13 +330,15 @@
         )
     </insert>
 
-    <select id="findExcludedPointsByPathId" resultMap="searchPathExcludedPointReadRecordMap">
+    <select id="findExcludedPointsByPathId" resultMap="searchPathExcludedPointMap">
         SELECT
             id,
             search_path_id,
             point_id,
             reason,
-            client_ts
+            client_ts,
+            created_at,
+            updated_at
         FROM search_path_excluded_point
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY client_ts ASC, id ASC

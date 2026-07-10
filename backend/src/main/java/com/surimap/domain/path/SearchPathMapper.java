@@ -46,20 +46,19 @@ public interface SearchPathMapper {
       @Param("policePhoneId") UUID policePhoneId,
       @Param("accountId") UUID accountId);
 
-  void insertLifecycleEvent(SearchPathLifecycleEventPersistenceRecord record);
+  void insertLifecycleEvent(SearchPathLifecycleEvent event);
 
-  List<SearchPathLifecycleEventReadRecord> findLifecycleEventsByPathId(
-      @Param("pathId") UUID pathId);
+  List<SearchPathLifecycleEvent> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);
 
   void deleteSegments(@Param("pathId") UUID pathId);
 
-  void insertSegment(SearchPathSegmentPersistenceRecord record);
+  void insertSegment(SearchPathSegment segment);
 
-  List<SearchPathSegmentReadRecord> findSegmentsByPathId(@Param("pathId") UUID pathId);
+  List<SearchPathSegment> findSegmentsByPathId(@Param("pathId") UUID pathId);
 
   void deleteExcludedPoints(@Param("pathId") UUID pathId);
 
-  void insertExcludedPoint(SearchPathExcludedPointPersistenceRecord record);
+  void insertExcludedPoint(SearchPathExcludedPoint point);
 
-  List<SearchPathExcludedPointReadRecord> findExcludedPointsByPathId(@Param("pathId") UUID pathId);
+  List<SearchPathExcludedPoint> findExcludedPointsByPathId(@Param("pathId") UUID pathId);
 }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -21,7 +22,7 @@ class SearchPathTest {
     path.appendAcceptedPoints(List.of(second));
 
     assertThat(path.getPoints()).containsExactly(first, second);
-    assertThat(path.getStartedAt()).isEqualTo(first.clientTs().toInstant());
+    assertThat(path.getStartedAt()).isEqualTo(first.getClientTs().toInstant());
   }
 
   @Test
@@ -29,33 +30,33 @@ class SearchPathTest {
     UUID correctedByAccountId = UUID.fromString("63000000-0000-0000-0000-000000002621");
     OffsetDateTime correctedAt = OffsetDateTime.parse("2026-04-28T09:10:00+09:00");
     SearchPathSegment target =
-        new SearchPathSegment(
-            "segment-1",
-            3L,
-            MovementType.VEHICLE,
-            MovementTypeSource.AUTO,
-            2,
-            5,
-            "point-2",
-            "point-5",
-            null,
-            null);
+        SearchPathSegment.builder()
+            .id(segmentId("segment-1"))
+            .version(3L)
+            .movementType(MovementType.VEHICLE)
+            .movementTypeSource(MovementTypeSource.AUTO)
+            .startIndex(2)
+            .endIndex(5)
+            .startPointId("point-2")
+            .endPointId("point-5")
+            .build();
     SearchPathSegment untouched = segment("segment-2");
     SearchPath path = SearchPath.builder().version(7L).segments(List.of(target, untouched)).build();
 
     SearchPathSegment corrected =
-        path.correctSegment(target.id(), MovementType.FOOT, correctedByAccountId, correctedAt);
+        path.correctSegment(
+            target.getId().toString(), MovementType.FOOT, correctedByAccountId, correctedAt);
 
-    assertThat(corrected.id()).isEqualTo(target.id());
-    assertThat(corrected.version()).isEqualTo(4L);
-    assertThat(corrected.movementType()).isEqualTo(MovementType.FOOT);
-    assertThat(corrected.movementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
-    assertThat(corrected.startIndex()).isEqualTo(target.startIndex());
-    assertThat(corrected.endIndex()).isEqualTo(target.endIndex());
-    assertThat(corrected.startPointId()).isEqualTo(target.startPointId());
-    assertThat(corrected.endPointId()).isEqualTo(target.endPointId());
-    assertThat(corrected.correctedByAccountId()).isEqualTo(correctedByAccountId);
-    assertThat(corrected.correctedAt()).isEqualTo(correctedAt);
+    assertThat(corrected.getId()).isEqualTo(target.getId());
+    assertThat(corrected.getVersion()).isEqualTo(4L);
+    assertThat(corrected.getMovementType()).isEqualTo(MovementType.FOOT);
+    assertThat(corrected.getMovementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
+    assertThat(corrected.getStartIndex()).isEqualTo(target.getStartIndex());
+    assertThat(corrected.getEndIndex()).isEqualTo(target.getEndIndex());
+    assertThat(corrected.getStartPointId()).isEqualTo(target.getStartPointId());
+    assertThat(corrected.getEndPointId()).isEqualTo(target.getEndPointId());
+    assertThat(corrected.getCorrectedByAccountId()).isEqualTo(correctedByAccountId);
+    assertThat(corrected.getCorrectedAt()).isEqualTo(correctedAt);
     assertThat(path.getSegments()).containsExactly(corrected, untouched);
     assertThat(path.getVersion()).isEqualTo(7L);
   }
@@ -76,26 +77,29 @@ class SearchPathTest {
   }
 
   private static SearchPathPoint point(String pointId, String clientTs) {
-    return new SearchPathPoint(
-        pointId,
-        OffsetDateTime.parse(clientTs),
-        BigDecimal.ZERO,
-        BigDecimal.ZERO,
-        BigDecimal.ZERO,
-        5);
+    return SearchPathPoint.builder()
+        .pointId(pointId)
+        .clientTs(OffsetDateTime.parse(clientTs))
+        .lon(BigDecimal.ZERO)
+        .lat(BigDecimal.ZERO)
+        .speedMps(BigDecimal.ZERO)
+        .horizontalAccuracyM(5)
+        .build();
   }
 
   private static SearchPathSegment segment(String id) {
-    return new SearchPathSegment(
-        id,
-        1L,
-        MovementType.UNKNOWN,
-        MovementTypeSource.AUTO,
-        0,
-        1,
-        "point-1",
-        "point-2",
-        null,
-        null);
+    return SearchPathSegment.builder()
+        .id(segmentId(id))
+        .movementType(MovementType.UNKNOWN)
+        .movementTypeSource(MovementTypeSource.AUTO)
+        .startIndex(0)
+        .endIndex(1)
+        .startPointId("point-1")
+        .endPointId("point-2")
+        .build();
+  }
+
+  private static UUID segmentId(String value) {
+    return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
   }
 }

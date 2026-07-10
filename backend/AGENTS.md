@@ -50,12 +50,13 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - Android 앱 service와 Service Request/Response DTO는 `app/service/{domain}/...`에 둔다.
 - APP/WEB 공용 read라도 Web 상황판 응답 조립이면 `api`, Android 현장 앱 응답 조립이면 `app`에 둔다. 양쪽에서 쓰는 domain 조회/정책/mapper는 `domain`에 둔다.
 - `domain` 하위는 DB 테이블 개수보다 애그리거트 경계를 우선한다.
-- 도메인 객체는 기본적으로 `class`로 작성한다. 값 전달만 하는 객체처럼 보이더라도 상태 변경, 검증, 계산 로직이 들어갈 가능성이 있으면 `record`로 만들지 않는다.
+- 모든 백엔드 도메인 객체는 `class`로 작성한다. 현재 로직이 없는 값 객체도 이후 상태 변경, 검증, 계산 로직을 담을 수 있으므로 `record`로 만들지 않는다. `enum`과 역할이 분명한 `interface`만 예외로 둔다.
 - 도메인 객체 필드는 `private`으로 선언하고 기본적으로 `final`을 붙이지 않는다. 외부 변경은 setter가 아니라 의미 있는 도메인 메서드로 통제한다.
 - 도메인 객체는 Lombok `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`를 기본으로 사용한다. MyBatis와 프레임워크가 객체를 만들 수 있게 열어두되, 애플리케이션 코드가 빈 객체를 직접 만들지 못하게 한다.
 - `@Setter`는 사용하지 않는다. 상태 변경은 `start`, `end`, `append...`, `correct...`처럼 업무 의미가 드러나는 메서드로 만든다.
 - 생성 경로가 필요하면 `@Builder`나 정적 팩터리를 사용한다. UUID와 시간이 많은 생성자는 public all-args 생성자로 열지 않는다.
-- MyBatis 매핑은 도메인 객체를 직접 사용하는 것을 기본으로 한다. 같은 의미의 `ReadRecord`, `PersistenceRecord`, `Aggregate`, `Model`을 습관적으로 만들지 않는다. 복잡한 조회 projection, 조인 결과, API 전용 응답처럼 도메인과 모양이 실제로 다를 때만 별도 객체를 둔다.
+- DB 테이블 행과 도메인 객체가 같은 업무 대상을 나타내면 하나의 도메인 `class`로 표현하고, MyBatis Mapper가 해당 객체를 직접 저장하고 조회한다.
+- 같은 대상을 저장과 조회 단계에 따라 `SaveData`, `ReadRecord`, `PersistenceRecord`, `Aggregate`, `Model`로 나누지 않는다. 여러 테이블을 합친 조회 결과나 통계처럼 기존 도메인 객체로 표현할 수 없는 결과에만 별도 projection을 둔다.
 - 컬렉션 필드도 처음에는 Lombok getter로 단순하게 노출한다. 컬렉션 자체에 변경 규칙이 생기거나 외부 임의 변경이 실제 문제가 되면 그때 일급 컬렉션으로 분리한다.
 - MyBatis mapper interface는 해당 domain 가까이에 두고, XML은 `resources/mapper/{domain}/...Mapper.xml`처럼 찾기 쉽게 맞춘다.
 - `common`, `util`, `misc`처럼 owner가 흐려지는 신규 패키지는 만들지 않는다. 기존 `common` 코드는 수정할 때 `global` 또는 더 구체적인 패키지로 옮긴다.

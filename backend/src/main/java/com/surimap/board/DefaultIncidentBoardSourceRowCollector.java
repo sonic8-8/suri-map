@@ -2,10 +2,10 @@ package com.surimap.board;
 
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathExcludedPointServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
-import com.surimap.domain.path.PathExcludedPoint;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -980,11 +980,11 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return payload;
   }
 
-  private Map<String, Object> excludedPointPayload(PathExcludedPoint point) {
+  private Map<String, Object> excludedPointPayload(SearchPathExcludedPointServiceResponse point) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("pointId", point.pointId());
-    payload.put("reason", point.reason());
-    payload.put("clientTs", point.clientTs());
+    payload.put("pointId", point.getPointId());
+    payload.put("reason", point.getReason());
+    payload.put("clientTs", point.getClientTs());
     return payload;
   }
 

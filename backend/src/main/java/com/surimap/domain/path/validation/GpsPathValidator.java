@@ -34,11 +34,15 @@ public class GpsPathValidator {
       if (reason == null) {
         accepted.add(point);
       } else {
-        excluded.add(new GpsPathValidationResult.ExcludedPoint(point, reason));
+        excluded.add(
+            GpsPathValidationResult.ExcludedPoint.builder().point(point).reason(reason).build());
       }
     }
 
-    return new GpsPathValidationResult(List.copyOf(accepted), List.copyOf(excluded));
+    return GpsPathValidationResult.builder()
+        .acceptedPoints(List.copyOf(accepted))
+        .excludedPoints(List.copyOf(excluded))
+        .build();
   }
 
   private void validateStructural(List<GpsPathPoint> points) {
@@ -49,24 +53,24 @@ public class GpsPathValidator {
       throw new InvalidGpsPathBatchException("points maxItems=120");
     }
     if (!points.equals(
-        points.stream().sorted(Comparator.comparing(GpsPathPoint::clientTs)).toList())) {
+        points.stream().sorted(Comparator.comparing(GpsPathPoint::getClientTs)).toList())) {
       throw new InvalidGpsPathBatchException("clientTs strict monotonic");
     }
     for (int i = 1; i < points.size(); i++) {
-      if (!points.get(i).clientTs().isAfter(points.get(i - 1).clientTs())) {
+      if (!points.get(i).getClientTs().isAfter(points.get(i - 1).getClientTs())) {
         throw new InvalidGpsPathBatchException("clientTs strict monotonic");
       }
     }
 
     Set<String> uniquePointIds = new HashSet<>();
     for (GpsPathPoint point : points) {
-      if (point.pointId() == null || point.pointId().isBlank()) {
+      if (point.getPointId() == null || point.getPointId().isBlank()) {
         throw new InvalidGpsPathBatchException("pointId is required");
       }
-      if (!uniquePointIds.add(point.pointId())) {
+      if (!uniquePointIds.add(point.getPointId())) {
         throw new InvalidGpsPathBatchException("pointId must be unique");
       }
-      validateCoordinate(point.lon(), point.lat());
+      validateCoordinate(point.getLon(), point.getLat());
     }
   }
 
@@ -97,20 +101,24 @@ public class GpsPathValidator {
 
   private GpsPathValidationResult.QualityReason detectQualityFailure(
       GpsPathPoint point, OffsetDateTime serverReceivedAt, List<GpsPathPoint> accepted) {
-    if (point.horizontalAccuracyM() != null
-        && point.horizontalAccuracyM() > GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS) {
+    if (point.getHorizontalAccuracyM() != null
+        && point.getHorizontalAccuracyM()
+            > GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS) {
       return GpsPathValidationResult.QualityReason.LOW_ACCURACY;
     }
 
-    long skewSeconds = Math.abs(Duration.between(serverReceivedAt, point.clientTs()).getSeconds());
+    long skewSeconds =
+        Math.abs(Duration.between(serverReceivedAt, point.getClientTs()).getSeconds());
     if (skewSeconds > GpsPathValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS) {
       return GpsPathValidationResult.QualityReason.CLOCK_SKEW;
     }
 
-    if (point.speedMps() == null
-        || point.speedMps().compareTo(BigDecimal.ZERO) < 0
-        || point.speedMps()
-                .compareTo(BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND))
+    if (point.getSpeedMps() == null
+        || point.getSpeedMps().compareTo(BigDecimal.ZERO) < 0
+        || point
+                .getSpeedMps()
+                .compareTo(
+                    BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND))
             > 0) {
       return GpsPathValidationResult.QualityReason.INVALID_SPEED;
     }
@@ -118,7 +126,7 @@ public class GpsPathValidator {
     if (!accepted.isEmpty()) {
       GpsPathPoint previousAccepted = accepted.get(accepted.size() - 1);
       long sampleSeconds =
-          Duration.between(previousAccepted.clientTs(), point.clientTs()).getSeconds();
+          Duration.between(previousAccepted.getClientTs(), point.getClientTs()).getSeconds();
       if (sampleSeconds == 5) {
         double distanceMeters = distanceMeters(previousAccepted, point);
         if (distanceMeters > GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS) {
@@ -132,10 +140,10 @@ public class GpsPathValidator {
 
   private double distanceMeters(GpsPathPoint previous, GpsPathPoint current) {
     double earthRadiusMeters = 6_371_000.0;
-    double previousLat = Math.toRadians(previous.lat().doubleValue());
-    double currentLat = Math.toRadians(current.lat().doubleValue());
-    double deltaLat = Math.toRadians(current.lat().subtract(previous.lat()).doubleValue());
-    double deltaLon = Math.toRadians(current.lon().subtract(previous.lon()).doubleValue());
+    double previousLat = Math.toRadians(previous.getLat().doubleValue());
+    double currentLat = Math.toRadians(current.getLat().doubleValue());
+    double deltaLat = Math.toRadians(current.getLat().subtract(previous.getLat()).doubleValue());
+    double deltaLon = Math.toRadians(current.getLon().subtract(previous.getLon()).doubleValue());
     double haversine =
         Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
             + Math.cos(previousLat)

@@ -113,7 +113,8 @@ public class HandoverTimelineApiService {
     return searchPathService.findAll().stream()
         .filter(path -> incidentId.equals(path.getIncidentId()))
         .filter(path -> opId.equals(path.getOpId()))
-        .filter(path -> scope.includes(path.getDutyShiftId(), path.getStartedAt(), path.getEndedAt()))
+        .filter(
+            path -> scope.includes(path.getDutyShiftId(), path.getStartedAt(), path.getEndedAt()))
         .sorted(Comparator.comparing(HandoverTimelineApiService::pathStartOrEpoch))
         .toList();
   }
@@ -150,10 +151,10 @@ public class HandoverTimelineApiService {
                   .map(
                       point ->
                           new PointResponse(
-                              instant(point.clientTs()),
-                              point.lat(),
-                              point.lon(),
-                              point.horizontalAccuracyM()))
+                              instant(point.getClientTs()),
+                              point.getLat(),
+                              point.getLon(),
+                              point.getHorizontalAccuracyM()))
                   .toList()));
     }
     return responses;
@@ -183,15 +184,15 @@ public class HandoverTimelineApiService {
         if (segmentStartedAt != null) {
           events.add(
               new EventResponse(
-                  "path-segment-" + segment.id(),
+                  "path-segment-" + segment.getId(),
                   segmentStartedAt,
                   "PATH_SEGMENT",
                   actorId,
-                  movementLabel(segment.movementType()),
+                  movementLabel(segment.getMovementType()),
                   Map.of(
                       "pathId", path.getId().toString(),
-                      "segmentId", segment.id(),
-                      "movementType", segment.movementType().name())));
+                      "segmentId", segment.getId().toString(),
+                      "movementType", segment.getMovementType().name())));
         }
       }
       if (path.getEndedAt() != null) {
@@ -285,11 +286,11 @@ public class HandoverTimelineApiService {
     SearchPathMetrics pathMetrics =
         metricsCalculator.calculate(paths, scope.startedAt(), scope.endedAt());
     return new MetricsResponse(
-        pathMetrics.distanceMeters(),
-        pathMetrics.walkingDistanceMeters(),
-        pathMetrics.drivingDistanceMeters(),
-        pathMetrics.averageSpeedKmh(),
-        pathMetrics.stoppedSegmentCount(),
+        pathMetrics.getDistanceMeters(),
+        pathMetrics.getWalkingDistanceMeters(),
+        pathMetrics.getDrivingDistanceMeters(),
+        pathMetrics.getAverageSpeedKmh(),
+        pathMetrics.getStoppedSegmentCount(),
         markers.size(),
         memos.size(),
         syncStatus(opId, scope));
@@ -327,7 +328,7 @@ public class HandoverTimelineApiService {
 
   private static String mode(List<SearchPathSegment> segments) {
     List<MovementType> modes =
-        segments.stream().map(SearchPathSegment::movementType).distinct().toList();
+        segments.stream().map(SearchPathSegment::getMovementType).distinct().toList();
     if (modes.size() == 1) {
       return modes.get(0).name();
     }
@@ -343,10 +344,10 @@ public class HandoverTimelineApiService {
   }
 
   private static Instant segmentStartedAt(List<SearchPathPoint> points, SearchPathSegment segment) {
-    if (segment.startIndex() < 0 || segment.startIndex() >= points.size()) {
+    if (segment.getStartIndex() < 0 || segment.getStartIndex() >= points.size()) {
       return null;
     }
-    return instant(points.get(segment.startIndex()).clientTs());
+    return instant(points.get(segment.getStartIndex()).getClientTs());
   }
 
   private static Instant pathStartOrEpoch(SearchPath path) {

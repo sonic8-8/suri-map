@@ -30,10 +30,10 @@ class GpsPathValidatorTest {
         validator.validateBatch(
             toPoints(fixture), OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
 
-    assertThat(result.acceptedPoints())
-        .extracting(GpsPathPoint::pointId)
+    assertThat(result.getAcceptedPoints())
+        .extracting(GpsPathPoint::getPointId)
         .containsExactly("gps-outside-001", "gps-outside-002");
-    assertThat(result.excludedPoints()).isEmpty();
+    assertThat(result.getExcludedPoints()).isEmpty();
   }
 
   @Test
@@ -77,10 +77,13 @@ class GpsPathValidatorTest {
     var fixture = GpsPathValidationFixtures.LOW_ACCURACY;
 
     var result =
-        validator.validateBatch(withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
+        validator.validateBatch(
+            withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints()).hasSize(1);
-    assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.LOW_ACCURACY));
+    assertThat(result.getAcceptedPoints()).hasSize(1);
+    assertThat(result.getExcludedPoints())
+        .singleElement()
+        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(QualityReason.LOW_ACCURACY));
   }
 
   @Test
@@ -88,10 +91,13 @@ class GpsPathValidatorTest {
     var fixture = GpsPathValidationFixtures.TIMESTAMP_SKEW;
 
     var result =
-        validator.validateBatch(withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
+        validator.validateBatch(
+            withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints()).hasSize(1);
-    assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.CLOCK_SKEW));
+    assertThat(result.getAcceptedPoints()).hasSize(1);
+    assertThat(result.getExcludedPoints())
+        .singleElement()
+        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(QualityReason.CLOCK_SKEW));
   }
 
   @Test
@@ -100,12 +106,18 @@ class GpsPathValidatorTest {
     var over = GpsPathValidationFixtures.EXCESSIVE_SPEED;
 
     var negativeResult =
-        validator.validateBatch(withValidLeadPoint(toPoints(negative.points())), negative.serverReceivedAt());
+        validator.validateBatch(
+            withValidLeadPoint(toPoints(negative.points())), negative.serverReceivedAt());
     var overResult =
-        validator.validateBatch(withValidLeadPoint(toPoints(over.points())), over.serverReceivedAt());
+        validator.validateBatch(
+            withValidLeadPoint(toPoints(over.points())), over.serverReceivedAt());
 
-    assertThat(negativeResult.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.INVALID_SPEED));
-    assertThat(overResult.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.INVALID_SPEED));
+    assertThat(negativeResult.getExcludedPoints())
+        .singleElement()
+        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(QualityReason.INVALID_SPEED));
+    assertThat(overResult.getExcludedPoints())
+        .singleElement()
+        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(QualityReason.INVALID_SPEED));
   }
 
   @Test
@@ -114,8 +126,10 @@ class GpsPathValidatorTest {
 
     var result = validator.validateBatch(toPoints(fixture.points()), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints()).hasSize(1);
-    assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.DISTANCE_JUMP));
+    assertThat(result.getAcceptedPoints()).hasSize(1);
+    assertThat(result.getExcludedPoints())
+        .singleElement()
+        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(QualityReason.DISTANCE_JUMP));
   }
 
   @Test
@@ -132,13 +146,14 @@ class GpsPathValidatorTest {
     var duplicated =
         List.of(
             points.get(0),
-            new GpsPathPoint(
-                points.get(0).pointId(),
-                points.get(1).clientTs(),
-                points.get(1).lon(),
-                points.get(1).lat(),
-                points.get(1).speedMps(),
-                points.get(1).horizontalAccuracyM()));
+            GpsPathPoint.builder()
+                .pointId(points.get(0).getPointId())
+                .clientTs(points.get(1).getClientTs())
+                .lon(points.get(1).getLon())
+                .lat(points.get(1).getLat())
+                .speedMps(points.get(1).getSpeedMps())
+                .horizontalAccuracyM(points.get(1).getHorizontalAccuracyM())
+                .build());
 
     assertThatThrownBy(() -> validator.validateBatch(duplicated, now()))
         .isInstanceOf(InvalidGpsPathBatchException.class)
@@ -148,7 +163,12 @@ class GpsPathValidatorTest {
   @Test
   void activeOverallSearchArea밖이어도_EPSG좌표면_경로기록을_허용한다() {
     var activeArea =
-        new GpsPathValidationCriteria.GeoEnvelope(126.900000, 35.150000, 126.905000, 35.155000);
+        GpsPathValidationCriteria.GeoEnvelope.builder()
+            .minLon(126.900000)
+            .minLat(35.150000)
+            .maxLon(126.905000)
+            .maxLat(35.155000)
+            .build();
 
     var result =
         validator.validateBatch(
@@ -156,8 +176,8 @@ class GpsPathValidatorTest {
             OffsetDateTime.parse("2026-04-28T09:00:20+09:00"),
             activeArea);
 
-    assertThat(result.acceptedPoints()).hasSize(8);
-    assertThat(result.excludedPoints()).isEmpty();
+    assertThat(result.getAcceptedPoints()).hasSize(8);
+    assertThat(result.getExcludedPoints()).isEmpty();
   }
 
   @Test
@@ -168,18 +188,20 @@ class GpsPathValidatorTest {
         validator.validateBatch(
             toPoints(GpsPathValidationFixtures.NORMAL_POINTS), serverReceivedAt, null);
 
-    assertThat(result.acceptedPoints()).hasSize(8);
-    assertThat(result.excludedPoints()).isEmpty();
+    assertThat(result.getAcceptedPoints()).hasSize(8);
+    assertThat(result.getExcludedPoints()).isEmpty();
   }
 
   @Test
   void 정상fixture는_acceptedPoints로_유지된다() {
     var serverReceivedAt = OffsetDateTime.parse("2026-04-28T09:00:20+09:00");
 
-    var result = validator.validateBatch(toPoints(GpsPathValidationFixtures.NORMAL_POINTS), serverReceivedAt);
+    var result =
+        validator.validateBatch(
+            toPoints(GpsPathValidationFixtures.NORMAL_POINTS), serverReceivedAt);
 
-    assertThat(result.acceptedPoints()).hasSize(8);
-    assertThat(result.excludedPoints()).isEmpty();
+    assertThat(result.getAcceptedPoints()).hasSize(8);
+    assertThat(result.getExcludedPoints()).isEmpty();
   }
 
   @Test
@@ -187,25 +209,27 @@ class GpsPathValidatorTest {
     var fixture = GpsPathValidationFixtures.DISTANCE_JUMP;
     var result = validator.validateBatch(toPoints(fixture.points()), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints())
-        .extracting(GpsPathPoint::pointId)
+    assertThat(result.getAcceptedPoints())
+        .extracting(GpsPathPoint::getPointId)
         .containsExactly("gps-quality-jump-prev-001");
-    assertThat(result.excludedPoints())
-        .extracting(excluded -> excluded.point().pointId())
+    assertThat(result.getExcludedPoints())
+        .extracting(excluded -> excluded.getPoint().getPointId())
         .containsExactly("gps-quality-jump-001");
   }
 
-  private static List<GpsPathPoint> toPoints(List<GpsPathValidationFixtures.GpsPointFixture> fixtures) {
+  private static List<GpsPathPoint> toPoints(
+      List<GpsPathValidationFixtures.GpsPointFixture> fixtures) {
     return fixtures.stream()
         .map(
             point ->
-                new GpsPathPoint(
-                    point.pointId(),
-                    point.clientTs(),
-                    point.lon(),
-                    point.lat(),
-                    point.speedMps(),
-                    point.horizontalAccuracyM()))
+                GpsPathPoint.builder()
+                    .pointId(point.pointId())
+                    .clientTs(point.clientTs())
+                    .lon(point.lon())
+                    .lat(point.lat())
+                    .speedMps(point.speedMps())
+                    .horizontalAccuracyM(point.horizontalAccuracyM())
+                    .build())
         .toList();
   }
 
@@ -216,15 +240,17 @@ class GpsPathValidatorTest {
   private static List<GpsPathPoint> withValidLeadPoint(List<GpsPathPoint> points) {
     var first = points.get(0);
     var lead =
-        new GpsPathPoint(
-            "gps-valid-lead-001",
-            first.clientTs().minusSeconds(5),
-            first.lon(),
-            first.lat(),
-            first.speedMps().compareTo(java.math.BigDecimal.ZERO) < 0
-                ? java.math.BigDecimal.ONE
-                : first.speedMps().min(java.math.BigDecimal.valueOf(10)),
-            5);
+        GpsPathPoint.builder()
+            .pointId("gps-valid-lead-001")
+            .clientTs(first.getClientTs().minusSeconds(5))
+            .lon(first.getLon())
+            .lat(first.getLat())
+            .speedMps(
+                first.getSpeedMps().compareTo(java.math.BigDecimal.ZERO) < 0
+                    ? java.math.BigDecimal.ONE
+                    : first.getSpeedMps().min(java.math.BigDecimal.valueOf(10)))
+            .horizontalAccuracyM(5)
+            .build();
     return List.of(lead, first);
   }
 }

@@ -1,5 +1,6 @@
 package com.surimap.app.service.path;
 
+import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
@@ -8,7 +9,6 @@ import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.time.Instant;
 import java.util.List;
@@ -106,10 +106,10 @@ public class PathServiceConfig {
           if (request == null) {
             throw new SearchPathGuardException("write_conflict");
           }
-          if (request.eventType() == null
-              || request.id() == null
-              || request.incidentId() == null
-              || request.opId() == null) {
+          if (request.getEventType() == null
+              || request.getId() == null
+              || request.getIncidentId() == null
+              || request.getOpId() == null) {
             throw new SearchPathGuardException("write_conflict");
           }
           if (EVENT_SCHEMA_VERSION.isBlank()) {

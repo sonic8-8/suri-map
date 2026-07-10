@@ -45,14 +45,14 @@ public class SearchPathSegmentCorrectionServiceResponse {
   public static SearchPathSegmentCorrectionServiceResponse from(
       SearchPathSegment segment, UUID opId, UUID policePhoneId) {
     return SearchPathSegmentCorrectionServiceResponse.builder()
-        .id(segment.id())
-        .movementType(segment.movementType())
-        .movementTypeSource(segment.movementTypeSource())
+        .id(segment.getId().toString())
+        .movementType(segment.getMovementType())
+        .movementTypeSource(segment.getMovementTypeSource())
         .opId(opId)
         .policePhoneId(policePhoneId)
-        .correctedByAccountId(segment.correctedByAccountId())
-        .correctedAt(segment.correctedAt())
-        .version(segment.version())
+        .correctedByAccountId(segment.getCorrectedByAccountId())
+        .correctedAt(segment.getCorrectedAt())
+        .version(segment.getVersion())
         .build();
   }
 }

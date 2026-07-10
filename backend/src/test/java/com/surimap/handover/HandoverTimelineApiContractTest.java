@@ -143,23 +143,27 @@ class HandoverTimelineApiContractTest {
             point("p3", "126.914300", "35.162360", "2026-05-18T09:00:10+09:00")));
     path.replaceSegments(
         List.of(
-            new SearchPathSegment(
-                "seg-001",
-                1L,
-                MovementType.FOOT,
-                MovementTypeSource.AUTO,
-                0,
-                2,
-                "p1",
-                "p3",
-                null,
-                null)));
+            SearchPathSegment.builder()
+                .id(UUID.fromString("71000000-0000-0000-0000-000000000001"))
+                .movementType(MovementType.FOOT)
+                .movementTypeSource(MovementTypeSource.AUTO)
+                .startIndex(0)
+                .endIndex(2)
+                .startPointId("p1")
+                .endPointId("p3")
+                .build()));
     return path;
   }
 
   private static SearchPathPoint point(String id, String lng, String lat, String at) {
-    return new SearchPathPoint(
-        id, OffsetDateTime.parse(at), new BigDecimal(lng), new BigDecimal(lat), BigDecimal.ONE, 5);
+    return SearchPathPoint.builder()
+        .pointId(id)
+        .clientTs(OffsetDateTime.parse(at))
+        .lon(new BigDecimal(lng))
+        .lat(new BigDecimal(lat))
+        .speedMps(BigDecimal.ONE)
+        .horizontalAccuracyM(5)
+        .build();
   }
 
   private static MarkerView marker() {

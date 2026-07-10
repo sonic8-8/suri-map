@@ -1,6 +1,6 @@
 package com.surimap.api.controller.path.response;
 
-import com.surimap.domain.path.PathExcludedPoint;
+import com.surimap.api.service.path.response.SearchPathExcludedPointServiceResponse;
 import java.time.OffsetDateTime;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,11 +21,11 @@ public class SearchPathExcludedPointResponse {
     this.clientTs = clientTs;
   }
 
-  public static SearchPathExcludedPointResponse from(PathExcludedPoint point) {
+  public static SearchPathExcludedPointResponse from(SearchPathExcludedPointServiceResponse point) {
     return SearchPathExcludedPointResponse.builder()
-        .pointId(point.pointId())
-        .reason(point.reason())
-        .clientTs(point.clientTs())
+        .pointId(point.getPointId())
+        .reason(point.getReason())
+        .clientTs(point.getClientTs())
         .build();
   }
 }
