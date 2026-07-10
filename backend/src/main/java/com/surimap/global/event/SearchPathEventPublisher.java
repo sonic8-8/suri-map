@@ -12,7 +12,6 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,35 +22,23 @@ public class SearchPathEventPublisher {
   private static final String SEARCH_PATH_SEGMENT_UPDATED = "SEARCH_PATH_SEGMENT_UPDATED";
 
   private final EventHub eventHub;
-  private final Environment environment;
 
-  public SearchPathEventPublisher(EventHub eventHub, Environment environment) {
+  public SearchPathEventPublisher(EventHub eventHub) {
     this.eventHub = eventHub;
-    this.environment = environment;
   }
 
   public void publishLifecycle(SearchPath path, SearchPathEventType eventType) {
     validateLifecycle(path, eventType);
-    if (!postgresqlDataSource()) {
-      return;
-    }
     publishPathEvent(eventType.name(), path, path.getPolicePhoneId());
   }
 
   public void publishPathAppended(SearchPath path, UUID policePhoneId) {
     validatePath(path, policePhoneId);
-    if (!postgresqlDataSource()) {
-      return;
-    }
     publishPathEvent(PATH_APPENDED, path, policePhoneId);
   }
 
   public void publishSegmentUpdated(SearchPath path, SearchPathSegment segment) {
     validateSegment(path, segment);
-    if (!postgresqlDataSource()) {
-      return;
-    }
-
     Instant occurredAt = Instant.now();
     eventHub.publish(
         new PublishRequest(
@@ -151,9 +138,4 @@ public class SearchPathEventPublisher {
     return payload;
   }
 
-  private boolean postgresqlDataSource() {
-    String driver = environment.getProperty("spring.datasource.driver-class-name", "");
-    String url = environment.getProperty("spring.datasource.url", "");
-    return driver.contains("postgresql") || url.startsWith("jdbc:postgresql:");
-  }
 }
