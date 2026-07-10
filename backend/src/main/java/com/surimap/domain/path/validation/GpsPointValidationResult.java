@@ -8,14 +8,14 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class GpsPathValidationResult {
+public class GpsPointValidationResult {
 
-  private List<GpsPathPoint> acceptedPoints;
+  private List<GpsPoint> acceptedPoints;
   private List<ExcludedPoint> excludedPoints;
 
   @Builder
-  private GpsPathValidationResult(
-      List<GpsPathPoint> acceptedPoints, List<ExcludedPoint> excludedPoints) {
+  private GpsPointValidationResult(
+      List<GpsPoint> acceptedPoints, List<ExcludedPoint> excludedPoints) {
     this.acceptedPoints = acceptedPoints;
     this.excludedPoints = excludedPoints;
   }
@@ -24,17 +24,17 @@ public class GpsPathValidationResult {
   @NoArgsConstructor(access = AccessLevel.PROTECTED)
   public static class ExcludedPoint {
 
-    private GpsPathPoint point;
-    private QualityReason reason;
+    private GpsPoint point;
+    private GpsPointExclusionReason reason;
 
     @Builder
-    private ExcludedPoint(GpsPathPoint point, QualityReason reason) {
+    private ExcludedPoint(GpsPoint point, GpsPointExclusionReason reason) {
       this.point = point;
       this.reason = reason;
     }
   }
 
-  public enum QualityReason {
+  public enum GpsPointExclusionReason {
     LOW_ACCURACY,
     CLOCK_SKEW,
     INVALID_SPEED,

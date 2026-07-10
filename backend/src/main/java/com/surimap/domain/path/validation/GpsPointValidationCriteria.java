@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public final class GpsPathValidationCriteria {
+public final class GpsPointValidationCriteria {
 
   public static final int MIN_POINTS_PER_BATCH = 2;
   public static final int MAX_POINTS_PER_BATCH = 120;
@@ -23,7 +23,7 @@ public final class GpsPathValidationCriteria {
           .maxLat(35.256837)
           .build();
 
-  private GpsPathValidationCriteria() {}
+  private GpsPointValidationCriteria() {}
 
   @Getter
   @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -12,48 +12,48 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 @Component
-public class GpsPathValidator {
+public class GpsPointValidator {
 
-  public GpsPathValidationResult validateBatch(
-      List<GpsPathPoint> points, OffsetDateTime serverReceivedAt) {
-    return validateBatch(points, serverReceivedAt, null);
+  public GpsPointValidationResult validate(
+      List<GpsPoint> points, OffsetDateTime serverReceivedAt) {
+    return validate(points, serverReceivedAt, null);
   }
 
-  public GpsPathValidationResult validateBatch(
-      List<GpsPathPoint> points,
+  public GpsPointValidationResult validate(
+      List<GpsPoint> points,
       OffsetDateTime serverReceivedAt,
-      GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+      GpsPointValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
     validateStructural(points);
 
-    List<GpsPathPoint> accepted = new ArrayList<>();
-    List<GpsPathValidationResult.ExcludedPoint> excluded = new ArrayList<>();
+    List<GpsPoint> accepted = new ArrayList<>();
+    List<GpsPointValidationResult.ExcludedPoint> excluded = new ArrayList<>();
 
-    for (GpsPathPoint point : points) {
-      GpsPathValidationResult.QualityReason reason =
+    for (GpsPoint point : points) {
+      GpsPointValidationResult.GpsPointExclusionReason reason =
           detectQualityFailure(point, serverReceivedAt, accepted);
       if (reason == null) {
         accepted.add(point);
       } else {
         excluded.add(
-            GpsPathValidationResult.ExcludedPoint.builder().point(point).reason(reason).build());
+            GpsPointValidationResult.ExcludedPoint.builder().point(point).reason(reason).build());
       }
     }
 
-    return GpsPathValidationResult.builder()
+    return GpsPointValidationResult.builder()
         .acceptedPoints(List.copyOf(accepted))
         .excludedPoints(List.copyOf(excluded))
         .build();
   }
 
-  private void validateStructural(List<GpsPathPoint> points) {
-    if (points == null || points.size() < GpsPathValidationCriteria.MIN_POINTS_PER_BATCH) {
+  private void validateStructural(List<GpsPoint> points) {
+    if (points == null || points.size() < GpsPointValidationCriteria.MIN_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points minItems=2");
     }
-    if (points.size() > GpsPathValidationCriteria.MAX_POINTS_PER_BATCH) {
+    if (points.size() > GpsPointValidationCriteria.MAX_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points maxItems=120");
     }
     if (!points.equals(
-        points.stream().sorted(Comparator.comparing(GpsPathPoint::getClientTs)).toList())) {
+        points.stream().sorted(Comparator.comparing(GpsPoint::getClientTs)).toList())) {
       throw new InvalidGpsPathBatchException("clientTs strict monotonic");
     }
     for (int i = 1; i < points.size(); i++) {
@@ -63,7 +63,7 @@ public class GpsPathValidator {
     }
 
     Set<String> uniquePointIds = new HashSet<>();
-    for (GpsPathPoint point : points) {
+    for (GpsPoint point : points) {
       if (point.getPointId() == null || point.getPointId().isBlank()) {
         throw new InvalidGpsPathBatchException("pointId is required");
       }
@@ -78,15 +78,15 @@ public class GpsPathValidator {
     if (lon == null || lat == null) {
       throw new InvalidGpsPathBatchException("null or NaN coordinate is a structural failure");
     }
-    if (lon.scale() > GpsPathValidationCriteria.CANONICAL_COORDINATE_SCALE
-        || lat.scale() > GpsPathValidationCriteria.CANONICAL_COORDINATE_SCALE) {
+    if (lon.scale() > GpsPointValidationCriteria.CANONICAL_COORDINATE_SCALE
+        || lat.scale() > GpsPointValidationCriteria.CANONICAL_COORDINATE_SCALE) {
       throw new InvalidGpsPathBatchException("precision exceeds 6 decimal places");
     }
 
     BigDecimal canonicalLon =
-        lon.setScale(GpsPathValidationCriteria.CANONICAL_COORDINATE_SCALE, RoundingMode.HALF_UP);
+        lon.setScale(GpsPointValidationCriteria.CANONICAL_COORDINATE_SCALE, RoundingMode.HALF_UP);
     BigDecimal canonicalLat =
-        lat.setScale(GpsPathValidationCriteria.CANONICAL_COORDINATE_SCALE, RoundingMode.HALF_UP);
+        lat.setScale(GpsPointValidationCriteria.CANONICAL_COORDINATE_SCALE, RoundingMode.HALF_UP);
 
     boolean inLonRange =
         canonicalLon.compareTo(BigDecimal.valueOf(-180)) >= 0
@@ -99,18 +99,18 @@ public class GpsPathValidator {
     }
   }
 
-  private GpsPathValidationResult.QualityReason detectQualityFailure(
-      GpsPathPoint point, OffsetDateTime serverReceivedAt, List<GpsPathPoint> accepted) {
+  private GpsPointValidationResult.GpsPointExclusionReason detectQualityFailure(
+      GpsPoint point, OffsetDateTime serverReceivedAt, List<GpsPoint> accepted) {
     if (point.getHorizontalAccuracyM() != null
         && point.getHorizontalAccuracyM()
-            > GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS) {
-      return GpsPathValidationResult.QualityReason.LOW_ACCURACY;
+            > GpsPointValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS) {
+      return GpsPointValidationResult.GpsPointExclusionReason.LOW_ACCURACY;
     }
 
     long skewSeconds =
         Math.abs(Duration.between(serverReceivedAt, point.getClientTs()).getSeconds());
-    if (skewSeconds > GpsPathValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS) {
-      return GpsPathValidationResult.QualityReason.CLOCK_SKEW;
+    if (skewSeconds > GpsPointValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS) {
+      return GpsPointValidationResult.GpsPointExclusionReason.CLOCK_SKEW;
     }
 
     if (point.getSpeedMps() == null
@@ -118,19 +118,19 @@ public class GpsPathValidator {
         || point
                 .getSpeedMps()
                 .compareTo(
-                    BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND))
+                    BigDecimal.valueOf(GpsPointValidationCriteria.MAX_SPEED_METERS_PER_SECOND))
             > 0) {
-      return GpsPathValidationResult.QualityReason.INVALID_SPEED;
+      return GpsPointValidationResult.GpsPointExclusionReason.INVALID_SPEED;
     }
 
     if (!accepted.isEmpty()) {
-      GpsPathPoint previousAccepted = accepted.get(accepted.size() - 1);
+      GpsPoint previousAccepted = accepted.get(accepted.size() - 1);
       long sampleSeconds =
           Duration.between(previousAccepted.getClientTs(), point.getClientTs()).getSeconds();
       if (sampleSeconds == 5) {
         double distanceMeters = distanceMeters(previousAccepted, point);
-        if (distanceMeters > GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS) {
-          return GpsPathValidationResult.QualityReason.DISTANCE_JUMP;
+        if (distanceMeters > GpsPointValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS) {
+          return GpsPointValidationResult.GpsPointExclusionReason.DISTANCE_JUMP;
         }
       }
     }
@@ -138,7 +138,7 @@ public class GpsPathValidator {
     return null;
   }
 
-  private double distanceMeters(GpsPathPoint previous, GpsPathPoint current) {
+  private double distanceMeters(GpsPoint previous, GpsPoint current) {
     double earthRadiusMeters = 6_371_000.0;
     double previousLat = Math.toRadians(previous.getLat().doubleValue());
     double currentLat = Math.toRadians(current.getLat().doubleValue());
