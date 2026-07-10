@@ -3,10 +3,12 @@ package com.surimap.api.service.path;
 import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
 import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.request.SearchPathSegmentCorrectionServiceRequest;
 import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.PathExcludedPoint;
@@ -240,18 +242,37 @@ public class SearchPathService {
     return SearchPathQueryServiceResponse.builder().paths(rows).build();
   }
 
-  public SegmentCorrectionResult correctSegment(
-      String segmentId, MovementType movementType, UUID correctedByAccountId) {
+  @Transactional
+  public SearchPathSegmentCorrectionServiceResponse correctSegment(
+      SearchPathSegmentCorrectionServiceRequest request) {
+    requireIdempotencyKey(request.getIdempotencyKey());
+    return idempotentResponseCache.replayOrRun(
+        "PATCH /api/search-path-segments/" + request.getSearchPathSegmentId(),
+        request.getIdempotencyKey(),
+        request,
+        200,
+        SearchPathSegmentCorrectionServiceResponse.class,
+        () -> correctSegmentOnce(request),
+        this::metadataForSegmentCorrection);
+  }
+
+  private SearchPathSegmentCorrectionServiceResponse correctSegmentOnce(
+      SearchPathSegmentCorrectionServiceRequest request) {
     SearchPath owner =
         findAll().stream()
             .filter(
                 path ->
-                    path.getSegments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
+                    path.getSegments().stream()
+                        .anyMatch(segment -> segment.id().equals(request.getSearchPathSegmentId())))
             .findFirst()
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
 
     SearchPathSegment corrected =
-        owner.correctSegment(segmentId, movementType, correctedByAccountId, OffsetDateTime.now());
+        owner.correctSegment(
+            request.getSearchPathSegmentId(),
+            request.getMovementType(),
+            request.getCorrectedByAccountId(),
+            OffsetDateTime.now());
     owner.bumpVersion();
     save(owner);
 
@@ -267,7 +288,17 @@ public class SearchPathService {
             corrected.id(),
             corrected.movementType(),
             corrected.movementTypeSource()));
-    return new SegmentCorrectionResult(corrected, owner.getOpId(), owner.getPolicePhoneId());
+    return SearchPathSegmentCorrectionServiceResponse.from(
+        corrected, owner.getOpId(), owner.getPolicePhoneId());
+  }
+
+  private ResponseMetadata metadataForSegmentCorrection(
+      SearchPathSegmentCorrectionServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId(),
+        response.getMovementType().name(),
+        response.getVersion(),
+        response.getVersion());
   }
 
   private List<GpsPathPoint> toValidatorPoints(List<SearchPathPointServiceRequest> points) {

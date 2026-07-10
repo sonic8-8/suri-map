@@ -2,16 +2,15 @@ package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.api.controller.path.SearchPathSegmentController;
-import com.surimap.api.controller.path.request.PathSegmentCorrectionRequest;
-import com.surimap.api.controller.path.response.PathSegmentCorrectionResponse;
 import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
 import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.request.SearchPathSegmentCorrectionServiceRequest;
 import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
@@ -41,7 +40,6 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathService searchPathService;
-  @Autowired private SearchPathSegmentController searchPathSegmentController;
 
   @Test
   @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
@@ -50,13 +48,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         searchPathService.appendPoints(batchRequest("idem-path-event-segment-batch"));
     String segmentId = batch.getSegments().get(0).id();
 
-    searchPathSegmentController
-        .correctSegment(
-            segmentId,
-            CORRECTED_BY_ACCOUNT_ID.toString(),
-            "idem-path-event-segment-correction",
-            new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction"))
-        .getBody();
+    searchPathService.correctSegment(
+        segmentCorrectionRequest(segmentId, "idem-path-event-segment-correction"));
 
     Map<String, Object> eventRow =
         jdbcTemplate.queryForMap(
@@ -124,25 +117,11 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     SearchPathPointsAppendServiceResponse batch =
         searchPathService.appendPoints(batchRequest("idem-path-batch-for-correction"));
     String segmentId = batch.getSegments().get(0).id();
-    PathSegmentCorrectionRequest request =
-        new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction");
+    SearchPathSegmentCorrectionServiceRequest request =
+        segmentCorrectionRequest(segmentId, "idem-path-segment-db-replay");
 
-    PathSegmentCorrectionResponse first =
-        searchPathSegmentController
-            .correctSegment(
-                segmentId,
-                CORRECTED_BY_ACCOUNT_ID.toString(),
-                "idem-path-segment-db-replay",
-                request)
-            .getBody();
-    PathSegmentCorrectionResponse replayed =
-        searchPathSegmentController
-            .correctSegment(
-                segmentId,
-                CORRECTED_BY_ACCOUNT_ID.toString(),
-                "idem-path-segment-db-replay",
-                request)
-            .getBody();
+    SearchPathSegmentCorrectionServiceResponse first = searchPathService.correctSegment(request);
+    SearchPathSegmentCorrectionServiceResponse replayed = searchPathService.correctSegment(request);
 
     assertThat(replayed).isEqualTo(first);
     Long segmentVersion =
@@ -222,8 +201,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         searchPathService.appendPoints(batchRequest("idem-path-segment-update"));
     SearchPathSegment target = response.getSegments().get(0);
 
-    SegmentCorrectionResult corrected =
-        searchPathService.correctSegment(target.id(), MovementType.FOOT, CORRECTED_BY_ACCOUNT_ID);
+    SearchPathSegmentCorrectionServiceResponse corrected =
+        searchPathService.correctSegment(
+            segmentCorrectionRequest(target.id(), "idem-path-segment-persist"));
 
     Map<String, Object> row =
         jdbcTemplate.queryForMap(
@@ -239,7 +219,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             """,
             PATH_ID.toString());
 
-    assertThat(corrected.segment().movementType()).isEqualTo(MovementType.FOOT);
+    assertThat(corrected.getMovementType()).isEqualTo(MovementType.FOOT);
     assertThat(row.get("movement_type")).isEqualTo("FOOT");
     assertThat(row.get("movement_type_source")).isEqualTo("MANUAL");
     assertThat(row.get("corrected_by_account_id")).isEqualTo(CORRECTED_BY_ACCOUNT_ID);
@@ -359,6 +339,17 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             .opId(OP_ID)
             .policePhoneId(POLICE_PHONE_ID)
             .build());
+  }
+
+  private SearchPathSegmentCorrectionServiceRequest segmentCorrectionRequest(
+      String segmentId, String idempotencyKey) {
+    return SearchPathSegmentCorrectionServiceRequest.builder()
+        .searchPathSegmentId(segmentId)
+        .movementType(MovementType.FOOT)
+        .reason("manual correction")
+        .correctedByAccountId(CORRECTED_BY_ACCOUNT_ID)
+        .idempotencyKey(idempotencyKey)
+        .build();
   }
 
   private SearchPathPointsAppendServiceRequest batchRequest(String idempotencyKey) {
