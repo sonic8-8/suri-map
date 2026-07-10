@@ -263,7 +263,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   private String idempotencyStatus(String idempotencyKey) {
     return jdbcTemplate.queryForObject(
         """
-        SELECT status
+        SELECT idempotency_status
         FROM idempotency_record
         WHERE idempotency_key = ?
         """,

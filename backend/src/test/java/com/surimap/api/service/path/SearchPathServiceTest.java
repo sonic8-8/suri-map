@@ -1,6 +1,7 @@
 package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
 import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
@@ -15,6 +16,7 @@ import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -40,6 +42,45 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathService searchPathService;
+
+  @Test
+  @DisplayName("batch append stages PATH_APPENDED EventHub job")
+  void batch_append_stages_event_dispatch_job() {
+    SearchPathPointsAppendServiceResponse appended =
+        searchPathService.appendPoints(batchRequest("idem-path-event-append"));
+
+    Map<String, Object> eventRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT event_type,
+                   source_entity_type,
+                   source_entity_id,
+                   dispatch_status,
+                   payload ->> 'id' AS payload_id,
+                   payload ->> 'incidentId' AS payload_incident_id,
+                   payload ->> 'opId' AS payload_op_id,
+                   payload ->> 'policePhoneId' AS payload_police_phone_id,
+                   payload ->> 'accountId' AS payload_account_id,
+                   (payload ->> 'version')::bigint AS payload_version,
+                   (payload ->> 'sequence')::bigint AS payload_sequence
+            FROM event_dispatch_job
+            WHERE event_type = 'PATH_APPENDED'
+              AND source_entity_id = ?::uuid
+            """,
+            PATH_ID.toString());
+
+    assertThat(eventRow.get("event_type")).isEqualTo("PATH_APPENDED");
+    assertThat(eventRow.get("source_entity_type")).isEqualTo("search_path");
+    assertThat(eventRow.get("source_entity_id")).isEqualTo(PATH_ID);
+    assertThat(eventRow.get("dispatch_status")).isEqualTo("PENDING");
+    assertThat(eventRow.get("payload_id")).isEqualTo(PATH_ID.toString());
+    assertThat(eventRow.get("payload_incident_id")).isEqualTo(INCIDENT_ID.toString());
+    assertThat(eventRow.get("payload_op_id")).isEqualTo(OP_ID.toString());
+    assertThat(eventRow.get("payload_police_phone_id")).isEqualTo(POLICE_PHONE_ID.toString());
+    assertThat(eventRow.get("payload_account_id")).isEqualTo(ACCOUNT_ID.toString());
+    assertThat(eventRow.get("payload_version")).isEqualTo(appended.getVersion());
+    assertThat(eventRow.get("payload_sequence")).isEqualTo(appended.getVersion());
+  }
 
   @Test
   @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
@@ -97,7 +138,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     SearchPathPointsAppendServiceResponse replayed =
         searchPathService.appendPoints(batchRequest("idem-path-batch-db-replay"));
 
-    assertThat(replayed).isEqualTo(first);
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(first);
     Integer pointCount =
         jdbcTemplate.queryForObject(
             """
@@ -112,6 +153,31 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("batch append rejects a changed request with the same idempotency key")
+  void batch_append_rejects_same_idempotency_key_with_changed_request() {
+    String idempotencyKey = "idem-path-batch-mismatch";
+    searchPathService.appendPoints(batchRequest(idempotencyKey));
+    SearchPathPointsAppendServiceRequest changed =
+        batchRequest(idempotencyKey).toBuilder().clockOffsetMs(1L).build();
+
+    assertThatThrownBy(() -> searchPathService.appendPoints(changed))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    Map<String, Object> pathRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT version,
+                   ST_NumPoints(geometry) AS point_count
+            FROM search_path
+            WHERE id = ?::uuid
+            """,
+            PATH_ID.toString());
+    assertThat(pathRow.get("version")).isEqualTo(2L);
+    assertThat(pathRow.get("point_count")).isEqualTo(8);
+    assertThat(rowCount("event_dispatch_job")).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("segment correction idempotency replay does not increment segment twice")
   void segment_correction_idempotency_replay_does_not_increment_twice() {
     SearchPathPointsAppendServiceResponse batch =
@@ -123,7 +189,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     SearchPathSegmentCorrectionServiceResponse first = searchPathService.correctSegment(request);
     SearchPathSegmentCorrectionServiceResponse replayed = searchPathService.correctSegment(request);
 
-    assertThat(replayed).isEqualTo(first);
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(first);
     Long segmentVersion =
         jdbcTemplate.queryForObject(
             """
@@ -135,6 +201,36 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             segmentId);
     assertThat(segmentVersion).isEqualTo(2L);
     assertThat(idempotencyStatus("idem-path-segment-db-replay")).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("segment correction rejects a changed request with the same idempotency key")
+  void segment_correction_rejects_same_idempotency_key_with_changed_request() {
+    SearchPathPointsAppendServiceResponse batch =
+        searchPathService.appendPoints(batchRequest("idem-path-batch-for-mismatch"));
+    String segmentId = batch.getSegments().get(0).id();
+    String idempotencyKey = "idem-path-segment-mismatch";
+    SearchPathSegmentCorrectionServiceRequest request =
+        segmentCorrectionRequest(segmentId, idempotencyKey);
+    searchPathService.correctSegment(request);
+    SearchPathSegmentCorrectionServiceRequest changed =
+        request.toBuilder().movementType(MovementType.VEHICLE).build();
+
+    assertThatThrownBy(() -> searchPathService.correctSegment(changed))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    Map<String, Object> segmentRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT movement_type,
+                   version
+            FROM search_path_segment
+            WHERE id = ?::uuid
+            """,
+            segmentId);
+    assertThat(segmentRow.get("movement_type")).isEqualTo("FOOT");
+    assertThat(segmentRow.get("version")).isEqualTo(2L);
+    assertThat(rowCount("event_dispatch_job")).isEqualTo(2);
   }
 
   @Test

@@ -148,7 +148,11 @@ ResponseEntity<SearchPathStartResponse> start(
 - `*MapperTest`는 `SpringBootTest`로 실제 MyBatis mapper, PostgreSQL/PostGIS, SQL result mapping을 확인한다.
 - `*ServiceTest`는 `SpringBootTest`로 실제 mapper, DB, transaction, event staging이 함께 동작하는지 확인한다.
 - `*ControllerTest`는 `WebMvcTest`로 HTTP request/response, header, validation, status code, error body를 확인한다. 이 레이어에서는 service mocking을 허용한다.
-- 일반 기능 테스트는 Domain Test, `*MapperTest`, `*ServiceTest`, `*ControllerTest` 네 종류를 기본으로 한다. `ContractTest`, `HarnessRunner`는 기준 문서에 별도 계약이나 하네스가 있을 때만 사용한다.
+- 일반 기능 테스트는 Domain Test, `*MapperTest`, `*ServiceTest`, `*ControllerTest` 네 종류를 기본으로 한다. API 계약은 Controller Test, DB 매핑은 Mapper Test, 업무 흐름과 이벤트 저장은 Service Test에서 확인한다.
+- 여러 기능을 하나의 사용자 또는 업무 흐름으로 연결해 확인해야 할 때만 `*ScenarioTest`를 사용한다. 네 종류의 테스트로 나눠도 같은 내용을 명확히 확인할 수 있다면 별도 Scenario Test를 만들지 않는다.
+- 실제 실행 환경의 공개 API부터 DB, 이벤트, 외부 연동처럼 사용자가 확인할 수 있는 최종 결과까지 검증할 때만 `*E2ETest`를 사용한다. Spring Context를 띄우거나 MockMvc를 사용한다는 이유만으로 E2E Test라고 부르지 않는다.
+- 회귀 테스트는 별도 테스트 종류가 아니다. 고친 문제가 다시 발생하지 않는지 해당 레이어의 테스트 또는 Scenario/E2E Test에서 확인하고, `*RegressionTest`라는 클래스 이름은 사용하지 않는다.
+- `HarnessTest`, `HarnessRunner`는 테스트 종류나 최종 테스트 클래스 이름으로 사용하지 않는다. 테스트 지원 코드가 필요하면 `FixtureLoader`, `ScenarioDriver`, `ApiClient`처럼 실제 역할이 드러나는 이름을 사용한다.
 - Service Test는 Controller를 호출하지 않고 Mapper와 DB를 Fake나 Mock으로 바꾸지 않는다. Mapper Test도 Service를 호출하지 않는다.
 - `Publisher`는 이벤트 발행 책임이 명확할 때만 사용한다. 이벤트 저장소에 stage하는 구현은 `EventHub...Publisher`, 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 무엇을 발행하거나 기록하는지 이름에 드러낸다.
 

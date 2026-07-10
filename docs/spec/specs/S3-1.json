@@ -1518,27 +1518,33 @@
     "backend": {
       "language": "Java (JDK 17)",
       "framework": "Spring Boot 3.x",
-      "package": "com.surimap.path",
+      "packages": [
+        "com.surimap.api.controller.path",
+        "com.surimap.api.service.path",
+        "com.surimap.app.controller.path",
+        "com.surimap.app.service.path",
+        "com.surimap.domain.path"
+      ],
       "modules": [
         {
-          "name": "SearchSessionController",
-          "responsibility": "path start/end REST contract"
+          "name": "AppSearchPathController",
+          "responsibility": "App-only path start and lifecycle REST contract"
         },
         {
           "name": "SearchPathController",
-          "responsibility": "path batch append and path query REST contract"
+          "responsibility": "path batch append, path query, and Web-only movement type patch REST contracts"
         },
         {
-          "name": "PathSegmentController",
-          "responsibility": "Web-only movement type patch contract"
+          "name": "AppSearchPathService",
+          "responsibility": "current OP, account, and DutyShift lifecycle validation, persistence, and event publish request"
         },
         {
           "name": "SearchPathService",
-          "responsibility": "PolicePhone subject validation, LineString append, segment classification, event publish request"
+          "responsibility": "LineString append, segment classification and correction, filtered path query, and event publish request"
         },
         {
-          "name": "SearchPathRepository",
-          "responsibility": "PostGIS search_path/search_path_segment/search_path_excluded_point persistence and read model queries"
+          "name": "SearchPathMapper",
+          "responsibility": "MyBatis/PostGIS search_path/search_path_segment/search_path_excluded_point persistence and filtered read model queries"
         },
         {
           "name": "PathQuery",

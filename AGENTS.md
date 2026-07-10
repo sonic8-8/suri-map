@@ -78,14 +78,6 @@
 
 컨벤션 위반 검증은 로컬 lint/format/test 명령, CODEOWNERS, MR template, agent hook이 담당한다. GitLab CI는 runner가 안정화될 때까지 사용하지 않는다.
 
-## 코드 그래프 도구
+## 코드 탐색
 
-이 프로젝트는 `code-review-graph`와 `graphify`를 보조 도구로 사용한다. 생성된 그래프는 source of truth가 아니라 읽을 범위와 검증 범위를 줄이는 탐색 도구다. 기준 문서와 실제 소스/테스트가 항상 우선한다.
-
-규칙:
-- 변경 영향도 확인과 MR 전 검토에는 `code-review-graph detect-changes --repo . --base origin/develop --brief`를 우선 사용한다. 상세 검토가 필요하면 `--brief`를 빼고 다시 실행한다.
-- 코드를 수정한 뒤에는 `code-review-graph update --repo .`로 그래프를 갱신한다.
-- 여러 모듈에 걸친 개념 연결을 찾을 때만 `graphify query "<질문>"`, `graphify path "<A>" "<B>"`, `graphify explain "<개념>"`을 보조로 사용한다.
-- `GRAPH_REPORT.md`, graph/wiki/visualize 산출물, god node, surprising connection은 참고 자료로만 본다. 이 산출물만 근거로 설계 판단이나 코드 변경을 하지 않는다.
-- 비 trivial 변경은 그래프 결과로 범위를 좁힌 뒤 실제 구현 파일, 관련 테스트, 기준 문서를 직접 읽고 확인한다.
-- 그래프 결과와 소스/기준 문서가 충돌하면 소스/기준 문서를 신뢰한다.
+- 변경 영향도는 `rg`, `git diff`, 실제 구현 파일과 관련 테스트를 직접 확인해 판단한다.
