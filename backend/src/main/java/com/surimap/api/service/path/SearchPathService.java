@@ -23,6 +23,7 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.validation.GpsPoint;
 import com.surimap.domain.path.validation.GpsPointValidationResult.GpsPointExclusionReason;
 import com.surimap.domain.path.validation.GpsPointValidator;
+import com.surimap.global.event.SearchPathEventPublisher;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.math.BigDecimal;
@@ -55,13 +56,13 @@ public class SearchPathService {
       new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), SRID);
 
   private final SearchPathMapper searchPathMapper;
-  private final PathEventPublisher eventPublisher;
+  private final SearchPathEventPublisher eventPublisher;
   private final GpsPointValidator gpsPointValidator;
   private final IdempotentResponseCache idempotentResponseCache;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
-      PathEventPublisher eventPublisher,
+      SearchPathEventPublisher eventPublisher,
       GpsPointValidator gpsPointValidator,
       IdempotentResponseCache idempotentResponseCache) {
     this.searchPathMapper = searchPathMapper;
@@ -171,15 +172,7 @@ public class SearchPathService {
     path.bumpVersion();
     path = save(path);
 
-    eventPublisher.publishPathAppended(
-        new PathAppendedPublishRequest(
-            path.getId(),
-            path.getIncidentId(),
-            path.getStatus(),
-            path.getVersion(),
-            path.getOpId(),
-            request.getPolicePhoneId(),
-            path.getAccountId()));
+    eventPublisher.publishPathAppended(path, request.getPolicePhoneId());
 
     return SearchPathPointsAppendServiceResponse.builder()
         .id(path.getId())
@@ -287,18 +280,7 @@ public class SearchPathService {
     owner.bumpVersion();
     save(owner);
 
-    eventPublisher.publishSegmentUpdated(
-        new SearchPathSegmentUpdatedPublishRequest(
-            owner.getId(),
-            owner.getIncidentId(),
-            owner.getStatus(),
-            owner.getVersion(),
-            owner.getOpId(),
-            owner.getPolicePhoneId(),
-            owner.getAccountId(),
-            corrected.getId().toString(),
-            corrected.getMovementType(),
-            corrected.getMovementTypeSource()));
+    eventPublisher.publishSegmentUpdated(owner, corrected);
     return SearchPathSegmentCorrectionServiceResponse.from(
         corrected, owner.getOpId(), owner.getPolicePhoneId());
   }

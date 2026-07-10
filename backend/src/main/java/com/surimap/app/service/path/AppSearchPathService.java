@@ -9,10 +9,9 @@ import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathEventType;
 import com.surimap.domain.path.SearchPathLifecycleEvent;
 import com.surimap.domain.path.SearchPathMapper;
-import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
-import com.surimap.domain.path.port.SearchPathEventPublisher;
+import com.surimap.global.event.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -261,17 +260,7 @@ public class AppSearchPathService {
   }
 
   private void publish(SearchPath path, SearchPathEventType eventType) {
-    eventPublisher.publish(
-        SearchPathPublishRequest.builder()
-            .eventType(eventType)
-            .id(path.getId())
-            .incidentId(path.getIncidentId())
-            .opId(path.getOpId())
-            .policePhoneId(path.getPolicePhoneId())
-            .accountId(path.getAccountId())
-            .status(path.getStatus())
-            .version(path.getVersion())
-            .build());
+    eventPublisher.publishLifecycle(path, eventType);
   }
 
   private UUID lifecycleEventId(UUID pathId, String eventType, long version) {
