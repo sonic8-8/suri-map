@@ -1,13 +1,15 @@
 package com.surimap.board;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.surimap.api.controller.path.response.PathQueryResponse;
-import com.surimap.api.controller.path.response.PathQueryRow;
-import com.surimap.api.controller.path.response.PathQuerySegmentRow;
 import com.surimap.api.service.path.SearchPathService;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPathStatus;
@@ -439,11 +441,11 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
   private static SearchPathService searchPathService() {
     SearchPathService service = mock(SearchPathService.class);
-    when(service.query(INCIDENT_ID, OP_ID, null)).thenReturn(pathQueryResponse());
+    when(service.query(any(SearchPathQueryServiceRequest.class))).thenReturn(pathQueryResponse());
     return service;
   }
 
-  private static PathQueryResponse pathQueryResponse() {
+  private static SearchPathQueryServiceResponse pathQueryResponse() {
     List<List<Double>> geometry =
         List.of(
             List.of(126.910000, 35.162000),
@@ -452,52 +454,54 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             List.of(126.913000, 35.162300),
             List.of(126.914000, 35.162400),
             List.of(126.915000, 35.162500));
-    return new PathQueryResponse(
-        List.of(
-            new PathQueryRow(
-                PATH_ID,
-                INCIDENT_ID,
-                OP_ID,
-                DUTY_SHIFT_ID,
-                PHONE_ID,
-                ACCOUNT_ID,
-                SearchPathStatus.RECORDING,
-                STARTED_AT,
-                null,
-                2L,
-                geometry,
-                List.of(
-                    pathSegment(
-                        "segment-vehicle",
-                        MovementType.VEHICLE,
-                        geometry.subList(0, 3),
-                        "2026-04-28T09:00:00+09:00",
-                        "2026-04-28T09:00:10+09:00"),
-                    pathSegment(
-                        "segment-foot",
-                        MovementType.FOOT,
-                        geometry.subList(3, 6),
-                        "2026-04-28T09:00:15+09:00",
-                        "2026-04-28T09:00:25+09:00")),
-                List.of())));
+    return SearchPathQueryServiceResponse.builder()
+        .paths(
+            List.of(
+                SearchPathQueryRowServiceResponse.builder()
+                    .id(PATH_ID)
+                    .incidentId(INCIDENT_ID)
+                    .opId(OP_ID)
+                    .dutyShiftId(DUTY_SHIFT_ID)
+                    .policePhoneId(PHONE_ID)
+                    .accountId(ACCOUNT_ID)
+                    .status(SearchPathStatus.RECORDING)
+                    .startedAt(STARTED_AT)
+                    .version(2L)
+                    .geometry(geometry)
+                    .segments(
+                        List.of(
+                            pathSegment(
+                                "segment-vehicle",
+                                MovementType.VEHICLE,
+                                geometry.subList(0, 3),
+                                "2026-04-28T09:00:00+09:00",
+                                "2026-04-28T09:00:10+09:00"),
+                            pathSegment(
+                                "segment-foot",
+                                MovementType.FOOT,
+                                geometry.subList(3, 6),
+                                "2026-04-28T09:00:15+09:00",
+                                "2026-04-28T09:00:25+09:00")))
+                    .excludedPoints(List.of())
+                    .build()))
+        .build();
   }
 
-  private static PathQuerySegmentRow pathSegment(
+  private static SearchPathQuerySegmentServiceResponse pathSegment(
       String id,
       MovementType movementType,
       List<List<Double>> geometry,
       String startedAt,
       String endedAt) {
-    return new PathQuerySegmentRow(
-        id,
-        1L,
-        movementType,
-        MovementTypeSource.AUTO,
-        geometry,
-        OffsetDateTime.parse(startedAt),
-        OffsetDateTime.parse(endedAt),
-        null,
-        null);
+    return SearchPathQuerySegmentServiceResponse.builder()
+        .id(id)
+        .version(1L)
+        .movementType(movementType)
+        .movementTypeSource(MovementTypeSource.AUTO)
+        .geometry(geometry)
+        .startedAt(OffsetDateTime.parse(startedAt))
+        .endedAt(OffsetDateTime.parse(endedAt))
+        .build();
   }
 
   private static <T> ObjectProvider<T> provider(T value) {

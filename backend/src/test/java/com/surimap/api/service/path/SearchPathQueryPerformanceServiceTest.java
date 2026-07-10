@@ -2,7 +2,8 @@ package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.api.controller.path.response.PathQueryResponse;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.sql.Timestamp;
@@ -117,8 +118,7 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
 
   private void warmUp() {
     assertThat(legacyQuery()).hasSize(TARGET_PATH_COUNT);
-    assertThat(searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null).paths())
-        .hasSize(TARGET_PATH_COUNT);
+    assertThat(searchPathService.query(queryRequest()).getPaths()).hasSize(TARGET_PATH_COUNT);
   }
 
   private List<Long> measureLegacyQuery() {
@@ -136,8 +136,8 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
     List<Long> elapsedMillis = new ArrayList<>();
     for (int index = 0; index < 3; index++) {
       long started = System.nanoTime();
-      PathQueryResponse response = searchPathService.query(TARGET_INCIDENT_ID, TARGET_OP_ID, null);
-      assertThat(response.paths()).hasSize(TARGET_PATH_COUNT);
+      SearchPathQueryServiceResponse response = searchPathService.query(queryRequest());
+      assertThat(response.getPaths()).hasSize(TARGET_PATH_COUNT);
       elapsedMillis.add(Duration.ofNanos(System.nanoTime() - started).toMillis());
     }
     Collections.sort(elapsedMillis);
@@ -149,6 +149,13 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
         .filter(path -> TARGET_INCIDENT_ID.equals(path.getIncidentId()))
         .filter(path -> TARGET_OP_ID.equals(path.getOpId()))
         .toList();
+  }
+
+  private SearchPathQueryServiceRequest queryRequest() {
+    return SearchPathQueryServiceRequest.builder()
+        .incidentId(TARGET_INCIDENT_ID)
+        .opId(TARGET_OP_ID)
+        .build();
   }
 
   private long median(List<Long> elapsedMillis) {

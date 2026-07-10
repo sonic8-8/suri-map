@@ -2,20 +2,16 @@ package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.api.controller.path.SearchPathController;
 import com.surimap.api.controller.path.SearchPathSegmentController;
-import com.surimap.api.controller.path.request.PathBatchAppendRequest;
-import com.surimap.api.controller.path.request.PathBatchPointRequest;
 import com.surimap.api.controller.path.request.PathSegmentCorrectionRequest;
-import com.surimap.api.controller.path.response.PathBatchAppendResponse;
-import com.surimap.api.controller.path.response.PathQueryRow;
-import com.surimap.api.controller.path.response.PathQuerySegmentRow;
 import com.surimap.api.controller.path.response.PathSegmentCorrectionResponse;
-import com.surimap.common.auth.AccountType;
-import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.OrganizationType;
-import com.surimap.common.auth.Role;
-import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
+import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
@@ -29,8 +25,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.jdbc.Sql;
 
 @DisplayName("SearchPath service")
@@ -47,15 +41,14 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathService searchPathService;
-  @Autowired private SearchPathController searchPathController;
   @Autowired private SearchPathSegmentController searchPathSegmentController;
 
   @Test
   @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
   void segment_correction_stages_event_dispatch_job() {
-    PathBatchAppendResponse batch =
-        appendBatchThroughController("idem-path-event-segment-batch", batchRequest());
-    String segmentId = batch.segments().get(0).id();
+    SearchPathPointsAppendServiceResponse batch =
+        searchPathService.appendPoints(batchRequest("idem-path-event-segment-batch"));
+    String segmentId = batch.getSegments().get(0).id();
 
     searchPathSegmentController
         .correctSegment(
@@ -105,11 +98,11 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("batch append idempotency replay does not append geometry twice")
   void batch_append_idempotency_replay_does_not_append_twice() {
-    PathBatchAppendResponse first =
-        appendBatchThroughController("idem-path-batch-db-replay", batchRequest());
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("idem-path-batch-db-replay"));
 
-    PathBatchAppendResponse replayed =
-        appendBatchThroughController("idem-path-batch-db-replay", batchRequest());
+    SearchPathPointsAppendServiceResponse replayed =
+        searchPathService.appendPoints(batchRequest("idem-path-batch-db-replay"));
 
     assertThat(replayed).isEqualTo(first);
     Integer pointCount =
@@ -128,9 +121,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("segment correction idempotency replay does not increment segment twice")
   void segment_correction_idempotency_replay_does_not_increment_twice() {
-    PathBatchAppendResponse batch =
-        appendBatchThroughController("idem-path-batch-for-correction", batchRequest());
-    String segmentId = batch.segments().get(0).id();
+    SearchPathPointsAppendServiceResponse batch =
+        searchPathService.appendPoints(batchRequest("idem-path-batch-for-correction"));
+    String segmentId = batch.getSegments().get(0).id();
     PathSegmentCorrectionRequest request =
         new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction");
 
@@ -168,8 +161,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("batch append persists path geometry, version, and UUID segment rows")
   void batch_append_persists_path_and_segments() {
-    PathBatchAppendResponse response =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(batchRequest("idem-path-persist"));
 
     Map<String, Object> pathRow =
         jdbcTemplate.queryForMap(
@@ -185,11 +178,11 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             """,
             PATH_ID.toString());
 
-    assertThat(response.dutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
+    assertThat(response.getDutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
     assertThat(pathRow.get("id")).isEqualTo(PATH_ID);
     assertThat(pathRow.get("duty_shift_id")).isEqualTo(DUTY_SHIFT_ID);
     assertThat(pathRow.get("status")).isEqualTo("RECORDING");
-    assertThat(pathRow.get("version")).isEqualTo(response.version());
+    assertThat(pathRow.get("version")).isEqualTo(response.getVersion());
     assertThat(pathRow.get("srid")).isEqualTo(4326);
     assertThat(pathRow.get("point_count")).isEqualTo(8);
 
@@ -225,9 +218,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("segment correction persists MANUAL movement source and increments segment version")
   void segment_correction_persists_manual_update() {
-    PathBatchAppendResponse response =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
-    SearchPathSegment target = response.segments().get(0);
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(batchRequest("idem-path-segment-update"));
+    SearchPathSegment target = response.getSegments().get(0);
 
     SegmentCorrectionResult corrected =
         searchPathService.correctSegment(target.id(), MovementType.FOOT, CORRECTED_BY_ACCOUNT_ID);
@@ -257,14 +250,14 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("single-point UNKNOWN segment persists as LineString and keeps query indexes")
   void single_point_segment_persists_and_reconstructs_indexes() {
-    PathBatchAppendResponse response =
-        searchPathService.appendBatch(singlePointSegmentRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(singlePointSegmentRequest());
 
-    assertThat(response.segments())
+    assertThat(response.getSegments())
         .extracting(SearchPathSegment::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.UNKNOWN, MovementType.VEHICLE);
-    assertThat(response.segments().get(1).startIndex()).isEqualTo(3);
-    assertThat(response.segments().get(1).endIndex()).isEqualTo(3);
+    assertThat(response.getSegments().get(1).startIndex()).isEqualTo(3);
+    assertThat(response.getSegments().get(1).endIndex()).isEqualTo(3);
 
     List<Map<String, Object>> segmentRows =
         jdbcTemplate.queryForList(
@@ -281,23 +274,23 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(segmentRows.get(1).get("movement_type")).isEqualTo("UNKNOWN");
     assertThat(segmentRows.get(1).get("point_count")).isEqualTo(2);
 
-    PathQueryRow queried =
-        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
-    assertThat(queried.segments())
-        .extracting(PathQuerySegmentRow::movementType)
+    SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
+    assertThat(queried.getSegments())
+        .extracting(SearchPathQuerySegmentServiceResponse::getMovementType)
         .containsExactly(MovementType.VEHICLE, MovementType.UNKNOWN, MovementType.VEHICLE);
-    assertThat(queried.segments().get(1).geometry()).containsExactly(List.of(126.91485, 35.16254));
+    assertThat(queried.getSegments().get(1).getGeometry())
+        .containsExactly(List.of(126.91485, 35.16254));
   }
 
   @Test
   @DisplayName("low-quality excluded point remains in query after DB reload")
   void excluded_point_persists_and_reloads_for_query() {
-    PathBatchAppendResponse response =
-        searchPathService.appendBatch(lowQualityPointRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(lowQualityPointRequest());
 
-    assertThat(response.acceptedPointCount()).isEqualTo(2);
-    assertThat(response.excludedPointCount()).isEqualTo(1);
-    assertThat(response.excludedPoints())
+    assertThat(response.getAcceptedPointCount()).isEqualTo(2);
+    assertThat(response.getExcludedPointCount()).isEqualTo(1);
+    assertThat(response.getExcludedPoints())
         .singleElement()
         .satisfies(
             point -> {
@@ -317,11 +310,10 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(excludedRow.get("point_id")).isEqualTo("gps-precinct-low-accuracy");
     assertThat(excludedRow.get("reason")).isEqualTo("low_accuracy");
 
-    PathQueryRow queried =
-        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
+    SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
 
-    assertThat(queried.geometry()).hasSize(2);
-    assertThat(queried.excludedPoints())
+    assertThat(queried.getGeometry()).hasSize(2);
+    assertThat(queried.getExcludedPoints())
         .singleElement()
         .satisfies(
             point -> {
@@ -335,64 +327,43 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("next batch after DB reload preserves existing movement segments")
   void append_after_reload_keeps_existing_segments() {
-    PathBatchAppendResponse first =
-        searchPathService.appendBatch(batchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("idem-path-first-batch"));
 
-    PathBatchAppendResponse second =
-        searchPathService.appendBatch(nextVehicleBatchRequest(), POLICE_PHONE_ID, ACCOUNT_ID);
+    SearchPathPointsAppendServiceResponse second =
+        searchPathService.appendPoints(nextVehicleBatchRequest());
 
-    assertThat(first.segments())
+    assertThat(first.getSegments())
         .extracting(SearchPathSegment::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT);
-    assertThat(second.segments())
+    assertThat(second.getSegments())
         .extracting(SearchPathSegment::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT, MovementType.VEHICLE);
-    assertThat(second.segments().get(0).id()).isEqualTo(first.segments().get(0).id());
-    assertThat(second.segments().get(1).id()).isEqualTo(first.segments().get(1).id());
+    assertThat(second.getSegments().get(0).id()).isEqualTo(first.getSegments().get(0).id());
+    assertThat(second.getSegments().get(1).id()).isEqualTo(first.getSegments().get(1).id());
 
-    PathQueryRow queried =
-        searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
-    assertThat(queried.geometry()).hasSize(11);
-    assertThat(queried.segments())
-        .extracting(PathQuerySegmentRow::movementType)
+    SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
+    assertThat(queried.getGeometry()).hasSize(11);
+    assertThat(queried.getSegments())
+        .extracting(SearchPathQuerySegmentServiceResponse::getMovementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT, MovementType.VEHICLE);
-    assertThat(queried.segments().get(0).geometry()).hasSize(4);
-    assertThat(queried.segments().get(1).geometry()).hasSize(4);
-    assertThat(queried.segments().get(2).geometry()).hasSize(3);
+    assertThat(queried.getSegments().get(0).getGeometry()).hasSize(4);
+    assertThat(queried.getSegments().get(1).getGeometry()).hasSize(4);
+    assertThat(queried.getSegments().get(2).getGeometry()).hasSize(3);
   }
 
-  private PathBatchAppendResponse appendBatchThroughController(
-      String idempotencyKey, PathBatchAppendRequest request) {
-    return appendBatchThroughController(idempotencyKey, request, POLICE_PHONE_ID);
+  private SearchPathQueryServiceResponse queryPaths() {
+    return searchPathService.query(
+        SearchPathQueryServiceRequest.builder()
+            .incidentId(INCIDENT_ID)
+            .opId(OP_ID)
+            .policePhoneId(POLICE_PHONE_ID)
+            .build());
   }
 
-  private PathBatchAppendResponse appendBatchThroughController(
-      String idempotencyKey, PathBatchAppendRequest request, UUID policePhoneId) {
-    var previousContext = SecurityContextHolder.getContext();
-    var context = SecurityContextHolder.createEmptyContext();
-    context.setAuthentication(
-        new SuriMapAuthentication(
-            ACCOUNT_ID.toString(),
-            AccountType.PATROL_CAR,
-            OrganizationType.POLICE_SUBSTATION,
-            Channel.APP,
-            policePhoneId.toString(),
-            List.of(new SimpleGrantedAuthority(Role.MEMBER.name()))));
-    try {
-      SecurityContextHolder.setContext(context);
-      return searchPathController
-          .appendBatch(policePhoneId.toString(), idempotencyKey, request)
-          .getBody();
-    } finally {
-      SecurityContextHolder.setContext(previousContext);
-    }
-  }
-
-  private PathBatchAppendRequest batchRequest() {
-    return new PathBatchAppendRequest(
-        INCIDENT_ID,
-        OP_ID,
-        PATH_ID,
+  private SearchPathPointsAppendServiceRequest batchRequest(String idempotencyKey) {
+    return pointsAppendRequest(
+        idempotencyKey,
         List.of(
             point("gps-precinct-001", "126.913000", "35.162000", 13.5, "2026-04-28T09:00:00+09:00"),
             point("gps-precinct-002", "126.913650", "35.162180", 12.8, "2026-04-28T09:00:05+09:00"),
@@ -401,8 +372,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             point("gps-precinct-005", "126.915000", "35.162700", 1.6, "2026-04-28T09:00:20+09:00"),
             point("gps-precinct-006", "126.915080", "35.162880", 1.3, "2026-04-28T09:00:25+09:00"),
             point("gps-precinct-007", "126.915160", "35.163050", 1.1, "2026-04-28T09:00:30+09:00"),
-            point("gps-precinct-008", "126.915250", "35.163120", 1.4, "2026-04-28T09:00:35+09:00")),
-        0L);
+            point(
+                "gps-precinct-008", "126.915250", "35.163120", 1.4, "2026-04-28T09:00:35+09:00")));
   }
 
   private int rowCount(String tableName) {
@@ -421,11 +392,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         idempotencyKey);
   }
 
-  private PathBatchAppendRequest singlePointSegmentRequest() {
-    return new PathBatchAppendRequest(
-        INCIDENT_ID,
-        OP_ID,
-        PATH_ID,
+  private SearchPathPointsAppendServiceRequest singlePointSegmentRequest() {
+    return pointsAppendRequest(
+        "idem-path-single-point-segment",
         List.of(
             point("gps-precinct-101", "126.913000", "35.162000", 13.5, "2026-04-28T09:00:00+09:00"),
             point("gps-precinct-102", "126.913650", "35.162180", 12.8, "2026-04-28T09:00:05+09:00"),
@@ -434,28 +403,22 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             point("gps-precinct-105", "126.915000", "35.162700", 13.0, "2026-04-28T09:00:20+09:00"),
             point("gps-precinct-106", "126.915080", "35.162880", 12.5, "2026-04-28T09:00:25+09:00"),
             point(
-                "gps-precinct-107", "126.915160", "35.163050", 11.8, "2026-04-28T09:00:30+09:00")),
-        0L);
+                "gps-precinct-107", "126.915160", "35.163050", 11.8, "2026-04-28T09:00:30+09:00")));
   }
 
-  private PathBatchAppendRequest nextVehicleBatchRequest() {
-    return new PathBatchAppendRequest(
-        INCIDENT_ID,
-        OP_ID,
-        PATH_ID,
+  private SearchPathPointsAppendServiceRequest nextVehicleBatchRequest() {
+    return pointsAppendRequest(
+        "idem-path-next-vehicle-batch",
         List.of(
             point("gps-precinct-201", "126.915400", "35.163400", 13.2, "2026-04-28T09:01:00+09:00"),
             point("gps-precinct-202", "126.916000", "35.163600", 12.9, "2026-04-28T09:01:05+09:00"),
             point(
-                "gps-precinct-203", "126.916600", "35.163800", 12.1, "2026-04-28T09:01:10+09:00")),
-        0L);
+                "gps-precinct-203", "126.916600", "35.163800", 12.1, "2026-04-28T09:01:10+09:00")));
   }
 
-  private PathBatchAppendRequest lowQualityPointRequest() {
-    return new PathBatchAppendRequest(
-        INCIDENT_ID,
-        OP_ID,
-        PATH_ID,
+  private SearchPathPointsAppendServiceRequest lowQualityPointRequest() {
+    return pointsAppendRequest(
+        "idem-path-low-quality-point",
         List.of(
             point(
                 "gps-precinct-good-001",
@@ -475,23 +438,37 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
                 "126.913100",
                 "35.162040",
                 1.2,
-                "2026-04-28T09:00:10+09:00")),
-        0L);
+                "2026-04-28T09:00:10+09:00")));
   }
 
-  private PathBatchPointRequest point(
+  private SearchPathPointsAppendServiceRequest pointsAppendRequest(
+      String idempotencyKey, List<SearchPathPointServiceRequest> points) {
+    return SearchPathPointsAppendServiceRequest.builder()
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .pathId(PATH_ID)
+        .points(points)
+        .clockOffsetMs(0L)
+        .policePhoneId(POLICE_PHONE_ID)
+        .accountId(ACCOUNT_ID)
+        .idempotencyKey(idempotencyKey)
+        .build();
+  }
+
+  private SearchPathPointServiceRequest point(
       String pointId, String lon, String lat, double speed, String clientTs) {
     return point(pointId, lon, lat, speed, clientTs, 5);
   }
 
-  private PathBatchPointRequest point(
+  private SearchPathPointServiceRequest point(
       String pointId, String lon, String lat, double speed, String clientTs, int accuracyM) {
-    return new PathBatchPointRequest(
-        pointId,
-        new BigDecimal(lon),
-        new BigDecimal(lat),
-        BigDecimal.valueOf(speed),
-        accuracyM,
-        OffsetDateTime.parse(clientTs));
+    return SearchPathPointServiceRequest.builder()
+        .pointId(pointId)
+        .lon(new BigDecimal(lon))
+        .lat(new BigDecimal(lat))
+        .speedMps(BigDecimal.valueOf(speed))
+        .horizontalAccuracyM(accuracyM)
+        .clientTs(OffsetDateTime.parse(clientTs))
+        .build();
   }
 }

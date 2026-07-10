@@ -1,11 +1,12 @@
 package com.surimap.api.service.path;
 
-import com.surimap.api.controller.path.request.PathBatchAppendRequest;
-import com.surimap.api.controller.path.request.PathBatchPointRequest;
-import com.surimap.api.controller.path.response.PathBatchAppendResponse;
-import com.surimap.api.controller.path.response.PathQueryResponse;
-import com.surimap.api.controller.path.response.PathQueryRow;
-import com.surimap.api.controller.path.response.PathQuerySegmentRow;
+import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
+import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.PathExcludedPoint;
@@ -21,6 +22,8 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.validation.GpsPathPoint;
 import com.surimap.domain.path.validation.GpsPathValidationResult.QualityReason;
 import com.surimap.domain.path.validation.GpsPathValidator;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -38,6 +41,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SearchPathService {
@@ -52,14 +56,17 @@ public class SearchPathService {
   private final SearchPathMapper searchPathMapper;
   private final PathEventPublisher eventPublisher;
   private final GpsPathValidator gpsPathValidator;
+  private final IdempotentResponseCache idempotentResponseCache;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
       PathEventPublisher eventPublisher,
-      GpsPathValidator gpsPathValidator) {
+      GpsPathValidator gpsPathValidator,
+      IdempotentResponseCache idempotentResponseCache) {
     this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
     this.gpsPathValidator = gpsPathValidator;
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   public List<SearchPath> findAll() {
@@ -103,29 +110,44 @@ public class SearchPathService {
     return persistedPath.toBuilder().segments(persistedSegments).build();
   }
 
-  public PathBatchAppendResponse appendBatch(
-      PathBatchAppendRequest request, UUID policePhoneId, UUID accountId) {
+  @Transactional
+  public SearchPathPointsAppendServiceResponse appendPoints(
+      SearchPathPointsAppendServiceRequest request) {
+    requireIdempotencyKey(request.getIdempotencyKey());
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/search-paths/batch",
+        request.getIdempotencyKey(),
+        request,
+        200,
+        SearchPathPointsAppendServiceResponse.class,
+        () -> appendPointsOnce(request),
+        this::metadataForPointsAppend);
+  }
+
+  private SearchPathPointsAppendServiceResponse appendPointsOnce(
+      SearchPathPointsAppendServiceRequest request) {
+    UUID accountId = request.getAccountId();
     if (accountId == null) {
       throw new SearchPathApiException("channel_not_allowed");
     }
     var validationResult =
         gpsPathValidator.validateBatch(
-            toValidatorPoints(request.points()),
-            request.points().get(0).clientTs().plusSeconds(20));
+            toValidatorPoints(request.getPoints()),
+            request.getPoints().get(0).getClientTs().plusSeconds(20));
 
     List<SearchPathPoint> acceptedPoints = toAcceptedPoints(validationResult.acceptedPoints());
     List<PathExcludedPoint> excludedPoints = toExcludedPoints(validationResult.excludedPoints());
 
     SearchPath path =
-        findById(request.pathId())
+        findById(request.getPathId())
             .orElseGet(
                 () ->
                     save(
                         SearchPath.builder()
-                            .id(request.pathId())
-                            .incidentId(request.incidentId())
-                            .opId(request.opId())
-                            .policePhoneId(policePhoneId)
+                            .id(request.getPathId())
+                            .incidentId(request.getIncidentId())
+                            .opId(request.getOpId())
+                            .policePhoneId(request.getPolicePhoneId())
                             .accountId(accountId)
                             .build()));
     if (accountId != null
@@ -155,50 +177,67 @@ public class SearchPathService {
             path.getStatus(),
             path.getVersion(),
             path.getOpId(),
-            policePhoneId,
+            request.getPolicePhoneId(),
             path.getAccountId()));
 
-    return new PathBatchAppendResponse(
-        path.getId(),
-        path.getDutyShiftId(),
-        path.getOpId(),
-        policePhoneId,
-        path.getAccountId(),
-        validationResult.acceptedPoints().size(),
-        validationResult.excludedPoints().size(),
-        path.getExcludedPoints(),
-        toGeometry(path.getPoints()),
-        path.getSegments(),
-        path.getVersion(),
-        path.getStatus());
+    return SearchPathPointsAppendServiceResponse.builder()
+        .id(path.getId())
+        .dutyShiftId(path.getDutyShiftId())
+        .opId(path.getOpId())
+        .policePhoneId(request.getPolicePhoneId())
+        .accountId(path.getAccountId())
+        .acceptedPointCount(validationResult.acceptedPoints().size())
+        .excludedPointCount(validationResult.excludedPoints().size())
+        .excludedPoints(path.getExcludedPoints())
+        .geometry(toGeometry(path.getPoints()))
+        .segments(path.getSegments())
+        .version(path.getVersion())
+        .status(path.getStatus())
+        .build();
   }
 
-  public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId) {
-    return query(incidentId, opId, policePhoneId, null);
+  private void requireIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new SearchPathApiException("write_conflict");
+    }
   }
 
-  public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
-    List<PathQueryRow> rows =
-        findByQuery(incidentId, opId, policePhoneId, accountId).stream()
+  private ResponseMetadata metadataForPointsAppend(SearchPathPointsAppendServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus().name(),
+        response.getVersion(),
+        response.getVersion());
+  }
+
+  public SearchPathQueryServiceResponse query(SearchPathQueryServiceRequest request) {
+    List<SearchPathQueryRowServiceResponse> rows =
+        findByQuery(
+                request.getIncidentId(),
+                request.getOpId(),
+                request.getPolicePhoneId(),
+                request.getAccountId())
+            .stream()
             .sorted(Comparator.comparing(SearchPath::getVersion).reversed())
             .map(
                 path ->
-                    new PathQueryRow(
-                        path.getId(),
-                        path.getIncidentId(),
-                        path.getOpId(),
-                        path.getDutyShiftId(),
-                        path.getPolicePhoneId(),
-                        path.getAccountId(),
-                        path.getStatus(),
-                        path.getStartedAt(),
-                        path.getEndedAt(),
-                        path.getVersion(),
-                        toGeometry(path.getPoints()),
-                        toQuerySegments(path.getPoints(), path.getSegments()),
-                        path.getExcludedPoints()))
+                    SearchPathQueryRowServiceResponse.builder()
+                        .id(path.getId())
+                        .incidentId(path.getIncidentId())
+                        .opId(path.getOpId())
+                        .dutyShiftId(path.getDutyShiftId())
+                        .policePhoneId(path.getPolicePhoneId())
+                        .accountId(path.getAccountId())
+                        .status(path.getStatus())
+                        .startedAt(path.getStartedAt())
+                        .endedAt(path.getEndedAt())
+                        .version(path.getVersion())
+                        .geometry(toGeometry(path.getPoints()))
+                        .segments(toQuerySegments(path.getPoints(), path.getSegments()))
+                        .excludedPoints(path.getExcludedPoints())
+                        .build())
             .toList();
-    return new PathQueryResponse(rows);
+    return SearchPathQueryServiceResponse.builder().paths(rows).build();
   }
 
   public SegmentCorrectionResult correctSegment(
@@ -231,17 +270,17 @@ public class SearchPathService {
     return new SegmentCorrectionResult(corrected, owner.getOpId(), owner.getPolicePhoneId());
   }
 
-  private List<GpsPathPoint> toValidatorPoints(List<PathBatchPointRequest> points) {
+  private List<GpsPathPoint> toValidatorPoints(List<SearchPathPointServiceRequest> points) {
     return points.stream()
         .map(
             p ->
                 new GpsPathPoint(
-                    p.pointId(),
-                    p.clientTs(),
-                    p.lon(),
-                    p.lat(),
-                    p.speedMps(),
-                    p.horizontalAccuracyM()))
+                    p.getPointId(),
+                    p.getClientTs(),
+                    p.getLon(),
+                    p.getLat(),
+                    p.getSpeedMps(),
+                    p.getHorizontalAccuracyM()))
         .toList();
   }
 
@@ -366,7 +405,7 @@ public class SearchPathService {
     return points.stream().map(p -> List.of(p.lon().doubleValue(), p.lat().doubleValue())).toList();
   }
 
-  private List<PathQuerySegmentRow> toQuerySegments(
+  private List<SearchPathQuerySegmentServiceResponse> toQuerySegments(
       List<SearchPathPoint> points, List<SearchPathSegment> segments) {
     return segments.stream()
         .filter(segment -> hasValidPointRange(points, segment))
@@ -374,20 +413,21 @@ public class SearchPathService {
         .toList();
   }
 
-  private PathQuerySegmentRow toQuerySegment(
+  private SearchPathQuerySegmentServiceResponse toQuerySegment(
       List<SearchPathPoint> points, SearchPathSegment segment) {
     List<SearchPathPoint> segmentPoints =
         points.subList(segment.startIndex(), segment.endIndex() + 1);
-    return new PathQuerySegmentRow(
-        segment.id(),
-        segment.version(),
-        segment.movementType(),
-        segment.movementTypeSource(),
-        toGeometry(segmentPoints),
-        segmentPoints.get(0).clientTs(),
-        segmentPoints.get(segmentPoints.size() - 1).clientTs(),
-        segment.correctedByAccountId(),
-        segment.correctedAt());
+    return SearchPathQuerySegmentServiceResponse.builder()
+        .id(segment.id())
+        .version(segment.version())
+        .movementType(segment.movementType())
+        .movementTypeSource(segment.movementTypeSource())
+        .geometry(toGeometry(segmentPoints))
+        .startedAt(segmentPoints.get(0).clientTs())
+        .endedAt(segmentPoints.get(segmentPoints.size() - 1).clientTs())
+        .correctedByAccountId(segment.correctedByAccountId())
+        .correctedAt(segment.correctedAt())
+        .build();
   }
 
   private boolean hasValidPointRange(List<SearchPathPoint> points, SearchPathSegment segment) {
