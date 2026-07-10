@@ -34,13 +34,11 @@ import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -48,9 +46,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.jdbc.Sql;
 
 @DisplayName("SearchPath service")
 @Tag("integration")
+@Sql(scripts = "/sql/path/search-path-context.sql")
 class SearchPathServiceTest extends PostGisIntegrationTestSupport {
 
   private static final UUID INCIDENT_ID = SearchPathFixtures.INCIDENT_ID;
@@ -79,168 +79,6 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private SearchPathController searchPathController;
   @Autowired private SearchPathSegmentController searchPathSegmentController;
   @Autowired private ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider;
-
-  @BeforeEach
-  void cleanAndSeedPathContext() {
-    jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
-    jdbcTemplate.execute(
-        "TRUNCATE TABLE event_dispatch_job, search_area_boundary_alert,"
-            + " search_path_lifecycle_event, search_path_excluded_point, search_path_segment,"
-            + " search_path");
-    jdbcTemplate.update(
-        "DELETE FROM duty_shift WHERE id = ?::uuid", OTHER_DUTY_SHIFT_ID.toString());
-    jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
-    jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
-    jdbcTemplate.update(
-        "DELETE FROM incident_assignment WHERE id = ?::uuid",
-        OTHER_INCIDENT_ASSIGNMENT_ID.toString());
-    jdbcTemplate.update(
-        "DELETE FROM incident_assignment WHERE id = ?::uuid", INCIDENT_ASSIGNMENT_ID.toString());
-    jdbcTemplate.update(
-        "DELETE FROM police_phone WHERE id = ?::uuid", OTHER_POLICE_PHONE_ID.toString());
-    jdbcTemplate.update(
-        "DELETE FROM police_phone WHERE phone_code = ?", SearchPathFixtures.POLICE_PHONE_ALIAS);
-    jdbcTemplate.update("DELETE FROM police_phone WHERE id = ?::uuid", POLICE_PHONE_ID.toString());
-    jdbcTemplate.update("DELETE FROM account WHERE id = ?::uuid", ACCOUNT_ID.toString());
-    jdbcTemplate.update(
-        "DELETE FROM account WHERE id = ?::uuid", CORRECTED_BY_ACCOUNT_ID.toString());
-    jdbcTemplate.update("DELETE FROM incident WHERE id = ?::uuid", INCIDENT_ID.toString());
-
-    jdbcTemplate.update(
-        """
-        INSERT INTO incident (
-            id, source_incident_id, title, status, opened_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, 'S3-1 persistence incident', 'OPEN', ?, 1, ?, ?)
-        """,
-        INCIDENT_ID.toString(),
-        UUID.fromString("64000000-0000-0000-0000-000000002621").toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO account (
-            id, login_id, password_hash, display_name, account_type, organization_type, status,
-            created_at, updated_at
-        )
-        VALUES
-            (?::uuid, 'acct-path-persistence', '{noop}fixture', 'Path persistence account',
-             'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', ?, ?),
-            (?::uuid, 'acct-path-corrector', '{noop}fixture', 'Path corrector account',
-             'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE', ?, ?)
-        """,
-        ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        CORRECTED_BY_ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-            id, phone_code, display_name, account_id, status, registered,
-            last_heartbeat_at, last_sync_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, ?, 'Path persistence phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1, ?, ?)
-        """,
-        POLICE_PHONE_ID.toString(),
-        SearchPathFixtures.POLICE_PHONE_ALIAS,
-        ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO incident_assignment (
-            id, incident_id, account_id, incident_role, assigned_at, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, ?::uuid, 'MEMBER', ?, ?, ?)
-        """,
-        INCIDENT_ASSIGNMENT_ID.toString(),
-        INCIDENT_ID.toString(),
-        ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO operational_period (
-            id, incident_id, sequence_number, status, reason, started_by_account_id,
-            started_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, 1, 'ACTIVE', 'INITIAL_IMPORT', ?::uuid, ?, 1, ?, ?)
-        """,
-        OP_ID.toString(),
-        INCIDENT_ID.toString(),
-        ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO duty_shift (
-            id, operational_period_id, incident_assignment_id, police_phone_id, status,
-            started_by_account_id, started_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
-        """,
-        DUTY_SHIFT_ID.toString(),
-        OP_ID.toString(),
-        INCIDENT_ASSIGNMENT_ID.toString(),
-        POLICE_PHONE_ID.toString(),
-        ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-  }
-
-  private void seedOtherAccountDutyShift() {
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-            id, phone_code, display_name, account_id, status, registered,
-            last_heartbeat_at, last_sync_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, 'dev-path-other-phone', 'Other path phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1, ?, ?)
-        """,
-        OTHER_POLICE_PHONE_ID.toString(),
-        CORRECTED_BY_ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO incident_assignment (
-            id, incident_id, account_id, incident_role, assigned_at, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, ?::uuid, 'MEMBER', ?, ?, ?)
-        """,
-        OTHER_INCIDENT_ASSIGNMENT_ID.toString(),
-        INCIDENT_ID.toString(),
-        CORRECTED_BY_ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-    jdbcTemplate.update(
-        """
-        INSERT INTO duty_shift (
-            id, operational_period_id, incident_assignment_id, police_phone_id, status,
-            started_by_account_id, started_at, version, created_at, updated_at
-        )
-        VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
-        """,
-        OTHER_DUTY_SHIFT_ID.toString(),
-        OP_ID.toString(),
-        OTHER_INCIDENT_ASSIGNMENT_ID.toString(),
-        OTHER_POLICE_PHONE_ID.toString(),
-        CORRECTED_BY_ACCOUNT_ID.toString(),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT),
-        Timestamp.from(STARTED_AT));
-  }
 
   @Test
   @DisplayName("start creates UUID search_path row tied to active duty_shift")
@@ -364,10 +202,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @Sql(scripts = {"/sql/path/search-path-context.sql", "/sql/path/search-path-other-phone.sql"})
   @DisplayName("start는 사건에 배치된 계정이면 다른 등록 업무폰 요청도 허용한다")
   void start_allows_registered_phone_when_account_is_assigned_to_incident() {
-    seedOtherAccountDutyShift();
-
     var created =
         appSearchPathService.start(
             new StartSearchPathServiceRequest(
@@ -516,9 +353,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @Sql(scripts = {"/sql/path/search-path-context.sql", "/sql/path/search-path-other-phone.sql"})
   @DisplayName("pause는 요청한 등록 업무폰을 lifecycle actor로 남긴다")
   void pause_records_request_police_phone_as_lifecycle_actor() {
-    seedOtherAccountDutyShift();
     var created =
         appSearchPathService.start(
             new StartSearchPathServiceRequest(

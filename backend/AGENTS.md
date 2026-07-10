@@ -119,20 +119,25 @@ Do / Don't:
 - Controller Request DTO는 HTTP 입력 검증과 테스트 요청 객체 생성을 담당한다.
 - Controller Request DTO는 Bean Validation으로 입력을 검증하고, 필요한 경우 `toServiceRequest(...)`로 변환한다.
 - Service Request DTO는 Controller 계층과 분리된 use case 입력이다.
-- Service Response DTO는 domain object, mapper row, 조회 결과를 API 반환 형태로 변환한다.
+- Service는 Controller 패키지의 Request/Response DTO를 import하지 않는다.
+- Service Response DTO는 domain object, mapper row, 조회 결과를 Service 반환 형태로 변환한다.
+- Controller Response DTO는 `from(ServiceResponse)`으로 Public API 응답을 만든다. Service Response를 HTTP 응답으로 직접 반환하지 않는다.
 - DTO는 API fixture field 이름을 보존한다. 하네스 필드명을 임의로 축약하거나 재명명하지 않는다.
-- DTO도 기본적으로 `class`로 작성한다. Controller DTO와 Service DTO를 분리하고, Controller DTO는 `toServiceRequest(...)`로 Service DTO로 변환한다. 단순 projection에만 `record`를 예외적으로 사용할 수 있다.
+- 새로 작성하거나 리팩토링하는 DTO는 기본적으로 `class`와 Lombok `@Getter`, `@NoArgsConstructor`, `@Builder`를 사용한다. `@Setter`는 사용하지 않는다. 단순 projection에만 `record`를 예외적으로 사용할 수 있다.
+- Request/Response 이름은 `도메인 + 동작 + 역할` 순서로 짓는다. 예: `SearchPathStartRequest`, `SearchPathStartServiceRequest`, `SearchPathStartResponse`.
 - Controller 응답은 `ResponseEntity<계약 Response DTO>`를 기본으로 사용한다. 공통 `ApiResponse`
   wrapper를 만들거나 사용하지 않는다. 응답 body는 `docs/api/api-spec.md`의 JSON shape와 직접 일치해야 한다.
 
 ```java
 @PostMapping("/api/search-paths")
-ResponseEntity<SearchPathResponse> start(
-        @RequestHeader("X-PolicePhone-Id") Long policePhoneId,
-        @Valid @RequestBody StartSearchPathRequest request
+ResponseEntity<SearchPathStartResponse> start(
+        @RequestHeader("X-PolicePhone-Id") UUID policePhoneId,
+        @Valid @RequestBody SearchPathStartRequest request
 ) {
+    SearchPathStartServiceResponse serviceResponse =
+            searchPathService.start(request.toServiceRequest(policePhoneId));
     return ResponseEntity.status(HttpStatus.CREATED)
-            .body(searchPathCommandService.start(request.toServiceRequest(policePhoneId)));
+            .body(SearchPathStartResponse.from(serviceResponse));
 }
 ```
 
@@ -143,6 +148,8 @@ ResponseEntity<SearchPathResponse> start(
 - `*MapperTest`는 `SpringBootTest`로 실제 MyBatis mapper, PostgreSQL/PostGIS, SQL result mapping을 확인한다.
 - `*ServiceTest`는 `SpringBootTest`로 실제 mapper, DB, transaction, event staging이 함께 동작하는지 확인한다.
 - `*ControllerTest`는 `WebMvcTest`로 HTTP request/response, header, validation, status code, error body를 확인한다. 이 레이어에서는 service mocking을 허용한다.
+- 일반 기능 테스트는 Domain Test, `*MapperTest`, `*ServiceTest`, `*ControllerTest` 네 종류를 기본으로 한다. `ContractTest`, `HarnessRunner`는 기준 문서에 별도 계약이나 하네스가 있을 때만 사용한다.
+- Service Test는 Controller를 호출하지 않고 Mapper와 DB를 Fake나 Mock으로 바꾸지 않는다. Mapper Test도 Service를 호출하지 않는다.
 - `Publisher`는 이벤트 발행 책임이 명확할 때만 사용한다. 이벤트 저장소에 stage하는 구현은 `EventHub...Publisher`, 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 무엇을 발행하거나 기록하는지 이름에 드러낸다.
 
 ## Service 분리 기준
@@ -171,6 +178,8 @@ ResponseEntity<SearchPathResponse> start(
 - SSE endpoint는 `text/event-stream` 계약을 따르며 `SseEmitter` 또는 스트림 전용 응답을 쓸 수 있다.
 - Error response 기본형은 `{ "error": "incident_closed" }`다.
 - Validation 상세 응답을 확장하려면 API spec과 테스트를 먼저 맞춘다.
+- Controller는 `Idempotency-Key`와 인증 정보를 Service Request에 담아 전달한다. 요청 해시 생성, 응답 재사용, 임시 `Map` 관리는 Service와 `IdempotentResponseCache` 경계에서 처리한다.
+- 멱등성 요청 해시는 DTO의 `toString()`이 아니라 구조화된 JSON 직렬화 결과로 계산한다.
 
 ## Guard / Security
 
@@ -190,7 +199,7 @@ ResponseEntity<SearchPathResponse> start(
 - Service: transaction rule, idempotency, event staging, rollback을 검증한다.
 - Event/SSE: envelope, Last-Event-ID replay, `gone_refetch_required`를 검증한다.
 - Parser, mapper DTO 변환, policy처럼 순수 로직 중심 클래스는 Spring 컨텍스트 없이 unit test를 우선한다.
-- 현재 의존성에 Testcontainers가 없으므로 PostGIS Testcontainers는 강제하지 않는다. 도입이 필요하면 별도 build 변경과 근거를 남긴다.
+- PostGIS 통합 테스트는 기존 `PostGisIntegrationTestSupport`와 Testcontainers 구성을 재사용한다. 도메인마다 별도 컨테이너 기반 클래스를 만들지 않는다.
 - Spring REST Docs와 `ValidationMessages.properties`는 현재 의존성 기준 강제하지 않는다.
 - RED test는 기준 문서의 API, event, error, fixture ID를 문자열 그대로 사용한다.
 
