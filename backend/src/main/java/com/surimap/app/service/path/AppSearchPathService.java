@@ -18,33 +18,19 @@ import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Service
 public class AppSearchPathService {
 
   private final OperationalPeriodQuery opQuery;
   private final SearchPathEventPublisher eventPublisher;
   private final SearchPathMapper searchPathMapper;
   private final IdempotentResponseCache idempotentResponseCache;
-  private final Map<UUID, SearchPath> activePaths = new ConcurrentHashMap<>();
 
   public AppSearchPathService(
-      OperationalPeriodQuery opQuery,
-      SearchPathEventPublisher eventPublisher,
-      SearchPathMapper searchPathMapper,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this(
-        opQuery,
-        eventPublisher,
-        searchPathMapper,
-        idempotentResponseCacheProvider.getIfAvailable());
-  }
-
-  private AppSearchPathService(
       OperationalPeriodQuery opQuery,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper,
@@ -58,7 +44,7 @@ public class AppSearchPathService {
   @Transactional
   public SearchPathStartServiceResponse start(SearchPathStartServiceRequest request) {
     requireIdempotencyKey(request.getIdempotencyKey());
-    return idempotencyCache()
+    return idempotentResponseCache
         .replayOrRun(
             "POST /api/search-paths",
             request.getIdempotencyKey(),
@@ -94,7 +80,6 @@ public class AppSearchPathService {
 
     persistStartedPath(path);
     publish(path, SearchPathEventType.SEARCH_PATH_STARTED);
-    activePaths.put(path.getId(), path);
 
     return path;
   }
@@ -103,7 +88,7 @@ public class AppSearchPathService {
   public SearchPathStatusUpdateServiceResponse updateStatus(
       SearchPathStatusUpdateServiceRequest request) {
     requireIdempotencyKey(request.getIdempotencyKey());
-    return idempotencyCache()
+    return idempotentResponseCache
         .replayOrRun(
             "PATCH /api/search-paths/" + request.getSearchPathId(),
             request.getIdempotencyKey(),
@@ -118,13 +103,10 @@ public class AppSearchPathService {
     if (request.getAccountId() == null) {
       throw new SearchPathGuardException("channel_not_allowed");
     }
-    SearchPath current = loadPersistedPath(request.getSearchPathId());
-    if (current == null) {
-      current = activePaths.get(request.getSearchPathId());
-    }
-    if (current == null) {
-      throw new SearchPathGuardException("write_conflict");
-    }
+    SearchPath current =
+        searchPathMapper
+            .findPathById(request.getSearchPathId())
+            .orElseThrow(() -> new SearchPathGuardException("write_conflict"));
     if (current.getAccountId() != null && !current.getAccountId().equals(request.getAccountId())) {
       throw new SearchPathGuardException("write_conflict");
     }
@@ -149,15 +131,11 @@ public class AppSearchPathService {
 
     persistLifecycleTransition(patched, eventName(request.getAction()), clientTs);
     publish(patched, publishEventType(request.getAction()));
-    activePaths.put(patched.getId(), patched);
 
     return patched;
   }
 
   private void persistStartedPath(SearchPath path) {
-    if (searchPathMapper == null) {
-      return;
-    }
     UUID accountId = path.getAccountId();
     if (accountId == null) {
       throw new SearchPathGuardException("channel_not_allowed");
@@ -178,9 +156,6 @@ public class AppSearchPathService {
   }
 
   private void persistLifecycleTransition(SearchPath path, String eventType, Instant clientTs) {
-    if (searchPathMapper == null || searchPathMapper.findPathById(path.getId()).isEmpty()) {
-      return;
-    }
     Instant updatedAt = Instant.now();
     searchPathMapper.updateLifecycleStatus(
         path.getId(), path.getStatus().name(), path.getEndedAt(), path.getVersion(), updatedAt);
@@ -189,9 +164,6 @@ public class AppSearchPathService {
 
   private void persistLifecycleEvent(
       SearchPath path, String eventType, Instant clientTs, Instant serverReceivedAt) {
-    if (searchPathMapper == null) {
-      return;
-    }
     Instant safeClientTs = clientTs == null ? serverReceivedAt : clientTs;
     searchPathMapper.insertLifecycleEvent(
         SearchPathLifecycleEvent.builder()
@@ -204,13 +176,6 @@ public class AppSearchPathService {
             .version(path.getVersion())
             .createdAt(serverReceivedAt)
             .build());
-  }
-
-  private SearchPath loadPersistedPath(UUID searchPathId) {
-    if (searchPathMapper == null) {
-      return null;
-    }
-    return searchPathMapper.findPathById(searchPathId).orElse(null);
   }
 
   private void requireIdempotencyKey(String idempotencyKey) {
@@ -284,10 +249,4 @@ public class AppSearchPathService {
         response.getVersion());
   }
 
-  private IdempotentResponseCache idempotencyCache() {
-    if (idempotentResponseCache == null) {
-      throw new IllegalStateException("IdempotentResponseCache is required");
-    }
-    return idempotentResponseCache;
-  }
 }
