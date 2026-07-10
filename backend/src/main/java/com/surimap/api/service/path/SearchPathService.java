@@ -9,20 +9,37 @@ import com.surimap.api.controller.path.response.PathQuerySegmentRow;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.PathExcludedPoint;
-import com.surimap.domain.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathApiException;
+import com.surimap.domain.path.SearchPathExcludedPointPersistenceRecord;
+import com.surimap.domain.path.SearchPathExcludedPointReadRecord;
+import com.surimap.domain.path.SearchPathMapper;
+import com.surimap.domain.path.SearchPathPersistenceRecord;
 import com.surimap.domain.path.SearchPathPoint;
-import com.surimap.domain.path.SearchPathRepository;
+import com.surimap.domain.path.SearchPathReadRecord;
 import com.surimap.domain.path.SearchPathSegment;
+import com.surimap.domain.path.SearchPathSegmentPersistenceRecord;
+import com.surimap.domain.path.SearchPathSegmentReadRecord;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.validation.GpsPathPoint;
 import com.surimap.domain.path.validation.GpsPathValidationResult.QualityReason;
 import com.surimap.domain.path.validation.GpsPathValidator;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,18 +48,77 @@ public class SearchPathService {
   private static final double VEHICLE_MIN_SPEED = 5.0;
   private static final double FOOT_MIN_SPEED = 0.5;
   private static final double FOOT_MAX_SPEED = 2.5;
+  private static final int SRID = 4326;
+  private static final GeometryFactory GEOMETRY_FACTORY =
+      new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), SRID);
 
-  private final SearchPathRepository repository;
+  private final SearchPathMapper searchPathMapper;
   private final PathEventPublisher eventPublisher;
   private final GpsPathValidator gpsPathValidator;
 
   public SearchPathService(
-      SearchPathRepository repository,
+      SearchPathMapper searchPathMapper,
       PathEventPublisher eventPublisher,
       GpsPathValidator gpsPathValidator) {
-    this.repository = repository;
+    this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
     this.gpsPathValidator = gpsPathValidator;
+  }
+
+  public List<SearchPath> findAll() {
+    return searchPathMapper.findAllPaths().stream().map(this::toAggregate).toList();
+  }
+
+  public List<SearchPath> findByQuery(
+      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
+    return searchPathMapper.findPaths(incidentId, opId, policePhoneId, accountId).stream()
+        .map(this::toAggregate)
+        .toList();
+  }
+
+  private Optional<SearchPath> findById(UUID pathId) {
+    return searchPathMapper.findPathById(pathId).map(this::toAggregate);
+  }
+
+  private SearchPath save(SearchPath aggregate) {
+    Instant now = Instant.now();
+    ResolvedDutyShift dutyShift = resolveDutyShift(aggregate);
+    Geometry geometry = lineStringOrNull(aggregate.getPoints());
+    Instant startedAt = startedAt(aggregate, now);
+    SearchPathPersistenceRecord record =
+        new SearchPathPersistenceRecord(
+            aggregate.getId(),
+            dutyShift.id(),
+            dutyShift.accountId(),
+            aggregate.getStatus().name(),
+            startedAt,
+            aggregate.getEndedAt(),
+            geometry,
+            aggregate.getVersion(),
+            startedAt,
+            now);
+
+    if (searchPathMapper.findPathById(aggregate.getId()).isPresent()) {
+      searchPathMapper.updatePath(record);
+    } else {
+      searchPathMapper.insertPath(record);
+    }
+
+    List<SearchPathSegment> persistedSegments = persistSegments(aggregate, now);
+    persistExcludedPoints(aggregate, now);
+    return SearchPath.builder()
+        .id(aggregate.getId())
+        .dutyShiftId(dutyShift.id())
+        .incidentId(aggregate.getIncidentId())
+        .opId(aggregate.getOpId())
+        .policePhoneId(aggregate.getPolicePhoneId())
+        .accountId(dutyShift.accountId())
+        .status(aggregate.getStatus())
+        .version(aggregate.getVersion())
+        .points(aggregate.getPoints())
+        .excludedPoints(aggregate.getExcludedPoints())
+        .segments(persistedSegments)
+        .build();
   }
 
   public PathBatchAppendResponse appendBatch(
@@ -58,61 +134,61 @@ public class SearchPathService {
     List<SearchPathPoint> acceptedPoints = toAcceptedPoints(validationResult.acceptedPoints());
     List<PathExcludedPoint> excludedPoints = toExcludedPoints(validationResult.excludedPoints());
 
-    SearchPathAggregate aggregate =
-        repository
-            .findById(request.pathId())
+    SearchPath aggregate =
+        findById(request.pathId())
             .orElseGet(
                 () ->
-                    repository.save(
-                        new SearchPathAggregate(
-                            request.pathId(),
-                            request.incidentId(),
-                            request.opId(),
-                            policePhoneId,
-                            accountId)));
+                    save(
+                        SearchPath.builder()
+                            .id(request.pathId())
+                            .incidentId(request.incidentId())
+                            .opId(request.opId())
+                            .policePhoneId(policePhoneId)
+                            .accountId(accountId)
+                            .build()));
     if (accountId != null
-        && aggregate.accountId() != null
-        && !accountId.equals(aggregate.accountId())) {
+        && aggregate.getAccountId() != null
+        && !accountId.equals(aggregate.getAccountId())) {
       throw new SearchPathApiException("write_conflict");
     }
-    if (aggregate.status() != SearchPathStatus.RECORDING) {
+    if (aggregate.getStatus() != SearchPathStatus.RECORDING) {
       throw new SearchPathApiException("write_conflict");
     }
 
-    int pointOffset = aggregate.points().size();
-    int segmentOffset = aggregate.segments().size();
-    List<SearchPathSegment> segments = new ArrayList<>(aggregate.segments());
+    int pointOffset = aggregate.getPoints().size();
+    int segmentOffset = aggregate.getSegments().size();
+    List<SearchPathSegment> segments = new ArrayList<>(aggregate.getSegments());
     segments.addAll(autoSegments(acceptedPoints, pointOffset, segmentOffset));
 
     aggregate.appendAcceptedPoints(acceptedPoints);
     aggregate.appendExcludedPoints(excludedPoints);
     aggregate.replaceSegments(segments);
     aggregate.bumpVersion();
-    aggregate = repository.save(aggregate);
+    aggregate = save(aggregate);
 
     eventPublisher.publishPathAppended(
         new PathAppendedPublishRequest(
-            aggregate.id(),
-            aggregate.incidentId(),
-            aggregate.status(),
-            aggregate.version(),
-            aggregate.opId(),
+            aggregate.getId(),
+            aggregate.getIncidentId(),
+            aggregate.getStatus(),
+            aggregate.getVersion(),
+            aggregate.getOpId(),
             policePhoneId,
-            aggregate.accountId()));
+            aggregate.getAccountId()));
 
     return new PathBatchAppendResponse(
-        aggregate.id(),
-        aggregate.dutyShiftId(),
-        aggregate.opId(),
+        aggregate.getId(),
+        aggregate.getDutyShiftId(),
+        aggregate.getOpId(),
         policePhoneId,
-        aggregate.accountId(),
+        aggregate.getAccountId(),
         validationResult.acceptedPoints().size(),
         validationResult.excludedPoints().size(),
-        aggregate.excludedPoints(),
-        toGeometry(aggregate.points()),
-        aggregate.segments(),
-        aggregate.version(),
-        aggregate.status());
+        aggregate.getExcludedPoints(),
+        toGeometry(aggregate.getPoints()),
+        aggregate.getSegments(),
+        aggregate.getVersion(),
+        aggregate.getStatus());
   }
 
   public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId) {
@@ -121,56 +197,56 @@ public class SearchPathService {
 
   public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
     List<PathQueryRow> rows =
-        repository.findByQuery(incidentId, opId, policePhoneId, accountId).stream()
-            .sorted(Comparator.comparing(SearchPathAggregate::version).reversed())
+        findByQuery(incidentId, opId, policePhoneId, accountId).stream()
+            .sorted(Comparator.comparing(SearchPath::getVersion).reversed())
             .map(
                 path ->
                     new PathQueryRow(
-                        path.id(),
-                        path.incidentId(),
-                        path.opId(),
-                        path.dutyShiftId(),
-                        path.policePhoneId(),
-                        path.accountId(),
-                        path.status(),
-                        path.startedAt(),
-                        path.endedAt(),
-                        path.version(),
-                        toGeometry(path.points()),
-                        toQuerySegments(path.points(), path.segments()),
-                        path.excludedPoints()))
+                        path.getId(),
+                        path.getIncidentId(),
+                        path.getOpId(),
+                        path.getDutyShiftId(),
+                        path.getPolicePhoneId(),
+                        path.getAccountId(),
+                        path.getStatus(),
+                        path.getStartedAt(),
+                        path.getEndedAt(),
+                        path.getVersion(),
+                        toGeometry(path.getPoints()),
+                        toQuerySegments(path.getPoints(), path.getSegments()),
+                        path.getExcludedPoints()))
             .toList();
     return new PathQueryResponse(rows);
   }
 
   public SegmentCorrectionResult correctSegment(
       String segmentId, MovementType movementType, UUID correctedByAccountId) {
-    SearchPathAggregate owner =
-        repository.findAll().stream()
+    SearchPath owner =
+        findAll().stream()
             .filter(
                 path ->
-                    path.segments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
+                    path.getSegments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
             .findFirst()
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
 
     SearchPathSegment corrected =
         owner.correctSegment(segmentId, movementType, correctedByAccountId, OffsetDateTime.now());
     owner.bumpVersion();
-    repository.save(owner);
+    save(owner);
 
     eventPublisher.publishSegmentUpdated(
         new SearchPathSegmentUpdatedPublishRequest(
-            owner.id(),
-            owner.incidentId(),
-            owner.status(),
-            owner.version(),
-            owner.opId(),
-            owner.policePhoneId(),
-            owner.accountId(),
+            owner.getId(),
+            owner.getIncidentId(),
+            owner.getStatus(),
+            owner.getVersion(),
+            owner.getOpId(),
+            owner.getPolicePhoneId(),
+            owner.getAccountId(),
             corrected.id(),
             corrected.movementType(),
             corrected.movementTypeSource()));
-    return new SegmentCorrectionResult(corrected, owner.opId(), owner.policePhoneId());
+    return new SegmentCorrectionResult(corrected, owner.getOpId(), owner.getPolicePhoneId());
   }
 
   private List<GpsPathPoint> toValidatorPoints(List<PathBatchPointRequest> points) {
@@ -337,4 +413,265 @@ public class SearchPathService {
         && segment.endIndex() >= segment.startIndex()
         && segment.endIndex() < points.size();
   }
+
+  private List<SearchPathSegment> persistSegments(SearchPath aggregate, Instant now) {
+    searchPathMapper.deleteSegments(aggregate.getId());
+    List<SearchPathPoint> points = aggregate.getPoints();
+    List<SearchPathSegment> persistedSegments = new ArrayList<>();
+    for (SearchPathSegment segment : aggregate.getSegments()) {
+      UUID segmentId = uuidSegmentId(aggregate.getId(), segment);
+      LineString geometry = segmentLineString(points, segment);
+      Instant startedAt = instant(points.get(segment.startIndex()).clientTs());
+      Instant endedAt = instant(points.get(segment.endIndex()).clientTs());
+      searchPathMapper.insertSegment(
+          new SearchPathSegmentPersistenceRecord(
+              segmentId,
+              aggregate.getId(),
+              segment.movementType().name(),
+              segment.movementTypeSource().name(),
+              geometry,
+              startedAt,
+              endedAt,
+              segment.correctedByAccountId(),
+              instant(segment.correctedAt()),
+              segment.version(),
+              now,
+              now));
+      persistedSegments.add(
+          new SearchPathSegment(
+              segmentId.toString(),
+              segment.version(),
+              segment.movementType(),
+              segment.movementTypeSource(),
+              segment.startIndex(),
+              segment.endIndex(),
+              segment.startPointId(),
+              segment.endPointId(),
+              segment.correctedByAccountId(),
+              segment.correctedAt()));
+    }
+    return List.copyOf(persistedSegments);
+  }
+
+  private SearchPath toAggregate(SearchPathReadRecord record) {
+    List<SearchPathPoint> points = pointsFrom(record.geometry(), record.startedAt());
+    List<SearchPathSegmentReadRecord> segmentRecords =
+        searchPathMapper.findSegmentsByPathId(record.id());
+    List<SearchPathSegment> segments = segmentsFrom(segmentRecords, points);
+    List<PathExcludedPoint> excludedPoints = excludedPointsFrom(record.id());
+    return SearchPath.builder()
+        .id(record.id())
+        .dutyShiftId(record.dutyShiftId())
+        .incidentId(record.incidentId())
+        .opId(record.opId())
+        .policePhoneId(record.policePhoneId())
+        .accountId(record.accountId())
+        .startedAt(record.startedAt())
+        .endedAt(record.endedAt())
+        .status(SearchPathStatus.valueOf(record.status()))
+        .version(record.version())
+        .points(points)
+        .excludedPoints(excludedPoints)
+        .segments(segments)
+        .build();
+  }
+
+  private ResolvedDutyShift resolveDutyShift(SearchPath aggregate) {
+    UUID accountId = aggregate.getAccountId();
+    if (accountId != null) {
+      UUID dutyShiftId =
+          searchPathMapper
+              .findActiveDutyShiftIdByAccount(aggregate.getOpId(), accountId)
+              .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+      return new ResolvedDutyShift(dutyShiftId, accountId);
+    }
+    UUID dutyShiftId =
+        searchPathMapper
+            .findActiveDutyShiftId(aggregate.getOpId(), aggregate.getPolicePhoneId())
+            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+    UUID inferredAccountId =
+        searchPathMapper
+            .findActiveDutyShiftAccountId(aggregate.getOpId(), aggregate.getPolicePhoneId())
+            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+    return new ResolvedDutyShift(dutyShiftId, inferredAccountId);
+  }
+
+  private void persistExcludedPoints(SearchPath aggregate, Instant now) {
+    searchPathMapper.deleteExcludedPoints(aggregate.getId());
+    for (PathExcludedPoint point : aggregate.getExcludedPoints()) {
+      searchPathMapper.insertExcludedPoint(
+          new SearchPathExcludedPointPersistenceRecord(
+              excludedPointId(aggregate.getId(), point),
+              aggregate.getId(),
+              point.pointId(),
+              point.reason(),
+              instant(point.clientTs()),
+              now,
+              now));
+    }
+  }
+
+  private List<PathExcludedPoint> excludedPointsFrom(UUID pathId) {
+    return searchPathMapper.findExcludedPointsByPathId(pathId).stream()
+        .map(
+            record ->
+                new PathExcludedPoint(
+                    record.pointId(), record.reason(), offsetDateTime(record.clientTs())))
+        .toList();
+  }
+
+  private List<SearchPathSegment> segmentsFrom(
+      List<SearchPathSegmentReadRecord> records, List<SearchPathPoint> points) {
+    List<SearchPathSegment> segments = new ArrayList<>();
+    int startIndex = 0;
+    for (SearchPathSegmentReadRecord record : records) {
+      SegmentIndexes indexes = segmentIndexes(record, points, startIndex);
+      segments.add(
+          new SearchPathSegment(
+              record.id().toString(),
+              record.version(),
+              MovementType.valueOf(record.movementType()),
+              MovementTypeSource.valueOf(record.movementTypeSource()),
+              indexes.start(),
+              indexes.end(),
+              "db-point-%03d".formatted(indexes.start() + 1),
+              "db-point-%03d".formatted(indexes.end() + 1),
+              record.correctedByAccountId(),
+              offsetDateTime(record.correctedAt())));
+      startIndex = indexes.end() + 1;
+    }
+    return segments.stream().sorted(Comparator.comparingInt(SearchPathSegment::startIndex)).toList();
+  }
+
+  private SegmentIndexes segmentIndexes(
+      SearchPathSegmentReadRecord record, List<SearchPathPoint> points, int fallbackStart) {
+    Coordinate[] coordinates = effectiveCoordinates(record);
+    if (coordinates.length > 0 && !points.isEmpty()) {
+      int maxStart = points.size() - coordinates.length;
+      int preferredStart = Math.max(0, Math.min(fallbackStart, maxStart));
+      for (int candidate = preferredStart; candidate <= maxStart; candidate++) {
+        if (matches(points, candidate, coordinates)) {
+          return new SegmentIndexes(candidate, candidate + coordinates.length - 1);
+        }
+      }
+      for (int candidate = 0; candidate < preferredStart; candidate++) {
+        if (matches(points, candidate, coordinates)) {
+          return new SegmentIndexes(candidate, candidate + coordinates.length - 1);
+        }
+      }
+    }
+    int endIndex = coordinates.length == 0 ? fallbackStart : fallbackStart + coordinates.length - 1;
+    return new SegmentIndexes(fallbackStart, Math.max(fallbackStart, endIndex));
+  }
+
+  private Coordinate[] effectiveCoordinates(SearchPathSegmentReadRecord record) {
+    if (record.geometry() == null) {
+      return new Coordinate[0];
+    }
+    Coordinate[] coordinates = record.geometry().getCoordinates();
+    if (coordinates.length == 2
+        && sameCoordinate(coordinates[0], coordinates[1])
+        && Objects.equals(record.startedAt(), record.endedAt())) {
+      return new Coordinate[] {coordinates[0]};
+    }
+    return coordinates;
+  }
+
+  private boolean matches(List<SearchPathPoint> points, int startIndex, Coordinate[] coordinates) {
+    for (int i = 0; i < coordinates.length; i++) {
+      if (!sameCoordinate(points.get(startIndex + i), coordinates[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private List<SearchPathPoint> pointsFrom(Geometry geometry, Instant startedAt) {
+    if (geometry == null || geometry.getNumPoints() == 0) {
+      return List.of();
+    }
+    List<SearchPathPoint> points = new ArrayList<>();
+    Coordinate[] coordinates = geometry.getCoordinates();
+    Instant base = startedAt == null ? Instant.EPOCH : startedAt;
+    for (int i = 0; i < coordinates.length; i++) {
+      Coordinate coordinate = coordinates[i];
+      points.add(
+          new SearchPathPoint(
+              "db-point-%03d".formatted(i + 1),
+              OffsetDateTime.ofInstant(base.plusSeconds(i * 5L), ZoneOffset.UTC),
+              BigDecimal.valueOf(coordinate.x),
+              BigDecimal.valueOf(coordinate.y),
+              BigDecimal.ZERO,
+              0));
+    }
+    return List.copyOf(points);
+  }
+
+  private Geometry lineStringOrNull(List<SearchPathPoint> points) {
+    if (points.isEmpty()) {
+      return null;
+    }
+    return lineString(points);
+  }
+
+  private LineString lineString(List<SearchPathPoint> points) {
+    List<SearchPathPoint> sourcePoints =
+        points.size() == 1 ? List.of(points.get(0), points.get(0)) : points;
+    Coordinate[] coordinates =
+        sourcePoints.stream()
+            .map(point -> new Coordinate(point.lon().doubleValue(), point.lat().doubleValue()))
+            .toArray(Coordinate[]::new);
+    LineString lineString = GEOMETRY_FACTORY.createLineString(coordinates);
+    lineString.setSRID(SRID);
+    return lineString;
+  }
+
+  private LineString segmentLineString(List<SearchPathPoint> points, SearchPathSegment segment) {
+    return lineString(points.subList(segment.startIndex(), segment.endIndex() + 1));
+  }
+
+  private Instant startedAt(SearchPath aggregate, Instant fallback) {
+    return aggregate.getPoints().stream()
+        .map(SearchPathPoint::clientTs)
+        .findFirst()
+        .map(SearchPathService::instant)
+        .orElse(fallback);
+  }
+
+  private UUID uuidSegmentId(UUID pathId, SearchPathSegment segment) {
+    try {
+      return UUID.fromString(segment.id());
+    } catch (IllegalArgumentException ignored) {
+      String seed =
+          "search-path-segment:%s:%d:%d".formatted(pathId, segment.startIndex(), segment.endIndex());
+      return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  private UUID excludedPointId(UUID pathId, PathExcludedPoint point) {
+    String seed =
+        "search-path-excluded-point:%s:%s:%s".formatted(pathId, point.pointId(), point.clientTs());
+    return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static Instant instant(OffsetDateTime value) {
+    return value == null ? null : value.toInstant();
+  }
+
+  private static OffsetDateTime offsetDateTime(Instant value) {
+    return value == null ? null : OffsetDateTime.ofInstant(value, ZoneOffset.UTC);
+  }
+
+  private static boolean sameCoordinate(SearchPathPoint point, Coordinate coordinate) {
+    return Double.compare(point.lon().doubleValue(), coordinate.x) == 0
+        && Double.compare(point.lat().doubleValue(), coordinate.y) == 0;
+  }
+
+  private static boolean sameCoordinate(Coordinate first, Coordinate second) {
+    return Double.compare(first.x, second.x) == 0 && Double.compare(first.y, second.y) == 0;
+  }
+
+  private record ResolvedDutyShift(UUID id, UUID accountId) {}
+
+  private record SegmentIndexes(int start, int end) {}
 }

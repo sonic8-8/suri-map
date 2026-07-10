@@ -8,6 +8,13 @@ import com.surimap.api.controller.handover.response.HandoverTimelineResponse.Pat
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.PointResponse;
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ScopeResponse;
 import com.surimap.api.controller.summary.response.SearchHistorySummaryItemResponse;
+import com.surimap.api.service.path.SearchPathService;
+import com.surimap.domain.path.MovementType;
+import com.surimap.domain.path.SearchPath;
+import com.surimap.domain.path.SearchPathMetrics;
+import com.surimap.domain.path.SearchPathMetricsCalculator;
+import com.surimap.domain.path.SearchPathPoint;
+import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
@@ -15,13 +22,6 @@ import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerView;
-import com.surimap.domain.path.MovementType;
-import com.surimap.domain.path.SearchPathAggregate;
-import com.surimap.domain.path.SearchPathMetrics;
-import com.surimap.domain.path.SearchPathMetricsCalculator;
-import com.surimap.domain.path.SearchPathPoint;
-import com.surimap.domain.path.SearchPathRepository;
-import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +44,7 @@ public class HandoverTimelineApiService {
   private static final List<String> ACTOR_COLORS =
       List.of("blue", "green", "yellow", "pink", "purple", "gray");
 
-  private final SearchPathRepository searchPathRepository;
+  private final SearchPathService searchPathService;
   private final MarkerQuery markerQuery;
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
@@ -52,13 +52,13 @@ public class HandoverTimelineApiService {
   private final SearchPathMetricsCalculator metricsCalculator = new SearchPathMetricsCalculator();
 
   public HandoverTimelineApiService(
-      SearchPathRepository searchPathRepository,
+      SearchPathService searchPathService,
       MarkerQuery markerQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
       DutyShiftMapper dutyShiftMapper) {
-    this.searchPathRepository =
-        Objects.requireNonNull(searchPathRepository, "searchPathRepository must not be null");
+    this.searchPathService =
+        Objects.requireNonNull(searchPathService, "searchPathService must not be null");
     this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
     this.handoverMemoQuery =
         Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
@@ -88,7 +88,7 @@ public class HandoverTimelineApiService {
             endAt,
             includeOtherActors,
             dutyShiftMapper);
-    List<SearchPathAggregate> paths = scopedPaths(incidentId, operationalPeriodId, scope);
+    List<SearchPath> paths = scopedPaths(incidentId, operationalPeriodId, scope);
     List<MarkerView> markers = scopedMarkers(incidentId, operationalPeriodId, scope);
     List<HandoverMemoRow> memos = scopedMemos(incidentId, operationalPeriodId, scope);
 
@@ -109,11 +109,11 @@ public class HandoverTimelineApiService {
         summary);
   }
 
-  private List<SearchPathAggregate> scopedPaths(UUID incidentId, UUID opId, Scope scope) {
-    return searchPathRepository.findAll().stream()
-        .filter(path -> incidentId.equals(path.incidentId()))
-        .filter(path -> opId.equals(path.opId()))
-        .filter(path -> scope.includes(path.dutyShiftId(), path.startedAt(), path.endedAt()))
+  private List<SearchPath> scopedPaths(UUID incidentId, UUID opId, Scope scope) {
+    return searchPathService.findAll().stream()
+        .filter(path -> incidentId.equals(path.getIncidentId()))
+        .filter(path -> opId.equals(path.getOpId()))
+        .filter(path -> scope.includes(path.getDutyShiftId(), path.getStartedAt(), path.getEndedAt()))
         .sorted(Comparator.comparing(HandoverTimelineApiService::pathStartOrEpoch))
         .toList();
   }
@@ -135,18 +135,18 @@ public class HandoverTimelineApiService {
         .toList();
   }
 
-  private List<PathResponse> pathResponses(List<SearchPathAggregate> paths, ActorRegistry actors) {
+  private List<PathResponse> pathResponses(List<SearchPath> paths, ActorRegistry actors) {
     List<PathResponse> responses = new ArrayList<>();
-    for (SearchPathAggregate path : paths) {
-      String actorId = actors.actorFor(path.accountId(), "현장 기록자");
+    for (SearchPath path : paths) {
+      String actorId = actors.actorFor(path.getAccountId(), "현장 기록자");
       responses.add(
           new PathResponse(
-              path.id(),
+              path.getId(),
               actorId,
-              mode(path.segments()),
-              path.startedAt(),
-              path.endedAt(),
-              path.points().stream()
+              mode(path.getSegments()),
+              path.getStartedAt(),
+              path.getEndedAt(),
+              path.getPoints().stream()
                   .map(
                       point ->
                           new PointResponse(
@@ -160,26 +160,26 @@ public class HandoverTimelineApiService {
   }
 
   private List<EventResponse> events(
-      List<SearchPathAggregate> paths,
+      List<SearchPath> paths,
       List<MarkerView> markers,
       List<HandoverMemoRow> memos,
       ActorRegistry actors) {
     List<EventResponse> events = new ArrayList<>();
-    for (SearchPathAggregate path : paths) {
-      String actorId = actors.actorFor(path.accountId(), "현장 기록자");
-      Instant startedAt = path.startedAt();
+    for (SearchPath path : paths) {
+      String actorId = actors.actorFor(path.getAccountId(), "현장 기록자");
+      Instant startedAt = path.getStartedAt();
       if (startedAt != null) {
         events.add(
             new EventResponse(
-                "path-start-" + path.id(),
+                "path-start-" + path.getId(),
                 startedAt,
                 "PATH_START",
                 actorId,
                 "경로 시작",
-                Map.of("pathId", path.id().toString())));
+                Map.of("pathId", path.getId().toString())));
       }
-      for (SearchPathSegment segment : path.segments()) {
-        Instant segmentStartedAt = segmentStartedAt(path.points(), segment);
+      for (SearchPathSegment segment : path.getSegments()) {
+        Instant segmentStartedAt = segmentStartedAt(path.getPoints(), segment);
         if (segmentStartedAt != null) {
           events.add(
               new EventResponse(
@@ -189,20 +189,20 @@ public class HandoverTimelineApiService {
                   actorId,
                   movementLabel(segment.movementType()),
                   Map.of(
-                      "pathId", path.id().toString(),
+                      "pathId", path.getId().toString(),
                       "segmentId", segment.id(),
                       "movementType", segment.movementType().name())));
         }
       }
-      if (path.endedAt() != null) {
+      if (path.getEndedAt() != null) {
         events.add(
             new EventResponse(
-                "path-end-" + path.id(),
-                path.endedAt(),
+                "path-end-" + path.getId(),
+                path.getEndedAt(),
                 "PATH_END",
                 actorId,
                 "경로 종료",
-                Map.of("pathId", path.id().toString())));
+                Map.of("pathId", path.getId().toString())));
       }
     }
     for (MarkerView marker : markers) {
@@ -277,7 +277,7 @@ public class HandoverTimelineApiService {
   }
 
   private MetricsResponse metrics(
-      List<SearchPathAggregate> paths,
+      List<SearchPath> paths,
       List<MarkerView> markers,
       List<HandoverMemoRow> memos,
       Scope scope,
@@ -349,8 +349,8 @@ public class HandoverTimelineApiService {
     return instant(points.get(segment.startIndex()).clientTs());
   }
 
-  private static Instant pathStartOrEpoch(SearchPathAggregate path) {
-    return path.startedAt() == null ? Instant.EPOCH : path.startedAt();
+  private static Instant pathStartOrEpoch(SearchPath path) {
+    return path.getStartedAt() == null ? Instant.EPOCH : path.getStartedAt();
   }
 
   private static Instant instant(OffsetDateTime value) {

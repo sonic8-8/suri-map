@@ -25,19 +25,19 @@ import org.springframework.core.env.Environment;
 
 @Configuration
 @Order(Integer.MAX_VALUE)
-public class PathCommandConfig {
+public class PathServiceConfig {
 
   private static final String EVENT_SCHEMA_VERSION = "1";
   private final Map<UUID, CurrentOpResult> inMemoryCurrentOps = new ConcurrentHashMap<>();
 
   @Bean
-  AppSearchPathCommandService appSearchPathCommandService(
+  AppSearchPathService appSearchPathService(
       OperationalPeriodQuery operationalPeriodQuery,
       SearchPathEventPublisher searchPathEventPublisher,
       SearchPathMapper searchPathMapper,
       Environment environment,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    return new AppSearchPathCommandService(
+    return new AppSearchPathService(
         operationalPeriodQuery,
         searchPathEventPublisher,
         postgresqlDataSource(environment) ? searchPathMapper : null,

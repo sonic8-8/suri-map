@@ -29,7 +29,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 
-public class AppSearchPathCommandService {
+public class AppSearchPathService {
 
   private final OperationalPeriodQuery opQuery;
   private final SearchPathEventPublisher eventPublisher;
@@ -38,19 +38,19 @@ public class AppSearchPathCommandService {
   private final Map<UUID, SearchPath> activePaths = new ConcurrentHashMap<>();
   private final Map<String, IdempotencyEntry> idempotencyEntries = new ConcurrentHashMap<>();
 
-  public AppSearchPathCommandService(
+  public AppSearchPathService(
       OperationalPeriodQuery opQuery, SearchPathEventPublisher eventPublisher) {
     this(opQuery, eventPublisher, null);
   }
 
-  public AppSearchPathCommandService(
+  public AppSearchPathService(
       OperationalPeriodQuery opQuery,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper) {
     this(opQuery, eventPublisher, searchPathMapper, (IdempotentResponseCache) null);
   }
 
-  public AppSearchPathCommandService(
+  public AppSearchPathService(
       OperationalPeriodQuery opQuery,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper,
@@ -62,7 +62,7 @@ public class AppSearchPathCommandService {
         idempotentResponseCacheProvider.getIfAvailable());
   }
 
-  private AppSearchPathCommandService(
+  private AppSearchPathService(
       OperationalPeriodQuery opQuery,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper,
@@ -99,20 +99,18 @@ public class AppSearchPathCommandService {
     }
 
     SearchPath path =
-        new SearchPath(
-            request.searchPathId() == null ? UUID.randomUUID() : request.searchPathId(),
-            request.incidentId(),
-            request.opId(),
-            request.policePhoneId(),
-            accountId,
-            SearchPathStatus.RECORDING,
-            1L,
-            request.startedAt(),
-            null);
+        SearchPath.builder()
+            .id(request.searchPathId() == null ? UUID.randomUUID() : request.searchPathId())
+            .incidentId(request.incidentId())
+            .opId(request.opId())
+            .policePhoneId(request.policePhoneId())
+            .accountId(accountId)
+            .startedAt(request.startedAt())
+            .build();
 
     persistStartedPath(path);
     publish(path, SearchPathEventType.SEARCH_PATH_STARTED);
-    activePaths.put(path.id(), path);
+    activePaths.put(path.getId(), path);
 
     return path;
   }
@@ -173,7 +171,7 @@ public class AppSearchPathCommandService {
     if (current == null) {
       throw new SearchPathGuardException("write_conflict");
     }
-    if (current.accountId() != null && !current.accountId().equals(accountId)) {
+    if (current.getAccountId() != null && !current.getAccountId().equals(accountId)) {
       throw new SearchPathGuardException("write_conflict");
     }
     return transition(current, request, policePhoneId);
@@ -189,28 +187,29 @@ public class AppSearchPathCommandService {
 
   @Transactional
   public SearchPath transition(SearchPath current, PatchSearchPathServiceRequest request) {
-    return transition(current, request, current.policePhoneId());
+    return transition(current, request, current.getPolicePhoneId());
   }
 
   private SearchPath transition(
       SearchPath current, PatchSearchPathServiceRequest request, UUID actorPolicePhoneId) {
-    SearchPathStatus nextStatus = nextStatus(current.status(), request.action());
+    SearchPathStatus nextStatus = nextStatus(current.getStatus(), request.action());
     Instant clientTs = request.clientTs() == null ? Instant.now() : request.clientTs();
     SearchPath patched =
-        new SearchPath(
-            current.id(),
-            current.incidentId(),
-            current.opId(),
-            actorPolicePhoneId,
-            current.accountId(),
-            nextStatus,
-            current.version() + 1,
-            current.startedAt(),
-            nextStatus == SearchPathStatus.ENDED ? clientTs : null);
+        SearchPath.builder()
+            .id(current.getId())
+            .incidentId(current.getIncidentId())
+            .opId(current.getOpId())
+            .policePhoneId(actorPolicePhoneId)
+            .accountId(current.getAccountId())
+            .status(nextStatus)
+            .version(current.getVersion() + 1)
+            .startedAt(current.getStartedAt())
+            .endedAt(nextStatus == SearchPathStatus.ENDED ? clientTs : null)
+            .build();
 
     persistLifecycleTransition(patched, eventName(request.action()), clientTs);
     publish(patched, publishEventType(request.action()));
-    activePaths.put(patched.id(), patched);
+    activePaths.put(patched.getId(), patched);
 
     return patched;
   }
@@ -219,36 +218,36 @@ public class AppSearchPathCommandService {
     if (searchPathMapper == null) {
       return;
     }
-    UUID accountId = path.accountId();
+    UUID accountId = path.getAccountId();
     if (accountId == null) {
       throw new SearchPathGuardException("channel_not_allowed");
     }
     UUID dutyShiftId =
         searchPathMapper
-            .findActiveDutyShiftIdByAccount(path.opId(), accountId)
+            .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
             .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
     searchPathMapper.insertPath(
         new SearchPathPersistenceRecord(
-            path.id(),
+            path.getId(),
             dutyShiftId,
             accountId,
-            path.status().name(),
-            path.startedAt(),
-            path.endedAt(),
+            path.getStatus().name(),
+            path.getStartedAt(),
+            path.getEndedAt(),
             (Geometry) null,
-            path.version(),
-            path.startedAt(),
-            path.startedAt()));
-    persistLifecycleEvent(path, "STARTED", path.startedAt(), Instant.now());
+            path.getVersion(),
+            path.getStartedAt(),
+            path.getStartedAt()));
+    persistLifecycleEvent(path, "STARTED", path.getStartedAt(), Instant.now());
   }
 
   private void persistLifecycleTransition(SearchPath path, String eventType, Instant clientTs) {
-    if (searchPathMapper == null || searchPathMapper.findPathById(path.id()).isEmpty()) {
+    if (searchPathMapper == null || searchPathMapper.findPathById(path.getId()).isEmpty()) {
       return;
     }
     Instant updatedAt = Instant.now();
     searchPathMapper.updateLifecycleStatus(
-        path.id(), path.status().name(), path.endedAt(), path.version(), updatedAt);
+        path.getId(), path.getStatus().name(), path.getEndedAt(), path.getVersion(), updatedAt);
     persistLifecycleEvent(path, eventType, clientTs, updatedAt);
   }
 
@@ -260,13 +259,13 @@ public class AppSearchPathCommandService {
     Instant safeClientTs = clientTs == null ? serverReceivedAt : clientTs;
     searchPathMapper.insertLifecycleEvent(
         new SearchPathLifecycleEventPersistenceRecord(
-            lifecycleEventId(path.id(), eventType, path.version()),
-            path.id(),
+            lifecycleEventId(path.getId(), eventType, path.getVersion()),
+            path.getId(),
             eventType,
             safeClientTs,
             serverReceivedAt,
-            path.policePhoneId(),
-            path.version(),
+            path.getPolicePhoneId(),
+            path.getVersion(),
             serverReceivedAt));
   }
 
@@ -278,16 +277,17 @@ public class AppSearchPathCommandService {
         .findPathById(searchPathId)
         .map(
             row ->
-                new SearchPath(
-                    row.id(),
-                    row.incidentId(),
-                    row.opId(),
-                    row.policePhoneId(),
-                    row.accountId(),
-                    SearchPathStatus.valueOf(row.status()),
-                    row.version(),
-                    row.startedAt(),
-                    row.endedAt()))
+                SearchPath.builder()
+                    .id(row.id())
+                    .incidentId(row.incidentId())
+                    .opId(row.opId())
+                    .policePhoneId(row.policePhoneId())
+                    .accountId(row.accountId())
+                    .status(SearchPathStatus.valueOf(row.status()))
+                    .version(row.version())
+                    .startedAt(row.startedAt())
+                    .endedAt(row.endedAt())
+                    .build())
         .orElse(null);
   }
 
@@ -341,13 +341,13 @@ public class AppSearchPathCommandService {
     eventPublisher.publish(
         new SearchPathPublishRequest(
             eventType,
-            path.id(),
-            path.incidentId(),
-            path.opId(),
-            path.policePhoneId(),
-            path.accountId(),
-            path.status(),
-            path.version()));
+            path.getId(),
+            path.getIncidentId(),
+            path.getOpId(),
+            path.getPolicePhoneId(),
+            path.getAccountId(),
+            path.getStatus(),
+            path.getVersion()));
   }
 
   private UUID lifecycleEventId(UUID pathId, String eventType, long version) {
@@ -385,7 +385,7 @@ public class AppSearchPathCommandService {
 
   private ResponseMetadata metadataFor(SearchPath path) {
     return new ResponseMetadata(
-        path.id().toString(), path.status().name(), path.version(), path.version());
+        path.getId().toString(), path.getStatus().name(), path.getVersion(), path.getVersion());
   }
 
   private String fingerprint(String operation, Object request) {

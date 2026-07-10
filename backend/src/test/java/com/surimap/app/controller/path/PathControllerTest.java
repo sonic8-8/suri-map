@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.app.controller.path.PathController;
 import com.surimap.app.controller.path.PathExceptionHandler;
-import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.app.service.path.AppSearchPathService;
 import com.surimap.common.auth.Channel;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.path.SearchPath;
@@ -50,23 +50,14 @@ class PathControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private AppSearchPathCommandService service;
+  @MockitoBean private AppSearchPathService service;
 
   @Test
   @DisplayName("POST /api/search-paths returns 201 and lifecycle response shape")
   void start_path_contract() throws Exception {
     when(service.start(org.mockito.ArgumentMatchers.any()))
         .thenReturn(
-            new SearchPath(
-                SEARCH_PATH_ID,
-                INCIDENT_ID,
-                OP_ID,
-                POLICE_PHONE_ID,
-                ACCOUNT_ID,
-                SearchPathStatus.RECORDING,
-                1L,
-                Instant.parse("2026-04-28T00:00:00Z"),
-                null));
+            path(SearchPathStatus.RECORDING, 1L, Instant.parse("2026-04-28T00:00:00Z"), null));
 
     mockMvc
         .perform(
@@ -136,12 +127,7 @@ class PathControllerTest {
             org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
             org.mockito.ArgumentMatchers.any()))
         .thenReturn(
-            new SearchPath(
-                SEARCH_PATH_ID,
-                INCIDENT_ID,
-                OP_ID,
-                POLICE_PHONE_ID,
-                ACCOUNT_ID,
+            path(
                 SearchPathStatus.ENDED,
                 2L,
                 Instant.parse("2026-04-28T00:00:00Z"),
@@ -176,16 +162,7 @@ class PathControllerTest {
             org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
             org.mockito.ArgumentMatchers.any()))
         .thenReturn(
-            new SearchPath(
-                SEARCH_PATH_ID,
-                INCIDENT_ID,
-                OP_ID,
-                POLICE_PHONE_ID,
-                ACCOUNT_ID,
-                SearchPathStatus.PAUSED,
-                2L,
-                Instant.parse("2026-04-28T00:00:00Z"),
-                null));
+            path(SearchPathStatus.PAUSED, 2L, Instant.parse("2026-04-28T00:00:00Z"), null));
 
     mockMvc
         .perform(
@@ -216,16 +193,7 @@ class PathControllerTest {
             org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
             org.mockito.ArgumentMatchers.any()))
         .thenReturn(
-            new SearchPath(
-                SEARCH_PATH_ID,
-                INCIDENT_ID,
-                OP_ID,
-                POLICE_PHONE_ID,
-                ACCOUNT_ID,
-                SearchPathStatus.RECORDING,
-                3L,
-                Instant.parse("2026-04-28T00:00:00Z"),
-                null));
+            path(SearchPathStatus.RECORDING, 3L, Instant.parse("2026-04-28T00:00:00Z"), null));
 
     mockMvc
         .perform(
@@ -328,5 +296,20 @@ class PathControllerTest {
                     """))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("op_required")));
+  }
+
+  private static SearchPath path(
+      SearchPathStatus status, long version, Instant startedAt, Instant endedAt) {
+    return SearchPath.builder()
+        .id(SEARCH_PATH_ID)
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .policePhoneId(POLICE_PHONE_ID)
+        .accountId(ACCOUNT_ID)
+        .status(status)
+        .version(version)
+        .startedAt(startedAt)
+        .endedAt(endedAt)
+        .build();
   }
 }

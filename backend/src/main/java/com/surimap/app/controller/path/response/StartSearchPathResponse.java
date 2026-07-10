@@ -15,12 +15,12 @@ public record StartSearchPathResponse(
 
   public static StartSearchPathResponse from(SearchPath path) {
     return new StartSearchPathResponse(
-        path.id(),
-        path.incidentId(),
-        path.opId(),
-        path.policePhoneId(),
-        path.accountId(),
-        path.version(),
-        path.status());
+        path.getId(),
+        path.getIncidentId(),
+        path.getOpId(),
+        path.getPolicePhoneId(),
+        path.getAccountId(),
+        path.getVersion(),
+        path.getStatus());
   }
 }

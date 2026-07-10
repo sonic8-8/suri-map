@@ -2,7 +2,7 @@ package com.surimap.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.app.service.path.AppSearchPathService;
 import com.surimap.app.service.searcharea.AppSearchAreaBoundaryAlertService;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
@@ -25,7 +25,7 @@ class PolicePhoneBoundaryArchitectureTest {
     assertThat(Arrays.stream(SearchPathService.class.getDeclaredFields()).map(Field::getType))
         .doesNotContain(PolicePhoneValidationPort.class);
     assertThat(
-            Arrays.stream(AppSearchPathCommandService.class.getDeclaredFields())
+            Arrays.stream(AppSearchPathService.class.getDeclaredFields())
                 .map(field -> field.getType().getSimpleName()))
         .doesNotContain("PolicePhoneGuard");
     assertThat(

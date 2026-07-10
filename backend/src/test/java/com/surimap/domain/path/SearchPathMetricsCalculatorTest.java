@@ -19,7 +19,7 @@ class SearchPathMetricsCalculatorTest {
   void calculatesDistanceByMovementModeAndAverageSpeed() {
     Instant startedAt = Instant.parse("2026-05-18T00:00:00Z");
     Instant endedAt = Instant.parse("2026-05-18T00:01:00Z");
-    SearchPathAggregate path =
+    SearchPath path =
         path(
             startedAt,
             endedAt,
@@ -43,7 +43,7 @@ class SearchPathMetricsCalculatorTest {
   void countsZeroDistanceUnknownSegmentsAsStopped() {
     Instant startedAt = Instant.parse("2026-05-18T00:00:00Z");
     Instant endedAt = Instant.parse("2026-05-18T00:00:30Z");
-    SearchPathAggregate path =
+    SearchPath path =
         path(
             startedAt,
             endedAt,
@@ -64,7 +64,7 @@ class SearchPathMetricsCalculatorTest {
   void usesProvidedDurationForAverageSpeedWhenScopeBoundsExist() {
     Instant startedAt = Instant.parse("2026-05-18T00:00:00Z");
     Instant endedAt = Instant.parse("2026-05-18T00:01:00Z");
-    SearchPathAggregate path =
+    SearchPath path =
         path(
             startedAt,
             endedAt,
@@ -82,24 +82,25 @@ class SearchPathMetricsCalculatorTest {
     assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("6.7"));
   }
 
-  private static SearchPathAggregate path(
+  private static SearchPath path(
       Instant startedAt,
       Instant endedAt,
       List<SearchPathPoint> points,
       List<SearchPathSegment> segments) {
-    return new SearchPathAggregate(
-        UUID.fromString("81000000-0000-0000-0000-000000000001"),
-        null,
-        UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"),
-        UUID.fromString("88888888-8888-8888-8888-888888880001"),
-        UUID.fromString("00000000-0000-0000-0000-000000000101"),
-        startedAt,
-        endedAt,
-        SearchPathStatus.ENDED,
-        1L,
-        points,
-        List.of(),
-        segments);
+    return SearchPath.builder()
+        .id(UUID.fromString("81000000-0000-0000-0000-000000000001"))
+        .dutyShiftId(null)
+        .incidentId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"))
+        .opId(UUID.fromString("88888888-8888-8888-8888-888888880001"))
+        .policePhoneId(UUID.fromString("00000000-0000-0000-0000-000000000101"))
+        .startedAt(startedAt)
+        .endedAt(endedAt)
+        .status(SearchPathStatus.ENDED)
+        .version(1L)
+        .points(points)
+        .excludedPoints(List.of())
+        .segments(segments)
+        .build();
   }
 
   private static SearchPathPoint point(String id, String lon, String lat, String at) {

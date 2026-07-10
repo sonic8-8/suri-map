@@ -1,9 +1,9 @@
-package com.surimap.domain.path;
+package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.api.controller.path.response.PathQueryResponse;
-import com.surimap.api.service.path.SearchPathService;
+import com.surimap.domain.path.SearchPath;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -18,18 +18,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@DisplayName("SearchPath query performance evidence")
+@DisplayName("SearchPath query performance")
 @Tag("performance")
-class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSupport {
+class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSupport {
 
   private static final UUID TARGET_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000099001");
   private static final UUID OTHER_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000099002");
-  private static final UUID TARGET_OP_ID =
-      UUID.fromString("65000000-0000-4000-8000-000000099001");
-  private static final UUID OTHER_OP_ID =
-      UUID.fromString("65000000-0000-4000-8000-000000099002");
+  private static final UUID TARGET_OP_ID = UUID.fromString("65000000-0000-4000-8000-000000099001");
+  private static final UUID OTHER_OP_ID = UUID.fromString("65000000-0000-4000-8000-000000099002");
   private static final UUID TARGET_ACCOUNT_ID =
       UUID.fromString("62000000-0000-4000-8000-000000099001");
   private static final UUID OTHER_ACCOUNT_ID =
@@ -53,7 +51,6 @@ class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSuppo
   private static final int POINTS_PER_PATH = 24;
 
   @Autowired private SearchPathService searchPathService;
-  @Autowired private SearchPathRepository searchPathRepository;
 
   @BeforeEach
   void cleanAndSeedPerformanceFixture() {
@@ -147,10 +144,10 @@ class SearchPathQueryPerformanceEvidenceTest extends PostGisIntegrationTestSuppo
     return elapsedMillis;
   }
 
-  private List<SearchPathAggregate> legacyQuery() {
-    return searchPathRepository.findAll().stream()
-        .filter(path -> TARGET_INCIDENT_ID.equals(path.incidentId()))
-        .filter(path -> TARGET_OP_ID.equals(path.opId()))
+  private List<SearchPath> legacyQuery() {
+    return searchPathService.findAll().stream()
+        .filter(path -> TARGET_INCIDENT_ID.equals(path.getIncidentId()))
+        .filter(path -> TARGET_OP_ID.equals(path.getOpId()))
         .toList();
   }
 
