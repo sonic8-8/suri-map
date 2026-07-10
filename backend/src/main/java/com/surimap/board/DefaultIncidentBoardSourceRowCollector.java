@@ -1,5 +1,11 @@
 package com.surimap.board;
 
+import com.surimap.api.service.path.SearchPathService;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.domain.path.PathExcludedPoint;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -7,8 +13,6 @@ import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
-import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
-import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
 import com.surimap.maparea.query.SearchAreaAssignmentRow;
@@ -26,10 +30,6 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.domain.path.PathExcludedPoint;
-import com.surimap.api.controller.path.response.PathQueryRow;
-import com.surimap.api.controller.path.response.PathQuerySegmentRow;
-import com.surimap.api.service.path.SearchPathService;
 import com.surimap.policephone.PolicePhoneFreshnessStatus;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
 import com.surimap.policephone.query.PolicePhoneFreshnessRow;
@@ -53,8 +53,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -188,13 +188,15 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.packageBadgeBoardAssembler =
         new PackageBadgeBoardAssembler(
             Objects.requireNonNull(
-                offlinePackageInstallationQuery, "offlinePackageInstallationQuery must not be null"));
+                offlinePackageInstallationQuery,
+                "offlinePackageInstallationQuery must not be null"));
     this.operationalPeriodQuery =
         Objects.requireNonNull(operationalPeriodQuery, "operationalPeriodQuery must not be null");
     this.handoverMemoQuery =
         Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
     this.searchHistorySummaryMapper =
-        Objects.requireNonNull(searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
+        Objects.requireNonNull(
+            searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
     this.incidentMapper = incidentMapper;
     this.incidentReadMapper = incidentReadMapper;
     this.purgeStore = purgeStore;
@@ -207,7 +209,10 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public IncidentBoardSourceRowSnapshot collect(BoardSourceRowContext context) {
     Objects.requireNonNull(context, "context must not be null");
     UUID activeOpId =
-        operationalPeriodQuery.current(context.incidentId()).map(CurrentOpResult::opId).orElse(null);
+        operationalPeriodQuery
+            .current(context.incidentId())
+            .map(CurrentOpResult::opId)
+            .orElse(null);
     List<UUID> selectedOpIds = selectedOpIds(context.requestedOpIds(), activeOpId);
 
     List<BoardSourceRow> rows = new ArrayList<>();
@@ -224,8 +229,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     collectHandoverStatusRows(context, selectedOpIds, rows);
     collectSearchHistorySummaryRows(context, selectedOpIds, rows);
 
-    return new IncidentBoardSourceRowSnapshot(
-        activeOpId, selectedOpIds, geometryHash(rows), rows);
+    return new IncidentBoardSourceRowSnapshot(activeOpId, selectedOpIds, geometryHash(rows), rows);
   }
 
   private void collectSearchAreaRows(
@@ -242,11 +246,10 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     if (context.includes("area")) {
       if (selectedOpIds.isEmpty()) {
         List<SearchAreaRow> areaRows =
-            query
-                .byIncident(context.incidentId(), searchAreaFilters(null, null))
-                .areas();
+            query.byIncident(context.incidentId(), searchAreaFilters(null, null)).areas();
         Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId =
-            assignmentsByAreaId(areaRows.stream().map(SearchAreaRow::opId).filter(Objects::nonNull).toList());
+            assignmentsByAreaId(
+                areaRows.stream().map(SearchAreaRow::opId).filter(Objects::nonNull).toList());
         areaRows.stream()
             .filter(row -> !"OVERALL".equals(row.areaLevel()))
             .map(
@@ -259,7 +262,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       } else {
         selectedOpIds.forEach(
             opId -> {
-              List<SearchAreaRow> areaRows = query.byOp(opId, searchAreaFilters(null, null)).areas();
+              List<SearchAreaRow> areaRows =
+                  query.byOp(opId, searchAreaFilters(null, null)).areas();
               Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId =
                   assignmentsByAreaId(List.of(opId));
               areaRows.stream()
@@ -286,14 +290,22 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       return;
     }
     if (selectedOpIds.isEmpty()) {
-      service.query(context.incidentId(), null, null).paths().stream().map(this::pathRow).forEach(rows::add);
+      queryPaths(service, context.incidentId(), null).getPaths().stream()
+          .map(this::pathRow)
+          .forEach(rows::add);
       return;
     }
     selectedOpIds.forEach(
         opId ->
-            service.query(context.incidentId(), opId, null).paths().stream()
+            queryPaths(service, context.incidentId(), opId).getPaths().stream()
                 .map(this::pathRow)
                 .forEach(rows::add));
+  }
+
+  private SearchPathQueryServiceResponse queryPaths(
+      SearchPathService service, UUID incidentId, UUID opId) {
+    return service.query(
+        SearchPathQueryServiceRequest.builder().incidentId(incidentId).opId(opId).build());
   }
 
   private void collectMarkerRows(
@@ -348,13 +360,16 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   }
 
   private void collectIncidentTerminalRow(
-      BoardSourceRowContext context, List<BoardSourceRow> rows, Optional<BoardSourceRow> terminalRow) {
+      BoardSourceRowContext context,
+      List<BoardSourceRow> rows,
+      Optional<BoardSourceRow> terminalRow) {
     if (context.includes("incident_terminal")) {
       terminalRow.ifPresent(rows::add);
     }
   }
 
-  private void collectOperationalPeriodRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
+  private void collectOperationalPeriodRows(
+      BoardSourceRowContext context, List<BoardSourceRow> rows) {
     boolean includeToggle = context.includes("op_toggle");
     boolean includeHistory = context.includes("op_history");
     if (!includeToggle && !includeHistory) {
@@ -425,7 +440,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("incidentId", row.incidentId().toString());
     payload.put("areaLevel", "OVERALL");
     payload.put("colorToken", row.colorToken());
-    payload.put("geometryHash", sourceHash("overall_search_area", row.id().toString(), row.version(), row.status()));
+    payload.put(
+        "geometryHash",
+        sourceHash("overall_search_area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());
     payload.put("updatedAt", row.updatedAt());
@@ -456,7 +473,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     putUuid(payload, "parentAreaId", row.parentAreaId());
     payload.put("areaLevel", row.areaLevel());
     payload.put("colorToken", row.colorToken());
-    payload.put("geometryHash", sourceHash("area", row.id().toString(), row.version(), row.status()));
+    payload.put(
+        "geometryHash", sourceHash("area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());
     payload.put("updatedAt", row.updatedAt());
@@ -482,23 +500,32 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         version,
         version,
         latestEventId,
-        sourceHash("area", row.id() + "|" + assignmentFingerprint(assignments), version, row.status()),
+        sourceHash(
+            "area", row.id() + "|" + assignmentFingerprint(assignments), version, row.status()),
         payload);
   }
 
   private static long areaRowVersion(SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
     return Math.max(
-        row.version(), assignments.stream().mapToLong(SearchAreaAssignmentRow::version).max().orElse(row.version()));
+        row.version(),
+        assignments.stream()
+            .mapToLong(SearchAreaAssignmentRow::version)
+            .max()
+            .orElse(row.version()));
   }
 
-  private static String areaLatestEventId(SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
+  private static String areaLatestEventId(
+      SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
     SearchAreaAssignmentRow latestAssignment =
         assignments.stream()
             .max(java.util.Comparator.comparingLong(SearchAreaAssignmentRow::version))
             .orElse(null);
     if (latestAssignment != null && latestAssignment.version() > row.version()) {
       return eventId(
-          "S2", "search-area-assignment", latestAssignment.id().toString(), latestAssignment.version());
+          "S2",
+          "search-area-assignment",
+          latestAssignment.id().toString(),
+          latestAssignment.version());
     }
     return eventId("S2", "area", row.id().toString(), row.version());
   }
@@ -510,7 +537,15 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return String.join(
         "|",
         assignments.stream()
-            .map(row -> row.id() + ":" + row.assignedAccountId() + ":" + row.status() + ":" + row.version())
+            .map(
+                row ->
+                    row.id()
+                        + ":"
+                        + row.assignedAccountId()
+                        + ":"
+                        + row.status()
+                        + ":"
+                        + row.version())
             .sorted()
             .toList());
   }
@@ -557,11 +592,15 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         "policePhoneId",
         activeDutyPhoneId != null
             ? activeDutyPhoneId
-            : fallbackPolicePhoneId(opId, row.assignedAccountId(), activePolicePhoneIdsByAccountId));
-    payload.put("accountType", incidentAssignment == null ? null : incidentAssignment.getAccountType());
+            : fallbackPolicePhoneId(
+                opId, row.assignedAccountId(), activePolicePhoneIdsByAccountId));
     payload.put(
-        "organizationType", incidentAssignment == null ? null : incidentAssignment.getOrganizationType());
-    payload.put("incidentRole", incidentAssignment == null ? null : incidentAssignment.getIncidentRole());
+        "accountType", incidentAssignment == null ? null : incidentAssignment.getAccountType());
+    payload.put(
+        "organizationType",
+        incidentAssignment == null ? null : incidentAssignment.getOrganizationType());
+    payload.put(
+        "incidentRole", incidentAssignment == null ? null : incidentAssignment.getIncidentRole());
     putUuid(payload, "assignedByAccountId", row.assignedByAccountId());
     payload.put("assignedAt", row.assignedAt());
     payload.put("status", row.status());
@@ -569,7 +608,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return payload;
   }
 
-  private Optional<String> activeDutyShiftPolicePhoneId(UUID incidentId, UUID opId, UUID accountId) {
+  private Optional<String> activeDutyShiftPolicePhoneId(
+      UUID incidentId, UUID opId, UUID accountId) {
     DutyShiftMapper mapper = dutyShiftMapper == null ? null : dutyShiftMapper.getIfAvailable();
     if (mapper == null || incidentId == null || opId == null || accountId == null) {
       return Optional.empty();
@@ -589,7 +629,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   }
 
   private Map<String, AssignmentRow> activeIncidentAssignmentsByAccountId(UUID incidentId) {
-    IncidentReadMapper query = incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
+    IncidentReadMapper query =
+        incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
     if (query == null) {
       return Map.of();
     }
@@ -602,9 +643,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return assignmentsByAccountId;
   }
 
-  private Map<String, String> activePolicePhoneIdsByAccountId(
-      UUID incidentId) {
-    IncidentReadMapper query = incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
+  private Map<String, String> activePolicePhoneIdsByAccountId(UUID incidentId) {
+    IncidentReadMapper query =
+        incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
     if (query == null || incidentId == null) {
       return Map.of();
     }
@@ -614,7 +655,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         .filter(Objects::nonNull)
         .filter(row -> row.getAccountId() != null && !row.getAccountId().isBlank())
         .filter(row -> row.getPolicePhoneId() != null && !row.getPolicePhoneId().isBlank())
-        .forEach(row -> policePhoneIdsByAccountId.putIfAbsent(row.getAccountId(), row.getPolicePhoneId()));
+        .forEach(
+            row ->
+                policePhoneIdsByAccountId.putIfAbsent(row.getAccountId(), row.getPolicePhoneId()));
     return policePhoneIdsByAccountId;
   }
 
@@ -666,26 +709,29 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return trimmed.isEmpty() ? null : trimmed;
   }
 
-  private BoardSourceRow pathRow(PathQueryRow row) {
-    String status = row.status().name();
+  private BoardSourceRow pathRow(SearchPathQueryRowServiceResponse row) {
+    String status = row.getStatus().name();
     Map<String, Object> payload = new LinkedHashMap<>();
-    putUuid(payload, "opId", row.opId());
-    putUuid(payload, "dutyShiftId", row.dutyShiftId());
-    putUuid(payload, "accountId", row.accountId());
-    putUuid(payload, "policePhoneId", row.policePhoneId());
-    payload.put("geometryHash", sourceHash("path", row.id().toString(), row.version(), status));
-    payload.put("geometry", Map.of("type", "LineString", "coordinates", row.geometry()));
-    payload.put("segments", row.segments().stream().map(this::segmentPayload).toList());
-    payload.put("excludedPoints", row.excludedPoints().stream().map(this::excludedPointPayload).toList());
+    putUuid(payload, "opId", row.getOpId());
+    putUuid(payload, "dutyShiftId", row.getDutyShiftId());
+    putUuid(payload, "accountId", row.getAccountId());
+    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
+    payload.put(
+        "geometryHash", sourceHash("path", row.getId().toString(), row.getVersion(), status));
+    payload.put("geometry", Map.of("type", "LineString", "coordinates", row.getGeometry()));
+    payload.put("segments", row.getSegments().stream().map(this::segmentPayload).toList());
+    payload.put(
+        "excludedPoints",
+        row.getExcludedPoints().stream().map(this::excludedPointPayload).toList());
     return sourceRow(
         "path",
         "S3-1",
-        row.id().toString(),
-        "board-path-" + row.id(),
+        row.getId().toString(),
+        "board-path-" + row.getId(),
         status,
-        row.version(),
-        row.version(),
-        eventId("S3-1", "path", row.id().toString(), row.version()),
+        row.getVersion(),
+        row.getVersion(),
+        eventId("S3-1", "path", row.getId().toString(), row.getVersion()),
         String.valueOf(payload.get("geometryHash")),
         payload);
   }
@@ -705,7 +751,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("occurredAt", row.occurredAt());
     payload.put("geometryHash", sourceHash("marker", row.id().toString(), row.version(), status));
     payload.put("geometry", MarkerGeoJsonPoint.from(row.location()));
-    payload.put("photoSummary", row.photoSummary().stream().map(this::photoSummaryPayload).toList());
+    payload.put(
+        "photoSummary", row.photoSummary().stream().map(this::photoSummaryPayload).toList());
     return sourceRow(
         "marker",
         "S5",
@@ -834,16 +881,21 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return store.findByIncidentId(incidentId).orElse(null);
   }
 
-  private BoardSourceRow incidentTerminalRow(IncidentRecord incident, IncidentDataPurgeRun purgeRun) {
+  private BoardSourceRow incidentTerminalRow(
+      IncidentRecord incident, IncidentDataPurgeRun purgeRun) {
     String terminalStatus = terminalStatus(incident, purgeRun);
     long version =
-        purgeRun == null ? incident.getVersion() : Math.max(incident.getVersion(), purgeRun.version());
+        purgeRun == null
+            ? incident.getVersion()
+            : Math.max(incident.getVersion(), purgeRun.version());
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("incidentId", incident.getId().toString());
     payload.put("terminalStatus", terminalStatus);
     payload.put("closedStatus", closedStatus(terminalStatus));
-    payload.put("closedAt", incident.getClosedAt() == null ? null : incident.getClosedAt().toString());
-    payload.put("writeDisabledReason", "PURGED".equals(terminalStatus) ? "purged" : "incident_closed");
+    payload.put(
+        "closedAt", incident.getClosedAt() == null ? null : incident.getClosedAt().toString());
+    payload.put(
+        "writeDisabledReason", "PURGED".equals(terminalStatus) ? "purged" : "incident_closed");
     payload.put("localPurgeState", localPurgeState(purgeRun));
     return sourceRow(
         "incident_terminal",
@@ -895,7 +947,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("lastHeartbeatAt", row.lastHeartbeatAt());
     payload.put("lastSyncAt", row.lastSyncAt());
     if (row.lastHeartbeatAt() != null) {
-      payload.put("elapsedSeconds", Duration.between(row.lastHeartbeatAt(), Instant.now()).toSeconds());
+      payload.put(
+          "elapsedSeconds", Duration.between(row.lastHeartbeatAt(), Instant.now()).toSeconds());
     }
     return sourceRow(
         "police_phone_freshness",
@@ -906,23 +959,24 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         row.version(),
         row.heartbeatSequence(),
         row.latestEventId() == null
-            ? eventId("S1-2", "police-phone-freshness", row.policePhoneId().toString(), row.version())
+            ? eventId(
+                "S1-2", "police-phone-freshness", row.policePhoneId().toString(), row.version())
             : row.latestEventId().toString(),
         sourceHash("police_phone_freshness", row.policePhoneId().toString(), row.version(), status),
         payload);
   }
 
-  private Map<String, Object> segmentPayload(PathQuerySegmentRow segment) {
+  private Map<String, Object> segmentPayload(SearchPathQuerySegmentServiceResponse segment) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("id", segment.id());
-    payload.put("version", segment.version());
-    payload.put("movementType", segment.movementType().name());
-    payload.put("movementTypeSource", segment.movementTypeSource().name());
-    payload.put("geometry", Map.of("type", "LineString", "coordinates", segment.geometry()));
-    payload.put("startedAt", segment.startedAt());
-    payload.put("endedAt", segment.endedAt());
-    putUuid(payload, "correctedByAccountId", segment.correctedByAccountId());
-    payload.put("correctedAt", segment.correctedAt());
+    payload.put("id", segment.getId());
+    payload.put("version", segment.getVersion());
+    payload.put("movementType", segment.getMovementType().name());
+    payload.put("movementTypeSource", segment.getMovementTypeSource().name());
+    payload.put("geometry", Map.of("type", "LineString", "coordinates", segment.getGeometry()));
+    payload.put("startedAt", segment.getStartedAt());
+    payload.put("endedAt", segment.getEndedAt());
+    putUuid(payload, "correctedByAccountId", segment.getCorrectedByAccountId());
+    payload.put("correctedAt", segment.getCorrectedAt());
     return payload;
   }
 
@@ -1015,7 +1069,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private static String geometryHash(List<BoardSourceRow> rows) {
     List<String> hashes =
         rows.stream()
-            .filter(row -> List.of("overall_search_area", "area", "path", "marker").contains(row.slot()))
+            .filter(
+                row ->
+                    List.of("overall_search_area", "area", "path", "marker").contains(row.slot()))
             .map(row -> String.valueOf(row.payload().get("geometryHash")))
             .filter(value -> value != null && !value.isBlank() && !"null".equals(value))
             .sorted()
@@ -1086,7 +1142,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private static String hash(String value) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      return "sha256:" + HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+      return "sha256:"
+          + HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }

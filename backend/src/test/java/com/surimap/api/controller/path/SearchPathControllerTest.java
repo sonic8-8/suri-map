@@ -2,8 +2,8 @@ package com.surimap.api.controller.path;
 
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -11,12 +11,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.surimap.api.controller.path.SearchPathController;
-import com.surimap.api.controller.path.SearchPathExceptionHandler;
-import com.surimap.api.controller.path.response.PathBatchAppendResponse;
-import com.surimap.api.controller.path.response.PathQueryResponse;
-import com.surimap.api.controller.path.response.PathQueryRow;
 import com.surimap.api.service.path.SearchPathService;
+import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
+import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
+import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.path.MovementType;
@@ -56,32 +55,34 @@ class SearchPathControllerTest {
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
-    when(searchPathService.appendBatch(any(), eq(policePhoneId), eq(accountId)))
+    when(searchPathService.appendPoints(any()))
         .thenReturn(
-            new PathBatchAppendResponse(
-                pathId,
-                dutyShiftId,
-                opId,
-                policePhoneId,
-                accountId,
-                2,
-                0,
-                List.of(),
-                List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)),
-                List.of(
-                    new SearchPathSegment(
-                        "seg-001",
-                        1L,
-                        MovementType.VEHICLE,
-                        MovementTypeSource.AUTO,
-                        0,
-                        1,
-                        "p1",
-                        "p2",
-                        null,
-                        null)),
-                2L,
-                SearchPathStatus.RECORDING));
+            SearchPathPointsAppendServiceResponse.builder()
+                .id(pathId)
+                .dutyShiftId(dutyShiftId)
+                .opId(opId)
+                .policePhoneId(policePhoneId)
+                .accountId(accountId)
+                .acceptedPointCount(2)
+                .excludedPointCount(0)
+                .excludedPoints(List.of())
+                .geometry(List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)))
+                .segments(
+                    List.of(
+                        new SearchPathSegment(
+                            "seg-001",
+                            1L,
+                            MovementType.VEHICLE,
+                            MovementTypeSource.AUTO,
+                            0,
+                            1,
+                            "p1",
+                            "p2",
+                            null,
+                            null)))
+                .version(2L)
+                .status(SearchPathStatus.RECORDING)
+                .build());
 
     mockMvc
         .perform(
@@ -113,6 +114,17 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.geometry.coordinates[0][1]", is(35.162)))
         .andExpect(jsonPath("$.version", is(2)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
+
+    verify(searchPathService)
+        .appendPoints(
+            argThat(
+                request ->
+                    pathId.equals(request.getPathId())
+                        && opId.equals(request.getOpId())
+                        && policePhoneId.equals(request.getPolicePhoneId())
+                        && accountId.equals(request.getAccountId())
+                        && "idem-path-batch-contract".equals(request.getIdempotencyKey())
+                        && request.getPoints().size() == 2));
   }
 
   @Test
@@ -213,24 +225,25 @@ class SearchPathControllerTest {
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
     Instant startedAt = Instant.parse("2026-05-18T04:53:12.331Z");
-    when(searchPathService.query(eq(incidentId), eq(opId), eq(policePhoneId), isNull()))
+    when(searchPathService.query(any(SearchPathQueryServiceRequest.class)))
         .thenReturn(
-            new PathQueryResponse(
-                List.of(
-                    new PathQueryRow(
-                        pathId,
-                        incidentId,
-                        opId,
-                        null,
-                        policePhoneId,
-                        accountId,
-                        SearchPathStatus.RECORDING,
-                        startedAt,
-                        null,
-                        2L,
-                        List.of(List.of(126.913, 35.162)),
-                        List.of(),
-                        List.of()))));
+            SearchPathQueryServiceResponse.builder()
+                .paths(
+                    List.of(
+                        SearchPathQueryRowServiceResponse.builder()
+                            .id(pathId)
+                            .incidentId(incidentId)
+                            .opId(opId)
+                            .policePhoneId(policePhoneId)
+                            .accountId(accountId)
+                            .status(SearchPathStatus.RECORDING)
+                            .startedAt(startedAt)
+                            .version(2L)
+                            .geometry(List.of(List.of(126.913, 35.162)))
+                            .segments(List.of())
+                            .excludedPoints(List.of())
+                            .build()))
+                .build());
 
     mockMvc
         .perform(
@@ -248,5 +261,14 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.paths[0].geometry.type", is("LineString")))
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][0]", is(126.913)))
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][1]", is(35.162)));
+
+    verify(searchPathService)
+        .query(
+            argThat(
+                request ->
+                    incidentId.equals(request.getIncidentId())
+                        && opId.equals(request.getOpId())
+                        && policePhoneId.equals(request.getPolicePhoneId())
+                        && request.getAccountId() == null));
   }
 }
