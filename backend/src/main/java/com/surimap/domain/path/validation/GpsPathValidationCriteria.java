@@ -1,5 +1,10 @@
 package com.surimap.domain.path.validation;
 
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 public final class GpsPathValidationCriteria {
 
   public static final int MIN_POINTS_PER_BATCH = 2;
@@ -11,9 +16,30 @@ public final class GpsPathValidationCriteria {
   public static final int CANONICAL_COORDINATE_SCALE = 6;
 
   public static final GeoEnvelope HARNESS_ENVELOPE =
-      new GeoEnvelope(126.647507, 35.052595, 127.017482, 35.256837);
+      GeoEnvelope.builder()
+          .minLon(126.647507)
+          .minLat(35.052595)
+          .maxLon(127.017482)
+          .maxLat(35.256837)
+          .build();
 
   private GpsPathValidationCriteria() {}
 
-  public record GeoEnvelope(double minLon, double minLat, double maxLon, double maxLat) {}
+  @Getter
+  @NoArgsConstructor(access = AccessLevel.PROTECTED)
+  public static class GeoEnvelope {
+
+    private double minLon;
+    private double minLat;
+    private double maxLon;
+    private double maxLat;
+
+    @Builder
+    private GeoEnvelope(double minLon, double minLat, double maxLon, double maxLat) {
+      this.minLon = minLon;
+      this.minLat = minLat;
+      this.maxLon = maxLon;
+      this.maxLat = maxLat;
+    }
+  }
 }

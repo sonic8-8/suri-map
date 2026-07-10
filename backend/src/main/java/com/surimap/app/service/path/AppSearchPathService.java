@@ -7,7 +7,7 @@ import com.surimap.app.service.path.response.SearchPathStartServiceResponse;
 import com.surimap.app.service.path.response.SearchPathStatusUpdateServiceResponse;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathEventType;
-import com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord;
+import com.surimap.domain.path.SearchPathLifecycleEvent;
 import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.SearchPathStatus;
@@ -195,15 +195,16 @@ public class AppSearchPathService {
     }
     Instant safeClientTs = clientTs == null ? serverReceivedAt : clientTs;
     searchPathMapper.insertLifecycleEvent(
-        new SearchPathLifecycleEventPersistenceRecord(
-            lifecycleEventId(path.getId(), eventType, path.getVersion()),
-            path.getId(),
-            eventType,
-            safeClientTs,
-            serverReceivedAt,
-            path.getPolicePhoneId(),
-            path.getVersion(),
-            serverReceivedAt));
+        SearchPathLifecycleEvent.builder()
+            .id(lifecycleEventId(path.getId(), eventType, path.getVersion()))
+            .searchPathId(path.getId())
+            .eventType(eventType)
+            .clientTs(safeClientTs)
+            .serverReceivedAt(serverReceivedAt)
+            .actorPolicePhoneId(path.getPolicePhoneId())
+            .version(path.getVersion())
+            .createdAt(serverReceivedAt)
+            .build());
   }
 
   private SearchPath loadPersistedPath(UUID searchPathId) {
@@ -261,15 +262,16 @@ public class AppSearchPathService {
 
   private void publish(SearchPath path, SearchPathEventType eventType) {
     eventPublisher.publish(
-        new SearchPathPublishRequest(
-            eventType,
-            path.getId(),
-            path.getIncidentId(),
-            path.getOpId(),
-            path.getPolicePhoneId(),
-            path.getAccountId(),
-            path.getStatus(),
-            path.getVersion()));
+        SearchPathPublishRequest.builder()
+            .eventType(eventType)
+            .id(path.getId())
+            .incidentId(path.getIncidentId())
+            .opId(path.getOpId())
+            .policePhoneId(path.getPolicePhoneId())
+            .accountId(path.getAccountId())
+            .status(path.getStatus())
+            .version(path.getVersion())
+            .build());
   }
 
   private UUID lifecycleEventId(UUID pathId, String eventType, long version) {

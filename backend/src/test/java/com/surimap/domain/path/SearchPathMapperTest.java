@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
 
@@ -30,6 +35,11 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   private static final UUID OTHER_PATH_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
   private static final UUID NONMATCHING_ID =
       UUID.fromString("00000000-0000-0000-0000-000000009999");
+  private static final UUID SEGMENT_ID = UUID.fromString("72000000-0000-0000-0000-000000002621");
+  private static final UUID EXCLUDED_POINT_ID =
+      UUID.fromString("73000000-0000-0000-0000-000000002621");
+  private static final UUID LIFECYCLE_EVENT_ID =
+      UUID.fromString("74000000-0000-0000-0000-000000002621");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Autowired private SearchPathMapper searchPathMapper;
@@ -109,5 +119,100 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     assertThat(searchPathMapper.findPaths(null, NONMATCHING_ID, null, null)).isEmpty();
     assertThat(searchPathMapper.findPaths(null, null, NONMATCHING_ID, null)).isEmpty();
     assertThat(searchPathMapper.findPaths(null, null, null, NONMATCHING_ID)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("수색 경로 하위 객체를 도메인 객체로 직접 저장하고 조회한다")
+  void insertAndFindPathDetails() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+
+    SearchPathSegment segment =
+        SearchPathSegment.builder()
+            .id(SEGMENT_ID)
+            .searchPathId(PATH_ID)
+            .movementType(MovementType.FOOT)
+            .movementTypeSource(MovementTypeSource.AUTO)
+            .geometry(lineString())
+            .startedAt(STARTED_AT)
+            .endedAt(STARTED_AT.plusSeconds(5))
+            .version(1L)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    SearchPathExcludedPoint excludedPoint =
+        SearchPathExcludedPoint.builder()
+            .id(EXCLUDED_POINT_ID)
+            .searchPathId(PATH_ID)
+            .pointId("point-excluded-1")
+            .reason("low_accuracy")
+            .clientTs(OffsetDateTime.ofInstant(STARTED_AT.plusSeconds(10), ZoneOffset.UTC))
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    SearchPathLifecycleEvent lifecycleEvent =
+        SearchPathLifecycleEvent.builder()
+            .id(LIFECYCLE_EVENT_ID)
+            .searchPathId(PATH_ID)
+            .eventType("STARTED")
+            .clientTs(STARTED_AT)
+            .serverReceivedAt(STARTED_AT)
+            .actorPolicePhoneId(POLICE_PHONE_ID)
+            .version(1L)
+            .createdAt(STARTED_AT)
+            .build();
+
+    searchPathMapper.insertSegment(segment);
+    searchPathMapper.insertExcludedPoint(excludedPoint);
+    searchPathMapper.insertLifecycleEvent(lifecycleEvent);
+
+    assertThat(searchPathMapper.findSegmentsByPathId(PATH_ID))
+        .singleElement()
+        .satisfies(
+            found -> {
+              assertThat(found.getId()).isEqualTo(SEGMENT_ID);
+              assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
+              assertThat(found.getMovementType()).isEqualTo(MovementType.FOOT);
+              assertThat(found.getMovementTypeSource()).isEqualTo(MovementTypeSource.AUTO);
+              assertThat(found.getGeometry().getSRID()).isEqualTo(4326);
+              assertThat(found.getVersion()).isEqualTo(1L);
+            });
+    assertThat(searchPathMapper.findExcludedPointsByPathId(PATH_ID))
+        .singleElement()
+        .satisfies(
+            found -> {
+              assertThat(found.getId()).isEqualTo(EXCLUDED_POINT_ID);
+              assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
+              assertThat(found.getPointId()).isEqualTo("point-excluded-1");
+              assertThat(found.getReason()).isEqualTo("low_accuracy");
+            });
+    assertThat(searchPathMapper.findLifecycleEventsByPathId(PATH_ID))
+        .singleElement()
+        .satisfies(
+            found -> {
+              assertThat(found.getId()).isEqualTo(LIFECYCLE_EVENT_ID);
+              assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
+              assertThat(found.getEventType()).isEqualTo("STARTED");
+              assertThat(found.getActorPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
+            });
+  }
+
+  private LineString lineString() {
+    LineString geometry =
+        new GeometryFactory()
+            .createLineString(
+                new Coordinate[] {
+                  new Coordinate(126.950000, 37.560000), new Coordinate(126.950100, 37.560100)
+                });
+    geometry.setSRID(4326);
+    return geometry;
   }
 }

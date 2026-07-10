@@ -1,6 +1,5 @@
 package com.surimap.api.service.path.response;
 
-import com.surimap.domain.path.PathExcludedPoint;
 import com.surimap.domain.path.SearchPathStatus;
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +24,7 @@ public class SearchPathQueryRowServiceResponse {
   private long version;
   private List<List<Double>> geometry;
   private List<SearchPathQuerySegmentServiceResponse> segments;
-  private List<PathExcludedPoint> excludedPoints;
+  private List<SearchPathExcludedPointServiceResponse> excludedPoints;
 
   @Builder
   private SearchPathQueryRowServiceResponse(
@@ -41,7 +40,7 @@ public class SearchPathQueryRowServiceResponse {
       long version,
       List<List<Double>> geometry,
       List<SearchPathQuerySegmentServiceResponse> segments,
-      List<PathExcludedPoint> excludedPoints) {
+      List<SearchPathExcludedPointServiceResponse> excludedPoints) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;

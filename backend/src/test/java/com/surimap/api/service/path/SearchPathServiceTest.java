@@ -12,8 +12,8 @@ import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
+import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
 import com.surimap.domain.path.MovementType;
-import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -87,7 +87,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   void segment_correction_stages_event_dispatch_job() {
     SearchPathPointsAppendServiceResponse batch =
         searchPathService.appendPoints(batchRequest("idem-path-event-segment-batch"));
-    String segmentId = batch.getSegments().get(0).id();
+    String segmentId = batch.getSegments().get(0).getId().toString();
 
     searchPathService.correctSegment(
         segmentCorrectionRequest(segmentId, "idem-path-event-segment-correction"));
@@ -182,7 +182,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   void segment_correction_idempotency_replay_does_not_increment_twice() {
     SearchPathPointsAppendServiceResponse batch =
         searchPathService.appendPoints(batchRequest("idem-path-batch-for-correction"));
-    String segmentId = batch.getSegments().get(0).id();
+    String segmentId = batch.getSegments().get(0).getId().toString();
     SearchPathSegmentCorrectionServiceRequest request =
         segmentCorrectionRequest(segmentId, "idem-path-segment-db-replay");
 
@@ -208,7 +208,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   void segment_correction_rejects_same_idempotency_key_with_changed_request() {
     SearchPathPointsAppendServiceResponse batch =
         searchPathService.appendPoints(batchRequest("idem-path-batch-for-mismatch"));
-    String segmentId = batch.getSegments().get(0).id();
+    String segmentId = batch.getSegments().get(0).getId().toString();
     String idempotencyKey = "idem-path-segment-mismatch";
     SearchPathSegmentCorrectionServiceRequest request =
         segmentCorrectionRequest(segmentId, idempotencyKey);
@@ -295,11 +295,11 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   void segment_correction_persists_manual_update() {
     SearchPathPointsAppendServiceResponse response =
         searchPathService.appendPoints(batchRequest("idem-path-segment-update"));
-    SearchPathSegment target = response.getSegments().get(0);
+    SearchPathSegmentServiceResponse target = response.getSegments().get(0);
 
     SearchPathSegmentCorrectionServiceResponse corrected =
         searchPathService.correctSegment(
-            segmentCorrectionRequest(target.id(), "idem-path-segment-persist"));
+            segmentCorrectionRequest(target.getId().toString(), "idem-path-segment-persist"));
 
     Map<String, Object> row =
         jdbcTemplate.queryForMap(
@@ -330,10 +330,10 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         searchPathService.appendPoints(singlePointSegmentRequest());
 
     assertThat(response.getSegments())
-        .extracting(SearchPathSegment::movementType)
+        .extracting(SearchPathSegmentServiceResponse::getMovementType)
         .containsExactly(MovementType.VEHICLE, MovementType.UNKNOWN, MovementType.VEHICLE);
-    assertThat(response.getSegments().get(1).startIndex()).isEqualTo(3);
-    assertThat(response.getSegments().get(1).endIndex()).isEqualTo(3);
+    assertThat(response.getSegments().get(1).getStartIndex()).isEqualTo(3);
+    assertThat(response.getSegments().get(1).getEndIndex()).isEqualTo(3);
 
     List<Map<String, Object>> segmentRows =
         jdbcTemplate.queryForList(
@@ -370,8 +370,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         .singleElement()
         .satisfies(
             point -> {
-              assertThat(point.pointId()).isEqualTo("gps-precinct-low-accuracy");
-              assertThat(point.reason()).isEqualTo("low_accuracy");
+              assertThat(point.getPointId()).isEqualTo("gps-precinct-low-accuracy");
+              assertThat(point.getReason()).isEqualTo("low_accuracy");
             });
     Map<String, Object> excludedRow =
         jdbcTemplate.queryForMap(
@@ -393,9 +393,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         .singleElement()
         .satisfies(
             point -> {
-              assertThat(point.pointId()).isEqualTo("gps-precinct-low-accuracy");
-              assertThat(point.reason()).isEqualTo("low_accuracy");
-              assertThat(point.clientTs())
+              assertThat(point.getPointId()).isEqualTo("gps-precinct-low-accuracy");
+              assertThat(point.getReason()).isEqualTo("low_accuracy");
+              assertThat(point.getClientTs())
                   .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:05+09:00"));
             });
   }
@@ -410,13 +410,13 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         searchPathService.appendPoints(nextVehicleBatchRequest());
 
     assertThat(first.getSegments())
-        .extracting(SearchPathSegment::movementType)
+        .extracting(SearchPathSegmentServiceResponse::getMovementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT);
     assertThat(second.getSegments())
-        .extracting(SearchPathSegment::movementType)
+        .extracting(SearchPathSegmentServiceResponse::getMovementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT, MovementType.VEHICLE);
-    assertThat(second.getSegments().get(0).id()).isEqualTo(first.getSegments().get(0).id());
-    assertThat(second.getSegments().get(1).id()).isEqualTo(first.getSegments().get(1).id());
+    assertThat(second.getSegments().get(0).getId()).isEqualTo(first.getSegments().get(0).getId());
+    assertThat(second.getSegments().get(1).getId()).isEqualTo(first.getSegments().get(1).getId());
 
     SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
     assertThat(queried.getGeometry()).hasSize(11);

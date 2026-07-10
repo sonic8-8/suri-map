@@ -36,13 +36,14 @@ public class OpComparisonMetricsCalculator {
         source.sequenceNumber(),
         source.startedAt(),
         source.endedAt(),
-        pathMetrics.distanceMeters(),
-        pathMetrics.walkingDistanceMeters(),
-        pathMetrics.drivingDistanceMeters(),
-        walkingRatioPercent(pathMetrics.walkingDistanceMeters(), pathMetrics.distanceMeters()),
-        pathMetrics.averageSpeedKmh(),
-        pathMetrics.stoppedSegmentCount(),
-        pathMetrics.stoppedDurationSeconds(),
+        pathMetrics.getDistanceMeters(),
+        pathMetrics.getWalkingDistanceMeters(),
+        pathMetrics.getDrivingDistanceMeters(),
+        walkingRatioPercent(
+            pathMetrics.getWalkingDistanceMeters(), pathMetrics.getDistanceMeters()),
+        pathMetrics.getAverageSpeedKmh(),
+        pathMetrics.getStoppedSegmentCount(),
+        pathMetrics.getStoppedDurationSeconds(),
         source.markerCount(),
         source.handoverMemoCount());
   }

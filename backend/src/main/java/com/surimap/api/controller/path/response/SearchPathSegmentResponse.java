@@ -1,8 +1,8 @@
 package com.surimap.api.controller.path.response;
 
+import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
-import com.surimap.domain.path.SearchPathSegment;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Builder;
@@ -48,18 +48,18 @@ public class SearchPathSegmentResponse {
     this.correctedAt = correctedAt;
   }
 
-  public static SearchPathSegmentResponse from(SearchPathSegment segment) {
+  public static SearchPathSegmentResponse from(SearchPathSegmentServiceResponse segment) {
     return SearchPathSegmentResponse.builder()
-        .id(segment.id())
-        .version(segment.version())
-        .movementType(segment.movementType())
-        .movementTypeSource(segment.movementTypeSource())
-        .startIndex(segment.startIndex())
-        .endIndex(segment.endIndex())
-        .startPointId(segment.startPointId())
-        .endPointId(segment.endPointId())
-        .correctedByAccountId(segment.correctedByAccountId())
-        .correctedAt(segment.correctedAt())
+        .id(segment.getId())
+        .version(segment.getVersion())
+        .movementType(segment.getMovementType())
+        .movementTypeSource(segment.getMovementTypeSource())
+        .startIndex(segment.getStartIndex())
+        .endIndex(segment.getEndIndex())
+        .startPointId(segment.getStartPointId())
+        .endPointId(segment.getEndPointId())
+        .correctedByAccountId(segment.getCorrectedByAccountId())
+        .correctedAt(segment.getCorrectedAt())
         .build();
   }
 }

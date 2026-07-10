@@ -11,48 +11,55 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class SearchPathSegmentCorrectionServiceResponse {
+public class SearchPathSegmentServiceResponse {
 
   private String id;
+  private long version;
   private MovementType movementType;
   private MovementTypeSource movementTypeSource;
-  private UUID opId;
-  private UUID policePhoneId;
+  private int startIndex;
+  private int endIndex;
+  private String startPointId;
+  private String endPointId;
   private UUID correctedByAccountId;
   private OffsetDateTime correctedAt;
-  private long version;
 
   @Builder
-  private SearchPathSegmentCorrectionServiceResponse(
+  private SearchPathSegmentServiceResponse(
       String id,
+      long version,
       MovementType movementType,
       MovementTypeSource movementTypeSource,
-      UUID opId,
-      UUID policePhoneId,
+      int startIndex,
+      int endIndex,
+      String startPointId,
+      String endPointId,
       UUID correctedByAccountId,
-      OffsetDateTime correctedAt,
-      long version) {
+      OffsetDateTime correctedAt) {
     this.id = id;
+    this.version = version;
     this.movementType = movementType;
     this.movementTypeSource = movementTypeSource;
-    this.opId = opId;
-    this.policePhoneId = policePhoneId;
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
+    this.startPointId = startPointId;
+    this.endPointId = endPointId;
     this.correctedByAccountId = correctedByAccountId;
     this.correctedAt = correctedAt;
-    this.version = version;
   }
 
-  public static SearchPathSegmentCorrectionServiceResponse from(
-      SearchPathSegment segment, UUID opId, UUID policePhoneId) {
-    return SearchPathSegmentCorrectionServiceResponse.builder()
+  public static SearchPathSegmentServiceResponse from(SearchPathSegment segment) {
+    return SearchPathSegmentServiceResponse.builder()
         .id(segment.getId().toString())
+        .version(segment.getVersion())
         .movementType(segment.getMovementType())
         .movementTypeSource(segment.getMovementTypeSource())
-        .opId(opId)
-        .policePhoneId(policePhoneId)
+        .startIndex(segment.getStartIndex())
+        .endIndex(segment.getEndIndex())
+        .startPointId(segment.getStartPointId())
+        .endPointId(segment.getEndPointId())
         .correctedByAccountId(segment.getCorrectedByAccountId())
         .correctedAt(segment.getCorrectedAt())
-        .version(segment.getVersion())
         .build();
   }
 }

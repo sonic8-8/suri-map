@@ -29,7 +29,7 @@ public class SearchPath {
   private Instant createdAt;
   private Instant updatedAt;
   private List<SearchPathPoint> points = new ArrayList<>();
-  private List<PathExcludedPoint> excludedPoints = new ArrayList<>();
+  private List<SearchPathExcludedPoint> excludedPoints = new ArrayList<>();
   private List<SearchPathSegment> segments = new ArrayList<>();
 
   @Builder(toBuilder = true)
@@ -48,7 +48,7 @@ public class SearchPath {
       Instant createdAt,
       Instant updatedAt,
       List<SearchPathPoint> points,
-      List<PathExcludedPoint> excludedPoints,
+      List<SearchPathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
     this.id = id;
     this.dutyShiftId = dutyShiftId;
@@ -77,7 +77,7 @@ public class SearchPath {
       return startedAt;
     }
     return points.stream()
-        .map(SearchPathPoint::clientTs)
+        .map(SearchPathPoint::getClientTs)
         .findFirst()
         .map(OffsetDateTime::toInstant)
         .orElse(null);
@@ -85,7 +85,7 @@ public class SearchPath {
 
   public void appendAcceptedPoints(List<SearchPathPoint> acceptedPoints) {
     if (startedAt == null && !acceptedPoints.isEmpty()) {
-      startedAt = acceptedPoints.get(0).clientTs().toInstant();
+      startedAt = acceptedPoints.get(0).getClientTs().toInstant();
     }
     points.addAll(acceptedPoints);
   }
@@ -95,7 +95,7 @@ public class SearchPath {
     segments.addAll(nextSegments);
   }
 
-  public void appendExcludedPoints(List<PathExcludedPoint> points) {
+  public void appendExcludedPoints(List<SearchPathExcludedPoint> points) {
     excludedPoints.addAll(points);
   }
 
@@ -110,21 +110,9 @@ public class SearchPath {
       OffsetDateTime correctedAt) {
     for (int i = 0; i < segments.size(); i++) {
       SearchPathSegment current = segments.get(i);
-      if (current.id().equals(segmentId)) {
-        SearchPathSegment corrected =
-            new SearchPathSegment(
-                current.id(),
-                current.version() + 1L,
-                movementType,
-                MovementTypeSource.MANUAL,
-                current.startIndex(),
-                current.endIndex(),
-                current.startPointId(),
-                current.endPointId(),
-                correctedByAccountId,
-                correctedAt);
-        segments.set(i, corrected);
-        return corrected;
+      if (current.getId() != null && current.getId().toString().equals(segmentId)) {
+        current.correct(movementType, correctedByAccountId, correctedAt);
+        return current;
       }
     }
     throw new SearchPathApiException("write_conflict");

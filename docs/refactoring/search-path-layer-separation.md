@@ -180,12 +180,6 @@ flowchart LR
 - `LineStringGeometryJsonConverter`
 - `LineStringCoordinatesDeserializer`
 - `NoopPathEventPublisher`
-
-### 유지
-
-- `PathEventPublisher`
-- `SearchPathEventPublisher`
-- `PathServiceConfig`
 - `SearchPathSegmentPersistenceRecord`
 - `SearchPathSegmentReadRecord`
 - `SearchPathExcludedPointPersistenceRecord`
@@ -193,7 +187,13 @@ flowchart LR
 - `SearchPathLifecycleEventPersistenceRecord`
 - `SearchPathLifecycleEventReadRecord`
 
-유지 목록은 영구 보존을 뜻하지 않는다. 이번 리팩토링에서 독립된 책임이 확인되므로 한꺼번에 제거하지 않는다는 뜻이다. 이후 역할이 겹친다는 근거가 생기면 별도 작업으로 다시 판단한다.
+### 유지
+
+- `PathEventPublisher`
+- `SearchPathEventPublisher`
+- `PathServiceConfig`
+
+수색 경로 세그먼트, 제외 좌표, 생명주기 이벤트는 각각 하나의 도메인 `class`로 표현한다. MyBatis Mapper는 이 객체를 직접 저장하고 조회한다.
 
 ## 테스트 기준
 

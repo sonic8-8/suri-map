@@ -29,45 +29,47 @@ final class EventHubSearchPathEventPublisher implements SearchPathEventPublisher
     eventHub.publish(
         new PublishRequest(
             eventIdFor(request),
-            request.incidentId(),
-            request.eventType().name(),
+            request.getIncidentId(),
+            request.getEventType().name(),
             PAYLOAD_FORMAT_VERSION,
             SOURCE_ENTITY_TYPE,
-            request.id(),
+            request.getId(),
             occurredAt,
             payloadFor(request, occurredAt)));
   }
 
   private static void validate(SearchPathPublishRequest request) {
     if (request == null
-        || request.eventType() == null
-        || request.id() == null
-        || request.incidentId() == null
-        || request.opId() == null
-        || request.policePhoneId() == null
-        || request.accountId() == null
-        || request.status() == null
-        || request.version() <= 0) {
+        || request.getEventType() == null
+        || request.getId() == null
+        || request.getIncidentId() == null
+        || request.getOpId() == null
+        || request.getPolicePhoneId() == null
+        || request.getAccountId() == null
+        || request.getStatus() == null
+        || request.getVersion() <= 0) {
       throw new SearchPathGuardException("write_conflict");
     }
   }
 
   private static UUID eventIdFor(SearchPathPublishRequest request) {
-    String seed = "event:%s:%s:v%d".formatted(request.eventType().name(), request.id(), request.version());
+    String seed =
+        "event:%s:%s:v%d"
+            .formatted(request.getEventType().name(), request.getId(), request.getVersion());
     return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
 
   private static Map<String, Object> payloadFor(
       SearchPathPublishRequest request, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("id", request.id().toString());
-    payload.put("incidentId", request.incidentId().toString());
-    payload.put("opId", request.opId().toString());
-    payload.put("policePhoneId", request.policePhoneId().toString());
-    payload.put("accountId", request.accountId().toString());
-    payload.put("status", request.status().name());
-    payload.put("version", request.version());
-    payload.put("sequence", request.version());
+    payload.put("id", request.getId().toString());
+    payload.put("incidentId", request.getIncidentId().toString());
+    payload.put("opId", request.getOpId().toString());
+    payload.put("policePhoneId", request.getPolicePhoneId().toString());
+    payload.put("accountId", request.getAccountId().toString());
+    payload.put("status", request.getStatus().name());
+    payload.put("version", request.getVersion());
+    payload.put("sequence", request.getVersion());
     payload.put("serverTs", occurredAt.toString());
     return payload;
   }

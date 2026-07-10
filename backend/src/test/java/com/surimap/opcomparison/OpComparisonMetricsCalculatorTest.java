@@ -8,6 +8,7 @@ import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -128,18 +129,24 @@ class OpComparisonMetricsCalculatorTest {
   }
 
   private static SearchPathPoint point(String id, String lon, String lat, String at) {
-    return new SearchPathPoint(
-        id,
-        OffsetDateTime.parse(at),
-        new BigDecimal(lon),
-        new BigDecimal(lat),
-        BigDecimal.ZERO,
-        5);
+    return SearchPathPoint.builder()
+        .pointId(id)
+        .clientTs(OffsetDateTime.parse(at))
+        .lon(new BigDecimal(lon))
+        .lat(new BigDecimal(lat))
+        .speedMps(BigDecimal.ZERO)
+        .horizontalAccuracyM(5)
+        .build();
   }
 
   private static SearchPathSegment segment(
       String id, MovementType movementType, int startIndex, int endIndex) {
-    return new SearchPathSegment(
-        id, 1L, movementType, MovementTypeSource.AUTO, startIndex, endIndex, null, null, null, null);
+    return SearchPathSegment.builder()
+        .id(UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8)))
+        .movementType(movementType)
+        .movementTypeSource(MovementTypeSource.AUTO)
+        .startIndex(startIndex)
+        .endIndex(endIndex)
+        .build();
   }
 }

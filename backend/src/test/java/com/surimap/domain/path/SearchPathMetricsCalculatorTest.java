@@ -2,9 +2,8 @@ package com.surimap.domain.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.domain.path.SearchPathMetrics;
-import com.surimap.domain.path.SearchPathMetricsCalculator;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -27,16 +26,18 @@ class SearchPathMetricsCalculatorTest {
                 point("p1", "0.000", "0.000", "2026-05-18T00:00:00Z"),
                 point("p2", "0.001", "0.000", "2026-05-18T00:00:30Z"),
                 point("p3", "0.002", "0.000", "2026-05-18T00:01:00Z")),
-            List.of(segment("vehicle", MovementType.VEHICLE, 0, 1), segment("foot", MovementType.FOOT, 1, 2)));
+            List.of(
+                segment("vehicle", MovementType.VEHICLE, 0, 1),
+                segment("foot", MovementType.FOOT, 1, 2)));
 
     SearchPathMetrics metrics = calculator.calculate(List.of(path), null, null);
 
-    assertThat(metrics.distanceMeters()).isEqualTo(222L);
-    assertThat(metrics.drivingDistanceMeters()).isEqualTo(111L);
-    assertThat(metrics.walkingDistanceMeters()).isEqualTo(111L);
-    assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("13.3"));
-    assertThat(metrics.stoppedSegmentCount()).isZero();
-    assertThat(metrics.stoppedDurationSeconds()).isZero();
+    assertThat(metrics.getDistanceMeters()).isEqualTo(222L);
+    assertThat(metrics.getDrivingDistanceMeters()).isEqualTo(111L);
+    assertThat(metrics.getWalkingDistanceMeters()).isEqualTo(111L);
+    assertThat(metrics.getAverageSpeedKmh()).isEqualByComparingTo(new BigDecimal("13.3"));
+    assertThat(metrics.getStoppedSegmentCount()).isZero();
+    assertThat(metrics.getStoppedDurationSeconds()).isZero();
   }
 
   @Test
@@ -54,10 +55,10 @@ class SearchPathMetricsCalculatorTest {
 
     SearchPathMetrics metrics = calculator.calculate(List.of(path), null, null);
 
-    assertThat(metrics.distanceMeters()).isZero();
-    assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("0.0"));
-    assertThat(metrics.stoppedSegmentCount()).isEqualTo(1);
-    assertThat(metrics.stoppedDurationSeconds()).isEqualTo(30L);
+    assertThat(metrics.getDistanceMeters()).isZero();
+    assertThat(metrics.getAverageSpeedKmh()).isEqualByComparingTo(new BigDecimal("0.0"));
+    assertThat(metrics.getStoppedSegmentCount()).isEqualTo(1);
+    assertThat(metrics.getStoppedDurationSeconds()).isEqualTo(30L);
   }
 
   @Test
@@ -75,11 +76,10 @@ class SearchPathMetricsCalculatorTest {
             List.of(segment("vehicle", MovementType.VEHICLE, 0, 2)));
 
     SearchPathMetrics metrics =
-        calculator.calculate(
-            List.of(path), startedAt, Instant.parse("2026-05-18T00:02:00Z"));
+        calculator.calculate(List.of(path), startedAt, Instant.parse("2026-05-18T00:02:00Z"));
 
-    assertThat(metrics.distanceMeters()).isEqualTo(222L);
-    assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("6.7"));
+    assertThat(metrics.getDistanceMeters()).isEqualTo(222L);
+    assertThat(metrics.getAverageSpeedKmh()).isEqualByComparingTo(new BigDecimal("6.7"));
   }
 
   private static SearchPath path(
@@ -104,18 +104,24 @@ class SearchPathMetricsCalculatorTest {
   }
 
   private static SearchPathPoint point(String id, String lon, String lat, String at) {
-    return new SearchPathPoint(
-        id,
-        OffsetDateTime.parse(at),
-        new BigDecimal(lon),
-        new BigDecimal(lat),
-        BigDecimal.ZERO,
-        5);
+    return SearchPathPoint.builder()
+        .pointId(id)
+        .clientTs(OffsetDateTime.parse(at))
+        .lon(new BigDecimal(lon))
+        .lat(new BigDecimal(lat))
+        .speedMps(BigDecimal.ZERO)
+        .horizontalAccuracyM(5)
+        .build();
   }
 
   private static SearchPathSegment segment(
       String id, MovementType movementType, int startIndex, int endIndex) {
-    return new SearchPathSegment(
-        id, 1L, movementType, MovementTypeSource.AUTO, startIndex, endIndex, null, null, null, null);
+    return SearchPathSegment.builder()
+        .id(UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8)))
+        .movementType(movementType)
+        .movementTypeSource(MovementTypeSource.AUTO)
+        .startIndex(startIndex)
+        .endIndex(endIndex)
+        .build();
   }
 }
