@@ -20,9 +20,9 @@ import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.SearchPathStatus;
-import com.surimap.domain.path.validation.GpsPathPoint;
-import com.surimap.domain.path.validation.GpsPathValidationResult.QualityReason;
-import com.surimap.domain.path.validation.GpsPathValidator;
+import com.surimap.domain.path.validation.GpsPoint;
+import com.surimap.domain.path.validation.GpsPointValidationResult.GpsPointExclusionReason;
+import com.surimap.domain.path.validation.GpsPointValidator;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.math.BigDecimal;
@@ -56,17 +56,17 @@ public class SearchPathService {
 
   private final SearchPathMapper searchPathMapper;
   private final PathEventPublisher eventPublisher;
-  private final GpsPathValidator gpsPathValidator;
+  private final GpsPointValidator gpsPointValidator;
   private final IdempotentResponseCache idempotentResponseCache;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
       PathEventPublisher eventPublisher,
-      GpsPathValidator gpsPathValidator,
+      GpsPointValidator gpsPointValidator,
       IdempotentResponseCache idempotentResponseCache) {
     this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
-    this.gpsPathValidator = gpsPathValidator;
+    this.gpsPointValidator = gpsPointValidator;
     this.idempotentResponseCache = idempotentResponseCache;
   }
 
@@ -132,7 +132,7 @@ public class SearchPathService {
       throw new SearchPathApiException("channel_not_allowed");
     }
     var validationResult =
-        gpsPathValidator.validateBatch(
+        gpsPointValidator.validate(
             toValidatorPoints(request.getPoints()),
             request.getPoints().get(0).getClientTs().plusSeconds(20));
 
@@ -312,11 +312,11 @@ public class SearchPathService {
         response.getVersion());
   }
 
-  private List<GpsPathPoint> toValidatorPoints(List<SearchPathPointServiceRequest> points) {
+  private List<GpsPoint> toValidatorPoints(List<SearchPathPointServiceRequest> points) {
     return points.stream()
         .map(
             p ->
-                GpsPathPoint.builder()
+                GpsPoint.builder()
                     .pointId(p.getPointId())
                     .clientTs(p.getClientTs())
                     .lon(p.getLon())
@@ -327,7 +327,7 @@ public class SearchPathService {
         .toList();
   }
 
-  private List<SearchPathPoint> toAcceptedPoints(List<GpsPathPoint> points) {
+  private List<SearchPathPoint> toAcceptedPoints(List<GpsPoint> points) {
     return points.stream()
         .map(
             p ->
@@ -343,7 +343,7 @@ public class SearchPathService {
   }
 
   private List<SearchPathExcludedPoint> toExcludedPoints(
-      List<com.surimap.domain.path.validation.GpsPathValidationResult.ExcludedPoint> points) {
+      List<com.surimap.domain.path.validation.GpsPointValidationResult.ExcludedPoint> points) {
     return points.stream()
         .map(
             p ->
@@ -355,7 +355,7 @@ public class SearchPathService {
         .toList();
   }
 
-  private String qualityReason(QualityReason reason) {
+  private String qualityReason(GpsPointExclusionReason reason) {
     return switch (reason) {
       case LOW_ACCURACY -> "low_accuracy";
       case CLOCK_SKEW -> "clock_skew";

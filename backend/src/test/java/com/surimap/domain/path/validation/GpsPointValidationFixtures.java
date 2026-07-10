@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.IntStream;
 
-final class GpsPathValidationFixtures {
+final class GpsPointValidationFixtures {
 
   static final String NORMAL_PATH_ALIAS = "path-precinct-mixed-001";
   static final String NORMAL_POLICE_PHONE_CODE = "dev-precinct-car-01";
@@ -145,7 +145,7 @@ final class GpsPathValidationFixtures {
           OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
           "horizontalAccuracyM > 50",
           BigDecimal.valueOf(51),
-          BigDecimal.valueOf(GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS),
+          BigDecimal.valueOf(GpsPointValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS),
           ViolationDirection.ABOVE_MAX,
           "excludedPoints");
 
@@ -164,7 +164,7 @@ final class GpsPathValidationFixtures {
           OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
           "timestampSkewSec > 30",
           BigDecimal.valueOf(35),
-          BigDecimal.valueOf(GpsPathValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS),
+          BigDecimal.valueOf(GpsPointValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS),
           ViolationDirection.ABOVE_MAX,
           "excludedPoints");
 
@@ -202,7 +202,7 @@ final class GpsPathValidationFixtures {
           OffsetDateTime.parse("2026-04-28T09:10:10+09:00"),
           "speedMps > 45",
           BigDecimal.valueOf(46),
-          BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND),
+          BigDecimal.valueOf(GpsPointValidationCriteria.MAX_SPEED_METERS_PER_SECOND),
           ViolationDirection.ABOVE_MAX,
           "excludedPoints");
 
@@ -228,7 +228,7 @@ final class GpsPathValidationFixtures {
           OffsetDateTime.parse("2026-04-28T09:10:15+09:00"),
           "distance > 200m between 5-second samples",
           BigDecimal.valueOf(237),
-          BigDecimal.valueOf(GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS),
+          BigDecimal.valueOf(GpsPointValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS),
           ViolationDirection.ABOVE_MAX,
           "excludedPoints");
 
@@ -243,7 +243,7 @@ final class GpsPathValidationFixtures {
   static final List<QualityFailureFixture> QUALITY_FAILURE_FIXTURES =
       List.of(LOW_ACCURACY, TIMESTAMP_SKEW, NEGATIVE_SPEED, EXCESSIVE_SPEED, DISTANCE_JUMP);
 
-  private GpsPathValidationFixtures() {}
+  private GpsPointValidationFixtures() {}
 
   private static GpsPointFixture point(
       String pointId,

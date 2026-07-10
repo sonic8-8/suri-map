@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class GpsPathPoint {
+public class GpsPoint {
 
   private String pointId;
   private OffsetDateTime clientTs;
@@ -19,7 +19,7 @@ public class GpsPathPoint {
   private Integer horizontalAccuracyM;
 
   @Builder
-  private GpsPathPoint(
+  private GpsPoint(
       String pointId,
       OffsetDateTime clientTs,
       BigDecimal lon,
