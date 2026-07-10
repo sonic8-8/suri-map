@@ -9,12 +9,10 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
-@Primary
 public class EventHubPathEventPublisher implements PathEventPublisher {
 
   private static final int PAYLOAD_FORMAT_VERSION = 1;
@@ -106,35 +104,38 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
     try {
       return UUID.fromString(segmentId);
     } catch (IllegalArgumentException ignored) {
-      return UUID.nameUUIDFromBytes(("search-path-segment:" + segmentId).getBytes(StandardCharsets.UTF_8));
+      return UUID.nameUUIDFromBytes(
+          ("search-path-segment:" + segmentId).getBytes(StandardCharsets.UTF_8));
     }
   }
 
   private static Map<String, Object> pathPayload(
       PathAppendedPublishRequest request, Instant occurredAt) {
-    Map<String, Object> payload = basePayload(
-        request.id(),
-        request.incidentId(),
-        request.opId(),
-        request.policePhoneId(),
-        request.accountId(),
-        request.status(),
-        request.version(),
-        occurredAt);
+    Map<String, Object> payload =
+        basePayload(
+            request.id(),
+            request.incidentId(),
+            request.opId(),
+            request.policePhoneId(),
+            request.accountId(),
+            request.status(),
+            request.version(),
+            occurredAt);
     return payload;
   }
 
   private static Map<String, Object> segmentPayload(
       SearchPathSegmentUpdatedPublishRequest request, Instant occurredAt) {
-    Map<String, Object> payload = basePayload(
-        request.id(),
-        request.incidentId(),
-        request.opId(),
-        request.policePhoneId(),
-        request.accountId(),
-        request.status(),
-        request.version(),
-        occurredAt);
+    Map<String, Object> payload =
+        basePayload(
+            request.id(),
+            request.incidentId(),
+            request.opId(),
+            request.policePhoneId(),
+            request.accountId(),
+            request.status(),
+            request.version(),
+            occurredAt);
     payload.put("segmentId", request.segmentId());
     payload.put("movementType", request.movementType().name());
     payload.put("movementTypeSource", request.movementTypeSource().name());

@@ -1,12 +1,9 @@
 package com.surimap.api.controller.path.response;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,9 +18,7 @@ public class SearchPathQuerySegmentResponse {
   private MovementType movementType;
   private MovementTypeSource movementTypeSource;
 
-  @JsonSerialize(converter = LineStringGeometryJsonConverter.class)
-  @JsonDeserialize(using = LineStringCoordinatesDeserializer.class)
-  private List<List<Double>> geometry;
+  private LineStringGeometryJson geometry;
 
   private OffsetDateTime startedAt;
   private OffsetDateTime endedAt;
@@ -36,7 +31,7 @@ public class SearchPathQuerySegmentResponse {
       long version,
       MovementType movementType,
       MovementTypeSource movementTypeSource,
-      List<List<Double>> geometry,
+      LineStringGeometryJson geometry,
       OffsetDateTime startedAt,
       OffsetDateTime endedAt,
       UUID correctedByAccountId,
@@ -59,7 +54,7 @@ public class SearchPathQuerySegmentResponse {
         .version(response.getVersion())
         .movementType(response.getMovementType())
         .movementTypeSource(response.getMovementTypeSource())
-        .geometry(response.getGeometry())
+        .geometry(LineStringGeometryJson.from(response.getGeometry()))
         .startedAt(response.getStartedAt())
         .endedAt(response.getEndedAt())
         .correctedByAccountId(response.getCorrectedByAccountId())

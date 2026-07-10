@@ -1,7 +1,5 @@
 package com.surimap.api.controller.path.response;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.domain.path.SearchPathStatus;
 import java.time.Instant;
@@ -26,9 +24,7 @@ public class SearchPathQueryRowResponse {
   private Instant endedAt;
   private long version;
 
-  @JsonSerialize(converter = LineStringGeometryJsonConverter.class)
-  @JsonDeserialize(using = LineStringCoordinatesDeserializer.class)
-  private List<List<Double>> geometry;
+  private LineStringGeometryJson geometry;
 
   private List<SearchPathQuerySegmentResponse> segments;
   private List<SearchPathExcludedPointResponse> excludedPoints;
@@ -45,7 +41,7 @@ public class SearchPathQueryRowResponse {
       Instant startedAt,
       Instant endedAt,
       long version,
-      List<List<Double>> geometry,
+      LineStringGeometryJson geometry,
       List<SearchPathQuerySegmentResponse> segments,
       List<SearchPathExcludedPointResponse> excludedPoints) {
     this.id = id;
@@ -75,7 +71,7 @@ public class SearchPathQueryRowResponse {
         .startedAt(response.getStartedAt())
         .endedAt(response.getEndedAt())
         .version(response.getVersion())
-        .geometry(response.getGeometry())
+        .geometry(LineStringGeometryJson.from(response.getGeometry()))
         .segments(
             response.getSegments().stream().map(SearchPathQuerySegmentResponse::from).toList())
         .excludedPoints(

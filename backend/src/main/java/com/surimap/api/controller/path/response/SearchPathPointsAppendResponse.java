@@ -1,7 +1,5 @@
 package com.surimap.api.controller.path.response;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.domain.path.SearchPathStatus;
 import java.util.List;
@@ -23,9 +21,7 @@ public class SearchPathPointsAppendResponse {
   private int excludedPointCount;
   private List<SearchPathExcludedPointResponse> excludedPoints;
 
-  @JsonSerialize(converter = LineStringGeometryJsonConverter.class)
-  @JsonDeserialize(using = LineStringCoordinatesDeserializer.class)
-  private List<List<Double>> geometry;
+  private LineStringGeometryJson geometry;
 
   private List<SearchPathSegmentResponse> segments;
   private long version;
@@ -41,7 +37,7 @@ public class SearchPathPointsAppendResponse {
       int acceptedPointCount,
       int excludedPointCount,
       List<SearchPathExcludedPointResponse> excludedPoints,
-      List<List<Double>> geometry,
+      LineStringGeometryJson geometry,
       List<SearchPathSegmentResponse> segments,
       long version,
       SearchPathStatus status) {
@@ -73,7 +69,7 @@ public class SearchPathPointsAppendResponse {
             response.getExcludedPoints().stream()
                 .map(SearchPathExcludedPointResponse::from)
                 .toList())
-        .geometry(response.getGeometry())
+        .geometry(LineStringGeometryJson.from(response.getGeometry()))
         .segments(response.getSegments().stream().map(SearchPathSegmentResponse::from).toList())
         .version(response.getVersion())
         .status(response.getStatus())
