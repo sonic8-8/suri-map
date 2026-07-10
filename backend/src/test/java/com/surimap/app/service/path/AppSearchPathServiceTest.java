@@ -12,7 +12,7 @@ import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
-import com.surimap.domain.path.port.SearchPathEventPublisher;
+import com.surimap.global.event.SearchPathEventPublisher;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;

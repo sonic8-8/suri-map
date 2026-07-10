@@ -1,10 +1,7 @@
 package com.surimap.app.service.path;
 
 import com.surimap.domain.path.SearchPathMapper;
-import com.surimap.domain.path.SearchPathPublishRequest;
-import com.surimap.domain.path.exception.SearchPathGuardException;
-import com.surimap.domain.path.port.SearchPathEventPublisher;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
@@ -27,7 +24,6 @@ import org.springframework.core.env.Environment;
 @Order(Integer.MAX_VALUE)
 public class PathServiceConfig {
 
-  private static final String EVENT_SCHEMA_VERSION = "1";
   private final Map<UUID, CurrentOpResult> inMemoryCurrentOps = new ConcurrentHashMap<>();
 
   @Bean
@@ -94,31 +90,6 @@ public class PathServiceConfig {
         return inMemoryQuery.list(incidentId);
       }
     };
-  }
-
-  @Bean
-  @Primary
-  SearchPathEventPublisher searchPathEventPublisher(EventHub eventHub, Environment environment) {
-    if (!postgresqlDataSource(environment)) {
-      return new SearchPathEventPublisher() {
-        @Override
-        public void publish(SearchPathPublishRequest request) {
-          if (request == null) {
-            throw new SearchPathGuardException("write_conflict");
-          }
-          if (request.getEventType() == null
-              || request.getId() == null
-              || request.getIncidentId() == null
-              || request.getOpId() == null) {
-            throw new SearchPathGuardException("write_conflict");
-          }
-          if (EVENT_SCHEMA_VERSION.isBlank()) {
-            throw new SearchPathGuardException("write_conflict");
-          }
-        }
-      };
-    }
-    return new EventHubSearchPathEventPublisher(eventHub);
   }
 
   private static UUID stableUuid(UUID key, String namespace) {
