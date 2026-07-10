@@ -15,15 +15,9 @@ GitHub Issue를 작성할 때는 이 문서에서 확정한 선택과 변경 범
 
 ## 현재 상태
 
-수색 경로 코드는 `api`, `app`, `domain` 패키지로 이동했다. MyBatis도 별도의 Repository를 거치지 않고 `SearchPathMapper`가 `SearchPath`를 직접 저장하고 조회하는 구조로 정리했다.
+수색 경로 코드는 `api`, `app`, `domain` 패키지로 나눠 정리했다. MyBatis는 별도의 Repository를 거치지 않고 `SearchPathMapper`가 `SearchPath`를 직접 저장하고 조회한다.
 
-다음 항목은 아직 정리가 필요하다.
-
-- Service가 Controller Request와 Response DTO를 직접 사용하고 있다.
-- Controller가 요청 해시 생성, 중복 요청 확인, 최초 응답 재사용까지 처리하고 있다.
-- 수색 경로 세그먼트 수정 API가 별도 Controller로 나뉘어 있다.
-- Android 앱용 Controller 이름만으로는 어느 채널의 수색 경로 API인지 바로 알기 어렵다.
-- 테스트 클래스 이름과 검증 범위가 일관되지 않고, 같은 동작을 여러 테스트가 중복해서 확인하는 부분이 있다.
+Controller DTO와 Service DTO를 분리했고, 멱등성 처리는 Service로 옮겼다. 세그먼트 수정 API는 `SearchPathController`에 합쳤으며 Android 앱용 Controller와 Service에는 `App`을 붙여 채널을 구분했다. 테스트는 Domain, Mapper, Service, Controller 네 종류로 정리했다.
 
 ## 목표
 
