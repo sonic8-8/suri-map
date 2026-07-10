@@ -10,17 +10,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.surimap.app.controller.path.PathController;
-import com.surimap.app.controller.path.PathExceptionHandler;
 import com.surimap.app.service.path.AppSearchPathService;
+import com.surimap.app.service.path.request.SearchPathStartServiceRequest;
+import com.surimap.app.service.path.response.SearchPathStartServiceResponse;
+import com.surimap.app.service.path.response.SearchPathStatusUpdateServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.config.GuardConfig;
-import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
-import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,14 +30,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(PathController.class)
+@WebMvcTest(AppSearchPathController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({PathExceptionHandler.class, GuardConfig.class, GuardPortTestStubs.class})
 @WithMockAccount(
     accountId = "30000000-0000-0000-0000-000000000001",
     policePhoneId = "50000000-0000-0000-0000-000000000001")
-@DisplayName("L4-T01 search_path lifecycle API contract")
-class PathControllerTest {
+@DisplayName("AppSearchPath controller")
+class AppSearchPathControllerTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
   private static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000001");
@@ -50,14 +49,14 @@ class PathControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private AppSearchPathService service;
+  @MockitoBean private AppSearchPathService appSearchPathService;
 
   @Test
   @DisplayName("POST /api/search-paths returns 201 and lifecycle response shape")
   void start_path_contract() throws Exception {
-    when(service.start(org.mockito.ArgumentMatchers.any()))
-        .thenReturn(
-            path(SearchPathStatus.RECORDING, 1L, Instant.parse("2026-04-28T00:00:00Z"), null));
+    when(appSearchPathService.start(
+            org.mockito.ArgumentMatchers.any(SearchPathStartServiceRequest.class)))
+        .thenReturn(startResponse(SearchPathStatus.RECORDING, 1L));
 
     mockMvc
         .perform(
@@ -84,12 +83,12 @@ class PathControllerTest {
         .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
 
-    verify(service)
+    verify(appSearchPathService)
         .start(
             argThat(
-                request ->
-                    SEARCH_PATH_ID.equals(request.searchPathId())
-                        && ACCOUNT_ID.equals(request.accountId())));
+                (SearchPathStartServiceRequest request) ->
+                    SEARCH_PATH_ID.equals(request.getSearchPathId())
+                        && ACCOUNT_ID.equals(request.getAccountId())));
   }
 
   @Test
@@ -115,23 +114,14 @@ class PathControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));
 
-    verifyNoInteractions(service);
+    verifyNoInteractions(appSearchPathService);
   }
 
   @Test
   @DisplayName("PATCH /api/search-paths/{searchPathId} action END returns 200")
   void end_path_contract() throws Exception {
-    when(service.patch(
-            org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
-            org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
-            org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
-            org.mockito.ArgumentMatchers.any()))
-        .thenReturn(
-            path(
-                SearchPathStatus.ENDED,
-                2L,
-                Instant.parse("2026-04-28T00:00:00Z"),
-                Instant.parse("2026-04-28T00:10:00Z")));
+    when(appSearchPathService.updateStatus(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(statusUpdateResponse(SearchPathStatus.ENDED, 2L));
 
     mockMvc
         .perform(
@@ -151,18 +141,22 @@ class PathControllerTest {
         .andExpect(jsonPath("$.id", is(SEARCH_PATH_ID.toString())))
         .andExpect(jsonPath("$.version", is(2)))
         .andExpect(jsonPath("$.status", is("ENDED")));
+
+    verify(appSearchPathService)
+        .updateStatus(
+            argThat(
+                request ->
+                    SEARCH_PATH_ID.equals(request.getSearchPathId())
+                        && POLICE_PHONE_ID.equals(request.getPolicePhoneId())
+                        && ACCOUNT_ID.equals(request.getAccountId())
+                        && "idem-path-end-001".equals(request.getIdempotencyKey())));
   }
 
   @Test
   @DisplayName("PATCH /api/search-paths/{searchPathId} action PAUSE returns 200")
   void pause_path_contract() throws Exception {
-    when(service.patch(
-            org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
-            org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
-            org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
-            org.mockito.ArgumentMatchers.any()))
-        .thenReturn(
-            path(SearchPathStatus.PAUSED, 2L, Instant.parse("2026-04-28T00:00:00Z"), null));
+    when(appSearchPathService.updateStatus(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(statusUpdateResponse(SearchPathStatus.PAUSED, 2L));
 
     mockMvc
         .perform(
@@ -187,13 +181,8 @@ class PathControllerTest {
   @Test
   @DisplayName("PATCH /api/search-paths/{searchPathId} action RESUME returns 200")
   void resume_path_contract() throws Exception {
-    when(service.patch(
-            org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
-            org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
-            org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
-            org.mockito.ArgumentMatchers.any()))
-        .thenReturn(
-            path(SearchPathStatus.RECORDING, 3L, Instant.parse("2026-04-28T00:00:00Z"), null));
+    when(appSearchPathService.updateStatus(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(statusUpdateResponse(SearchPathStatus.RECORDING, 3L));
 
     mockMvc
         .perform(
@@ -277,7 +266,8 @@ class PathControllerTest {
   @Test
   @DisplayName("service op_required is mapped to 409")
   void op_required_is_conflict() throws Exception {
-    when(service.start(org.mockito.ArgumentMatchers.any()))
+    when(appSearchPathService.start(
+            org.mockito.ArgumentMatchers.any(SearchPathStartServiceRequest.class)))
         .thenThrow(new SearchPathGuardException("op_required"));
 
     mockMvc
@@ -298,9 +288,9 @@ class PathControllerTest {
         .andExpect(jsonPath("$.error", is("op_required")));
   }
 
-  private static SearchPath path(
-      SearchPathStatus status, long version, Instant startedAt, Instant endedAt) {
-    return SearchPath.builder()
+  private static SearchPathStartServiceResponse startResponse(
+      SearchPathStatus status, long version) {
+    return SearchPathStartServiceResponse.builder()
         .id(SEARCH_PATH_ID)
         .incidentId(INCIDENT_ID)
         .opId(OP_ID)
@@ -308,8 +298,15 @@ class PathControllerTest {
         .accountId(ACCOUNT_ID)
         .status(status)
         .version(version)
-        .startedAt(startedAt)
-        .endedAt(endedAt)
+        .build();
+  }
+
+  private static SearchPathStatusUpdateServiceResponse statusUpdateResponse(
+      SearchPathStatus status, long version) {
+    return SearchPathStatusUpdateServiceResponse.builder()
+        .id(SEARCH_PATH_ID)
+        .status(status)
+        .version(version)
         .build();
   }
 }

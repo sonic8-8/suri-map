@@ -1,9 +1,10 @@
 package com.surimap.app.service.path;
 
-import com.surimap.app.service.path.request.EndSearchPathServiceRequest;
-import com.surimap.app.service.path.request.PatchSearchPathServiceRequest;
 import com.surimap.app.service.path.request.SearchPathLifecycleAction;
-import com.surimap.app.service.path.request.StartSearchPathServiceRequest;
+import com.surimap.app.service.path.request.SearchPathStartServiceRequest;
+import com.surimap.app.service.path.request.SearchPathStatusUpdateServiceRequest;
+import com.surimap.app.service.path.response.SearchPathStartServiceResponse;
+import com.surimap.app.service.path.response.SearchPathStatusUpdateServiceResponse;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathEventType;
 import com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord;
@@ -17,10 +18,7 @@ import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,19 +32,6 @@ public class AppSearchPathService {
   private final SearchPathMapper searchPathMapper;
   private final IdempotentResponseCache idempotentResponseCache;
   private final Map<UUID, SearchPath> activePaths = new ConcurrentHashMap<>();
-  private final Map<String, IdempotencyEntry> idempotencyEntries = new ConcurrentHashMap<>();
-
-  public AppSearchPathService(
-      OperationalPeriodQuery opQuery, SearchPathEventPublisher eventPublisher) {
-    this(opQuery, eventPublisher, null);
-  }
-
-  public AppSearchPathService(
-      OperationalPeriodQuery opQuery,
-      SearchPathEventPublisher eventPublisher,
-      SearchPathMapper searchPathMapper) {
-    this(opQuery, eventPublisher, searchPathMapper, (IdempotentResponseCache) null);
-  }
 
   public AppSearchPathService(
       OperationalPeriodQuery opQuery,
@@ -72,38 +57,40 @@ public class AppSearchPathService {
   }
 
   @Transactional
-  public SearchPath start(StartSearchPathServiceRequest request) {
-    requireIdempotencyKey(request.idempotencyKey());
-    String fingerprint = fingerprint("start", request);
-    return replayOrRun(
-        request.idempotencyKey(),
-        fingerprint,
-        "POST /api/search-paths",
-        201,
-        () -> startNewPath(request));
+  public SearchPathStartServiceResponse start(SearchPathStartServiceRequest request) {
+    requireIdempotencyKey(request.getIdempotencyKey());
+    return idempotencyCache()
+        .replayOrRun(
+            "POST /api/search-paths",
+            request.getIdempotencyKey(),
+            request,
+            201,
+            SearchPathStartServiceResponse.class,
+            () -> SearchPathStartServiceResponse.from(startNewPath(request)),
+            this::metadataForStart);
   }
 
-  private SearchPath startNewPath(StartSearchPathServiceRequest request) {
+  private SearchPath startNewPath(SearchPathStartServiceRequest request) {
     CurrentOpResult currentOp =
         opQuery
-            .current(request.incidentId())
+            .current(request.getIncidentId())
             .orElseThrow(() -> new SearchPathGuardException("op_required"));
-    if (!currentOp.opId().equals(request.opId())) {
+    if (!currentOp.opId().equals(request.getOpId())) {
       throw new SearchPathGuardException("op_mismatch");
     }
-    UUID accountId = request.accountId();
+    UUID accountId = request.getAccountId();
     if (accountId == null) {
       throw new SearchPathGuardException("channel_not_allowed");
     }
 
     SearchPath path =
         SearchPath.builder()
-            .id(request.searchPathId() == null ? UUID.randomUUID() : request.searchPathId())
-            .incidentId(request.incidentId())
-            .opId(request.opId())
-            .policePhoneId(request.policePhoneId())
+            .id(request.getSearchPathId() == null ? UUID.randomUUID() : request.getSearchPathId())
+            .incidentId(request.getIncidentId())
+            .opId(request.getOpId())
+            .policePhoneId(request.getPolicePhoneId())
             .accountId(accountId)
-            .startedAt(request.startedAt())
+            .startedAt(request.getStartedAt())
             .build();
 
     persistStartedPath(path);
@@ -114,90 +101,46 @@ public class AppSearchPathService {
   }
 
   @Transactional
-  public SearchPath patch(
-      UUID searchPathId, UUID policePhoneId, PatchSearchPathServiceRequest request) {
-    return patch(searchPathId, policePhoneId, null, request);
+  public SearchPathStatusUpdateServiceResponse updateStatus(
+      SearchPathStatusUpdateServiceRequest request) {
+    requireIdempotencyKey(request.getIdempotencyKey());
+    return idempotencyCache()
+        .replayOrRun(
+            "PATCH /api/search-paths/" + request.getSearchPathId(),
+            request.getIdempotencyKey(),
+            request,
+            200,
+            SearchPathStatusUpdateServiceResponse.class,
+            () -> SearchPathStatusUpdateServiceResponse.from(patchLoadedPath(request)),
+            this::metadataForStatusUpdate);
   }
 
-  @Transactional
-  public SearchPath patch(
-      UUID searchPathId,
-      UUID policePhoneId,
-      UUID accountId,
-      PatchSearchPathServiceRequest request) {
-    requireIdempotencyKey(request.idempotencyKey());
-    String fingerprint =
-        fingerprint(
-            "patch:" + request.action() + ":" + searchPathId + ":" + policePhoneId, request);
-    return replayOrRun(
-        request.idempotencyKey(),
-        fingerprint,
-        "PATCH /api/search-paths/" + searchPathId,
-        200,
-        () -> patchLoadedPath(searchPathId, policePhoneId, accountId, request));
-  }
-
-  @Transactional
-  public SearchPath end(
-      UUID searchPathId, UUID policePhoneId, EndSearchPathServiceRequest request) {
-    return end(searchPathId, policePhoneId, null, request);
-  }
-
-  @Transactional
-  public SearchPath end(
-      UUID searchPathId, UUID policePhoneId, UUID accountId, EndSearchPathServiceRequest request) {
-    return patch(
-        searchPathId,
-        policePhoneId,
-        accountId,
-        new PatchSearchPathServiceRequest(
-            SearchPathLifecycleAction.END, request.endedAt(), request.idempotencyKey()));
-  }
-
-  private SearchPath patchLoadedPath(
-      UUID searchPathId,
-      UUID policePhoneId,
-      UUID accountId,
-      PatchSearchPathServiceRequest request) {
-    if (accountId == null) {
+  private SearchPath patchLoadedPath(SearchPathStatusUpdateServiceRequest request) {
+    if (request.getAccountId() == null) {
       throw new SearchPathGuardException("channel_not_allowed");
     }
-    SearchPath current = loadPersistedPath(searchPathId);
+    SearchPath current = loadPersistedPath(request.getSearchPathId());
     if (current == null) {
-      current = activePaths.get(searchPathId);
+      current = activePaths.get(request.getSearchPathId());
     }
     if (current == null) {
       throw new SearchPathGuardException("write_conflict");
     }
-    if (current.getAccountId() != null && !current.getAccountId().equals(accountId)) {
+    if (current.getAccountId() != null && !current.getAccountId().equals(request.getAccountId())) {
       throw new SearchPathGuardException("write_conflict");
     }
-    return transition(current, request, policePhoneId);
+    return transition(current, request);
   }
 
-  @Transactional
-  public SearchPath end(SearchPath current, EndSearchPathServiceRequest request) {
-    return transition(
-        current,
-        new PatchSearchPathServiceRequest(
-            SearchPathLifecycleAction.END, request.endedAt(), request.idempotencyKey()));
-  }
-
-  @Transactional
-  public SearchPath transition(SearchPath current, PatchSearchPathServiceRequest request) {
-    return transition(current, request, current.getPolicePhoneId());
-  }
-
-  private SearchPath transition(
-      SearchPath current, PatchSearchPathServiceRequest request, UUID actorPolicePhoneId) {
-    SearchPathStatus nextStatus = nextStatus(current.getStatus(), request.action());
-    Instant clientTs = request.clientTs() == null ? Instant.now() : request.clientTs();
+  private SearchPath transition(SearchPath current, SearchPathStatusUpdateServiceRequest request) {
+    SearchPathStatus nextStatus = nextStatus(current.getStatus(), request.getAction());
+    Instant clientTs = request.getClientTs() == null ? Instant.now() : request.getClientTs();
     SearchPath patched =
         SearchPath.builder()
             .id(current.getId())
             .incidentId(current.getIncidentId())
             .opId(current.getOpId())
-            .policePhoneId(actorPolicePhoneId)
+            .policePhoneId(request.getPolicePhoneId())
             .accountId(current.getAccountId())
             .status(nextStatus)
             .version(current.getVersion() + 1)
@@ -205,8 +148,8 @@ public class AppSearchPathService {
             .endedAt(nextStatus == SearchPathStatus.ENDED ? clientTs : null)
             .build();
 
-    persistLifecycleTransition(patched, eventName(request.action()), clientTs);
-    publish(patched, publishEventType(request.action()));
+    persistLifecycleTransition(patched, eventName(request.getAction()), clientTs);
+    publish(patched, publishEventType(request.getAction()));
     activePaths.put(patched.getId(), patched);
 
     return patched;
@@ -334,55 +277,26 @@ public class AppSearchPathService {
     return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
 
-  private SearchPath replayOrRun(
-      String idempotencyKey,
-      String fingerprint,
-      String endpoint,
-      int responseStatusCode,
-      Operation operation) {
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          endpoint,
-          idempotencyKey,
-          fingerprint,
-          responseStatusCode,
-          SearchPath.class,
-          operation::run,
-          this::metadataFor);
-    }
-    IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
-    if (existing != null) {
-      if (!existing.fingerprint().equals(fingerprint)) {
-        throw new SearchPathGuardException("idempotency_mismatch");
-      }
-      return existing.response();
-    }
-    SearchPath response = operation.run();
-    idempotencyEntries.put(idempotencyKey, new IdempotencyEntry(fingerprint, response));
-    return response;
-  }
-
-  private ResponseMetadata metadataFor(SearchPath path) {
+  private ResponseMetadata metadataForStart(SearchPathStartServiceResponse response) {
     return new ResponseMetadata(
-        path.getId().toString(), path.getStatus().name(), path.getVersion(), path.getVersion());
+        response.getId().toString(),
+        response.getStatus().name(),
+        response.getVersion(),
+        response.getVersion());
   }
 
-  private String fingerprint(String operation, Object request) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hashed =
-          digest.digest(
-              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hashed);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is not available", exception);
+  private ResponseMetadata metadataForStatusUpdate(SearchPathStatusUpdateServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus().name(),
+        response.getVersion(),
+        response.getVersion());
+  }
+
+  private IdempotentResponseCache idempotencyCache() {
+    if (idempotentResponseCache == null) {
+      throw new IllegalStateException("IdempotentResponseCache is required");
     }
+    return idempotentResponseCache;
   }
-
-  @FunctionalInterface
-  private interface Operation {
-    SearchPath run();
-  }
-
-  private record IdempotencyEntry(String fingerprint, SearchPath response) {}
 }

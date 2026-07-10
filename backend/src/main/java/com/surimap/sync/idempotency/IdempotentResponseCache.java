@@ -2,6 +2,10 @@ package com.surimap.sync.idempotency;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
@@ -30,7 +34,8 @@ public class IdempotentResponseCache {
     IdempotentWriteResponse response =
         idempotentWriteService.reserveAndReplay(
             new IdempotentWriteRequest(endpoint, null, null, idempotencyKey, bodyHash),
-            () -> toIdempotentResponse(responseStatusCode, ownerOperation.get(), metadataExtractor));
+            () ->
+                toIdempotentResponse(responseStatusCode, ownerOperation.get(), metadataExtractor));
     if ("idempotency_mismatch".equals(response.error())) {
       throw new IdempotencyMismatchException();
     }
@@ -38,6 +43,24 @@ public class IdempotentResponseCache {
       throw new WriteConflictException();
     }
     return fromJson(response.bodyJson(), responseType);
+  }
+
+  public <T> T replayOrRun(
+      String endpoint,
+      String idempotencyKey,
+      Object request,
+      int responseStatusCode,
+      Class<T> responseType,
+      Supplier<T> ownerOperation,
+      ResponseMetadataExtractor<T> metadataExtractor) {
+    return replayOrRun(
+        endpoint,
+        idempotencyKey,
+        requestHash(request),
+        responseStatusCode,
+        responseType,
+        ownerOperation,
+        metadataExtractor);
   }
 
   private <T> IdempotentWriteResponse toIdempotentResponse(
@@ -62,6 +85,17 @@ public class IdempotentResponseCache {
       return objectMapper.writeValueAsString(response);
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("Failed to serialize idempotent response", exception);
+    }
+  }
+
+  private String requestHash(Object request) {
+    try {
+      byte[] hash =
+          MessageDigest.getInstance("SHA-256")
+              .digest(toJson(request).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available", exception);
     }
   }
 
