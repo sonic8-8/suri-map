@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
 
@@ -46,7 +45,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private OperationalPeriodQuery operationalPeriodQuery;
   @Autowired private SearchPathEventPublisher searchPathEventPublisher;
   @Autowired private SearchPathMapper searchPathMapper;
-  @Autowired private ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider;
+  @Autowired private IdempotentResponseCache idempotentResponseCache;
 
   @Test
   @DisplayName("수색 경로를 시작하면 계정의 근무교대에 연결해 저장한다")
@@ -252,7 +251,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
         operationalPeriodQuery,
         searchPathEventPublisher,
         searchPathMapper,
-        idempotentResponseCacheProvider);
+        idempotentResponseCache);
   }
 
   private int rowCount(String tableName) {
