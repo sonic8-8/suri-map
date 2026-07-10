@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Geometry;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -24,11 +25,14 @@ public class SearchPath {
   private Instant endedAt;
   private SearchPathStatus status = SearchPathStatus.RECORDING;
   private long version = 1L;
+  private Geometry geometry;
+  private Instant createdAt;
+  private Instant updatedAt;
   private List<SearchPathPoint> points = new ArrayList<>();
   private List<PathExcludedPoint> excludedPoints = new ArrayList<>();
   private List<SearchPathSegment> segments = new ArrayList<>();
 
-  @Builder
+  @Builder(toBuilder = true)
   private SearchPath(
       UUID id,
       UUID dutyShiftId,
@@ -40,6 +44,9 @@ public class SearchPath {
       Instant endedAt,
       SearchPathStatus status,
       Long version,
+      Geometry geometry,
+      Instant createdAt,
+      Instant updatedAt,
       List<SearchPathPoint> points,
       List<PathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
@@ -53,6 +60,9 @@ public class SearchPath {
     this.endedAt = endedAt;
     this.status = status == null ? SearchPathStatus.RECORDING : status;
     this.version = version == null ? 1L : version;
+    this.geometry = geometry;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
     this.points = new ArrayList<>(emptyIfNull(points));
     this.excludedPoints = new ArrayList<>(emptyIfNull(excludedPoints));
     this.segments = new ArrayList<>(emptyIfNull(segments));

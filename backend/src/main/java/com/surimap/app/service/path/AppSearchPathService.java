@@ -6,15 +6,14 @@ import com.surimap.app.service.path.request.SearchPathLifecycleAction;
 import com.surimap.app.service.path.request.StartSearchPathServiceRequest;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathEventType;
+import com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord;
+import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
-import com.surimap.domain.path.SearchPathLifecycleEventPersistenceRecord;
-import com.surimap.domain.path.SearchPathMapper;
-import com.surimap.domain.path.SearchPathPersistenceRecord;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +24,6 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.locationtech.jts.geom.Geometry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -226,18 +224,14 @@ public class AppSearchPathService {
         searchPathMapper
             .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
             .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
-    searchPathMapper.insertPath(
-        new SearchPathPersistenceRecord(
-            path.getId(),
-            dutyShiftId,
-            accountId,
-            path.getStatus().name(),
-            path.getStartedAt(),
-            path.getEndedAt(),
-            (Geometry) null,
-            path.getVersion(),
-            path.getStartedAt(),
-            path.getStartedAt()));
+    SearchPath persistedPath =
+        path.toBuilder()
+            .dutyShiftId(dutyShiftId)
+            .accountId(accountId)
+            .createdAt(path.getStartedAt())
+            .updatedAt(path.getStartedAt())
+            .build();
+    searchPathMapper.insertPath(persistedPath);
     persistLifecycleEvent(path, "STARTED", path.getStartedAt(), Instant.now());
   }
 
@@ -273,22 +267,7 @@ public class AppSearchPathService {
     if (searchPathMapper == null) {
       return null;
     }
-    return searchPathMapper
-        .findPathById(searchPathId)
-        .map(
-            row ->
-                SearchPath.builder()
-                    .id(row.id())
-                    .incidentId(row.incidentId())
-                    .opId(row.opId())
-                    .policePhoneId(row.policePhoneId())
-                    .accountId(row.accountId())
-                    .status(SearchPathStatus.valueOf(row.status()))
-                    .version(row.version())
-                    .startedAt(row.startedAt())
-                    .endedAt(row.endedAt())
-                    .build())
-        .orElse(null);
+    return searchPathMapper.findPathById(searchPathId).orElse(null);
   }
 
   private void requireIdempotencyKey(String idempotencyKey) {

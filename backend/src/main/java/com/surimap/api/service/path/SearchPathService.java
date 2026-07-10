@@ -12,11 +12,8 @@ import com.surimap.domain.path.PathExcludedPoint;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathApiException;
 import com.surimap.domain.path.SearchPathExcludedPointPersistenceRecord;
-import com.surimap.domain.path.SearchPathExcludedPointReadRecord;
 import com.surimap.domain.path.SearchPathMapper;
-import com.surimap.domain.path.SearchPathPersistenceRecord;
 import com.surimap.domain.path.SearchPathPoint;
-import com.surimap.domain.path.SearchPathReadRecord;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.SearchPathSegmentPersistenceRecord;
 import com.surimap.domain.path.SearchPathSegmentReadRecord;
@@ -66,59 +63,44 @@ public class SearchPathService {
   }
 
   public List<SearchPath> findAll() {
-    return searchPathMapper.findAllPaths().stream().map(this::toAggregate).toList();
+    return searchPathMapper.findAllPaths().stream().map(this::loadSearchPathDetails).toList();
   }
 
   public List<SearchPath> findByQuery(
       UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
     return searchPathMapper.findPaths(incidentId, opId, policePhoneId, accountId).stream()
-        .map(this::toAggregate)
+        .map(this::loadSearchPathDetails)
         .toList();
   }
 
   private Optional<SearchPath> findById(UUID pathId) {
-    return searchPathMapper.findPathById(pathId).map(this::toAggregate);
+    return searchPathMapper.findPathById(pathId).map(this::loadSearchPathDetails);
   }
 
-  private SearchPath save(SearchPath aggregate) {
+  private SearchPath save(SearchPath path) {
     Instant now = Instant.now();
-    ResolvedDutyShift dutyShift = resolveDutyShift(aggregate);
-    Geometry geometry = lineStringOrNull(aggregate.getPoints());
-    Instant startedAt = startedAt(aggregate, now);
-    SearchPathPersistenceRecord record =
-        new SearchPathPersistenceRecord(
-            aggregate.getId(),
-            dutyShift.id(),
-            dutyShift.accountId(),
-            aggregate.getStatus().name(),
-            startedAt,
-            aggregate.getEndedAt(),
-            geometry,
-            aggregate.getVersion(),
-            startedAt,
-            now);
+    ResolvedDutyShift dutyShift = resolveDutyShift(path);
+    Geometry geometry = lineStringOrNull(path.getPoints());
+    Instant startedAt = startedAt(path, now);
+    SearchPath persistedPath =
+        path.toBuilder()
+            .dutyShiftId(dutyShift.id())
+            .accountId(dutyShift.accountId())
+            .startedAt(startedAt)
+            .geometry(geometry)
+            .createdAt(path.getCreatedAt() == null ? startedAt : path.getCreatedAt())
+            .updatedAt(now)
+            .build();
 
-    if (searchPathMapper.findPathById(aggregate.getId()).isPresent()) {
-      searchPathMapper.updatePath(record);
+    if (searchPathMapper.findPathById(path.getId()).isPresent()) {
+      searchPathMapper.updatePath(persistedPath);
     } else {
-      searchPathMapper.insertPath(record);
+      searchPathMapper.insertPath(persistedPath);
     }
 
-    List<SearchPathSegment> persistedSegments = persistSegments(aggregate, now);
-    persistExcludedPoints(aggregate, now);
-    return SearchPath.builder()
-        .id(aggregate.getId())
-        .dutyShiftId(dutyShift.id())
-        .incidentId(aggregate.getIncidentId())
-        .opId(aggregate.getOpId())
-        .policePhoneId(aggregate.getPolicePhoneId())
-        .accountId(dutyShift.accountId())
-        .status(aggregate.getStatus())
-        .version(aggregate.getVersion())
-        .points(aggregate.getPoints())
-        .excludedPoints(aggregate.getExcludedPoints())
-        .segments(persistedSegments)
-        .build();
+    List<SearchPathSegment> persistedSegments = persistSegments(path, now);
+    persistExcludedPoints(path, now);
+    return persistedPath.toBuilder().segments(persistedSegments).build();
   }
 
   public PathBatchAppendResponse appendBatch(
@@ -134,7 +116,7 @@ public class SearchPathService {
     List<SearchPathPoint> acceptedPoints = toAcceptedPoints(validationResult.acceptedPoints());
     List<PathExcludedPoint> excludedPoints = toExcludedPoints(validationResult.excludedPoints());
 
-    SearchPath aggregate =
+    SearchPath path =
         findById(request.pathId())
             .orElseGet(
                 () ->
@@ -147,48 +129,48 @@ public class SearchPathService {
                             .accountId(accountId)
                             .build()));
     if (accountId != null
-        && aggregate.getAccountId() != null
-        && !accountId.equals(aggregate.getAccountId())) {
+        && path.getAccountId() != null
+        && !accountId.equals(path.getAccountId())) {
       throw new SearchPathApiException("write_conflict");
     }
-    if (aggregate.getStatus() != SearchPathStatus.RECORDING) {
+    if (path.getStatus() != SearchPathStatus.RECORDING) {
       throw new SearchPathApiException("write_conflict");
     }
 
-    int pointOffset = aggregate.getPoints().size();
-    int segmentOffset = aggregate.getSegments().size();
-    List<SearchPathSegment> segments = new ArrayList<>(aggregate.getSegments());
+    int pointOffset = path.getPoints().size();
+    int segmentOffset = path.getSegments().size();
+    List<SearchPathSegment> segments = new ArrayList<>(path.getSegments());
     segments.addAll(autoSegments(acceptedPoints, pointOffset, segmentOffset));
 
-    aggregate.appendAcceptedPoints(acceptedPoints);
-    aggregate.appendExcludedPoints(excludedPoints);
-    aggregate.replaceSegments(segments);
-    aggregate.bumpVersion();
-    aggregate = save(aggregate);
+    path.appendAcceptedPoints(acceptedPoints);
+    path.appendExcludedPoints(excludedPoints);
+    path.replaceSegments(segments);
+    path.bumpVersion();
+    path = save(path);
 
     eventPublisher.publishPathAppended(
         new PathAppendedPublishRequest(
-            aggregate.getId(),
-            aggregate.getIncidentId(),
-            aggregate.getStatus(),
-            aggregate.getVersion(),
-            aggregate.getOpId(),
+            path.getId(),
+            path.getIncidentId(),
+            path.getStatus(),
+            path.getVersion(),
+            path.getOpId(),
             policePhoneId,
-            aggregate.getAccountId()));
+            path.getAccountId()));
 
     return new PathBatchAppendResponse(
-        aggregate.getId(),
-        aggregate.getDutyShiftId(),
-        aggregate.getOpId(),
+        path.getId(),
+        path.getDutyShiftId(),
+        path.getOpId(),
         policePhoneId,
-        aggregate.getAccountId(),
+        path.getAccountId(),
         validationResult.acceptedPoints().size(),
         validationResult.excludedPoints().size(),
-        aggregate.getExcludedPoints(),
-        toGeometry(aggregate.getPoints()),
-        aggregate.getSegments(),
-        aggregate.getVersion(),
-        aggregate.getStatus());
+        path.getExcludedPoints(),
+        toGeometry(path.getPoints()),
+        path.getSegments(),
+        path.getVersion(),
+        path.getStatus());
   }
 
   public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId) {
@@ -414,19 +396,19 @@ public class SearchPathService {
         && segment.endIndex() < points.size();
   }
 
-  private List<SearchPathSegment> persistSegments(SearchPath aggregate, Instant now) {
-    searchPathMapper.deleteSegments(aggregate.getId());
-    List<SearchPathPoint> points = aggregate.getPoints();
+  private List<SearchPathSegment> persistSegments(SearchPath path, Instant now) {
+    searchPathMapper.deleteSegments(path.getId());
+    List<SearchPathPoint> points = path.getPoints();
     List<SearchPathSegment> persistedSegments = new ArrayList<>();
-    for (SearchPathSegment segment : aggregate.getSegments()) {
-      UUID segmentId = uuidSegmentId(aggregate.getId(), segment);
+    for (SearchPathSegment segment : path.getSegments()) {
+      UUID segmentId = uuidSegmentId(path.getId(), segment);
       LineString geometry = segmentLineString(points, segment);
       Instant startedAt = instant(points.get(segment.startIndex()).clientTs());
       Instant endedAt = instant(points.get(segment.endIndex()).clientTs());
       searchPathMapper.insertSegment(
           new SearchPathSegmentPersistenceRecord(
               segmentId,
-              aggregate.getId(),
+              path.getId(),
               segment.movementType().name(),
               segment.movementTypeSource().name(),
               geometry,
@@ -453,56 +435,46 @@ public class SearchPathService {
     return List.copyOf(persistedSegments);
   }
 
-  private SearchPath toAggregate(SearchPathReadRecord record) {
-    List<SearchPathPoint> points = pointsFrom(record.geometry(), record.startedAt());
+  private SearchPath loadSearchPathDetails(SearchPath record) {
+    List<SearchPathPoint> points = pointsFrom(record.getGeometry(), record.getStartedAt());
     List<SearchPathSegmentReadRecord> segmentRecords =
-        searchPathMapper.findSegmentsByPathId(record.id());
+        searchPathMapper.findSegmentsByPathId(record.getId());
     List<SearchPathSegment> segments = segmentsFrom(segmentRecords, points);
-    List<PathExcludedPoint> excludedPoints = excludedPointsFrom(record.id());
-    return SearchPath.builder()
-        .id(record.id())
-        .dutyShiftId(record.dutyShiftId())
-        .incidentId(record.incidentId())
-        .opId(record.opId())
-        .policePhoneId(record.policePhoneId())
-        .accountId(record.accountId())
-        .startedAt(record.startedAt())
-        .endedAt(record.endedAt())
-        .status(SearchPathStatus.valueOf(record.status()))
-        .version(record.version())
+    List<PathExcludedPoint> excludedPoints = excludedPointsFrom(record.getId());
+    return record.toBuilder()
         .points(points)
         .excludedPoints(excludedPoints)
         .segments(segments)
         .build();
   }
 
-  private ResolvedDutyShift resolveDutyShift(SearchPath aggregate) {
-    UUID accountId = aggregate.getAccountId();
+  private ResolvedDutyShift resolveDutyShift(SearchPath path) {
+    UUID accountId = path.getAccountId();
     if (accountId != null) {
       UUID dutyShiftId =
           searchPathMapper
-              .findActiveDutyShiftIdByAccount(aggregate.getOpId(), accountId)
+              .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
               .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
       return new ResolvedDutyShift(dutyShiftId, accountId);
     }
     UUID dutyShiftId =
         searchPathMapper
-            .findActiveDutyShiftId(aggregate.getOpId(), aggregate.getPolicePhoneId())
+            .findActiveDutyShiftId(path.getOpId(), path.getPolicePhoneId())
             .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
     UUID inferredAccountId =
         searchPathMapper
-            .findActiveDutyShiftAccountId(aggregate.getOpId(), aggregate.getPolicePhoneId())
+            .findActiveDutyShiftAccountId(path.getOpId(), path.getPolicePhoneId())
             .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
     return new ResolvedDutyShift(dutyShiftId, inferredAccountId);
   }
 
-  private void persistExcludedPoints(SearchPath aggregate, Instant now) {
-    searchPathMapper.deleteExcludedPoints(aggregate.getId());
-    for (PathExcludedPoint point : aggregate.getExcludedPoints()) {
+  private void persistExcludedPoints(SearchPath path, Instant now) {
+    searchPathMapper.deleteExcludedPoints(path.getId());
+    for (PathExcludedPoint point : path.getExcludedPoints()) {
       searchPathMapper.insertExcludedPoint(
           new SearchPathExcludedPointPersistenceRecord(
-              excludedPointId(aggregate.getId(), point),
-              aggregate.getId(),
+              excludedPointId(path.getId(), point),
+              path.getId(),
               point.pointId(),
               point.reason(),
               instant(point.clientTs()),
@@ -540,7 +512,9 @@ public class SearchPathService {
               offsetDateTime(record.correctedAt())));
       startIndex = indexes.end() + 1;
     }
-    return segments.stream().sorted(Comparator.comparingInt(SearchPathSegment::startIndex)).toList();
+    return segments.stream()
+        .sorted(Comparator.comparingInt(SearchPathSegment::startIndex))
+        .toList();
   }
 
   private SegmentIndexes segmentIndexes(
@@ -630,8 +604,8 @@ public class SearchPathService {
     return lineString(points.subList(segment.startIndex(), segment.endIndex() + 1));
   }
 
-  private Instant startedAt(SearchPath aggregate, Instant fallback) {
-    return aggregate.getPoints().stream()
+  private Instant startedAt(SearchPath path, Instant fallback) {
+    return path.getPoints().stream()
         .map(SearchPathPoint::clientTs)
         .findFirst()
         .map(SearchPathService::instant)
@@ -643,7 +617,8 @@ public class SearchPathService {
       return UUID.fromString(segment.id());
     } catch (IllegalArgumentException ignored) {
       String seed =
-          "search-path-segment:%s:%d:%d".formatted(pathId, segment.startIndex(), segment.endIndex());
+          "search-path-segment:%s:%d:%d"
+              .formatted(pathId, segment.startIndex(), segment.endIndex());
       return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
   }

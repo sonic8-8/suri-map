@@ -19,9 +19,9 @@ public interface SearchPathMapper {
   Optional<UUID> findActiveDutyShiftAccountId(
       @Param("opId") UUID opId, @Param("policePhoneId") UUID policePhoneId);
 
-  void insertPath(SearchPathPersistenceRecord record);
+  void insertPath(SearchPath path);
 
-  int updatePath(SearchPathPersistenceRecord record);
+  int updatePath(SearchPath path);
 
   int endPath(
       @Param("id") UUID id,
@@ -36,11 +36,11 @@ public interface SearchPathMapper {
       @Param("version") long version,
       @Param("updatedAt") Instant updatedAt);
 
-  Optional<SearchPathReadRecord> findPathById(@Param("id") UUID id);
+  Optional<SearchPath> findPathById(@Param("id") UUID id);
 
-  List<SearchPathReadRecord> findAllPaths();
+  List<SearchPath> findAllPaths();
 
-  List<SearchPathReadRecord> findPaths(
+  List<SearchPath> findPaths(
       @Param("incidentId") UUID incidentId,
       @Param("opId") UUID opId,
       @Param("policePhoneId") UUID policePhoneId,
