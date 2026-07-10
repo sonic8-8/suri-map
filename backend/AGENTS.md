@@ -41,16 +41,24 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 
 ## 패키지 설계 원칙
 
-- 이름: `기존 계층 구조 유지 + Android app adapter 추가 + 애그리거트 중심 도메인 패키징`
-- 새 패키지는 Spec/Lane 경계가 드러나게 둔다. 예: `incident`, `account`, `policephone`, `event`, `searcharea`, `path`, `sync`, `marker`, `notification`, `board`, `offline`, `op`, `handover`.
+- 이름: `채널별 adapter + 도메인 중심 패키징 + 전역 기반 패키지 분리`
+- `SuriMapApplication`은 `com.surimap` 루트에 둔다. 신규 최상위 패키지는 `api`, `app`, `client`, `config`, `domain`, `global`만 사용한다.
+- 새 도메인 패키지는 Spec/Lane 경계가 드러나게 둔다. 예: `incident`, `account`, `policephone`, `event`, `searcharea`, `path`, `sync`, `marker`, `notification`, `board`, `offline`, `op`, `handover`.
 - Web/프론트엔드 controller와 request DTO는 `api/controller/{domain}/...`에 둔다.
 - Android 앱 controller와 request DTO는 `app/controller/{domain}/...`에 둔다.
 - Web/프론트엔드 service와 Service Request/Response DTO는 `api/service/{domain}/...`에 둔다.
 - Android 앱 service와 Service Request/Response DTO는 `app/service/{domain}/...`에 둔다.
 - APP/WEB 공용 read라도 Web 상황판 응답 조립이면 `api`, Android 현장 앱 응답 조립이면 `app`에 둔다. 양쪽에서 쓰는 domain 조회/정책/mapper는 `domain`에 둔다.
 - `domain` 하위는 DB 테이블 개수보다 애그리거트 경계를 우선한다.
+- 도메인 객체는 기본적으로 `class`로 작성한다. 값 전달만 하는 객체처럼 보이더라도 상태 변경, 검증, 계산 로직이 들어갈 가능성이 있으면 `record`로 만들지 않는다.
+- 도메인 객체 필드는 `private`으로 선언하고 기본적으로 `final`을 붙이지 않는다. 외부 변경은 setter가 아니라 의미 있는 도메인 메서드로 통제한다.
+- 도메인 객체는 Lombok `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`를 기본으로 사용한다. MyBatis와 프레임워크가 객체를 만들 수 있게 열어두되, 애플리케이션 코드가 빈 객체를 직접 만들지 못하게 한다.
+- `@Setter`는 사용하지 않는다. 상태 변경은 `start`, `end`, `append...`, `correct...`처럼 업무 의미가 드러나는 메서드로 만든다.
+- 생성 경로가 필요하면 `@Builder`나 정적 팩터리를 사용한다. UUID와 시간이 많은 생성자는 public all-args 생성자로 열지 않는다.
+- MyBatis 매핑은 도메인 객체를 직접 사용하는 것을 기본으로 한다. 같은 의미의 `ReadRecord`, `PersistenceRecord`, `Aggregate`, `Model`을 습관적으로 만들지 않는다. 복잡한 조회 projection, 조인 결과, API 전용 응답처럼 도메인과 모양이 실제로 다를 때만 별도 객체를 둔다.
+- 컬렉션 필드도 처음에는 Lombok getter로 단순하게 노출한다. 컬렉션 자체에 변경 규칙이 생기거나 외부 임의 변경이 실제 문제가 되면 그때 일급 컬렉션으로 분리한다.
 - MyBatis mapper interface는 해당 domain 가까이에 두고, XML은 `resources/mapper/{domain}/...Mapper.xml`처럼 찾기 쉽게 맞춘다.
-- `common`, `util`, `misc`처럼 owner가 흐려지는 신규 패키지는 만들지 않는다. 기존 `common`은 error, health, base response처럼 실제 공용 기반에만 쓴다.
+- `common`, `util`, `misc`처럼 owner가 흐려지는 신규 패키지는 만들지 않는다. 기존 `common` 코드는 수정할 때 `global` 또는 더 구체적인 패키지로 옮긴다.
 
 좋은 예시:
 
@@ -61,13 +69,13 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - `app/controller/path/request/StartSearchPathRequest`
 - `app/controller/marker/AppMarkerController`
 - `api/service/searcharea/SearchAreaCommandService`
-- `app/service/path/AppSearchPathCommandService`
+- `app/service/path/AppSearchPathService`
 - `app/service/path/request/StartSearchPathServiceRequest`
 - `domain/searcharea/SearchArea`, `domain/searcharea/SearchAreaMapper`
 - `domain/policephone/PolicePhone`, `domain/path/SearchPath`, `domain/op/OperationalPeriod`, `domain/op/DutyShift`
 - `client/fcm/FcmDispatcher`
 - `config/SecurityConfig`
-- `common/health/HealthController`
+- `global/health/HealthController`
 
 지양 예시:
 
@@ -75,6 +83,14 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - API DTO, mapper row, domain model을 한 클래스에 섞는 구조
 - `api`와 `app` service에 같은 domain 정책, SQL, mapper 조합을 복붙하는 구조
 - Web/App channel 정책을 controller마다 문자열 조건문으로 흩뿌리는 구조
+
+## 예외 처리 기준
+
+- 비즈니스 규칙 위반은 `global/error/BusinessException` 하나로 표현하고, 세부 내용은 `global/error/ErrorCode`로 분류한다.
+- `ErrorCode`는 HTTP status와 API error code를 함께 가진다. 응답 body는 `docs/api/api-spec.md` 기준에 맞춰 `{ "error": "<code>" }` 형태를 유지한다.
+- `GlobalExceptionHandler`는 `BusinessException`을 공통으로 처리한다. controller 또는 도메인마다 같은 모양의 exception handler를 새로 만들지 않는다.
+- 특정 도메인 예외 타입은 catch 타입을 다르게 잡아 복구해야 하는 실제 이유가 있을 때만 추가한다.
+- 예상하지 못한 시스템 예외, DB 장애, 외부 API 장애는 `BusinessException`으로 감싸지 않는다.
 
 ## Persistence
 
@@ -105,7 +121,7 @@ Do / Don't:
 - Service Request DTO는 Controller 계층과 분리된 use case 입력이다.
 - Service Response DTO는 domain object, mapper row, 조회 결과를 API 반환 형태로 변환한다.
 - DTO는 API fixture field 이름을 보존한다. 하네스 필드명을 임의로 축약하거나 재명명하지 않는다.
-- DTO는 기본적으로 `record`보다 `class`를 우선한다. 단순 projection에는 `record`를 쓸 수 있으나 API 계약 안정성을 먼저 본다.
+- DTO도 기본적으로 `class`로 작성한다. Controller DTO와 Service DTO를 분리하고, Controller DTO는 `toServiceRequest(...)`로 Service DTO로 변환한다. 단순 projection에만 `record`를 예외적으로 사용할 수 있다.
 - Controller 응답은 `ResponseEntity<계약 Response DTO>`를 기본으로 사용한다. 공통 `ApiResponse`
   wrapper를 만들거나 사용하지 않는다. 응답 body는 `docs/api/api-spec.md`의 JSON shape와 직접 일치해야 한다.
 
@@ -119,6 +135,22 @@ ResponseEntity<SearchPathResponse> start(
             .body(searchPathCommandService.start(request.toServiceRequest(policePhoneId)));
 }
 ```
+
+## 테스트 기준
+
+- 테스트 이름에 `Red`, `RED`, `Failing`처럼 TDD 진행 단계를 남기지 않는다. TDD 단계는 작업 과정이고, 최종 테스트 이름은 검증하는 동작을 설명해야 한다.
+- Domain 규칙은 Spring 없이 단위 테스트로 확인한다. 예: 계산, 상태 변경, 값 검증.
+- `*MapperTest`는 `SpringBootTest`로 실제 MyBatis mapper, PostgreSQL/PostGIS, SQL result mapping을 확인한다.
+- `*ServiceTest`는 `SpringBootTest`로 실제 mapper, DB, transaction, event staging이 함께 동작하는지 확인한다.
+- `*ControllerTest`는 `WebMvcTest`로 HTTP request/response, header, validation, status code, error body를 확인한다. 이 레이어에서는 service mocking을 허용한다.
+- `Publisher`는 이벤트 발행 책임이 명확할 때만 사용한다. 이벤트 저장소에 stage하는 구현은 `EventHub...Publisher`, 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 무엇을 발행하거나 기록하는지 이름에 드러낸다.
+
+## Service 분리 기준
+
+- 서비스 계층 로직은 먼저 `{Domain}Service`에 작성한다. 메서드 이름으로 동작을 명확히 구분하고, 처음부터 `CommandService`, `QueryService`, `UseCaseService`로 쪼개지 않는다.
+- 메서드 안에서 책임이 여러 개로 갈라지면 SRP 기준의 분리 신호로 본다. 단, 실제 신호가 보일 때만 진행한다. 예: 변경 이유가 둘 이상으로 갈라짐, 서로 관련 없는 의존성이 많아짐, 테스트 준비가 메서드별로 크게 달라짐, 조회 성능 최적화가 쓰기 흐름과 충돌함, 멱등성/이벤트 저장/재시도 같은 부수효과가 한쪽에만 커짐.
+- 애플리케이션 흐름 조율 책임이면 `{Domain}{Action/Responsibility}Service`로 분리하고, 순수 계산/판단/검증 같은 도메인 로직이면 도메인 객체나 `Calculator`, `Policy`, `Validator` 같은 이름으로 분리한다.
+- 분리할 때도 추상적인 모듈 이름보다 현재 업무 이름을 우선한다. 기능이 작으면 유지하고, 책임이 커진 뒤에만 더 구체적인 이름으로 나눈다.
 
 ## API / Transaction Rule
 

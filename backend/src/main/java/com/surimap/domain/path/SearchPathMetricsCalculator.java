@@ -1,7 +1,7 @@
 package com.surimap.domain.path;
 
 import com.surimap.domain.path.MovementType;
-import com.surimap.domain.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
@@ -13,7 +13,7 @@ import java.util.List;
 public class SearchPathMetricsCalculator {
 
   public SearchPathMetrics calculate(
-      List<SearchPathAggregate> paths, Instant durationStartedAt, Instant durationEndedAt) {
+      List<SearchPath> paths, Instant durationStartedAt, Instant durationEndedAt) {
     long totalDistance = 0L;
     long walkingDistance = 0L;
     long drivingDistance = 0L;
@@ -22,12 +22,12 @@ public class SearchPathMetricsCalculator {
     Instant first = null;
     Instant last = null;
 
-    for (SearchPathAggregate path : paths) {
-      List<SearchPathPoint> points = path.points();
-      first = min(first, path.startedAt());
-      last = max(last, path.endedAt());
+    for (SearchPath path : paths) {
+      List<SearchPathPoint> points = path.getPoints();
+      first = min(first, path.getStartedAt());
+      last = max(last, path.getEndedAt());
       totalDistance += distanceMeters(points);
-      for (SearchPathSegment segment : path.segments()) {
+      for (SearchPathSegment segment : path.getSegments()) {
         long segmentDistance = segmentDistanceMeters(points, segment);
         if (segment.movementType() == MovementType.FOOT) {
           walkingDistance += segmentDistance;

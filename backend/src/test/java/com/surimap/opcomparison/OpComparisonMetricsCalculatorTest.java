@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
-import com.surimap.domain.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
@@ -113,14 +113,15 @@ class OpComparisonMetricsCalculatorTest {
     assertThat(metrics.stoppedDurationSeconds()).isZero();
   }
 
-  private static SearchPathAggregate path(
+  private static SearchPath path(
       UUID opId, List<SearchPathPoint> points, List<SearchPathSegment> segments) {
-    SearchPathAggregate path =
-        new SearchPathAggregate(
-            UUID.randomUUID(),
-            INCIDENT_ID,
-            opId,
-            POLICE_PHONE_ID);
+    SearchPath path =
+        SearchPath.builder()
+            .id(UUID.randomUUID())
+            .incidentId(INCIDENT_ID)
+            .opId(opId)
+            .policePhoneId(POLICE_PHONE_ID)
+            .build();
     path.appendAcceptedPoints(points);
     path.replaceSegments(segments);
     return path;

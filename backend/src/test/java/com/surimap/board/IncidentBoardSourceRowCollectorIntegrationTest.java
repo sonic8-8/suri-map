@@ -4,6 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.surimap.api.controller.path.response.PathQueryResponse;
+import com.surimap.api.controller.path.response.PathQueryRow;
+import com.surimap.api.controller.path.response.PathQuerySegmentRow;
+import com.surimap.api.service.path.SearchPathService;
+import com.surimap.domain.path.MovementType;
+import com.surimap.domain.path.MovementTypeSource;
+import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
@@ -14,9 +21,9 @@ import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
-import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
 import com.surimap.maparea.query.SearchAreaAssignmentRow;
+import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
@@ -35,12 +42,6 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.domain.path.InMemorySearchPathRepository;
-import com.surimap.api.service.path.NoopPathEventPublisher;
-import com.surimap.api.controller.path.request.PathBatchAppendRequest;
-import com.surimap.api.controller.path.request.PathBatchPointRequest;
-import com.surimap.api.service.path.SearchPathService;
-import com.surimap.domain.path.validation.GpsPathValidator;
 import com.surimap.policephone.PolicePhoneFreshnessStatus;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
 import com.surimap.policephone.query.PolicePhoneFreshnessRow;
@@ -71,27 +72,26 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID OP_ID = UUID.fromString("20000000-0000-4000-8000-000000000001");
   private static final UUID PREVIOUS_OP_ID =
       UUID.fromString("20000000-0000-4000-8000-000000000000");
-  private static final UUID FUTURE_OP_ID =
-      UUID.fromString("20000000-0000-4000-8000-000000000002");
+  private static final UUID FUTURE_OP_ID = UUID.fromString("20000000-0000-4000-8000-000000000002");
   private static final UUID AREA_ID = UUID.fromString("30000000-0000-4000-8000-000000000001");
   private static final UUID OVERALL_AREA_ID =
       UUID.fromString("30000000-0000-4000-8000-000000000099");
   private static final UUID PATH_ID = UUID.fromString("40000000-0000-4000-8000-000000000001");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("40000000-0000-4000-8000-000000000101");
   private static final UUID MARKER_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
   private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
-  private static final UUID POLICE_PHONE_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
+  private static final UUID POLICE_PHONE_ID =
+      UUID.fromString("50000000-0000-4000-8000-000000000001");
   private static final UUID ACTIVE_DUTY_POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNED_BY_ACCOUNT_ID =
       UUID.fromString("70000000-0000-4000-8000-000000000002");
-  private static final UUID ASSIGNMENT_ID =
-      UUID.fromString("71000000-0000-4000-8000-000000000001");
+  private static final UUID ASSIGNMENT_ID = UUID.fromString("71000000-0000-4000-8000-000000000001");
   private static final String ACCOUNT_DISPLAY_NAME = "종로 지구대 순찰차";
   private static final UUID MEMO_ID = UUID.fromString("80000000-0000-4000-8000-000000000001");
   private static final UUID SUMMARY_ID = UUID.fromString("90000000-0000-4000-8000-000000000001");
-  private static final UUID PURGE_RUN_ID =
-      UUID.fromString("91000000-0000-4000-8000-000000000001");
+  private static final UUID PURGE_RUN_ID = UUID.fromString("91000000-0000-4000-8000-000000000001");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Test
@@ -168,7 +168,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(row(snapshot, "toast").payload()).containsEntry("type", "SUPPORT_REQUEST_CREATED");
     assertThat(row(snapshot, "package_badge").sourceSpec()).isEqualTo("S7");
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
-    assertThat(row(snapshot, "handover_memo").payload()).containsEntry("content", "memo for next team");
+    assertThat(row(snapshot, "handover_memo").payload())
+        .containsEntry("content", "memo for next team");
     assertThat(row(snapshot, "handover_status").payload()).containsEntry("handoverStatus", "READY");
     assertThat(row(snapshot, "search_history_summary").payload())
         .containsEntry("summaryText", "searched ridge trail and checked shelter");
@@ -194,7 +195,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(new FakeSearchAreaAssignmentQuery()));
 
     IncidentBoardSourceRowSnapshot snapshot =
-        collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+        collector.collect(
+            new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
 
     Map<String, Object> payload = row(snapshot, "area").payload();
     assertThat(payload).containsEntry("areaLevel", "TEAM");
@@ -237,7 +239,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(new FakeSearchAreaAssignmentQuery()));
 
     IncidentBoardSourceRowSnapshot snapshot =
-        collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+        collector.collect(
+            new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
 
     @SuppressWarnings("unchecked")
     List<Map<String, Object>> assignedAccounts =
@@ -267,7 +270,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new BoardSourceRowContext(
                 INCIDENT_ID, List.of(OP_ID), List.of("marker", "package_badge"), null));
 
-    assertThat(snapshot.sourceRows()).extracting(BoardSourceRow::slot).containsOnly("marker", "package_badge");
+    assertThat(snapshot.sourceRows())
+        .extracting(BoardSourceRow::slot)
+        .containsOnly("marker", "package_badge");
     assertThat(markerQuery.filters()).extracting(MarkerQueryFilters::opId).containsExactly(OP_ID);
     assertThat(searchAreaQuery.overallCalls()).isZero();
     assertThat(searchAreaQuery.byIncidentCalls()).isZero();
@@ -315,7 +320,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper());
 
-    collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+    collector.collect(
+        new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
 
     assertThat(searchAreaQuery.byOpFilters())
         .singleElement()
@@ -324,7 +330,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   }
 
   @Test
-  @DisplayName("default board scope keeps routes and areas on current OP while accumulating markers through current OP")
+  @DisplayName(
+      "default board scope keeps routes and areas on current OP while accumulating markers through current OP")
   void default_board_scope_accumulates_markers_only_through_current_op() {
     CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
     CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
@@ -392,7 +399,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
             new BoardSourceRowContext(
-                INCIDENT_ID, List.of(OP_ID), List.of("incident_terminal", "police_phone_freshness"), null));
+                INCIDENT_ID,
+                List.of(OP_ID),
+                List.of("incident_terminal", "police_phone_freshness"),
+                null));
 
     BoardDTO board =
         new BoardAssembler()
@@ -428,36 +438,66 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   }
 
   private static SearchPathService searchPathService() {
-    InMemorySearchPathRepository repository = new InMemorySearchPathRepository();
-    SearchPathService service =
-        new SearchPathService(repository, new NoopPathEventPublisher(), new GpsPathValidator());
-    service.appendBatch(
-        new PathBatchAppendRequest(
-            INCIDENT_ID,
-            OP_ID,
-            PATH_ID,
-            List.of(
-                pathPoint("pt-001", "126.910000", "35.162000", "12.0", "2026-04-28T09:00:00+09:00"),
-                pathPoint("pt-002", "126.911000", "35.162100", "11.0", "2026-04-28T09:00:05+09:00"),
-                pathPoint("pt-003", "126.912000", "35.162200", "10.0", "2026-04-28T09:00:10+09:00"),
-                pathPoint("pt-004", "126.913000", "35.162300", "1.2", "2026-04-28T09:00:15+09:00"),
-                pathPoint("pt-005", "126.914000", "35.162400", "1.1", "2026-04-28T09:00:20+09:00"),
-                pathPoint("pt-006", "126.915000", "35.162500", "1.0", "2026-04-28T09:00:25+09:00")),
-            0L),
-        PHONE_ID,
-        ACCOUNT_ID);
+    SearchPathService service = mock(SearchPathService.class);
+    when(service.query(INCIDENT_ID, OP_ID, null)).thenReturn(pathQueryResponse());
     return service;
   }
 
-  private static PathBatchPointRequest pathPoint(
-      String pointId, String lon, String lat, String speedMps, String clientTs) {
-    return new PathBatchPointRequest(
-        pointId,
-        new BigDecimal(lon),
-        new BigDecimal(lat),
-        new BigDecimal(speedMps),
-        5,
-        OffsetDateTime.parse(clientTs));
+  private static PathQueryResponse pathQueryResponse() {
+    List<List<Double>> geometry =
+        List.of(
+            List.of(126.910000, 35.162000),
+            List.of(126.911000, 35.162100),
+            List.of(126.912000, 35.162200),
+            List.of(126.913000, 35.162300),
+            List.of(126.914000, 35.162400),
+            List.of(126.915000, 35.162500));
+    return new PathQueryResponse(
+        List.of(
+            new PathQueryRow(
+                PATH_ID,
+                INCIDENT_ID,
+                OP_ID,
+                DUTY_SHIFT_ID,
+                PHONE_ID,
+                ACCOUNT_ID,
+                SearchPathStatus.RECORDING,
+                STARTED_AT,
+                null,
+                2L,
+                geometry,
+                List.of(
+                    pathSegment(
+                        "segment-vehicle",
+                        MovementType.VEHICLE,
+                        geometry.subList(0, 3),
+                        "2026-04-28T09:00:00+09:00",
+                        "2026-04-28T09:00:10+09:00"),
+                    pathSegment(
+                        "segment-foot",
+                        MovementType.FOOT,
+                        geometry.subList(3, 6),
+                        "2026-04-28T09:00:15+09:00",
+                        "2026-04-28T09:00:25+09:00")),
+                List.of())));
+  }
+
+  private static PathQuerySegmentRow pathSegment(
+      String id,
+      MovementType movementType,
+      List<List<Double>> geometry,
+      String startedAt,
+      String endedAt) {
+    return new PathQuerySegmentRow(
+        id,
+        1L,
+        movementType,
+        MovementTypeSource.AUTO,
+        geometry,
+        OffsetDateTime.parse(startedAt),
+        OffsetDateTime.parse(endedAt),
+        null,
+        null);
   }
 
   private static <T> ObjectProvider<T> provider(T value) {
@@ -525,7 +565,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     private static boolean matchesMinVersion(SearchAreaRow row, SearchAreaFilters filters) {
       SearchAreaFilters effectiveFilters = filters == null ? SearchAreaFilters.empty() : filters;
-      return effectiveFilters.minVersion() == null || row.version() >= effectiveFilters.minVersion();
+      return effectiveFilters.minVersion() == null
+          || row.version() >= effectiveFilters.minVersion();
     }
 
     private static SearchAreaRow areaRow(UUID incidentId) {
@@ -577,32 +618,33 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
-    public List<com.surimap.incident.repository.IncidentReadRows.ListRow> findActiveListByOrganizationType(
-        String organizationType, String status) {
+    public List<com.surimap.incident.repository.IncidentReadRows.ListRow>
+        findActiveListByOrganizationType(String organizationType, String status) {
       return List.of();
     }
 
     @Override
-    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow> findActiveDetailByIncidentIdAndAccountId(
-        UUID incidentId, UUID accountId) {
+    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow>
+        findActiveDetailByIncidentIdAndAccountId(UUID incidentId, UUID accountId) {
       return Optional.empty();
     }
 
     @Override
-    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow> findActiveDetailByIncidentIdAndOrganizationType(
-        UUID incidentId, String organizationType) {
+    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow>
+        findActiveDetailByIncidentIdAndOrganizationType(UUID incidentId, String organizationType) {
       return Optional.empty();
     }
 
     @Override
-    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
-        UUID incidentId, UUID accountId) {
+    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow>
+        findTerminalDetailByIncidentIdAndAccountId(UUID incidentId, UUID accountId) {
       return Optional.empty();
     }
 
     @Override
-    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow> findTerminalDetailByIncidentIdAndOrganizationType(
-        UUID incidentId, String organizationType) {
+    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow>
+        findTerminalDetailByIncidentIdAndOrganizationType(
+            UUID incidentId, String organizationType) {
       return Optional.empty();
     }
 
@@ -617,8 +659,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
-    public Optional<com.surimap.incident.repository.IncidentReadRows.MissingPersonRow> findMissingPersonByIncidentId(
-        UUID incidentId) {
+    public Optional<com.surimap.incident.repository.IncidentReadRows.MissingPersonRow>
+        findMissingPersonByIncidentId(UUID incidentId) {
       return Optional.empty();
     }
 
@@ -635,8 +677,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
-    public List<com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow> findActiveAssignmentTargetsByIncidentId(
-        UUID incidentId) {
+    public List<com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow>
+        findActiveAssignmentTargetsByIncidentId(UUID incidentId) {
       com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow row =
           new com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow();
       row.setAccountId(ACCOUNT_ID.toString());
@@ -790,19 +832,22 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final class FakeOperationalPeriodQuery implements OperationalPeriodQuery {
     @Override
     public Optional<CurrentOpResult> current(UUID incidentId) {
-      return Optional.of(new CurrentOpResult(OP_ID, incidentId, "ACTIVE", 1, STARTED_AT, null, null, 8L));
+      return Optional.of(
+          new CurrentOpResult(OP_ID, incidentId, "ACTIVE", 1, STARTED_AT, null, null, 8L));
     }
 
     @Override
     public List<OperationalPeriodRow> list(UUID incidentId) {
-      return List.of(new OperationalPeriodRow(OP_ID, incidentId, "ACTIVE", 1, STARTED_AT, null, null, 8L));
+      return List.of(
+          new OperationalPeriodRow(OP_ID, incidentId, "ACTIVE", 1, STARTED_AT, null, null, 8L));
     }
   }
 
   private static final class MultiOpOperationalPeriodQuery implements OperationalPeriodQuery {
     @Override
     public Optional<CurrentOpResult> current(UUID incidentId) {
-      return Optional.of(new CurrentOpResult(OP_ID, incidentId, "ACTIVE", 2, STARTED_AT, null, null, 8L));
+      return Optional.of(
+          new CurrentOpResult(OP_ID, incidentId, "ACTIVE", 2, STARTED_AT, null, null, 8L));
     }
 
     @Override
@@ -819,20 +864,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
               7L),
           new OperationalPeriodRow(OP_ID, incidentId, "ACTIVE", 2, STARTED_AT, null, null, 8L),
           new OperationalPeriodRow(
-              FUTURE_OP_ID,
-              incidentId,
-              "ACTIVE",
-              3,
-              STARTED_AT.plusSeconds(3600),
-              null,
-              null,
-              9L));
+              FUTURE_OP_ID, incidentId, "ACTIVE", 3, STARTED_AT.plusSeconds(3600), null, null, 9L));
     }
   }
 
   private static final class FakeHandoverMemoQuery implements HandoverMemoQuery {
     @Override
-    public List<HandoverMemoRow> byContext(UUID incidentId, UUID opId, String targetType, UUID targetId) {
+    public List<HandoverMemoRow> byContext(
+        UUID incidentId, UUID opId, String targetType, UUID targetId) {
       return List.of(
           new HandoverMemoRow(
               MEMO_ID,
@@ -851,7 +890,12 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final class FakeSummaryMapper implements SearchHistorySummaryMapper {
     @Override
     public List<SearchHistorySummaryRow> findByOp(
-        UUID opId, UUID incidentId, String scopeType, UUID scopeId, UUID dutyShiftId, String status) {
+        UUID opId,
+        UUID incidentId,
+        String scopeType,
+        UUID scopeId,
+        UUID dutyShiftId,
+        String status) {
       return List.of(
           new SearchHistorySummaryRow(
               SUMMARY_ID,

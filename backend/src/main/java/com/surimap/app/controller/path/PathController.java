@@ -4,7 +4,7 @@ import com.surimap.app.controller.path.request.PatchSearchPathRequest;
 import com.surimap.app.controller.path.request.StartSearchPathRequest;
 import com.surimap.app.controller.path.response.PatchSearchPathResponse;
 import com.surimap.app.controller.path.response.StartSearchPathResponse;
-import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.app.service.path.AppSearchPathService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
@@ -27,9 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/search-paths")
 public class PathController {
 
-  private final AppSearchPathCommandService service;
+  private final AppSearchPathService service;
 
-  public PathController(AppSearchPathCommandService service) {
+  public PathController(AppSearchPathService service) {
     this.service = service;
   }
 

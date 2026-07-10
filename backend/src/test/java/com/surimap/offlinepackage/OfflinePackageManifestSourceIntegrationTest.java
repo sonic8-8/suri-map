@@ -50,11 +50,11 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = "tileserver.mode=fixture")
 @ActiveProfiles("test")
@@ -87,17 +87,17 @@ class OfflinePackageManifestSourceIntegrationTest {
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
-  @MockBean private IncidentMapper incidentMapper;
+  @MockitoBean private IncidentMapper incidentMapper;
 
-  @MockBean private OperationalPeriodQuery operationalPeriodQuery;
+  @MockitoBean private OperationalPeriodQuery operationalPeriodQuery;
 
-  @MockBean private SearchAreaApiService searchAreaQuery;
+  @MockitoBean private SearchAreaApiService searchAreaQuery;
 
-  @MockBean private SearchAreaAssignmentQuery assignmentQuery;
+  @MockitoBean private SearchAreaAssignmentQuery assignmentQuery;
 
-  @MockBean private MarkerQuery markerQuery;
+  @MockitoBean private MarkerQuery markerQuery;
 
-  @MockBean private EventHub eventHub;
+  @MockitoBean private EventHub eventHub;
 
   @BeforeEach
   void reset() {

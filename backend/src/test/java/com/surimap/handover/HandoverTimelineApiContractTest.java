@@ -11,10 +11,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.api.controller.handover.HandoverTimelineController;
 import com.surimap.api.service.handover.HandoverTimelineApiService;
+import com.surimap.api.service.path.SearchPathService;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.config.GuardConfig;
+import com.surimap.domain.path.MovementType;
+import com.surimap.domain.path.MovementTypeSource;
+import com.surimap.domain.path.SearchPath;
+import com.surimap.domain.path.SearchPathPoint;
+import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -25,12 +31,6 @@ import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
 import com.surimap.marker.query.MarkerView;
-import com.surimap.domain.path.MovementType;
-import com.surimap.domain.path.MovementTypeSource;
-import com.surimap.domain.path.SearchPathAggregate;
-import com.surimap.domain.path.SearchPathPoint;
-import com.surimap.domain.path.SearchPathRepository;
-import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import com.surimap.support.auth.GuardPortTestStubs;
@@ -73,7 +73,7 @@ class HandoverTimelineApiContractTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private SearchPathRepository searchPathRepository;
+  @MockitoBean private SearchPathService searchPathService;
   @MockitoBean private MarkerQuery markerQuery;
   @MockitoBean private HandoverMemoQuery handoverMemoQuery;
   @MockitoBean private SearchHistorySummaryMapper searchHistorySummaryMapper;
@@ -87,7 +87,7 @@ class HandoverTimelineApiContractTest {
       accountId = "11111111-1111-1111-1111-111111110001")
   @DisplayName("APP/WEB reads timeline evidence without exposing accountId or policePhoneId")
   void readsTimelineEvidenceWithoutPiiIdentifiers() throws Exception {
-    when(searchPathRepository.findAll()).thenReturn(List.of(path()));
+    when(searchPathService.findAll()).thenReturn(List.of(path()));
     when(markerQuery.byIncident(INCIDENT_ID, new MarkerQueryFilters(OP_ID, null, null)))
         .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker())));
     when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of(memo()));
@@ -128,9 +128,14 @@ class HandoverTimelineApiContractTest {
     verify(handoverMemoQuery).byContext(INCIDENT_ID, OP_ID, null, null);
   }
 
-  private static SearchPathAggregate path() {
-    SearchPathAggregate path =
-        new SearchPathAggregate(PATH_ID, INCIDENT_ID, OP_ID, POLICE_PHONE_ID);
+  private static SearchPath path() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .incidentId(INCIDENT_ID)
+            .opId(OP_ID)
+            .policePhoneId(POLICE_PHONE_ID)
+            .build();
     path.appendAcceptedPoints(
         List.of(
             point("p1", "126.913000", "35.162000", "2026-05-18T09:00:00+09:00"),

@@ -1,6 +1,6 @@
 package com.surimap.opcomparison;
 
-import com.surimap.domain.path.SearchPathAggregate;
+import com.surimap.domain.path.SearchPath;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -11,7 +11,7 @@ public record OpComparisonMetricsSource(
     int sequenceNumber,
     Instant startedAt,
     Instant endedAt,
-    List<SearchPathAggregate> paths,
+    List<SearchPath> paths,
     int markerCount,
     int handoverMemoCount) {
 

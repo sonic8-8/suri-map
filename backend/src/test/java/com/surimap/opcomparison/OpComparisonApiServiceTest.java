@@ -9,12 +9,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.opcomparison.request.CreateOpComparisonRequest;
 import com.surimap.api.controller.opcomparison.response.OpComparisonResponse;
 import com.surimap.api.service.opcomparison.OpComparisonApiException;
 import com.surimap.api.service.opcomparison.OpComparisonApiService;
+import com.surimap.api.service.path.SearchPathService;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.handover.query.HandoverMemoQuery;
@@ -29,7 +29,6 @@ import com.surimap.marker.query.MarkerQueryResult;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
-import com.surimap.domain.path.SearchPathRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -55,10 +54,11 @@ class OpComparisonApiServiceTest {
       org.mockito.Mockito.mock(OpComparisonAnalysisMapper.class);
   private final OperationalPeriodMapper operationalPeriodMapper =
       org.mockito.Mockito.mock(OperationalPeriodMapper.class);
-  private final SearchPathRepository searchPathRepository =
-      org.mockito.Mockito.mock(SearchPathRepository.class);
+  private final SearchPathService searchPathService =
+      org.mockito.Mockito.mock(SearchPathService.class);
   private final MarkerQuery markerQuery = org.mockito.Mockito.mock(MarkerQuery.class);
-  private final HandoverMemoQuery handoverMemoQuery = org.mockito.Mockito.mock(HandoverMemoQuery.class);
+  private final HandoverMemoQuery handoverMemoQuery =
+      org.mockito.Mockito.mock(HandoverMemoQuery.class);
   private final OpComparisonRegionFactMapper regionFactMapper =
       org.mockito.Mockito.mock(OpComparisonRegionFactMapper.class);
   private final OpComparisonNarrativePort narrativePort =
@@ -75,7 +75,7 @@ class OpComparisonApiServiceTest {
         .thenReturn(new IncidentLifecycleSnapshot(INCIDENT_ID, "OPEN", 1L));
     when(operationalPeriodMapper.findAllByIncidentOrderBySequence(INCIDENT_ID))
         .thenReturn(List.of(op(OP1_ID, 1), op(OP2_ID, 2)));
-    when(searchPathRepository.findAll()).thenReturn(List.of());
+    when(searchPathService.findAll()).thenReturn(List.of());
     when(markerQuery.byIncident(eq(INCIDENT_ID), any(MarkerQueryFilters.class)))
         .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of()));
     when(handoverMemoQuery.byContext(eq(INCIDENT_ID), any(), eq(null), eq(null)))
@@ -83,14 +83,15 @@ class OpComparisonApiServiceTest {
     when(regionFactMapper.findRegionFacts(any(), any(), any())).thenReturn(List.of());
     when(analysisMapper.findByRequestHash(anyString())).thenReturn(Optional.empty());
     when(analysisMapper.insert(any())).thenReturn(1);
-    when(analysisMapper.markDeterministicReady(any(), any(), any(), any(), any(), any(), any(), any()))
+    when(analysisMapper.markDeterministicReady(
+            any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(1);
     when(analysisMapper.updateNarrativeResult(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(1);
 
     OpComparisonSourceCollector sourceCollector =
         new OpComparisonSourceCollector(
-            operationalPeriodMapper, searchPathRepository, markerQuery, handoverMemoQuery);
+            operationalPeriodMapper, searchPathService, markerQuery, handoverMemoQuery);
     service =
         new OpComparisonApiService(
             analysisMapper,
@@ -132,8 +133,7 @@ class OpComparisonApiServiceTest {
         .containsEntry("version", 2L);
     @SuppressWarnings("unchecked")
     List<String> eventOpIds = (List<String>) event.getValue().payload().get("operationalPeriodIds");
-    assertThat(eventOpIds)
-        .containsExactly(OP1_ID.toString(), OP2_ID.toString());
+    assertThat(eventOpIds).containsExactly(OP1_ID.toString(), OP2_ID.toString());
   }
 
   @Test
@@ -161,7 +161,8 @@ class OpComparisonApiServiceTest {
             NOW);
     when(analysisMapper.findByRequestHash(anyString())).thenReturn(Optional.of(existing));
 
-    OpComparisonResponse response = service.create(request(OP2_ID, OP1_ID), "idem-existing", ACCOUNT_ID);
+    OpComparisonResponse response =
+        service.create(request(OP2_ID, OP1_ID), "idem-existing", ACCOUNT_ID);
 
     assertThat(response.comparisonId()).isEqualTo(existing.id());
     verify(analysisMapper, never()).insert(any());
@@ -174,50 +175,59 @@ class OpComparisonApiServiceTest {
     when(markerQuery.byIncident(eq(INCIDENT_ID), eq(new MarkerQueryFilters(OP2_ID, null, null))))
         .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
     when(narrativePort.generate(any()))
-        .thenReturn(OpComparisonNarrativeResult.ready("""
+        .thenReturn(
+            OpComparisonNarrativeResult.ready(
+                """
             {"observations":[{"sentence":"OP2의 마커 수는 3입니다.","factIds":["marker-count-op1-op2"]}]}
-            """.trim()));
+            """
+                    .trim()));
 
-    OpComparisonResponse response = service.create(request(OP1_ID, OP2_ID), "idem-narrative", ACCOUNT_ID);
+    OpComparisonResponse response =
+        service.create(request(OP1_ID, OP2_ID), "idem-narrative", ACCOUNT_ID);
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.narrativeStatus()).isEqualTo("READY");
     assertThat(response.diffFacts()).hasSize(1);
     assertThat(response.observations()).isNotNull();
     verify(narrativePort).generate(any());
-    verify(analysisMapper).updateNarrativeResult(
-        any(),
-        eq(OpComparisonAnalysisStatus.READY),
-        eq(OpComparisonNarrativeStatus.READY),
-        anyString(),
-        eq(null),
-        any(),
-        any());
+    verify(analysisMapper)
+        .updateNarrativeResult(
+            any(),
+            eq(OpComparisonAnalysisStatus.READY),
+            eq(OpComparisonNarrativeStatus.READY),
+            anyString(),
+            eq(null),
+            any(),
+            any());
   }
 
   @Test
-  @DisplayName("narrative failure keeps deterministic comparison ready and persists granular reason")
+  @DisplayName(
+      "narrative failure keeps deterministic comparison ready and persists granular reason")
   void keepsDeterministicReadyWhenNarrativeFails() {
     when(markerQuery.byIncident(eq(INCIDENT_ID), eq(new MarkerQueryFilters(OP2_ID, null, null))))
         .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
     when(narrativePort.generate(any()))
-        .thenReturn(OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID));
+        .thenReturn(
+            OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID));
 
-    OpComparisonResponse response = service.create(request(OP1_ID, OP2_ID), "idem-narrative-failed", ACCOUNT_ID);
+    OpComparisonResponse response =
+        service.create(request(OP1_ID, OP2_ID), "idem-narrative-failed", ACCOUNT_ID);
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.narrativeStatus()).isEqualTo("FAILED");
     assertThat(response.diffFacts()).hasSize(1);
     assertThat(response.observations()).isNull();
     assertThat(response.failureReason()).isEqualTo(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID);
-    verify(analysisMapper).updateNarrativeResult(
-        any(),
-        eq(OpComparisonAnalysisStatus.READY),
-        eq(OpComparisonNarrativeStatus.FAILED),
-        isNull(),
-        eq(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID),
-        any(),
-        any());
+    verify(analysisMapper)
+        .updateNarrativeResult(
+            any(),
+            eq(OpComparisonAnalysisStatus.READY),
+            eq(OpComparisonNarrativeStatus.FAILED),
+            isNull(),
+            eq(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID),
+            any(),
+            any());
   }
 
   @Test
@@ -226,7 +236,11 @@ class OpComparisonApiServiceTest {
     service.create(request(OP1_ID, OP2_ID), "idem-mismatch", ACCOUNT_ID);
 
     org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> service.create(request(OP1_ID, UUID.fromString("88888888-8888-8888-8888-888888880003")), "idem-mismatch", ACCOUNT_ID))
+            () ->
+                service.create(
+                    request(OP1_ID, UUID.fromString("88888888-8888-8888-8888-888888880003")),
+                    "idem-mismatch",
+                    ACCOUNT_ID))
         .isInstanceOf(OpComparisonApiException.class)
         .hasMessage("idempotency_mismatch");
   }
@@ -274,7 +288,8 @@ class OpComparisonApiServiceTest {
     return request;
   }
 
-  private static ObjectProvider<com.surimap.sync.idempotency.IdempotentResponseCache> emptyProvider() {
+  private static ObjectProvider<com.surimap.sync.idempotency.IdempotentResponseCache>
+      emptyProvider() {
     return new ObjectProvider<>() {
       @Override
       public com.surimap.sync.idempotency.IdempotentResponseCache getObject(Object... args) {
