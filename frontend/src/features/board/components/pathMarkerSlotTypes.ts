@@ -48,7 +48,7 @@ export type PathSegmentBoardRow = {
 export type PathBoardRow = BoardSourceCursor & {
   readonly slot: 'path';
   readonly sourceSpec: 'S3-1';
-  readonly policePhoneId: string;
+  readonly accountId: string;
   readonly geometry: S3PathGeoJsonLineString;
   readonly segments?: readonly PathSegmentBoardRow[];
 };

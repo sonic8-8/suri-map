@@ -39,7 +39,6 @@ type MovementPathFeatureOptions = {
 
 type ScopedRouteColorMaps = {
   accountId?: ReadonlyMap<string, string>;
-  policePhoneId?: ReadonlyMap<string, string>;
 };
 
 const routeFallbackPalette = Object.values(areaColorTokens).map((token) => token.lineColor);
@@ -135,22 +134,14 @@ export function createMarkerFeatureCollection(markers: BoardMapMarker[]): BoardM
 export function applyRouteColorsByAssignee(
   movementPaths: BoardMovementPath[],
   routeColorsByAccountId: ReadonlyMap<string, string>,
-  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
   scopedRouteColorsByAssignee: ScopedRouteColorMaps = {},
 ): BoardMovementPath[] {
   return movementPaths.map((path) => ({
     ...path,
     routeColor:
-      resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId, scopedRouteColorsByAssignee) ??
+      resolveRouteColor(path, routeColorsByAccountId, scopedRouteColorsByAssignee) ??
       getFallbackRouteColor(path),
   }));
-}
-
-export function applyRouteColorsByPolicePhone(
-  movementPaths: BoardMovementPath[],
-  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
-): BoardMovementPath[] {
-  return applyRouteColorsByAssignee(movementPaths, new Map(), routeColorsByPolicePhoneId);
 }
 
 export function markerTypeColor(markerType: BoardMapMarkerType) {
@@ -201,27 +192,20 @@ export function getPolicePhoneFreshnessColor(freshnessStatus: BoardPolicePhoneFr
 function resolveRouteColor(
   path: BoardMovementPath,
   routeColorsByAccountId: ReadonlyMap<string, string>,
-  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
   scopedRouteColorsByAssignee: ScopedRouteColorMaps,
 ) {
   if (path.routeColor) return path.routeColor;
 
   const scopedAccountRouteColor =
-    path.opId && path.accountId
+    path.opId
       ? scopedRouteColorsByAssignee.accountId?.get(createRouteColorAssigneeKey(path.opId, path.accountId))
       : undefined;
   if (scopedAccountRouteColor) return scopedAccountRouteColor;
 
-  const scopedPolicePhoneRouteColor =
-    path.opId && path.policePhoneId
-      ? scopedRouteColorsByAssignee.policePhoneId?.get(createRouteColorAssigneeKey(path.opId, path.policePhoneId))
-      : undefined;
-  if (scopedPolicePhoneRouteColor) return scopedPolicePhoneRouteColor;
-
-  const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
+  const accountRouteColor = routeColorsByAccountId.get(path.accountId);
   if (accountRouteColor) return accountRouteColor;
 
-  return path.policePhoneId ? (routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null) : null;
+  return null;
 }
 
 export function createRouteColorAssigneeKey(opId: string, assigneeId: string) {
@@ -229,8 +213,7 @@ export function createRouteColorAssigneeKey(opId: string, assigneeId: string) {
 }
 
 function getFallbackRouteColor(path: BoardMovementPath) {
-  const routeKey = path.policePhoneId ?? path.accountId ?? path.id;
-  return routeFallbackPalette[hashString(routeKey) % routeFallbackPalette.length];
+  return routeFallbackPalette[hashString(path.accountId) % routeFallbackPalette.length];
 }
 
 function hashString(value: string) {
@@ -289,8 +272,7 @@ function createMovementPathFeature(
     slot: 'path',
     entityId: path.id,
     opId: path.opId,
-    policePhoneId: path.policePhoneId ?? '',
-    accountId: path.accountId ?? '',
+    accountId: path.accountId,
     freshnessStatus: path.freshnessStatus,
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
     routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
@@ -326,8 +308,7 @@ function createMovementCurrentPositionFeature(
     entityId: `${path.id}:current-position`,
     pathId: path.id,
     opId: path.opId,
-    policePhoneId: path.policePhoneId ?? '',
-    accountId: path.accountId ?? '',
+    accountId: path.accountId,
     freshnessStatus: path.freshnessStatus,
     currentPositionColor: getPolicePhoneFreshnessColor(path.freshnessStatus),
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
@@ -358,7 +339,7 @@ function selectLatestMovementPathsByAssignee(movementPaths: BoardMovementPath[])
   movementPaths
     .filter((path) => path.coordinates.length > 0)
     .forEach((path) => {
-      const assigneeKey = path.policePhoneId ?? path.accountId ?? path.id;
+      const assigneeKey = path.accountId;
       const previousPath = pathsByAssignee.get(assigneeKey);
       if (!previousPath || compareMovementPathRecency(path, previousPath) > 0) {
         pathsByAssignee.set(assigneeKey, path);

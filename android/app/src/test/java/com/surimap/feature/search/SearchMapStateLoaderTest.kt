@@ -626,7 +626,7 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
-    fun incidentSearchPathsRenderAllPhonesButOnlyCurrentPhoneControlsRecordingState() = runBlocking {
+    fun incidentSearchPathsUseOnlyAccountIdToFindCurrentRecordingPath() = runBlocking {
         val areaGeometry =
             """
             {
@@ -693,7 +693,6 @@ class SearchMapStateLoaderTest {
                 searchPaths = { query ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertNull(query.policePhoneId)
                     assertEquals(true, query.includeGeometry)
                     assertEquals("RENDER_SIMPLIFIED", query.geometryMode)
                     assertEquals("startedAtAsc", query.sort)
@@ -722,7 +721,7 @@ class SearchMapStateLoaderTest {
                               "version": 9,
                               "incidentId": "$INCIDENT_ID",
                               "opId": "$OP_ID",
-                              "policePhoneId": "$OTHER_POLICE_PHONE_ID",
+                              "policePhoneId": "$POLICE_PHONE_ID",
                               "accountId": "$OTHER_ACCOUNT_ID",
                               "startedAt": "2026-05-18T04:55:12.331Z",
                               "geometryMode": "RENDER_SIMPLIFIED",
@@ -790,7 +789,7 @@ class SearchMapStateLoaderTest {
                     "op_search_areas" to
                         """{"areas":[{"id":"$TEAM_AREA_ID","opId":"$OP_ID","areaLevel":"TEAM","name":"A팀 담당 구역","status":"ACTIVE","geometry":$areaGeometry}]}""",
                     "search_paths" to
-                        """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
+                        """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
                     "live_markers" to
                         """{"markers":[{"id":"$MARKER_ID","type":"CLUE","status":"ACTIVE","location":{"type":"Point","coordinates":[126.919,37.519]}}]}"""
                 )
@@ -874,7 +873,7 @@ class SearchMapStateLoaderTest {
                         "incident_detail" to """{"id":"$INCIDENT_ID","title":"캐시 사건","missingPerson":{"displayName":"홍길동"}}""",
                         "overall_search_area" to """{"id":"$OVERALL_AREA_ID","geometry":$areaGeometry}""",
                         "op_search_areas" to """{"areas":[{"id":"$TEAM_AREA_ID","areaLevel":"TEAM","name":"A팀","geometry":$areaGeometry}]}""",
-                        "search_paths" to """{"paths":[{"id":"$PATH_ID","status":"RECORDING","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
+                        "search_paths" to """{"paths":[{"id":"$PATH_ID","status":"RECORDING","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}""",
                         "live_markers" to """{"markers":[{"id":"$MARKER_ID","type":"CLUE","status":"ACTIVE","location":{"type":"Point","coordinates":[126.919,37.519]}}]}"""
                     ),
                 initialRevisions = revisions
@@ -935,7 +934,7 @@ class SearchMapStateLoaderTest {
                         "op_search_areas" to
                             """{"areas":[{"id":"$TEAM_AREA_ID","opId":"$OP_ID","areaLevel":"TEAM","name":"A팀","status":"ACTIVE","colorToken":"AREA_GREEN_01","geometry":$areaGeometry}]}""",
                         "search_paths" to
-                            """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}"""
+                            """{"paths":[{"id":"$PATH_ID","status":"RECORDING","incidentId":"$INCIDENT_ID","opId":"$OP_ID","accountId":"$ACCOUNT_ID","startedAt":"2026-05-18T04:53:12.331Z","geometry":$pathGeometry}]}"""
                     ),
                 initialRevisions =
                     mapOf(
@@ -992,7 +991,7 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
-    fun missingPolicePhoneDoesNotReadSearchPaths() = runBlocking {
+    fun missingAccountDoesNotReadSearchPaths() = runBlocking {
         var searchPathsCalled = false
         val loader =
             SearchMapStateLoader(
@@ -1011,7 +1010,8 @@ class SearchMapStateLoaderTest {
                     incidentId = INCIDENT_ID,
                     currentOpId = OP_ID,
                     currentDutyShiftId = DUTY_SHIFT_ID,
-                    policePhoneId = null
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = null
                 )
             )
 
@@ -1103,6 +1103,7 @@ class SearchMapStateLoaderTest {
                             {
                               "id": "$PATH_ID",
                               "status": "ACTIVE",
+                              "accountId": "$ACCOUNT_ID",
                               "geometry": $pathGeometry
                             }
                           ]
@@ -1147,7 +1148,8 @@ class SearchMapStateLoaderTest {
                     incidentId = INCIDENT_ID,
                     currentOpId = OP_ID,
                     currentDutyShiftId = DUTY_SHIFT_ID,
-                    policePhoneId = POLICE_PHONE_ID
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
                 )
             )
 

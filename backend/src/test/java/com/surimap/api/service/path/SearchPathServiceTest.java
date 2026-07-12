@@ -59,7 +59,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
                    payload ->> 'id' AS payload_id,
                    payload ->> 'incidentId' AS payload_incident_id,
                    payload ->> 'opId' AS payload_op_id,
-                   payload ->> 'policePhoneId' AS payload_police_phone_id,
+                   jsonb_exists(payload, 'policePhoneId') AS has_police_phone_id,
                    payload ->> 'accountId' AS payload_account_id,
                    (payload ->> 'version')::bigint AS payload_version,
                    (payload ->> 'sequence')::bigint AS payload_sequence
@@ -76,7 +76,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(eventRow.get("payload_id")).isEqualTo(PATH_ID.toString());
     assertThat(eventRow.get("payload_incident_id")).isEqualTo(INCIDENT_ID.toString());
     assertThat(eventRow.get("payload_op_id")).isEqualTo(OP_ID.toString());
-    assertThat(eventRow.get("payload_police_phone_id")).isEqualTo(POLICE_PHONE_ID.toString());
+    assertThat(eventRow.get("has_police_phone_id")).isEqualTo(false);
     assertThat(eventRow.get("payload_account_id")).isEqualTo(ACCOUNT_ID.toString());
     assertThat(eventRow.get("payload_version")).isEqualTo(appended.getVersion());
     assertThat(eventRow.get("payload_sequence")).isEqualTo(appended.getVersion());
@@ -102,7 +102,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
                    payload ->> 'id' AS payload_id,
                    payload ->> 'incidentId' AS payload_incident_id,
                    payload ->> 'opId' AS payload_op_id,
-                   payload ->> 'policePhoneId' AS payload_police_phone_id,
+                   jsonb_exists(payload, 'policePhoneId') AS has_police_phone_id,
                    payload ->> 'segmentId' AS payload_segment_id,
                    payload ->> 'movementType' AS payload_movement_type,
                    payload ->> 'movementTypeSource' AS payload_movement_type_source,
@@ -121,7 +121,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(eventRow.get("payload_id")).isEqualTo(PATH_ID.toString());
     assertThat(eventRow.get("payload_incident_id")).isEqualTo(INCIDENT_ID.toString());
     assertThat(eventRow.get("payload_op_id")).isEqualTo(OP_ID.toString());
-    assertThat(eventRow.get("payload_police_phone_id")).isEqualTo(POLICE_PHONE_ID.toString());
+    assertThat(eventRow.get("has_police_phone_id")).isEqualTo(false);
     assertThat(eventRow.get("payload_segment_id")).isEqualTo(segmentId);
     assertThat(eventRow.get("payload_movement_type")).isEqualTo("FOOT");
     assertThat(eventRow.get("payload_movement_type_source")).isEqualTo("MANUAL");
@@ -433,7 +433,6 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         SearchPathQueryServiceRequest.builder()
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .build());
   }
 
@@ -536,7 +535,6 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         .pathId(PATH_ID)
         .points(points)
         .clockOffsetMs(0L)
-        .policePhoneId(POLICE_PHONE_ID)
         .accountId(ACCOUNT_ID)
         .idempotencyKey(idempotencyKey)
         .build();

@@ -92,7 +92,6 @@ class SearchPathMetricsCalculatorTest {
         .dutyShiftId(null)
         .incidentId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"))
         .opId(UUID.fromString("88888888-8888-8888-8888-888888880001"))
-        .policePhoneId(UUID.fromString("00000000-0000-0000-0000-000000000101"))
         .startedAt(startedAt)
         .endedAt(endedAt)
         .status(SearchPathStatus.ENDED)

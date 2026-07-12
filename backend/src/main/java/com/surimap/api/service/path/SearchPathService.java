@@ -76,8 +76,8 @@ public class SearchPathService {
   }
 
   public List<SearchPath> findByQuery(
-      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
-    return searchPathMapper.findPaths(incidentId, opId, policePhoneId, accountId).stream()
+      UUID incidentId, UUID opId, UUID accountId) {
+    return searchPathMapper.findPaths(incidentId, opId, accountId).stream()
         .map(this::loadSearchPathDetails)
         .toList();
   }
@@ -104,7 +104,9 @@ public class SearchPathService {
     if (searchPathMapper.findPathById(path.getId()).isPresent()) {
       searchPathMapper.updatePath(persistedPath);
     } else {
-      searchPathMapper.insertPath(persistedPath);
+      if (searchPathMapper.insertPath(persistedPath) == 0) {
+        throw new SearchPathApiException("write_conflict");
+      }
     }
 
     List<SearchPathSegment> persistedSegments = persistSegments(path, now);
@@ -150,7 +152,6 @@ public class SearchPathService {
                             .id(request.getPathId())
                             .incidentId(request.getIncidentId())
                             .opId(request.getOpId())
-                            .policePhoneId(request.getPolicePhoneId())
                             .accountId(accountId)
                             .build()));
     if (accountId != null
@@ -172,13 +173,12 @@ public class SearchPathService {
     path.bumpVersion();
     path = save(path);
 
-    eventPublisher.publishPathAppended(path, request.getPolicePhoneId());
+    eventPublisher.publishPathAppended(path);
 
     return SearchPathPointsAppendServiceResponse.builder()
         .id(path.getId())
         .dutyShiftId(path.getDutyShiftId())
         .opId(path.getOpId())
-        .policePhoneId(request.getPolicePhoneId())
         .accountId(path.getAccountId())
         .acceptedPointCount(validationResult.getAcceptedPoints().size())
         .excludedPointCount(validationResult.getExcludedPoints().size())
@@ -212,7 +212,6 @@ public class SearchPathService {
         findByQuery(
                 request.getIncidentId(),
                 request.getOpId(),
-                request.getPolicePhoneId(),
                 request.getAccountId())
             .stream()
             .sorted(Comparator.comparing(SearchPath::getVersion).reversed())
@@ -223,7 +222,6 @@ public class SearchPathService {
                         .incidentId(path.getIncidentId())
                         .opId(path.getOpId())
                         .dutyShiftId(path.getDutyShiftId())
-                        .policePhoneId(path.getPolicePhoneId())
                         .accountId(path.getAccountId())
                         .status(path.getStatus())
                         .startedAt(path.getStartedAt())
@@ -281,8 +279,7 @@ public class SearchPathService {
     save(owner);
 
     eventPublisher.publishSegmentUpdated(owner, corrected);
-    return SearchPathSegmentCorrectionServiceResponse.from(
-        corrected, owner.getOpId(), owner.getPolicePhoneId());
+    return SearchPathSegmentCorrectionServiceResponse.from(corrected, owner.getOpId());
   }
 
   private ResponseMetadata metadataForSegmentCorrection(
@@ -489,22 +486,14 @@ public class SearchPathService {
 
   private ResolvedDutyShift resolveDutyShift(SearchPath path) {
     UUID accountId = path.getAccountId();
-    if (accountId != null) {
-      UUID dutyShiftId =
-          searchPathMapper
-              .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
-              .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
-      return new ResolvedDutyShift(dutyShiftId, accountId);
+    if (accountId == null) {
+      throw new SearchPathApiException("channel_not_allowed");
     }
     UUID dutyShiftId =
         searchPathMapper
-            .findActiveDutyShiftId(path.getOpId(), path.getPolicePhoneId())
+            .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
             .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
-    UUID inferredAccountId =
-        searchPathMapper
-            .findActiveDutyShiftAccountId(path.getOpId(), path.getPolicePhoneId())
-            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
-    return new ResolvedDutyShift(dutyShiftId, inferredAccountId);
+    return new ResolvedDutyShift(dutyShiftId, accountId);
   }
 
   private void persistExcludedPoints(SearchPath path, Instant now) {

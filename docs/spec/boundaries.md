@@ -13,7 +13,7 @@
 
 - 사건은 사용자가 직접 만들지 않는다. MVP/시연은 112/실종프로파일링 mock·seed 배정 사건을 가져온다.
 - 계정은 개인 계정 기준이다. 팀·순찰차·지휘 맥락은 사건 배정 역할, 조직, PolicePhone 단말 컨텍스트로만 파생한다.
-- GPS 경로의 기록 주체는 개인 `accountId`이며, `PolicePhone`은 등록 단말 확인과 전송·감사 컨텍스트다.
+- GPS 경로의 기록 주체는 개인 `accountId`다. `PolicePhone`은 APP 요청의 등록 단말 설정 확인과 S6 Outbox 전송에만 사용한다.
 - 지도 기준 범위는 `search_area.area_level=OVERALL`로 관리한다. 별도 `map_boundary` resource를 만들지 않는다.
 - 시스템은 수색 누락을 자동 확정하지 않고, 다음 투입 구역을 자동 지시하지 않는다.
 - OP(Operation Period)는 사건 내 수색 차수와 인수인계의 기준이다.
@@ -50,7 +50,7 @@
 | S1-2 | Account, PolicePhone & RBAC | 개인 계정, PolicePhone, 세션, 채널·역할 권한 | L2 |
 | S1-3 | Retention & Operational Records | 파기 오케스트레이션, 위치정보 접근기록, 비사용자 화면 운영 기록 | L2 |
 | S2 | Search Area | 지도 기준 범위, 수색 구역, 구역 상태 이력 | L3 |
-| S3-1 | Account Path Collection | 개인 계정 경로, PolicePhone 단말 컨텍스트, 차량·도보 구간 | L4 |
+| S3-1 | Account Path Collection | 개인 계정 경로, 차량·도보 구간 | L4 |
 | S3-2 | Situation Board Shell & Board API | 상황판 shell, board API assembly/read model, slot merge/rendering, OP 비교 화면 | L6 |
 | S4 | Realtime Event Hub | SSE, event envelope, `EventHub.publish`, `EventFanout`, `event_outbox`, `sse_event_log` | L2 |
 | S5 | Markers / Photo / Notification Delivery | 현장 마커, 사진, notification payload/recipient 계산, `FcmDispatcher` adapter | L5 |
@@ -444,23 +444,22 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - `PathQuery.byIncident(incidentId, filters)`
 - `PathQuery.byOp(opId, filters)`
-- `PathQuery.byPolicePhone(policePhoneId, filters)`
 - `PathQuery.byAccount(accountId, filters)`
 - `PATH_APPENDED`
-- `PATH_SEGMENT_UPDATED`
+- `SEARCH_PATH_SEGMENT_UPDATED`
 - `SEARCH_PATH_STARTED`
 - `SEARCH_PATH_PAUSED`
 - `SEARCH_PATH_RESUMED`
 - `SEARCH_PATH_ENDED`
 - `events/search_path_lifecycle.payload.schema.json` for `SEARCH_PATH_STARTED`, `SEARCH_PATH_PAUSED`, `SEARCH_PATH_RESUMED`, `SEARCH_PATH_ENDED`
 - `events/search_path.payload.schema.json` for `PATH_APPENDED`
-- `events/path_segment.payload.schema.json` for `PATH_SEGMENT_UPDATED`
+- `events/path_segment.payload.schema.json` for `SEARCH_PATH_SEGMENT_UPDATED`
 - `PublishRequest.SEARCH_PATH_STARTED`
 - `PublishRequest.SEARCH_PATH_PAUSED`
 - `PublishRequest.SEARCH_PATH_RESUMED`
 - `PublishRequest.SEARCH_PATH_ENDED`
 - `PublishRequest.PATH_APPENDED`
-- `PublishRequest.PATH_SEGMENT_UPDATED`
+- `PublishRequest.SEARCH_PATH_SEGMENT_UPDATED`
 - `PathPurgeHook.purgeIncidentPaths(incidentId, purgeRunId, closedAt, purgeDeadlineTs)`
 - `search_path.schema.json`
 - `search_path_segment.schema.json`
@@ -487,9 +486,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - Search path start/end APIs require app channel, registered PolicePhone, active account duty shift for the current OP, open incident, and idempotency key.
-- `POST /api/search-paths/batch` records account-based path points with `accountId`, `policePhoneId`, `opId`, sequence, and timestamps.
+- `POST /api/search-paths/batch` records account-based path points with `accountId`, `opId`, sequence, and timestamps.
 - Path writes publish the matching `PublishRequest.*` contract and can be replayed from S6 Outbox without duplication.
-- `PATCH /api/search-path-segments/{searchPathSegmentId}` applies only the allowed channel policy and emits `PATH_SEGMENT_UPDATED`.
+- `PATCH /api/search-path-segments/{searchPathSegmentId}` applies only the allowed channel policy and emits `SEARCH_PATH_SEGMENT_UPDATED`.
 
 **excluded**
 
@@ -501,7 +500,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **nfr**
 
 - GPS 수집 및 경로 서버 전송 주기는 `spec/boundaries.md §4.2 Time, Limits, Retention` 기준 적용.
-- 경로 기록 주체는 `accountId`이며, `policePhoneId`는 등록 단말 확인과 전송·감사 컨텍스트로 함께 남긴다.
+- 경로 기록 주체와 현재 사용자 판단은 `accountId`만 사용한다. APP write의 `X-PolicePhone-Id`는 등록 단말 설정 확인에만 사용하고 경로·생명주기 이력·이벤트에는 남기지 않는다.
 - 차량·도보 구간은 GPS 속도 기반으로 자동 분리한다.
 - 구간 유형 수동 보정 채널은 S1-2 `@RequireChannel` 기준 적용.
 - `opId`는 수집 시점 current OP 기준이다. 서버 current OP와 불일치하면 `409 op_mismatch`를 반환한다.
@@ -573,7 +572,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - S3-2 shell/slot 소유권과 납품 규칙은 `spec/boundaries.md §9.2 Board Shell Slots` 기준 적용.
 - S4 `EventFanout`은 board refetch signal을 전달하고, S3-2는 source query를 조립해 board API 응답과 화면 렌더링을 소유한다.
 - `lastHeartbeatAt`/`lastSyncAt` 경과는 위치 점 색·외곽선·라벨로 표시한다. 별도 알림은 만들지 않는다.
-- 운용 중 PolicePhone 경로는 현재 세션의 `policePhoneId` 기준으로 강조한다.
+- 운용 중인 현재 사용자 경로는 현재 세션의 `accountId` 기준으로 강조한다.
 - 초기 뷰포트 fallback 순서: map boundary → 최근 활동 위치 → 기본 지역.
 - FR-09는 필터 기능이 아니라 최신 수색 현황의 기록 시각 표시를 의미한다. OP/팀/마커/구간 필터는 S3-2 display-only UX로만 취급한다.
 - FR-18은 알림 표시가 아니라 팀/경로/구역/마커/실종자 정보를 한 화면에서 정리해 보는 공용 상황판 reference view를 의미한다.
@@ -1049,7 +1048,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `SEARCH_PATH_RESUMED` | S3-1 | S3-2, S8 |
 | `SEARCH_PATH_ENDED` | S3-1 | S3-2, S8 |
 | `PATH_APPENDED` | S3-1 | S3-2 |
-| `PATH_SEGMENT_UPDATED` | S3-1 | S3-2, S8 |
+| `SEARCH_PATH_SEGMENT_UPDATED` | S3-1 | S3-2, S8 |
 | `MARKER_CREATED` | S5 | S3-2, S8 |
 | `MARKER_UPDATED` | S5 | S3-2, S8 |
 | `MARKER_DELETED` | S5 | S3-2 |
@@ -1072,12 +1071,12 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `POLICE_PHONE_HEARTBEAT_UPDATED` | `events/police_phone_heartbeat.payload.schema.json` | 1 | `id`, `status`, `version`, `policePhoneId`, `sequence` |
 | `SEARCH_AREA_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version`, `geometry`, `serverTs` |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version` |
-| `SEARCH_PATH_STARTED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
-| `SEARCH_PATH_PAUSED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
-| `SEARCH_PATH_RESUMED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
-| `SEARCH_PATH_ENDED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
-| `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
-| `PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_PATH_STARTED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
+| `SEARCH_PATH_PAUSED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
+| `SEARCH_PATH_RESUMED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
+| `SEARCH_PATH_ENDED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
+| `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
+| `SEARCH_PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `accountId`, `sequence` |
 | `MARKER_CREATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
 | `MARKER_UPDATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
 | `MARKER_DELETED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
@@ -1162,7 +1161,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | FR | Primary Spec | Notes |
 |---|---|---|
 | FR-01 사건 관리 | S1-1 | mock·seed import, OP1 bootstrap |
-| FR-02 PolicePhone 위치·경로 | S3-1 | accountId 기준 경로, PolicePhone 단말 컨텍스트 |
+| FR-02 PolicePhone 위치·경로 | S3-1 | accountId 기준 경로, APP 요청의 등록 업무폰 설정 확인 |
 | FR-03 오프라인 기록 | S6 | local store + Outbox |
 | FR-04 실시간 위치 반영 | S3-1/S4/S3-2 | path event + board |
 | FR-05 경로·완료 구역 표시 | S3-2 | S2/S3-1 데이터 소비 |
@@ -1185,7 +1184,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | FR-22 개인정보 파기 | S1-1/S1-3 | close/purge |
 | FR-23 자동 누락 판단 금지 | S2/S3-2/S8 | OP 경로·완료 구역·재확인 마커·메모로 사람 판단 보조 |
 | FR-24 단말 최신성 | S1-2/S3-2 | heartbeat |
-| FR-25 운용 중 PolicePhone 궤도 강조 | S3-1/S3-2 | policePhoneId 기준 |
+| FR-25 운용 중 현재 사용자 궤도 강조 | S3-1/S3-2 | accountId 기준 |
 | FR-26 단순 지도 보기 | S3-2 | overlay toggle |
 | FR-27 초기 뷰포트 | S3-2 | boundary fallback |
 | FR-28 미전송 큐 | S6 | Android dashboard |
@@ -1195,7 +1194,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | FR-32 OP 히스토리 레이어 | S8 | OP별 경로·마커·완료 구역·인수인계 메모 |
 | FR-33 차량·도보 구간 | S3-1 | path segment |
 | FR-34 수색 경로 시작/종료 | S3-1/S8 | current OP |
-| FR-35 순찰차 경로 레이어 | S3-1/S3-2 | account type / PolicePhone context |
+| FR-35 순찰차 경로 레이어 | S3-1/S3-2 | path segment의 movementType |
 | FR-37 인수인계 메모 | S8/S3-2 | OP·구역·경로 context |
 | FR-39 AI 수색 이력 요약 | S8/S3-2 | 자동 판단 금지 |
 
@@ -1306,8 +1305,8 @@ Guard shorthand:
 |---|---|---|---|---|
 | `overall_search_area` | S2 | S3-2 | `SearchAreaQuery.overallOf` | 지도 기준 범위 표시 |
 | `area` | S2 | S3-2 | `SearchAreaQuery.byIncident`, `SearchAreaQuery.byOp`, `SearchAreaAssignmentQuery.byOp` | 구역 폴리곤·상태·담당 배정 표시 |
-| `path` | S3-1 | S3-2 | `PathQuery.byIncident`, `PathQuery.byOp` | PolicePhone 경로·구간 표시 |
-| `police_phone_freshness` | S1-2 | S3-2 | `PolicePhoneFreshnessQuery.byIncident` | 위치 점 최신성 표시 |
+| `path` | S3-1 | S3-2 | `PathQuery.byIncident`, `PathQuery.byOp` | 계정별 경로·구간 표시 |
+| `police_phone_freshness` | S1-2 | S3-2 | `PolicePhoneFreshnessQuery.byIncident` | accountId가 같은 경로 위치 점에 최근 업무폰 최신성 표시 |
 | `marker` | S5 | S3-2 | `MarkerQuery.byIncident` | 마커 레이어 |
 | `toast` | S5 | S3-2 | `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` | 지원 요청·발견 알림 |
 | `package_badge` | S7 | S3-2 | `OfflinePackageInstallationQuery.byIncident` | 오프라인 패키지 상태 |

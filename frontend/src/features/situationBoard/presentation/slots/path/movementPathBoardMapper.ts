@@ -30,10 +30,8 @@ export function assignRouteColorsToMovementPaths(
   const assigneeColoredPaths = applyRouteColorsByAssignee(
     movementPaths,
     routeColorsByAssignee.accountId,
-    routeColorsByAssignee.policePhoneId,
     {
       accountId: routeColorsByAssignee.accountOpId,
-      policePhoneId: routeColorsByAssignee.policePhoneOpId,
     },
   );
 
@@ -49,11 +47,8 @@ export function createLegendItems(baseLegendItems: SituationBoardFallbackData['l
 
 function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchAreaDrafts: CompletedAreaDraft[]) {
   const routeColorsByAccountId = new Map<string, string>();
-  const routeColorsByPolicePhoneId = new Map<string, string>();
   const routeColorsByAccountOpId = new Map<string, string>();
-  const routeColorsByPolicePhoneOpId = new Map<string, string>();
   const routeColorPriorityByAccountId = new Map<string, number>();
-  const routeColorPriorityByPolicePhoneId = new Map<string, number>();
   const routeColorsByAreaId = new Map(
     searchAreaDrafts.map((draft) => [draft.areaId, areaColorTokens[draft.colorToken].lineColor]),
   );
@@ -69,16 +64,6 @@ function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchA
         routeColorsByAccountOpId.set(createRouteColorAssigneeKey(area.opId, account.accountId), routeColor);
       }
 
-      if (account.policePhoneId) {
-        const currentPhonePriority = routeColorPriorityByPolicePhoneId.get(account.policePhoneId) ?? -1;
-        if (depth >= currentPhonePriority) {
-          routeColorsByPolicePhoneId.set(account.policePhoneId, routeColor);
-          routeColorPriorityByPolicePhoneId.set(account.policePhoneId, depth);
-        }
-        if (area.opId) {
-          routeColorsByPolicePhoneOpId.set(createRouteColorAssigneeKey(area.opId, account.policePhoneId), routeColor);
-        }
-      }
     });
     (area.children ?? []).forEach((child) => visit(child, depth + 1));
   };
@@ -86,9 +71,7 @@ function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchA
   visit(searchAreaTree);
   return {
     accountId: routeColorsByAccountId,
-    policePhoneId: routeColorsByPolicePhoneId,
     accountOpId: routeColorsByAccountOpId,
-    policePhoneOpId: routeColorsByPolicePhoneOpId,
   };
 }
 

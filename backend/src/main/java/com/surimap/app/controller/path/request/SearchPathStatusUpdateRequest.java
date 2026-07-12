@@ -26,10 +26,9 @@ public class SearchPathStatusUpdateRequest {
   }
 
   public SearchPathStatusUpdateServiceRequest toServiceRequest(
-      UUID searchPathId, UUID policePhoneId, UUID accountId, String idempotencyKey) {
+      UUID searchPathId, UUID accountId, String idempotencyKey) {
     return SearchPathStatusUpdateServiceRequest.builder()
         .searchPathId(searchPathId)
-        .policePhoneId(policePhoneId)
         .accountId(accountId)
         .action(parseAction())
         .clientTs(clientTs)

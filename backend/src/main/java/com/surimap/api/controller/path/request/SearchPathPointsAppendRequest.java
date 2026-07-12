@@ -32,7 +32,7 @@ public class SearchPathPointsAppendRequest {
   }
 
   public SearchPathPointsAppendServiceRequest toServiceRequest(
-      UUID policePhoneId, UUID accountId, String idempotencyKey) {
+      UUID accountId, String idempotencyKey) {
     return SearchPathPointsAppendServiceRequest.builder()
         .incidentId(incidentId)
         .opId(opId)
@@ -42,7 +42,6 @@ public class SearchPathPointsAppendRequest {
                 ? null
                 : points.stream().map(SearchPathPointRequest::toServiceRequest).toList())
         .clockOffsetMs(clockOffsetMs)
-        .policePhoneId(policePhoneId)
         .accountId(accountId)
         .idempotencyKey(idempotencyKey)
         .build();

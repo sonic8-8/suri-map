@@ -16,7 +16,6 @@ public class SearchPathQueryRowServiceResponse {
   private UUID incidentId;
   private UUID opId;
   private UUID dutyShiftId;
-  private UUID policePhoneId;
   private UUID accountId;
   private SearchPathStatus status;
   private Instant startedAt;
@@ -32,7 +31,6 @@ public class SearchPathQueryRowServiceResponse {
       UUID incidentId,
       UUID opId,
       UUID dutyShiftId,
-      UUID policePhoneId,
       UUID accountId,
       SearchPathStatus status,
       Instant startedAt,
@@ -45,7 +43,6 @@ public class SearchPathQueryRowServiceResponse {
     this.incidentId = incidentId;
     this.opId = opId;
     this.dutyShiftId = dutyShiftId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.status = status;
     this.startedAt = startedAt;

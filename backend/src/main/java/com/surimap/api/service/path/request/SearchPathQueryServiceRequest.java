@@ -11,15 +11,12 @@ public class SearchPathQueryServiceRequest {
 
   private UUID incidentId;
   private UUID opId;
-  private UUID policePhoneId;
   private UUID accountId;
 
   @Builder
-  private SearchPathQueryServiceRequest(
-      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
+  private SearchPathQueryServiceRequest(UUID incidentId, UUID opId, UUID accountId) {
     this.incidentId = incidentId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
   }
 }

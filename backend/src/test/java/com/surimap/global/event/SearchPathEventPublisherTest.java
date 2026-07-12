@@ -16,8 +16,6 @@ class SearchPathEventPublisherTest {
   private static final UUID INCIDENT_ID =
       UUID.fromString("21000000-0000-0000-0000-000000000002");
   private static final UUID OP_ID = UUID.fromString("21000000-0000-0000-0000-000000000003");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("21000000-0000-0000-0000-000000000004");
   private static final UUID ACCOUNT_ID =
       UUID.fromString("21000000-0000-0000-0000-000000000005");
 
@@ -31,7 +29,6 @@ class SearchPathEventPublisherTest {
             .id(PATH_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .accountId(ACCOUNT_ID)
             .build();
 
@@ -44,6 +41,7 @@ class SearchPathEventPublisherTest {
               assertThat(event.incidentId()).isEqualTo(INCIDENT_ID);
               assertThat(event.sourceEntityId()).isEqualTo(PATH_ID);
               assertThat(event.payload()).containsEntry("accountId", ACCOUNT_ID.toString());
+              assertThat(event.payload()).doesNotContainKey("policePhoneId");
             });
   }
 }

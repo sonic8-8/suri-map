@@ -65,8 +65,7 @@ export type LegendItem = {
 
 export type MovementPath = {
   id: string;
-  policePhoneId: string | null;
-  accountId: string | null;
+  accountId: string;
   freshnessStatus: 'ONLINE' | 'STALE' | 'LOST' | 'UNKNOWN';
   routeColor: string | null;
   opId: string;

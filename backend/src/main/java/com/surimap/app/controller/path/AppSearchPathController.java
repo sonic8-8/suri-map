@@ -47,8 +47,7 @@ public class AppSearchPathController {
     UUID policePhoneId = parsePolicePhoneId(policePhoneIdHeader);
     UUID accountId = currentAppAccountId(policePhoneId);
     SearchPathStartServiceResponse response =
-        appSearchPathService.start(
-            request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
+        appSearchPathService.start(request.toServiceRequest(accountId, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(SearchPathStartResponse.from(response));
   }
 
@@ -66,7 +65,7 @@ public class AppSearchPathController {
     UUID accountId = currentAppAccountId(policePhoneId);
     SearchPathStatusUpdateServiceResponse response =
         appSearchPathService.updateStatus(
-            request.toServiceRequest(searchPathId, policePhoneId, accountId, idempotencyKey));
+            request.toServiceRequest(searchPathId, accountId, idempotencyKey));
     return ResponseEntity.ok(SearchPathStatusUpdateResponse.from(response));
   }
 

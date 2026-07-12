@@ -16,7 +16,6 @@ public class SearchPathLifecycleEvent {
   private String eventType;
   private Instant clientTs;
   private Instant serverReceivedAt;
-  private UUID actorPolicePhoneId;
   private long version;
   private Instant createdAt;
 
@@ -27,7 +26,6 @@ public class SearchPathLifecycleEvent {
       String eventType,
       Instant clientTs,
       Instant serverReceivedAt,
-      UUID actorPolicePhoneId,
       long version,
       Instant createdAt) {
     this.id = id;
@@ -35,7 +33,6 @@ public class SearchPathLifecycleEvent {
     this.eventType = eventType;
     this.clientTs = clientTs;
     this.serverReceivedAt = serverReceivedAt;
-    this.actorPolicePhoneId = actorPolicePhoneId;
     this.version = version;
     this.createdAt = createdAt;
   }

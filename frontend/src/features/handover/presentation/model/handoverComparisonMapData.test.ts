@@ -106,6 +106,7 @@ function createPathRow(id: string, opId: string) {
   return {
     id,
     opId,
+    accountId: `account-${id}`,
     label: id,
     movementType: 'FOOT',
     geometry: {

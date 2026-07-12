@@ -489,6 +489,7 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO search_path (
     id,
     duty_shift_id,
+    account_id,
     status,
     started_at,
     ended_at,
@@ -497,7 +498,19 @@ INSERT INTO search_path (
     created_at,
     updated_at
 )
-VALUES
+SELECT
+    seed.id::uuid,
+    seed.duty_shift_id::uuid,
+    ia.account_id,
+    seed.status,
+    seed.started_at::timestamptz,
+    seed.ended_at::timestamptz,
+    seed.geometry,
+    seed.version,
+    seed.created_at::timestamptz,
+    seed.updated_at::timestamptz
+FROM (
+    VALUES
     ('e3500000-0000-4000-8000-000000000001', 'e3400000-0000-4000-8000-000000000001', 'ENDED', '2026-05-19T10:24:00+09:00', '2026-05-19T11:35:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(126.9910 35.1450,126.9950 35.1485,127.0000 35.1515,127.0060 35.1550)'), 4326), 2, '2026-05-19T10:24:00+09:00', '2026-05-19T11:35:00+09:00'),
     ('e3500000-0000-4000-8000-000000000002', 'e3400000-0000-4000-8000-000000000002', 'ENDED', '2026-05-19T10:26:00+09:00', '2026-05-19T12:12:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(126.9990 35.1460,127.0040 35.1510,127.0100 35.1560,127.0140 35.1600)'), 4326), 2, '2026-05-19T10:26:00+09:00', '2026-05-19T12:12:00+09:00'),
     ('e3500000-0000-4000-8000-000000000003', 'e3400000-0000-4000-8000-000000000005', 'RECORDING', '2026-05-19T12:52:00+09:00', NULL, ST_SetSRID(ST_GeomFromText('LINESTRING(126.9890 35.1450,126.9930 35.1490,126.9965 35.1510,126.9985 35.1530)'), 4326), 4, '2026-05-19T12:52:00+09:00', '2026-05-19T13:14:00+09:00'),
@@ -508,8 +521,12 @@ VALUES
     ('e3500000-0000-4000-8000-000000000008', 'e3400000-0000-4000-8000-000000000011', 'ENDED', '2026-05-19T12:59:00+09:00', '2026-05-19T13:11:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(127.0150 35.1590,127.0200 35.1630,127.0220 35.1690)'), 4326), 2, '2026-05-19T12:59:00+09:00', '2026-05-19T13:11:00+09:00'),
     ('e3500000-0000-4000-8000-000000000009', 'e3400000-0000-4000-8000-000000000012', 'RECORDING', '2026-05-19T13:00:00+09:00', NULL, ST_SetSRID(ST_GeomFromText('LINESTRING(126.9850 35.1590,126.9900 35.1640,126.9940 35.1690)'), 4326), 2, '2026-05-19T13:00:00+09:00', '2026-05-19T13:15:00+09:00'),
     ('e3500000-0000-4000-8000-000000000010', 'e3400000-0000-4000-8000-000000000014', 'RECORDING', '2026-05-19T13:03:00+09:00', NULL, ST_SetSRID(ST_GeomFromText('LINESTRING(127.0180 35.1600,127.0210 35.1650,127.0235 35.1710)'), 4326), 2, '2026-05-19T13:03:00+09:00', '2026-05-19T13:15:00+09:00')
+) AS seed(id, duty_shift_id, status, started_at, ended_at, geometry, version, created_at, updated_at)
+JOIN duty_shift ds ON ds.id = seed.duty_shift_id::uuid
+JOIN incident_assignment ia ON ia.id = ds.incident_assignment_id
 ON CONFLICT (id) DO UPDATE SET
     duty_shift_id = EXCLUDED.duty_shift_id,
+    account_id = EXCLUDED.account_id,
     status = EXCLUDED.status,
     ended_at = EXCLUDED.ended_at,
     geometry = EXCLUDED.geometry,
@@ -561,7 +578,6 @@ INSERT INTO search_path_lifecycle_event (
     event_type,
     client_ts,
     server_received_at,
-    actor_police_phone_id,
     version,
     created_at
 )
@@ -571,11 +587,9 @@ SELECT
     'STARTED',
     sp.started_at,
     sp.created_at,
-    ds.police_phone_id,
     1,
     sp.created_at
 FROM search_path sp
-JOIN duty_shift ds ON ds.id = sp.duty_shift_id
 JOIN generate_series(1, 10) AS gs
   ON sp.id = ('e3500000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid
 ON CONFLICT (id) DO NOTHING;
@@ -586,7 +600,6 @@ INSERT INTO search_path_lifecycle_event (
     event_type,
     client_ts,
     server_received_at,
-    actor_police_phone_id,
     version,
     created_at
 )
@@ -596,11 +609,9 @@ SELECT
     CASE WHEN sp.status = 'PAUSED' THEN 'PAUSED' ELSE 'ENDED' END,
     COALESCE(sp.ended_at, sp.updated_at),
     sp.updated_at,
-    ds.police_phone_id,
     sp.version,
     sp.updated_at
 FROM search_path sp
-JOIN duty_shift ds ON ds.id = sp.duty_shift_id
 JOIN generate_series(1, 10) AS gs
   ON sp.id = ('e3500000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid
 WHERE sp.status IN ('PAUSED', 'ENDED')

@@ -11,11 +11,10 @@ describe('boardMapFeatures', () => {
   test('uses deterministic fallback colors when no assigned area color exists', () => {
     const paths = applyRouteColorsByAssignee(
       [
-        createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID }),
-        createMovementPath({ id: 'path-b', policePhoneId: POLICE_PHONE_ID }),
-        createMovementPath({ id: 'path-c', policePhoneId: null, accountId: ACCOUNT_ID }),
+        createMovementPath({ id: 'path-a', accountId: ACCOUNT_ID }),
+        createMovementPath({ id: 'path-b', accountId: ACCOUNT_ID }),
+        createMovementPath({ id: 'path-c', accountId: OTHER_ACCOUNT_ID }),
       ],
-      new Map(),
       new Map(),
     );
 
@@ -24,11 +23,10 @@ describe('boardMapFeatures', () => {
     expect(paths[2].routeColor).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
-  test('prefers account assigned area color over police phone color', () => {
+  test('uses the account assigned area color', () => {
     const paths = applyRouteColorsByAssignee(
-      [createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID, accountId: ACCOUNT_ID })],
+      [createMovementPath({ id: 'path-a', accountId: ACCOUNT_ID })],
       new Map([[ACCOUNT_ID, '#123456']]),
-      new Map([[POLICE_PHONE_ID, '#abcdef']]),
     );
 
     expect(paths[0].routeColor).toBe('#123456');
@@ -41,7 +39,6 @@ describe('boardMapFeatures', () => {
         createMovementPath({ id: 'path-op-b', opId: NEXT_OP_ID, accountId: ACCOUNT_ID }),
       ],
       new Map([[ACCOUNT_ID, '#999999']]),
-      new Map(),
       {
         accountId: new Map([
           [createRouteColorAssigneeKey(OP_ID, ACCOUNT_ID), '#123456'],
@@ -56,8 +53,7 @@ describe('boardMapFeatures', () => {
 
   test('emits non-empty device colors for movement path features using fallback color', () => {
     const [path] = applyRouteColorsByAssignee(
-      [createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID })],
-      new Map(),
+      [createMovementPath({ id: 'path-a', accountId: ACCOUNT_ID })],
       new Map(),
     );
 
@@ -85,23 +81,24 @@ describe('boardMapFeatures', () => {
     );
 
     expect(collection.features[0].properties.freshnessStatus).toBe('LOST');
+    expect(collection.features[0].properties).not.toHaveProperty('policePhoneId');
   });
 
   test('colors current position points from police phone freshness status', () => {
     const collection = createMovementCurrentPositionFeatureCollection(
-      [createMovementPath({ policePhoneId: POLICE_PHONE_ID, freshnessStatus: 'STALE' })],
+      [createMovementPath({ freshnessStatus: 'STALE' })],
       OP_ID,
     );
 
     expect(collection.features[0].properties.currentPositionColor).toBe('#f59e0b');
   });
 
-  test('emits one current position point per police phone using the latest path endpoint', () => {
+  test('emits one current position point per account using the latest path endpoint', () => {
     const collection = createMovementCurrentPositionFeatureCollection(
       [
         createMovementPath({
           id: 'old-path',
-          policePhoneId: POLICE_PHONE_ID,
+          accountId: ACCOUNT_ID,
           endedAt: '2026-05-16T09:05:00+09:00',
           coordinates: [
             [126.91, 35.16],
@@ -110,7 +107,7 @@ describe('boardMapFeatures', () => {
         }),
         createMovementPath({
           id: 'latest-path',
-          policePhoneId: POLICE_PHONE_ID,
+          accountId: ACCOUNT_ID,
           endedAt: '2026-05-16T09:08:00+09:00',
           routeColor: '#12abef',
           coordinates: [
@@ -128,12 +125,11 @@ describe('boardMapFeatures', () => {
     expect(collection.features[0].properties.routeCoreColor).toBe('#12abef');
   });
 
-  test('keeps current positions separate for account-only paths', () => {
+  test('keeps current positions separate for different accounts', () => {
     const collection = createMovementCurrentPositionFeatureCollection(
       [
         createMovementPath({
           id: 'phone-path',
-          policePhoneId: POLICE_PHONE_ID,
           accountId: ACCOUNT_ID,
           coordinates: [
             [126.91, 35.16],
@@ -142,8 +138,7 @@ describe('boardMapFeatures', () => {
         }),
         createMovementPath({
           id: 'account-path',
-          policePhoneId: null,
-          accountId: ACCOUNT_ID,
+          accountId: OTHER_ACCOUNT_ID,
           coordinates: [
             [126.93, 35.18],
             [126.94, 35.19],
@@ -163,8 +158,7 @@ describe('boardMapFeatures', () => {
 function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMovementPath {
   return {
     id: 'path-a',
-    policePhoneId: null,
-    accountId: null,
+    accountId: ACCOUNT_ID,
     freshnessStatus: 'UNKNOWN',
     routeColor: null,
     opId: OP_ID,
@@ -182,5 +176,5 @@ function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMo
 
 const OP_ID = '88888888-8888-8888-8888-888888880001';
 const NEXT_OP_ID = '88888888-8888-8888-8888-888888880002';
-const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
 const ACCOUNT_ID = '10000000-0000-0000-0000-000000000001';
+const OTHER_ACCOUNT_ID = '10000000-0000-0000-0000-000000000002';

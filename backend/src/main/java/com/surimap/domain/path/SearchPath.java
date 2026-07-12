@@ -19,7 +19,6 @@ public class SearchPath {
   private UUID dutyShiftId;
   private UUID incidentId;
   private UUID opId;
-  private UUID policePhoneId;
   private UUID accountId;
   private Instant startedAt;
   private Instant endedAt;
@@ -38,7 +37,6 @@ public class SearchPath {
       UUID dutyShiftId,
       UUID incidentId,
       UUID opId,
-      UUID policePhoneId,
       UUID accountId,
       Instant startedAt,
       Instant endedAt,
@@ -54,7 +52,6 @@ public class SearchPath {
     this.dutyShiftId = dutyShiftId;
     this.incidentId = incidentId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.startedAt = startedAt;
     this.endedAt = endedAt;

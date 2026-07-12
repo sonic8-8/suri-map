@@ -289,8 +289,7 @@ class SearchMapStateLoader(
     ): SearchMapUiState {
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
-        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
-        val accountId = context.accountId?.takeIf(String::isNotBlank)
+        context.accountId?.takeIf(String::isNotBlank) ?: return state
         if (!shouldFetch(CACHE_SOURCE_SEARCH_PATHS, revisionSnapshot)) {
             val cachedBody = responseCache?.read(context, CACHE_SOURCE_SEARCH_PATHS)
             return if (cachedBody.isNullOrBlank()) {
@@ -325,12 +324,10 @@ class SearchMapStateLoader(
         state: SearchMapUiState,
         body: String
     ): SearchMapUiState {
-        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
-        val accountId = context.accountId?.takeIf(String::isNotBlank)
+        val accountId = context.accountId?.takeIf(String::isNotBlank) ?: return state
         val pathLayerResult = searchPathLayers(
             body = body,
             currentAccountId = accountId,
-            currentPolicePhoneId = policePhoneId,
             areaColorCandidates = state.routeAreaColorCandidates()
         )
         if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
@@ -836,8 +833,7 @@ class SearchMapStateLoader(
 
     private fun searchPathLayers(
         body: String,
-        currentAccountId: String?,
-        currentPolicePhoneId: String,
+        currentAccountId: String,
         areaColorCandidates: List<RouteAreaColorCandidate>
     ): SearchPathLayerResult {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
@@ -852,10 +848,7 @@ class SearchMapStateLoader(
                 val status = path.optString("status").uppercase()
                 val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
                 val pathAccountId = path.optString("accountId").takeIf(String::isNotBlank)
-                val pathPolicePhoneId = path.optString("policePhoneId").takeIf(String::isNotBlank)
-                val belongsToCurrentActor =
-                    pathPolicePhoneId.equals(currentPolicePhoneId, ignoreCase = true) ||
-                        (!currentAccountId.isNullOrBlank() && pathAccountId.equals(currentAccountId, ignoreCase = true))
+                val belongsToCurrentActor = pathAccountId.equals(currentAccountId, ignoreCase = true)
                 val activeForCurrentActor = active && belongsToCurrentActor
                 if (activeForCurrentActor) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
@@ -1010,9 +1003,7 @@ class SearchMapStateLoader(
             return explicitColor.normalizedHexColor()
         }
         val routeKey =
-            optString("policePhoneId")
-                .ifBlank { optString("police_phone_id") }
-                .ifBlank { optString("accountId") }
+            optString("accountId")
                 .ifBlank { optString("account_id") }
                 .ifBlank { pathId }
         return routeFallbackColor(routeKey)

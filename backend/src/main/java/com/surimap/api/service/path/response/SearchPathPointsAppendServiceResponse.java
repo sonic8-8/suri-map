@@ -14,7 +14,6 @@ public class SearchPathPointsAppendServiceResponse {
   private UUID id;
   private UUID dutyShiftId;
   private UUID opId;
-  private UUID policePhoneId;
   private UUID accountId;
   private int acceptedPointCount;
   private int excludedPointCount;
@@ -29,7 +28,6 @@ public class SearchPathPointsAppendServiceResponse {
       UUID id,
       UUID dutyShiftId,
       UUID opId,
-      UUID policePhoneId,
       UUID accountId,
       int acceptedPointCount,
       int excludedPointCount,
@@ -41,7 +39,6 @@ public class SearchPathPointsAppendServiceResponse {
     this.id = id;
     this.dutyShiftId = dutyShiftId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.acceptedPointCount = acceptedPointCount;
     this.excludedPointCount = excludedPointCount;

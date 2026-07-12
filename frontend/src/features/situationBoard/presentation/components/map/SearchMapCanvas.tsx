@@ -428,32 +428,8 @@ function resolveSearchAreaMemoOpId(
   return searchArea?.opId?.trim() || activeOperationalPeriodId;
 }
 
-export function createPolicePhoneIdsByAccountId(
-  movementPaths: MovementPath[],
-  activeOperationalPeriodId: string | null,
-) {
-  const policePhoneIdsByAccountId = new Map<string, string>();
-  if (!activeOperationalPeriodId) {
-    return policePhoneIdsByAccountId;
-  }
-
-  for (const path of movementPaths) {
-    if (path.opId !== activeOperationalPeriodId) {
-      continue;
-    }
-    const accountId = path.accountId?.trim();
-    const policePhoneId = path.policePhoneId?.trim();
-    if (accountId && policePhoneId && !policePhoneIdsByAccountId.has(accountId)) {
-      policePhoneIdsByAccountId.set(accountId, policePhoneId);
-    }
-  }
-
-  return policePhoneIdsByAccountId;
-}
-
 export function resolveSearchAreaPolicePhoneId(
   searchArea: SearchAreaTreeNode | null,
-  policePhoneIdsByAccountId: ReadonlyMap<string, string> = new Map(),
   targetOpId: string | null = null,
 ): string | null {
   if (!searchArea) {
@@ -466,14 +442,14 @@ export function resolveSearchAreaPolicePhoneId(
   }
 
   const directPhoneId = (searchArea.assignedAccounts ?? [])
-    .map((account) => policePhoneIdsByAccountId.get(account.accountId)?.trim() || account.policePhoneId?.trim())
+    .map((account) => account.policePhoneId?.trim())
     .find((policePhoneId): policePhoneId is string => Boolean(policePhoneId));
   if (directPhoneId) {
     return directPhoneId;
   }
 
   for (const childArea of searchArea.children ?? []) {
-    const childPhoneId = resolveSearchAreaPolicePhoneId(childArea, policePhoneIdsByAccountId, targetOpId);
+    const childPhoneId = resolveSearchAreaPolicePhoneId(childArea, targetOpId);
     if (childPhoneId) {
       return childPhoneId;
     }
@@ -1069,10 +1045,6 @@ export function SearchMapCanvas({
     () => resolveSearchAreaMemoOpId(searchAreaTree, selectedSearchAreaId, activeOperationalPeriodId),
     [activeOperationalPeriodId, searchAreaTree, selectedSearchAreaId],
   );
-  const policePhoneIdsByAccountId = useMemo(
-    () => createPolicePhoneIdsByAccountId(movementPaths, routeEditorTargetOpId),
-    [movementPaths, routeEditorTargetOpId],
-  );
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [mapViewportVersion, setMapViewportVersion] = useState(0);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -1339,14 +1311,13 @@ export function SearchMapCanvas({
     setSelectedMarkerId(null);
     setRouteEditorCoordinates([]);
     setRouteEditorPolicePhoneId(
-      resolveSearchAreaPolicePhoneId(searchArea, policePhoneIdsByAccountId, routeEditorTargetOpId) ?? '',
+      resolveSearchAreaPolicePhoneId(searchArea, routeEditorTargetOpId) ?? '',
     );
     setRouteEditorStatus('idle');
     setRouteEditorErrorMessage('');
     resetRouteEditorTimes();
     setIsRouteEditorEnabled(true);
   }, [
-    policePhoneIdsByAccountId,
     removeSearchAreaPopup,
     resetRouteEditorTimes,
     routeEditorTargetOpId,

@@ -27,13 +27,11 @@ public class SearchPathStartRequest {
     this.clockOffsetMs = clockOffsetMs;
   }
 
-  public SearchPathStartServiceRequest toServiceRequest(
-      UUID policePhoneId, UUID accountId, String idempotencyKey) {
+  public SearchPathStartServiceRequest toServiceRequest(UUID accountId, String idempotencyKey) {
     return SearchPathStartServiceRequest.builder()
         .searchPathId(searchPathId)
         .incidentId(incidentId)
         .opId(opId)
-        .policePhoneId(policePhoneId)
         .accountId(accountId)
         .startedAt(clientTs)
         .clockOffsetMs(clockOffsetMs)

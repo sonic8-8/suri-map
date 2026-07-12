@@ -65,7 +65,6 @@ class SearchPathControllerTest {
                 .id(pathId)
                 .dutyShiftId(dutyShiftId)
                 .opId(opId)
-                .policePhoneId(policePhoneId)
                 .accountId(accountId)
                 .acceptedPointCount(2)
                 .excludedPointCount(0)
@@ -108,7 +107,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.id", is(pathId.toString())))
         .andExpect(jsonPath("$.dutyShiftId", is(dutyShiftId.toString())))
         .andExpect(jsonPath("$.opId", is(opId.toString())))
-        .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.accountId", is(accountId.toString())))
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
         .andExpect(jsonPath("$.geometry.type", is("LineString")))
@@ -123,7 +122,6 @@ class SearchPathControllerTest {
                 request ->
                     pathId.equals(request.getPathId())
                         && opId.equals(request.getOpId())
-                        && policePhoneId.equals(request.getPolicePhoneId())
                         && accountId.equals(request.getAccountId())
                         && "idem-path-batch-contract".equals(request.getIdempotencyKey())
                         && request.getPoints().size() == 2));
@@ -231,7 +229,6 @@ class SearchPathControllerTest {
                 .movementType(MovementType.FOOT)
                 .movementTypeSource(MovementTypeSource.MANUAL)
                 .opId(opId)
-                .policePhoneId(policePhoneId)
                 .correctedByAccountId(accountId)
                 .correctedAt(OffsetDateTime.parse("2026-04-28T09:12:00+09:00"))
                 .version(2L)
@@ -249,7 +246,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.movementType", is("FOOT")))
         .andExpect(jsonPath("$.movementTypeSource", is("MANUAL")))
         .andExpect(jsonPath("$.opId", is(opId.toString())))
-        .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.correctedByAccountId", is(accountId.toString())))
         .andExpect(jsonPath("$.version", is(2)));
 
@@ -300,7 +297,6 @@ class SearchPathControllerTest {
                             .id(pathId)
                             .incidentId(incidentId)
                             .opId(opId)
-                            .policePhoneId(policePhoneId)
                             .accountId(accountId)
                             .status(SearchPathStatus.RECORDING)
                             .startedAt(startedAt)
@@ -315,13 +311,12 @@ class SearchPathControllerTest {
         .perform(
             get("/api/search-paths")
                 .param("incidentId", incidentId.toString())
-                .param("opId", opId.toString())
-                .param("policePhoneId", policePhoneId.toString()))
+                .param("opId", opId.toString()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.paths[0].id", is(pathId.toString())))
         .andExpect(jsonPath("$.paths[0].incidentId", is(incidentId.toString())))
         .andExpect(jsonPath("$.paths[0].opId", is(opId.toString())))
-        .andExpect(jsonPath("$.paths[0].policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.paths[0].policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.paths[0].accountId", is(accountId.toString())))
         .andExpect(jsonPath("$.paths[0].startedAt", is("2026-05-18T04:53:12.331Z")))
         .andExpect(jsonPath("$.paths[0].geometry.type", is("LineString")))
@@ -334,7 +329,6 @@ class SearchPathControllerTest {
                 request ->
                     incidentId.equals(request.getIncidentId())
                         && opId.equals(request.getOpId())
-                        && policePhoneId.equals(request.getPolicePhoneId())
                         && request.getAccountId() == null));
   }
 }

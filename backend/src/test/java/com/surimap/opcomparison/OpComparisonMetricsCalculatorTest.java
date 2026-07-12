@@ -121,7 +121,6 @@ class OpComparisonMetricsCalculatorTest {
             .id(UUID.randomUUID())
             .incidentId(INCIDENT_ID)
             .opId(opId)
-            .policePhoneId(POLICE_PHONE_ID)
             .build();
     path.appendAcceptedPoints(points);
     path.replaceSegments(segments);

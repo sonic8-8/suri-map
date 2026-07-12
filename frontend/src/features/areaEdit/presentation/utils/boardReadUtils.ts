@@ -4,7 +4,7 @@ import {
   createRouteColorAssigneeKey,
 } from '../../../../shared/model/boardMapFeatures';
 import { createBoardMapMarkers, createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
-import { isRecord, readPolicePhoneId, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
+import { isRecord, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
 import type { AreaEditBoardResponseDto } from '../../data/getAreaEditBoard';
 import type { AreaEditMapMarker, AreaEditMovementPath } from '../components/AreaEditMap';
 import type { CompletedAreaDraft } from '../constants/mockAreaEdit';
@@ -38,9 +38,7 @@ function createAreaEditRouteColorsByAssignee(
 ) {
   const colorTokensByAreaId = new Map(completedDrafts.map((draft) => [draft.areaId, draft.colorToken]));
   const routeColorsByAccountId = new Map<string, string>();
-  const routeColorsByPolicePhoneId = new Map<string, string>();
   const routeColorsByAccountOpId = new Map<string, string>();
-  const routeColorsByPolicePhoneOpId = new Map<string, string>();
 
   for (const row of readSlotRows(board, 'area')) {
     const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
@@ -53,7 +51,6 @@ function createAreaEditRouteColorsByAssignee(
 
     assignedAccounts.filter(isRecord).forEach((account) => {
       const accountId = readString(account, 'accountId') ?? readString(account, 'account_id');
-      const policePhoneId = readPolicePhoneId(account);
       if (accountId) {
         routeColorsByAccountId.set(accountId, areaColorTokens[colorToken].lineColor);
         if (opId) {
@@ -63,23 +60,12 @@ function createAreaEditRouteColorsByAssignee(
           );
         }
       }
-      if (policePhoneId) {
-        routeColorsByPolicePhoneId.set(policePhoneId, areaColorTokens[colorToken].lineColor);
-        if (opId) {
-          routeColorsByPolicePhoneOpId.set(
-            createRouteColorAssigneeKey(opId, policePhoneId),
-            areaColorTokens[colorToken].lineColor,
-          );
-        }
-      }
     });
   }
 
   return {
     accountId: routeColorsByAccountId,
-    policePhoneId: routeColorsByPolicePhoneId,
     accountOpId: routeColorsByAccountOpId,
-    policePhoneOpId: routeColorsByPolicePhoneOpId,
   };
 }
 
@@ -92,10 +78,8 @@ export function createAreaEditMovementPaths(
   return applyRouteColorsByAssignee(
     createBoardMovementPaths(board),
     routeColorsByAssignee.accountId,
-    routeColorsByAssignee.policePhoneId,
     {
       accountId: routeColorsByAssignee.accountOpId,
-      policePhoneId: routeColorsByAssignee.policePhoneOpId,
     },
   );
 }

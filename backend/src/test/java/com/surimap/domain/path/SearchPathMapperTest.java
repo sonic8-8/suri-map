@@ -53,7 +53,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
             .dutyShiftId(DUTY_SHIFT_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .accountId(ACCOUNT_ID)
             .startedAt(STARTED_AT)
             .createdAt(STARTED_AT)
@@ -67,7 +66,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     assertThat(found.getIncidentId()).isEqualTo(INCIDENT_ID);
     assertThat(found.getOpId()).isEqualTo(OP_ID);
     assertThat(found.getDutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
-    assertThat(found.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
     assertThat(found.getAccountId()).isEqualTo(ACCOUNT_ID);
     assertThat(found.getStatus()).isEqualTo(SearchPathStatus.RECORDING);
     assertThat(found.getVersion()).isEqualTo(1L);
@@ -77,7 +75,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("SearchPath 목록은 사건, OP, 업무폰, 계정 조건으로 필터링한다")
+  @DisplayName("SearchPath 목록은 사건, OP, 계정 조건으로 필터링한다")
   @Sql(scripts = {"/sql/path/search-path-context.sql", "/sql/path/search-path-other-phone.sql"})
   void findPathsFiltersByIncidentOpPolicePhoneAndAccount() {
     SearchPath path =
@@ -86,7 +84,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
             .dutyShiftId(DUTY_SHIFT_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .accountId(ACCOUNT_ID)
             .startedAt(STARTED_AT)
             .createdAt(STARTED_AT)
@@ -96,29 +93,24 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
         path.toBuilder()
             .id(OTHER_PATH_ID)
             .dutyShiftId(OTHER_DUTY_SHIFT_ID)
-            .policePhoneId(OTHER_POLICE_PHONE_ID)
             .accountId(OTHER_ACCOUNT_ID)
             .build();
     searchPathMapper.insertPath(path);
     searchPathMapper.insertPath(otherPath);
 
-    assertThat(searchPathMapper.findPaths(INCIDENT_ID, null, null, null))
+    assertThat(searchPathMapper.findPaths(INCIDENT_ID, null, null))
         .extracting(SearchPath::getId)
         .containsExactlyInAnyOrder(PATH_ID, OTHER_PATH_ID);
-    assertThat(searchPathMapper.findPaths(null, OP_ID, null, null))
+    assertThat(searchPathMapper.findPaths(null, OP_ID, null))
         .extracting(SearchPath::getId)
         .containsExactlyInAnyOrder(PATH_ID, OTHER_PATH_ID);
-    assertThat(searchPathMapper.findPaths(null, null, POLICE_PHONE_ID, null))
-        .extracting(SearchPath::getId)
-        .containsExactly(PATH_ID);
-    assertThat(searchPathMapper.findPaths(null, null, null, ACCOUNT_ID))
+    assertThat(searchPathMapper.findPaths(null, null, ACCOUNT_ID))
         .extracting(SearchPath::getId)
         .containsExactly(PATH_ID);
 
-    assertThat(searchPathMapper.findPaths(NONMATCHING_ID, null, null, null)).isEmpty();
-    assertThat(searchPathMapper.findPaths(null, NONMATCHING_ID, null, null)).isEmpty();
-    assertThat(searchPathMapper.findPaths(null, null, NONMATCHING_ID, null)).isEmpty();
-    assertThat(searchPathMapper.findPaths(null, null, null, NONMATCHING_ID)).isEmpty();
+    assertThat(searchPathMapper.findPaths(NONMATCHING_ID, null, null)).isEmpty();
+    assertThat(searchPathMapper.findPaths(null, NONMATCHING_ID, null)).isEmpty();
+    assertThat(searchPathMapper.findPaths(null, null, NONMATCHING_ID)).isEmpty();
   }
 
   @Test
@@ -165,7 +157,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
             .eventType("STARTED")
             .clientTs(STARTED_AT)
             .serverReceivedAt(STARTED_AT)
-            .actorPolicePhoneId(POLICE_PHONE_ID)
             .version(1L)
             .createdAt(STARTED_AT)
             .build();
@@ -201,7 +192,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
               assertThat(found.getId()).isEqualTo(LIFECYCLE_EVENT_ID);
               assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
               assertThat(found.getEventType()).isEqualTo("STARTED");
-              assertThat(found.getActorPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
             });
   }
 

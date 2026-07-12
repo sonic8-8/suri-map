@@ -17,7 +17,6 @@ public class SearchPathSegmentCorrectionResponse {
   private MovementType movementType;
   private MovementTypeSource movementTypeSource;
   private UUID opId;
-  private UUID policePhoneId;
   private UUID correctedByAccountId;
   private OffsetDateTime correctedAt;
   private long version;
@@ -28,7 +27,6 @@ public class SearchPathSegmentCorrectionResponse {
       MovementType movementType,
       MovementTypeSource movementTypeSource,
       UUID opId,
-      UUID policePhoneId,
       UUID correctedByAccountId,
       OffsetDateTime correctedAt,
       long version) {
@@ -36,7 +34,6 @@ public class SearchPathSegmentCorrectionResponse {
     this.movementType = movementType;
     this.movementTypeSource = movementTypeSource;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.correctedByAccountId = correctedByAccountId;
     this.correctedAt = correctedAt;
     this.version = version;
@@ -49,7 +46,6 @@ public class SearchPathSegmentCorrectionResponse {
         .movementType(response.getMovementType())
         .movementTypeSource(response.getMovementTypeSource())
         .opId(response.getOpId())
-        .policePhoneId(response.getPolicePhoneId())
         .correctedByAccountId(response.getCorrectedByAccountId())
         .correctedAt(response.getCorrectedAt())
         .version(response.getVersion())

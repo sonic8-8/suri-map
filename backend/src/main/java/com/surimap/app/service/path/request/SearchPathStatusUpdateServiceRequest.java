@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 public class SearchPathStatusUpdateServiceRequest {
 
   private UUID searchPathId;
-  private UUID policePhoneId;
   private UUID accountId;
   private SearchPathLifecycleAction action;
   private Instant clientTs;
@@ -21,14 +20,12 @@ public class SearchPathStatusUpdateServiceRequest {
   @Builder(toBuilder = true)
   private SearchPathStatusUpdateServiceRequest(
       UUID searchPathId,
-      UUID policePhoneId,
       UUID accountId,
       SearchPathLifecycleAction action,
       Instant clientTs,
       Integer clockOffsetMs,
       String idempotencyKey) {
     this.searchPathId = searchPathId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.action = action;
     this.clientTs = clientTs;

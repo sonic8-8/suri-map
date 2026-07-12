@@ -48,14 +48,13 @@ public class SearchPathController {
         SearchPathPointsAppendResponse.from(
             searchPathService.appendPoints(
                 request.toServiceRequest(
-                    policePhoneId, currentAppAccountId(policePhoneId), idempotencyKey))));
+                    currentAppAccountId(policePhoneId), idempotencyKey))));
   }
 
   @GetMapping("/api/search-paths")
   public ResponseEntity<SearchPathQueryResponse> query(
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
-      @RequestParam(required = false) UUID policePhoneId,
       @RequestParam(required = false) UUID accountId) {
     return ResponseEntity.ok(
         SearchPathQueryResponse.from(
@@ -63,7 +62,6 @@ public class SearchPathController {
                 SearchPathQueryServiceRequest.builder()
                     .incidentId(incidentId)
                     .opId(opId)
-                    .policePhoneId(policePhoneId)
                     .accountId(accountId)
                     .build())));
   }
