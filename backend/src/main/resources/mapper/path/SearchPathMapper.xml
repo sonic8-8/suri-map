@@ -20,6 +20,15 @@
         <result property="updatedAt" column="updated_at" javaType="java.time.Instant"/>
     </resultMap>
 
+    <resultMap id="gpsPointMap" type="com.surimap.domain.path.GpsPoint">
+        <id property="pointId" column="point_id" javaType="string"/>
+        <result property="clientTs" column="client_ts" javaType="java.time.OffsetDateTime"/>
+        <result property="lon" column="lon" javaType="java.math.BigDecimal"/>
+        <result property="lat" column="lat" javaType="java.math.BigDecimal"/>
+        <result property="speedMps" column="speed_mps" javaType="java.math.BigDecimal"/>
+        <result property="horizontalAccuracyM" column="horizontal_accuracy_m" javaType="java.lang.Integer"/>
+    </resultMap>
+
     <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
         <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -213,6 +222,47 @@
             </if>
         </where>
         ORDER BY sp.updated_at DESC, sp.id ASC
+    </select>
+
+    <insert id="insertGpsPoints">
+        INSERT INTO search_path_gps_point (
+            search_path_id,
+            point_order,
+            point_id,
+            client_ts,
+            lon,
+            lat,
+            speed_mps,
+            horizontal_accuracy_m,
+            created_at
+        )
+        VALUES
+        <foreach collection="points" item="point" index="index" separator=",">
+            (
+                #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{pointOffset} + #{index},
+                #{point.pointId},
+                #{point.clientTs},
+                #{point.lon},
+                #{point.lat},
+                #{point.speedMps},
+                #{point.horizontalAccuracyM},
+                #{createdAt}
+            )
+        </foreach>
+    </insert>
+
+    <select id="findGpsPointsByPathId" resultMap="gpsPointMap">
+        SELECT
+            point_id,
+            client_ts,
+            lon,
+            lat,
+            speed_mps,
+            horizontal_accuracy_m
+        FROM search_path_gps_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY point_order ASC
     </select>
 
     <delete id="deleteSegments">

@@ -27,7 +27,7 @@ public class SearchPath {
   private Geometry geometry;
   private Instant createdAt;
   private Instant updatedAt;
-  private List<SearchPathPoint> points = new ArrayList<>();
+  private List<GpsPoint> points = new ArrayList<>();
   private List<SearchPathExcludedPoint> excludedPoints = new ArrayList<>();
   private List<SearchPathSegment> segments = new ArrayList<>();
 
@@ -45,7 +45,7 @@ public class SearchPath {
       Geometry geometry,
       Instant createdAt,
       Instant updatedAt,
-      List<SearchPathPoint> points,
+      List<GpsPoint> points,
       List<SearchPathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
     this.id = id;
@@ -74,13 +74,13 @@ public class SearchPath {
       return startedAt;
     }
     return points.stream()
-        .map(SearchPathPoint::getClientTs)
+        .map(GpsPoint::getClientTs)
         .findFirst()
         .map(OffsetDateTime::toInstant)
         .orElse(null);
   }
 
-  public void appendAcceptedPoints(List<SearchPathPoint> acceptedPoints) {
+  public void appendAcceptedPoints(List<GpsPoint> acceptedPoints) {
     if (startedAt == null && !acceptedPoints.isEmpty()) {
       startedAt = acceptedPoints.get(0).getClientTs().toInstant();
     }

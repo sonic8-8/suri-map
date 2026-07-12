@@ -5,6 +5,8 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 
 public class SearchPathMetricsCalculator {
 
@@ -19,10 +21,11 @@ public class SearchPathMetricsCalculator {
     Instant last = null;
 
     for (SearchPath path : paths) {
-      List<SearchPathPoint> points = path.getPoints();
+      List<GpsPoint> points = path.getPoints();
       first = min(first, path.getStartedAt());
       last = max(last, path.getEndedAt());
-      totalDistance += distanceMeters(points);
+      totalDistance +=
+          points.isEmpty() ? distanceMeters(path.getGeometry()) : distanceMeters(points);
       for (SearchPathSegment segment : path.getSegments()) {
         long segmentDistance = segmentDistanceMeters(points, segment);
         if (segment.getMovementType() == MovementType.FOOT) {
@@ -48,8 +51,10 @@ public class SearchPathMetricsCalculator {
         .build();
   }
 
-  private static long segmentDistanceMeters(
-      List<SearchPathPoint> points, SearchPathSegment segment) {
+  private static long segmentDistanceMeters(List<GpsPoint> points, SearchPathSegment segment) {
+    if (points.isEmpty()) {
+      return distanceMeters(segment.getGeometry());
+    }
     if (segment.getStartIndex() < 0
         || segment.getEndIndex() >= points.size()
         || segment.getEndIndex() < segment.getStartIndex()) {
@@ -58,8 +63,10 @@ public class SearchPathMetricsCalculator {
     return distanceMeters(points.subList(segment.getStartIndex(), segment.getEndIndex() + 1));
   }
 
-  private static long segmentDurationSeconds(
-      List<SearchPathPoint> points, SearchPathSegment segment) {
+  private static long segmentDurationSeconds(List<GpsPoint> points, SearchPathSegment segment) {
+    if (points.isEmpty()) {
+      return durationSeconds(segment.getStartedAt(), segment.getEndedAt());
+    }
     if (segment.getStartIndex() < 0
         || segment.getEndIndex() >= points.size()
         || segment.getEndIndex() < segment.getStartIndex()) {
@@ -67,17 +74,35 @@ public class SearchPathMetricsCalculator {
     }
     Instant startedAt = points.get(segment.getStartIndex()).getClientTs().toInstant();
     Instant endedAt = points.get(segment.getEndIndex()).getClientTs().toInstant();
-    if (!endedAt.isAfter(startedAt)) {
+    return durationSeconds(startedAt, endedAt);
+  }
+
+  private static long durationSeconds(Instant startedAt, Instant endedAt) {
+    if (startedAt == null || endedAt == null || !endedAt.isAfter(startedAt)) {
       return 0L;
     }
     return Duration.between(startedAt, endedAt).getSeconds();
   }
 
-  private static long distanceMeters(List<SearchPathPoint> points) {
+  private static long distanceMeters(Geometry geometry) {
+    if (geometry == null) {
+      return 0L;
+    }
+    double distance = 0.0d;
+    Coordinate[] coordinates = geometry.getCoordinates();
+    for (int i = 1; i < coordinates.length; i++) {
+      Coordinate previous = coordinates[i - 1];
+      Coordinate current = coordinates[i];
+      distance += haversineMeters(previous.y, previous.x, current.y, current.x);
+    }
+    return Math.round(distance);
+  }
+
+  private static long distanceMeters(List<GpsPoint> points) {
     double distance = 0.0d;
     for (int i = 1; i < points.size(); i++) {
-      SearchPathPoint previous = points.get(i - 1);
-      SearchPathPoint current = points.get(i);
+      GpsPoint previous = points.get(i - 1);
+      GpsPoint current = points.get(i);
       distance +=
           haversineMeters(
               previous.getLat().doubleValue(),

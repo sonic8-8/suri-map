@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -193,6 +195,66 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
               assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
               assertThat(found.getEventType()).isEqualTo("STARTED");
             });
+  }
+
+  @Test
+  @DisplayName("GPS 측정값을 저장하면 수집 순서와 원본 값을 유지한다")
+  void insertAndFindGpsPointsPreservesMeasurements() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+    List<GpsPoint> points =
+        List.of(
+            gpsPoint(
+                "gps-original-001", "126.913001", "35.162001", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint(
+                "gps-original-002",
+                "126.913002",
+                "35.162002",
+                "1.75",
+                null,
+                "2026-04-28T00:00:05Z"));
+
+    searchPathMapper.insertGpsPoints(PATH_ID, 0, points, STARTED_AT);
+
+    List<GpsPoint> found = searchPathMapper.findGpsPointsByPathId(PATH_ID);
+    assertThat(found).hasSize(2);
+    assertGpsPoint(found.get(0), points.get(0));
+    assertGpsPoint(found.get(1), points.get(1));
+    assertThat(found.get(1).getHorizontalAccuracyM()).isNull();
+  }
+
+  private GpsPoint gpsPoint(
+      String pointId,
+      String lon,
+      String lat,
+      String speedMps,
+      Integer horizontalAccuracyM,
+      String clientTs) {
+    return GpsPoint.builder()
+        .pointId(pointId)
+        .clientTs(OffsetDateTime.parse(clientTs))
+        .lon(new BigDecimal(lon))
+        .lat(new BigDecimal(lat))
+        .speedMps(new BigDecimal(speedMps))
+        .horizontalAccuracyM(horizontalAccuracyM)
+        .build();
+  }
+
+  private void assertGpsPoint(GpsPoint actual, GpsPoint expected) {
+    assertThat(actual.getPointId()).isEqualTo(expected.getPointId());
+    assertThat(actual.getClientTs()).isEqualTo(expected.getClientTs());
+    assertThat(actual.getLon()).isEqualByComparingTo(expected.getLon());
+    assertThat(actual.getLat()).isEqualByComparingTo(expected.getLat());
+    assertThat(actual.getSpeedMps()).isEqualByComparingTo(expected.getSpeedMps());
+    assertThat(actual.getHorizontalAccuracyM()).isEqualTo(expected.getHorizontalAccuracyM());
   }
 
   private LineString lineString() {

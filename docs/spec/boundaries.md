@@ -432,6 +432,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **owns**
 
 - `search_path`
+- `search_path_gps_point`
 - `search_path_segment`
 - Android foreground location service
 - `POST /api/search-paths`
@@ -1136,6 +1137,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `search_area_history` | S2 |
 | `search_area_assignment` | S2 |
 | `search_path` | S3-1 |
+| `search_path_gps_point` | S3-1 |
 | `search_path_segment` | S3-1 |
 | `board_response` | S3-2 |
 | `board_event_application` | S3-2 |

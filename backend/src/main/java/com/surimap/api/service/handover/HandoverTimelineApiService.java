@@ -9,11 +9,11 @@ import com.surimap.api.controller.handover.response.HandoverTimelineResponse.Poi
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ScopeResponse;
 import com.surimap.api.controller.summary.response.SearchHistorySummaryItemResponse;
 import com.surimap.api.service.path.SearchPathService;
+import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathMetrics;
 import com.surimap.domain.path.SearchPathMetricsCalculator;
-import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
@@ -343,9 +343,9 @@ public class HandoverTimelineApiService {
     };
   }
 
-  private static Instant segmentStartedAt(List<SearchPathPoint> points, SearchPathSegment segment) {
+  private static Instant segmentStartedAt(List<GpsPoint> points, SearchPathSegment segment) {
     if (segment.getStartIndex() < 0 || segment.getStartIndex() >= points.size()) {
-      return null;
+      return segment.getStartedAt();
     }
     return instant(points.get(segment.getStartIndex()).getClientTs());
   }

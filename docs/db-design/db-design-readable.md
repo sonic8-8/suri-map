@@ -28,6 +28,7 @@
 │     │  ├─ search_area_history       [search_area 변경 이력]
 │     │  └─ search_area_boundary_alert [담당 TEAM 구역 경계 확인 이벤트]
 │     ├─ search_path                  [duty_shift 하위 수색 경로]
+│     │  ├─ search_path_gps_point     [품질 검사를 통과한 GPS 원본 측정값]
 │     │  ├─ search_path_segment       [search_path 하위 경로 구간]
 │     │  ├─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
 │     │  └─ search_path_lifecycle_event [수색 시작/일시정지/재개/종료 이력]
@@ -399,6 +400,7 @@ Android Room 로컬 엔티티
 - 하나의 `duty_shift`는 여러 개의 `search_path`를 가진다. (1:N)
 - 하나의 `search_path`는 하나의 `duty_shift`에 속한다. (N:1)
 - 하나의 `account`는 여러 개의 `search_path`를 기록할 수 있다. (1:N)
+- 하나의 `search_path`는 여러 개의 `search_path_gps_point`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_segment`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_excluded_point`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_lifecycle_event`를 가진다. (1:N)
@@ -419,6 +421,35 @@ Android Room 로컬 엔티티
 **설명**
 
 `search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 주체는 `account_id`가 맡는다. 업무폰은 APP 요청이 등록된 단말 설정을 사용했는지 확인하는 데만 쓰며 경로의 기록 주체로 저장하지 않는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
+
+#### search_path_gps_point
+
+**PRD 근거**
+
+- PRD §5.1 시나리오 5 `수색 시작 및 GPS 기록`
+- PRD §7.7 FR-33 `개인 계정 기준 수색 경로 기록`
+
+**연관 관계**
+
+- 하나의 `search_path`는 여러 개의 `search_path_gps_point`를 가진다. (1:N)
+- 하나의 `search_path_gps_point`는 하나의 `search_path`에 속한다. (N:1)
+
+**주요 컬럼**
+
+- `search_path_id`: GPS 측정값이 속한 수색 경로
+- `point_order`: 수색 경로 안에서 좌표가 수집된 순서
+- `point_id`: 앱이 좌표마다 붙인 식별자
+- `client_ts`: 앱이 좌표를 수집한 시각
+- `lon`, `lat`: 앱이 측정한 경도와 위도
+- `speed_mps`: 앱이 측정한 초당 이동 속도
+- `horizontal_accuracy_m`: 앱이 전달한 GPS 오차 범위
+- `created_at`: 서버가 측정값을 저장한 시각
+
+**설명**
+
+`search_path_gps_point`는 GPS 품질 검사를 통과한 원본 측정값을 수집 순서대로 저장한다. `search_path.geometry`는 지도에 경로 선을 그리는 데 사용하고, 이 테이블은 DB를 다시 읽은 뒤에도 좌표 식별자, 수집 시각, 속도, 정확도를 실제 값 그대로 돌려주는 데 사용한다.
+
+이 테이블을 만들기 전에 저장된 경로는 기존 `search_path.geometry`와 `search_path_segment`의 좌표·시각만 사용한다. DB에 남아 있지 않은 좌표 식별자, 수집 시각, 속도, 정확도는 임의로 만들지 않는다. 기존 경로의 좌표를 덮어쓰지 않도록 GPS 원본 측정값이 없는 기록 중 경로에는 새 좌표를 추가하지 않는다.
 
 #### search_path_lifecycle_event
 

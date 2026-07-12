@@ -14,6 +14,7 @@ import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
 import com.surimap.domain.path.MovementType;
+import com.surimap.domain.path.SearchPathApiException;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -39,6 +40,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID ACCOUNT_ID = UUID.fromString("62000000-0000-0000-0000-000000002621");
   private static final UUID POLICE_PHONE_ID = SearchPathFixtures.POLICE_PHONE_ID;
   private static final UUID PATH_ID = SearchPathFixtures.PATH_ID;
+  private static final UUID LEGACY_SEGMENT_ID =
+      UUID.fromString("70000000-0000-0000-0000-000000002621");
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathService searchPathService;
@@ -149,6 +152,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             Integer.class,
             PATH_ID.toString());
     assertThat(pointCount).isEqualTo(8);
+    assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
     assertThat(idempotencyStatus("idem-path-batch-db-replay")).isEqualTo("COMPLETED");
   }
 
@@ -401,6 +405,116 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("DB에서 다시 읽어도 앱이 보낸 GPS 측정값을 유지한다")
+  void gps_measurements_remain_unchanged_after_db_reload() {
+    SearchPathPointsAppendServiceRequest request = batchRequest("idem-path-gps-measurement-reload");
+    SearchPathPointServiceRequest original = request.getPoints().get(0);
+
+    searchPathService.appendPoints(request);
+
+    var reloaded =
+        searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getPoints().get(0);
+    assertThat(reloaded.getPointId()).isEqualTo(original.getPointId());
+    assertThat(reloaded.getClientTs()).isEqualTo(original.getClientTs());
+    assertThat(reloaded.getLon()).isEqualByComparingTo(original.getLon());
+    assertThat(reloaded.getLat()).isEqualByComparingTo(original.getLat());
+    assertThat(reloaded.getSpeedMps()).isEqualByComparingTo(original.getSpeedMps());
+    assertThat(reloaded.getHorizontalAccuracyM()).isEqualTo(original.getHorizontalAccuracyM());
+  }
+
+  @Test
+  @DisplayName("GPS row가 없는 기존 경로는 저장된 path와 segment geometry를 조회한다")
+  void legacy_path_without_gps_points_uses_persisted_geometry_for_query() {
+    insertLegacyPath();
+
+    SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
+
+    assertThat(queried.getGeometry())
+        .containsExactly(List.of(126.91, 35.16), List.of(126.92, 35.17));
+    assertThat(queried.getSegments())
+        .singleElement()
+        .satisfies(
+            segment -> {
+              assertThat(segment.getGeometry())
+                  .containsExactly(List.of(126.91, 35.16), List.of(126.915, 35.165));
+              assertThat(segment.getStartedAt())
+                  .isEqualTo(OffsetDateTime.parse("2026-04-28T00:00:00Z"));
+              assertThat(segment.getEndedAt())
+                  .isEqualTo(OffsetDateTime.parse("2026-04-28T00:01:00Z"));
+            });
+    assertThat(searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getPoints())
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("GPS row가 없는 기존 기록 경로에는 새 point를 append하지 않는다")
+  void legacy_recording_path_without_gps_points_rejects_append_without_changing_geometry() {
+    insertLegacyPath();
+
+    assertThatThrownBy(
+            () -> searchPathService.appendPoints(batchRequest("idem-path-legacy-append")))
+        .isInstanceOfSatisfying(
+            SearchPathApiException.class,
+            exception -> assertThat(exception.getMessage()).isEqualTo("write_conflict"));
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT ST_AsText(geometry) FROM search_path WHERE id = ?::uuid",
+                String.class,
+                PATH_ID.toString()))
+        .isEqualTo("LINESTRING(126.91 35.16,126.92 35.17)");
+    assertThat(rowCount("search_path_gps_point")).isZero();
+  }
+
+  @Test
+  @DisplayName("GPS row가 없는 기존 segment 보정은 저장 geometry와 시간을 유지한다")
+  void legacy_segment_correction_preserves_persisted_geometry_and_time() {
+    insertLegacyPath();
+
+    searchPathService.correctSegment(
+        segmentCorrectionRequest(LEGACY_SEGMENT_ID.toString(), "idem-path-legacy-correction")
+            .toBuilder()
+            .movementType(MovementType.VEHICLE)
+            .build());
+
+    Map<String, Object> pathRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT ST_AsText(geometry) AS geometry, version,
+                   EXTRACT(EPOCH FROM started_at)::bigint AS started_epoch
+            FROM search_path
+            WHERE id = ?::uuid
+            """,
+            PATH_ID.toString());
+    Map<String, Object> segmentRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT movement_type, movement_type_source, version,
+                   ST_AsText(geometry) AS geometry,
+                   EXTRACT(EPOCH FROM started_at)::bigint AS started_epoch,
+                   EXTRACT(EPOCH FROM ended_at)::bigint AS ended_epoch
+            FROM search_path_segment
+            WHERE id = ?::uuid
+            """,
+            LEGACY_SEGMENT_ID.toString());
+
+    assertThat(pathRow.get("geometry")).isEqualTo("LINESTRING(126.91 35.16,126.92 35.17)");
+    assertThat(pathRow.get("version")).isEqualTo(2L);
+    assertThat(pathRow.get("started_epoch"))
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T00:00:00Z").toEpochSecond());
+    assertThat(segmentRow.get("movement_type")).isEqualTo("VEHICLE");
+    assertThat(segmentRow.get("movement_type_source")).isEqualTo("MANUAL");
+    assertThat(segmentRow.get("version")).isEqualTo(2L);
+    assertThat(segmentRow.get("geometry")).isEqualTo("LINESTRING(126.91 35.16,126.915 35.165)");
+    assertThat(segmentRow.get("started_epoch"))
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T00:00:00Z").toEpochSecond());
+    assertThat(segmentRow.get("ended_epoch"))
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T00:01:00Z").toEpochSecond());
+    assertThat(searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getPoints())
+        .isEmpty();
+  }
+
+  @Test
   @DisplayName("next batch after DB reload preserves existing movement segments")
   void append_after_reload_keeps_existing_segments() {
     SearchPathPointsAppendServiceResponse first =
@@ -430,10 +544,43 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
 
   private SearchPathQueryServiceResponse queryPaths() {
     return searchPathService.query(
-        SearchPathQueryServiceRequest.builder()
-            .incidentId(INCIDENT_ID)
-            .opId(OP_ID)
-            .build());
+        SearchPathQueryServiceRequest.builder().incidentId(INCIDENT_ID).opId(OP_ID).build());
+  }
+
+  private void insertLegacyPath() {
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path (
+            id, duty_shift_id, account_id, status, started_at, geometry,
+            version, created_at, updated_at
+        ) VALUES (
+            ?::uuid, ?::uuid, ?::uuid, 'RECORDING', ?::timestamptz,
+            ST_GeomFromText('LINESTRING(126.91 35.16,126.92 35.17)', 4326),
+            1, ?::timestamptz, ?::timestamptz
+        )
+        """,
+        PATH_ID.toString(),
+        DUTY_SHIFT_ID.toString(),
+        ACCOUNT_ID.toString(),
+        "2026-04-28T00:00:00Z",
+        "2026-04-28T00:00:00Z",
+        "2026-04-28T00:00:00Z");
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_segment (
+            id, search_path_id, movement_type, movement_type_source, geometry,
+            started_at, ended_at, version, created_at, updated_at
+        ) VALUES (
+            ?::uuid, ?::uuid,
+            'FOOT', 'AUTO',
+            ST_GeomFromText('LINESTRING(126.91 35.16,126.915 35.165)', 4326),
+            '2026-04-28T00:00:00Z'::timestamptz,
+            '2026-04-28T00:01:00Z'::timestamptz,
+            1, NOW(), NOW()
+        )
+        """,
+        LEGACY_SEGMENT_ID.toString(),
+        PATH_ID.toString());
   }
 
   private SearchPathSegmentCorrectionServiceRequest segmentCorrectionRequest(

@@ -3,6 +3,7 @@ package com.surimap.domain.path.validation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.validation.GpsPointValidationResult.GpsPointExclusionReason;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -27,8 +28,7 @@ class GpsPointValidatorTest {
     var fixture = GpsPointValidationFixtures.OUTSIDE_SEARCH_AREA_POINTS;
 
     var result =
-        validator.validate(
-            toPoints(fixture), OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
+        validator.validate(toPoints(fixture), OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
 
     assertThat(result.getAcceptedPoints())
         .extracting(GpsPoint::getPointId)
@@ -83,7 +83,8 @@ class GpsPointValidatorTest {
     assertThat(result.getAcceptedPoints()).hasSize(1);
     assertThat(result.getExcludedPoints())
         .singleElement()
-        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.LOW_ACCURACY));
+        .satisfies(
+            ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.LOW_ACCURACY));
   }
 
   @Test
@@ -109,15 +110,16 @@ class GpsPointValidatorTest {
         validator.validate(
             withValidLeadPoint(toPoints(negative.points())), negative.serverReceivedAt());
     var overResult =
-        validator.validate(
-            withValidLeadPoint(toPoints(over.points())), over.serverReceivedAt());
+        validator.validate(withValidLeadPoint(toPoints(over.points())), over.serverReceivedAt());
 
     assertThat(negativeResult.getExcludedPoints())
         .singleElement()
-        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.INVALID_SPEED));
+        .satisfies(
+            ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.INVALID_SPEED));
     assertThat(overResult.getExcludedPoints())
         .singleElement()
-        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.INVALID_SPEED));
+        .satisfies(
+            ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.INVALID_SPEED));
   }
 
   @Test
@@ -129,7 +131,8 @@ class GpsPointValidatorTest {
     assertThat(result.getAcceptedPoints()).hasSize(1);
     assertThat(result.getExcludedPoints())
         .singleElement()
-        .satisfies(ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.DISTANCE_JUMP));
+        .satisfies(
+            ex -> assertThat(ex.getReason()).isEqualTo(GpsPointExclusionReason.DISTANCE_JUMP));
   }
 
   @Test
@@ -197,8 +200,7 @@ class GpsPointValidatorTest {
     var serverReceivedAt = OffsetDateTime.parse("2026-04-28T09:00:20+09:00");
 
     var result =
-        validator.validate(
-            toPoints(GpsPointValidationFixtures.NORMAL_POINTS), serverReceivedAt);
+        validator.validate(toPoints(GpsPointValidationFixtures.NORMAL_POINTS), serverReceivedAt);
 
     assertThat(result.getAcceptedPoints()).hasSize(8);
     assertThat(result.getExcludedPoints()).isEmpty();

@@ -1,5 +1,6 @@
 package com.surimap.domain.path.validation;
 
+import com.surimap.domain.path.GpsPoint;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
