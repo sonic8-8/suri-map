@@ -2,10 +2,10 @@ package com.surimap.opcomparison;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPath;
-import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -115,20 +115,16 @@ class OpComparisonMetricsCalculatorTest {
   }
 
   private static SearchPath path(
-      UUID opId, List<SearchPathPoint> points, List<SearchPathSegment> segments) {
+      UUID opId, List<GpsPoint> points, List<SearchPathSegment> segments) {
     SearchPath path =
-        SearchPath.builder()
-            .id(UUID.randomUUID())
-            .incidentId(INCIDENT_ID)
-            .opId(opId)
-            .build();
+        SearchPath.builder().id(UUID.randomUUID()).incidentId(INCIDENT_ID).opId(opId).build();
     path.appendAcceptedPoints(points);
     path.replaceSegments(segments);
     return path;
   }
 
-  private static SearchPathPoint point(String id, String lon, String lat, String at) {
-    return SearchPathPoint.builder()
+  private static GpsPoint point(String id, String lon, String lat, String at) {
+    return GpsPoint.builder()
         .pointId(id)
         .clientTs(OffsetDateTime.parse(at))
         .lon(new BigDecimal(lon))

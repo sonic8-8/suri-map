@@ -1,5 +1,6 @@
 package com.surimap.domain.path.validation;
 
+import com.surimap.domain.path.GpsPoint;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -14,8 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class GpsPointValidator {
 
-  public GpsPointValidationResult validate(
-      List<GpsPoint> points, OffsetDateTime serverReceivedAt) {
+  public GpsPointValidationResult validate(List<GpsPoint> points, OffsetDateTime serverReceivedAt) {
     return validate(points, serverReceivedAt, null);
   }
 

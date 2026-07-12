@@ -16,10 +16,10 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.config.GuardConfig;
+import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPath;
-import com.surimap.domain.path.SearchPathPoint;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
@@ -128,13 +128,37 @@ class HandoverTimelineApiContractTest {
     verify(handoverMemoQuery).byContext(INCIDENT_ID, OP_ID, null, null);
   }
 
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.WEB,
+      accountId = "11111111-1111-1111-1111-111111110001")
+  @DisplayName("legacy segment event uses persisted time while path points remain empty")
+  void legacySegmentEventUsesPersistedTimeWithoutSyntheticPoints() throws Exception {
+    when(searchPathService.findAll()).thenReturn(List.of(legacyPath()));
+    when(markerQuery.byIncident(INCIDENT_ID, new MarkerQueryFilters(OP_ID, null, null)))
+        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of()));
+    when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of());
+    when(searchHistorySummaryMapper.findByOp(OP_ID, INCIDENT_ID, "OP", OP_ID, null, null))
+        .thenReturn(List.of());
+
+    mockMvc
+        .perform(
+            get("/api/operational-periods/{operationalPeriodId}/handover-timeline", OP_ID)
+                .header("Authorization", "Bearer commander")
+                .header("X-Client-Channel", "WEB")
+                .queryParam("incidentId", INCIDENT_ID.toString())
+                .queryParam("scopeType", "OP"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.paths[0].points", hasSize(0)))
+        .andExpect(jsonPath("$.events", hasSize(3)))
+        .andExpect(jsonPath("$.events[1].type", is("PATH_SEGMENT")))
+        .andExpect(jsonPath("$.events[1].occurredAt", is("2026-05-18T00:00:30Z")));
+  }
+
   private static SearchPath path() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .incidentId(INCIDENT_ID)
-            .opId(OP_ID)
-            .build();
+    SearchPath path = SearchPath.builder().id(PATH_ID).incidentId(INCIDENT_ID).opId(OP_ID).build();
     path.appendAcceptedPoints(
         List.of(
             point("p1", "126.913000", "35.162000", "2026-05-18T09:00:00+09:00"),
@@ -154,8 +178,39 @@ class HandoverTimelineApiContractTest {
     return path;
   }
 
-  private static SearchPathPoint point(String id, String lng, String lat, String at) {
-    return SearchPathPoint.builder()
+  private static SearchPath legacyPath() {
+    Instant startedAt = Instant.parse("2026-05-18T00:00:00Z");
+    return SearchPath.builder()
+        .id(PATH_ID)
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .startedAt(startedAt)
+        .endedAt(startedAt.plusSeconds(60))
+        .geometry(
+            GEOMETRY_FACTORY.createLineString(
+                new Coordinate[] {
+                  new Coordinate(126.913, 35.162), new Coordinate(126.914, 35.163)
+                }))
+        .points(List.of())
+        .segments(
+            List.of(
+                SearchPathSegment.builder()
+                    .id(UUID.fromString("71000000-0000-0000-0000-000000000001"))
+                    .movementType(MovementType.FOOT)
+                    .movementTypeSource(MovementTypeSource.AUTO)
+                    .geometry(
+                        GEOMETRY_FACTORY.createLineString(
+                            new Coordinate[] {
+                              new Coordinate(126.913, 35.162), new Coordinate(126.914, 35.163)
+                            }))
+                    .startedAt(startedAt.plusSeconds(30))
+                    .endedAt(startedAt.plusSeconds(60))
+                    .build()))
+        .build();
+  }
+
+  private static GpsPoint point(String id, String lng, String lat, String at) {
+    return GpsPoint.builder()
         .pointId(id)
         .clientTs(OffsetDateTime.parse(at))
         .lon(new BigDecimal(lng))

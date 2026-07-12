@@ -15,8 +15,8 @@ class SearchPathTest {
   @Test
   void appendAcceptedPointsSetsStartTimeFromFirstPoint() {
     SearchPath path = SearchPath.builder().build();
-    SearchPathPoint first = point("point-1", "2026-04-28T09:00:00+09:00");
-    SearchPathPoint second = point("point-2", "2026-04-28T09:00:05+09:00");
+    GpsPoint first = point("point-1", "2026-04-28T09:00:00+09:00");
+    GpsPoint second = point("point-2", "2026-04-28T09:00:05+09:00");
 
     path.appendAcceptedPoints(List.of(first));
     path.appendAcceptedPoints(List.of(second));
@@ -76,8 +76,8 @@ class SearchPathTest {
         .hasMessage("write_conflict");
   }
 
-  private static SearchPathPoint point(String pointId, String clientTs) {
-    return SearchPathPoint.builder()
+  private static GpsPoint point(String pointId, String clientTs) {
+    return GpsPoint.builder()
         .pointId(pointId)
         .clientTs(OffsetDateTime.parse(clientTs))
         .lon(BigDecimal.ZERO)

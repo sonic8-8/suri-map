@@ -39,6 +39,14 @@ public interface SearchPathMapper {
       @Param("opId") UUID opId,
       @Param("accountId") UUID accountId);
 
+  void insertGpsPoints(
+      @Param("pathId") UUID pathId,
+      @Param("pointOffset") int pointOffset,
+      @Param("points") List<GpsPoint> points,
+      @Param("createdAt") Instant createdAt);
+
+  List<GpsPoint> findGpsPointsByPathId(@Param("pathId") UUID pathId);
+
   void insertLifecycleEvent(SearchPathLifecycleEvent event);
 
   List<SearchPathLifecycleEvent> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);

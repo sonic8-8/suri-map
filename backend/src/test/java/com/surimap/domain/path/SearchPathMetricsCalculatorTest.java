@@ -9,6 +9,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
 
 class SearchPathMetricsCalculatorTest {
 
@@ -82,11 +85,53 @@ class SearchPathMetricsCalculatorTest {
     assertThat(metrics.getAverageSpeedKmh()).isEqualByComparingTo(new BigDecimal("6.7"));
   }
 
+  @Test
+  void calculatesLegacyMetricsFromPersistedGeometryAndSegmentTimes() {
+    Instant startedAt = Instant.parse("2026-05-18T00:00:00Z");
+    Instant endedAt = Instant.parse("2026-05-18T00:01:30Z");
+    SearchPath path =
+        SearchPath.builder()
+            .id(UUID.fromString("81000000-0000-0000-0000-000000000001"))
+            .startedAt(startedAt)
+            .endedAt(endedAt)
+            .status(SearchPathStatus.ENDED)
+            .geometry(lineString(0.000, 0.000, 0.001, 0.000, 0.002, 0.000))
+            .points(List.of())
+            .segments(
+                List.of(
+                    legacySegment(
+                        "vehicle",
+                        MovementType.VEHICLE,
+                        lineString(0.000, 0.000, 0.001, 0.000),
+                        startedAt,
+                        startedAt.plusSeconds(30)),
+                    legacySegment(
+                        "foot",
+                        MovementType.FOOT,
+                        lineString(0.001, 0.000, 0.002, 0.000),
+                        startedAt.plusSeconds(30),
+                        startedAt.plusSeconds(60)),
+                    legacySegment(
+                        "stopped",
+                        MovementType.UNKNOWN,
+                        lineString(0.002, 0.000, 0.002, 0.000),
+                        startedAt.plusSeconds(60),
+                        endedAt)))
+            .build();
+
+    SearchPathMetrics metrics = calculator.calculate(List.of(path), null, null);
+
+    assertThat(path.getPoints()).isEmpty();
+    assertThat(metrics.getDistanceMeters()).isEqualTo(222L);
+    assertThat(metrics.getDrivingDistanceMeters()).isEqualTo(111L);
+    assertThat(metrics.getWalkingDistanceMeters()).isEqualTo(111L);
+    assertThat(metrics.getAverageSpeedKmh()).isEqualByComparingTo(new BigDecimal("8.9"));
+    assertThat(metrics.getStoppedSegmentCount()).isEqualTo(1);
+    assertThat(metrics.getStoppedDurationSeconds()).isEqualTo(30L);
+  }
+
   private static SearchPath path(
-      Instant startedAt,
-      Instant endedAt,
-      List<SearchPathPoint> points,
-      List<SearchPathSegment> segments) {
+      Instant startedAt, Instant endedAt, List<GpsPoint> points, List<SearchPathSegment> segments) {
     return SearchPath.builder()
         .id(UUID.fromString("81000000-0000-0000-0000-000000000001"))
         .dutyShiftId(null)
@@ -102,8 +147,8 @@ class SearchPathMetricsCalculatorTest {
         .build();
   }
 
-  private static SearchPathPoint point(String id, String lon, String lat, String at) {
-    return SearchPathPoint.builder()
+  private static GpsPoint point(String id, String lon, String lat, String at) {
+    return GpsPoint.builder()
         .pointId(id)
         .clientTs(OffsetDateTime.parse(at))
         .lon(new BigDecimal(lon))
@@ -122,5 +167,31 @@ class SearchPathMetricsCalculatorTest {
         .startIndex(startIndex)
         .endIndex(endIndex)
         .build();
+  }
+
+  private static SearchPathSegment legacySegment(
+      String id,
+      MovementType movementType,
+      LineString geometry,
+      Instant startedAt,
+      Instant endedAt) {
+    return SearchPathSegment.builder()
+        .id(UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8)))
+        .movementType(movementType)
+        .movementTypeSource(MovementTypeSource.AUTO)
+        .geometry(geometry)
+        .startedAt(startedAt)
+        .endedAt(endedAt)
+        .build();
+  }
+
+  private static LineString lineString(double... coordinates) {
+    Coordinate[] points = new Coordinate[coordinates.length / 2];
+    for (int i = 0; i < points.length; i++) {
+      points[i] = new Coordinate(coordinates[i * 2], coordinates[i * 2 + 1]);
+    }
+    LineString geometry = new GeometryFactory().createLineString(points);
+    geometry.setSRID(4326);
+    return geometry;
   }
 }

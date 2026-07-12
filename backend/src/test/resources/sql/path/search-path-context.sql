@@ -3,6 +3,7 @@ TRUNCATE TABLE event_dispatch_job,
     search_area_boundary_alert,
     search_path_lifecycle_event,
     search_path_excluded_point,
+    search_path_gps_point,
     search_path_segment,
     search_path;
 

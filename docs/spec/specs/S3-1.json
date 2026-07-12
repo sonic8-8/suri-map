@@ -182,6 +182,63 @@
         }
       },
       {
+        "name": "search_path_gps_point",
+        "owner_spec": "S3-1",
+        "description": "GPS 품질 검사를 통과해 search_path에 반영된 원본 측정값. 지도 표시용 LineString과 별도로 수집 순서와 측정 정보를 보존한다.",
+        "fields": [
+          {
+            "name": "search_path_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "point_order",
+            "type": "INTEGER",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "point_id",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "lon",
+            "type": "NUMERIC",
+            "nullable": false
+          },
+          {
+            "name": "lat",
+            "type": "NUMERIC",
+            "nullable": false
+          },
+          {
+            "name": "speed_mps",
+            "type": "NUMERIC",
+            "nullable": false
+          },
+          {
+            "name": "horizontal_accuracy_m",
+            "type": "INTEGER",
+            "nullable": true
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          "PRIMARY KEY(search_path_id, point_order)"
+        ]
+      },
+      {
         "name": "search_path_segment",
         "owner_spec": "S3-1",
         "description": "search_path를 차량·도보·알 수 없음 구간으로 나눈 segment.",
@@ -346,7 +403,8 @@
       "V20260428_431__create_search_path.sql",
       "V20260428_432__create_search_path.sql",
       "V20260428_433__create_search_path_segment.sql",
-      "V20260513_003__create_search_path_excluded_point.sql"
+      "V20260513_003__create_search_path_excluded_point.sql",
+      "V20260713_001__create_search_path_gps_point.sql"
     ]
   },
   "api_contracts": {
@@ -1408,7 +1466,7 @@
     "queries": [
       {
         "name": "PathQuery.byIncident(incidentId, filters)",
-        "source": "S3-1 read model over search_path/search_path_segment/search_path_excluded_point",
+        "source": "S3-1 read model over search_path/search_path_gps_point/search_path_segment/search_path_excluded_point",
         "filters": {
           "opId": "optional UUID",
           "accountId": "optional UUID",
@@ -1454,6 +1512,7 @@
     ],
     "geometry_policy": {
       "original_storage": "search_path.geometry stores one canonical unsimplified LineString. Recording stop/start is represented by separate search_path rows; when recording starts again, a new search_path row is created. search_path_segment.geometry stores canonical unsimplified LineString. All geometry uses EPSG:4326 lon/lat with 6 decimal precision.",
+      "legacy_geometry_only": "search_path_gps_point 도입 전에 저장된 경로는 기존 search_path/search_path_segment geometry와 segment 시각만 읽기에 사용한다. 사라진 pointId/clientTs/speedMps/horizontalAccuracyM은 임의로 만들거나 backfill하지 않으며, 기존 geometry를 덮어쓰지 않도록 해당 RECORDING 경로의 batch append는 write_conflict로 거부한다.",
       "hash": "SearchPath.version and geometryMode separate source geometry from render-simplified response geometry for read-only SC-11 evidence.",
       "rendering": "S3-2 may request RENDER_SIMPLIFIED geometry for performance, but simplification is response-only and never replaces canonical search_path.geometry.",
       "no_bridge": "Recording stop/start creates a new search_path row. Board rendering must not connect distinct search_path rows across gaps."
@@ -1522,7 +1581,7 @@
         },
         {
           "name": "SearchPathMapper",
-          "responsibility": "MyBatis/PostGIS search_path/search_path_segment/search_path_excluded_point persistence and filtered read model queries"
+          "responsibility": "MyBatis/PostGIS search_path/search_path_gps_point/search_path_segment/search_path_excluded_point persistence and filtered read model queries"
         },
         {
           "name": "PathQuery",

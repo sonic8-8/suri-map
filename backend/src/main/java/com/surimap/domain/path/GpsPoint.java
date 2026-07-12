@@ -1,4 +1,4 @@
-package com.surimap.domain.path.validation;
+package com.surimap.domain.path;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
