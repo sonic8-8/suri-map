@@ -78,7 +78,7 @@ class AppSearchPathControllerTest {
         .andExpect(jsonPath("$.id", is(SEARCH_PATH_ID.toString())))
         .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
-        .andExpect(jsonPath("$.policePhoneId", is(POLICE_PHONE_ID.toString())))
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.accountId", is(ACCOUNT_ID.toString())))
         .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
@@ -147,7 +147,6 @@ class AppSearchPathControllerTest {
             argThat(
                 request ->
                     SEARCH_PATH_ID.equals(request.getSearchPathId())
-                        && POLICE_PHONE_ID.equals(request.getPolicePhoneId())
                         && ACCOUNT_ID.equals(request.getAccountId())
                         && "idem-path-end-001".equals(request.getIdempotencyKey())));
   }
@@ -294,7 +293,6 @@ class AppSearchPathControllerTest {
         .id(SEARCH_PATH_ID)
         .incidentId(INCIDENT_ID)
         .opId(OP_ID)
-        .policePhoneId(POLICE_PHONE_ID)
         .accountId(ACCOUNT_ID)
         .status(status)
         .version(version)

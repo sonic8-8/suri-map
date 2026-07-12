@@ -134,7 +134,6 @@ class HandoverTimelineApiContractTest {
             .id(PATH_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .build();
     path.appendAcceptedPoints(
         List.of(

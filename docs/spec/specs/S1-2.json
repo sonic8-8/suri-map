@@ -788,7 +788,7 @@
         "failure_codes": [
           "police_phone_required"
         ],
-        "rule": "APP 요청은 SecurityContext.policePhoneId와 X-PolicePhone-Id를 모두 가져야 하며 값이 같아야 한다. 기존 경로나 마커의 policePhoneId는 사용자 식별자가 아니라 단말 컨텍스트이므로 권한 판단은 accountId 기준으로 처리한다."
+        "rule": "APP 요청은 SecurityContext.policePhoneId와 X-PolicePhone-Id를 모두 가져야 하며 값이 같아야 한다. 경로의 기록 주체와 권한 판단은 accountId만 사용한다. 마커의 policePhoneId도 사용자 식별자로 사용하지 않는다."
       },
       {
         "name": "@RequirePolicePhoneRegistered",
@@ -1078,9 +1078,9 @@
       "fr_refs": [
         "FR-02"
       ],
-      "given": "등록됐지만 incident-scoped API의 사건 또는 현재 OP에 배정되지 않은 PolicePhone가 write를 호출한다.",
+      "given": "등록된 PolicePhone이 @RequirePolicePhoneAssigned가 붙은 API를 호출하지만, 현재 계정에 활성 사건 배정이 없다.",
       "when": "@RequirePolicePhoneAssigned가 실행된다.",
-      "then": "403 police_phone_not_assigned를 반환하고 FCM token, heartbeat, 경로·마커·패키지 상태 등 app-police-phone row가 갱신되지 않는다. heartbeat는 closed/open 사건 guard를 public error로 확정하지 않는다.",
+      "then": "403 police_phone_not_assigned를 반환하고 FCM token, heartbeat, 패키지 상태 등 해당 API의 row가 갱신되지 않는다. 수색 경로는 이 guard를 사용하지 않고 accountId와 현재 OP의 활성 duty_shift를 확인한다. heartbeat는 closed/open 사건 guard를 public error로 확정하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1110,7 +1110,7 @@
       ],
       "given": "앱이 로그인된 계정과 현재 PolicePhone를 가진다.",
       "when": "S3-1 또는 S3-2가 현재 운용 PolicePhone를 조회한다.",
-      "then": "SecurityContext.policePhoneId와 PolicePhoneQuery.byAccount 결과로 현재 PolicePhone 경로를 강조할 수 있다.",
+      "then": "SecurityContext.accountId를 기준으로 현재 사용자의 경로를 강조하고, PolicePhoneQuery.byAccount 결과는 단말 최신성 표시에만 사용한다.",
       "priority": "high"
     },
     {
@@ -1182,7 +1182,7 @@
     "웹 채널에서 app-police-phone API를 직접 호출하면 channel_not_allowed가 PolicePhone guard보다 먼저 반환된다.",
     "APP 요청에서 policePhoneId header와 세션 policePhoneId가 다르면 police_phone_required로 처리한다.",
     "PolicePhone heartbeat sequence가 낮은 요청은 최신 row를 과거 상태로 되돌리지 않는다.",
-    "지휘 계정 앱 단말은 public PolicePhone subtype으로 고정하지 않는다. 경로 생성 주체와 Android FCM recipient는 사건 배정 계정이 운용 중인 활성 폴리폰이며, 지휘 계정 policePhoneId는 웹 지휘·incident_assignment fixture 식별자에 머문다.",
+    "지휘 계정 앱 단말은 public PolicePhone subtype으로 고정하지 않는다. 경로 생성 주체는 사건에 배정된 accountId이며, Android FCM recipient는 해당 계정이 운용 중인 활성 폴리폰이다. 지휘 계정 policePhoneId는 웹 지휘·incident_assignment fixture 식별자에 머문다.",
     "STALE/LOST는 저장 상태나 이벤트가 아니라 lastHeartbeatAt 기반 read-time 파생값이므로 별도 event_dispatch_job row를 만들지 않는다.",
     "Android OFFLINE/RECOVERING은 로컬 네트워크·재시도 표시 상태이며 서버 persisted police_phone 상태로 저장하지 않는다.",
     "heartbeat request는 incidentId/opId를 public scope hint로 받지 않는다. API Index 기준 heartbeat에는 write-common이 없으므로 closed incident 차단 error를 S1-2 public API로 확정하지 않고, closed incident board에서 freshness/위치 표시를 숨기는 것으로 수렴한다."
@@ -1238,12 +1238,12 @@
       {
         "name": "policePhoneHeaderMustMatchSessionPolicePhone",
         "framework": "JUnit 5",
-        "scenario": "Authorization 세션의 policePhoneId와 X-PolicePhone-Id 또는 path policePhoneId가 다르면 police_phone_required를 반환하고 FCM token/heartbeat row를 갱신하지 않는다."
+        "scenario": "Authorization 세션의 policePhoneId와 X-PolicePhone-Id가 다르면 police_phone_required를 반환하고 FCM token/heartbeat row를 갱신하지 않는다."
       },
       {
-        "name": "unassignedPolicePhoneCannotWritePathMarkerPackage",
+        "name": "unassignedPolicePhoneCannotWriteGuardedPhoneApi",
         "framework": "JUnit 5",
-        "scenario": "미배정 PolicePhone가 app-police-phone API를 호출하면 police_phone_not_assigned를 반환하고 domain row를 만들지 않는다."
+        "scenario": "활성 사건 배정이 없는 계정의 PolicePhone이 @RequirePolicePhoneAssigned가 붙은 API를 호출하면 police_phone_not_assigned를 반환하고 해당 domain row를 만들지 않는다. 수색 경로는 별도의 accountId와 활성 duty_shift 검사로 다룬다."
       },
       {
         "name": "heartbeatPublishesPolicePhoneHeartbeatUpdated",
@@ -1303,7 +1303,7 @@
       {
         "name": "commandAppPolicePhoneSubtypeIsNotPublicContract",
         "framework": "JUnit 5",
-        "scenario": "COMMAND 계정 앱 단말 fixture는 public phone_type enum으로 고정하지 않고, phone_type 없이 사건 배정 계정이 운용 중인 policePhoneId만 경로 주체로 통과한다."
+        "scenario": "COMMAND 계정 앱 단말 fixture는 public phone_type enum으로 고정하지 않는다. 경로 주체는 사건에 배정된 accountId이며 policePhoneId는 APP 요청의 등록 단말 설정 확인에만 사용한다."
       },
       {
         "name": "commandFcmRecipientsExcludeCommanderPolicePhones",

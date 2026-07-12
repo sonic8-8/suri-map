@@ -14,7 +14,7 @@ import {
   resolveRouteColorByGeometry,
   type RouteAreaColorCandidate,
 } from '../../../../shared/model/routeAreaColorMatcher';
-import { isRecord, readPolicePhoneId, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
+import { isRecord, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
 import { type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import type { RecentMarker } from '../../../../shared/model/situationBoardViewModel';
 
@@ -66,10 +66,8 @@ export function createComparisonFeatureCollections(
   const paths = applyRouteColorsByAssignee(
     createBoardMovementPaths(board),
     routeColorsByAssignee.accountId,
-    routeColorsByAssignee.policePhoneId,
     {
       accountId: routeColorsByAssignee.accountOpId,
-      policePhoneId: routeColorsByAssignee.policePhoneOpId,
     },
   )
     .map((path) => ({
@@ -298,9 +296,7 @@ function createRouteColorsByAssignee(
   areaVisualStylesByAreaId: ReadonlyMap<string, AreaVisualStyle>,
 ) {
   const routeColorsByAccountId = new Map<string, string>();
-  const routeColorsByPolicePhoneId = new Map<string, string>();
   const routeColorsByAccountOpId = new Map<string, string>();
-  const routeColorsByPolicePhoneOpId = new Map<string, string>();
 
   areaRows.forEach((row) => {
     const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
@@ -311,23 +307,16 @@ function createRouteColorsByAssignee(
 
     assignedAccounts.filter(isRecord).forEach((account) => {
       const accountId = readAccountId(account);
-      const policePhoneId = readPolicePhoneId(account);
       if (accountId) {
         routeColorsByAccountId.set(accountId, routeColor);
         if (opId) routeColorsByAccountOpId.set(createRouteColorAssigneeKey(opId, accountId), routeColor);
-      }
-      if (policePhoneId) {
-        routeColorsByPolicePhoneId.set(policePhoneId, routeColor);
-        if (opId) routeColorsByPolicePhoneOpId.set(createRouteColorAssigneeKey(opId, policePhoneId), routeColor);
       }
     });
   });
 
   return {
     accountId: routeColorsByAccountId,
-    policePhoneId: routeColorsByPolicePhoneId,
     accountOpId: routeColorsByAccountOpId,
-    policePhoneOpId: routeColorsByPolicePhoneOpId,
   };
 }
 

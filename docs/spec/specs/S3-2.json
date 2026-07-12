@@ -139,12 +139,12 @@
     {
       "id": "FR-24",
       "summary": "단말 최신성을 표시한다.",
-      "handling": "S1-2 PolicePhoneFreshnessQuery의 lastHeartbeatAt/lastSyncAt 경과를 normal/stale/lost와 elapsed label로 인코딩한다."
+      "handling": "S1-2 PolicePhoneFreshnessQuery의 lastHeartbeatAt/lastSyncAt 경과를 normal/stale/lost와 elapsed label로 인코딩한다. 경로 위치 점에는 accountId가 같은 업무폰 중 lastHeartbeatAt이 가장 최근인 행의 최신성을 표시한다."
     },
     {
       "id": "FR-25",
-      "summary": "운용 중 PolicePhone 궤도를 강조한다.",
-      "handling": "현재 세션 policePhoneId와 선택 policePhoneId를 기준으로 path slot style을 강조한다."
+      "summary": "운용 중인 현재 사용자 궤도를 강조한다.",
+      "handling": "현재 세션 accountId를 기준으로 path slot style을 강조한다."
     },
     {
       "id": "FR-26",
@@ -159,7 +159,7 @@
     {
       "id": "FR-35",
       "summary": "순찰차 경로 레이어를 표시한다.",
-      "handling": "S3-1 path와 S1-2 PolicePhone type을 결합해 patrol car layer style을 분리한다."
+      "handling": "S3-1 path segment의 movementType을 기준으로 patrol car layer style을 분리한다."
     },
     {
       "id": "FR-37",
@@ -387,7 +387,7 @@
                         "sourceHash",
                         "latestEventId",
                         "opId",
-                        "policePhoneId",
+                        "accountId",
                         "geometry",
                         "geometryHash"
                       ],
@@ -424,7 +424,7 @@
                           "type": "string",
                           "format": "uuid"
                         },
-                        "policePhoneId": {
+                        "accountId": {
                           "type": "string",
                           "format": "uuid"
                         },
@@ -450,6 +450,7 @@
                         "sourceSpec",
                         "sourceHash",
                         "latestEventId",
+                        "accountId",
                         "policePhoneId",
                         "freshness",
                         "lastHeartbeatAt",
@@ -482,6 +483,10 @@
                           "type": "string"
                         },
                         "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "accountId": {
                           "type": "string",
                           "format": "uuid"
                         },
@@ -1424,7 +1429,7 @@
       {
         "type": "SEARCH_PATH_STARTED",
         "from_spec": "S3-1",
-        "handler": "운용 중 PolicePhone path 강조 기준을 갱신한다."
+        "handler": "운용 중인 현재 account path 강조 기준을 갱신한다."
       },
       {
         "type": "SEARCH_PATH_ENDED",
@@ -1761,7 +1766,7 @@
         "FR-25",
         "FR-35"
       ],
-      "given": "current PolicePhone, patrol car path, foot path, and marker fixtures exist",
+      "given": "current account, patrol car path, foot path, and marker fixtures exist",
       "when": "user toggles simple map mode and PolicePhone/path filters",
       "then": "display style changes only in board state and source rows, outbox rows, and SSE events are unchanged",
       "priority": "high"

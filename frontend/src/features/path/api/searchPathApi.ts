@@ -4,7 +4,7 @@ import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
 export interface SearchPathListQuery {
   incidentId: string;
   opId?: string;
-  policePhoneId?: string;
+  accountId?: string;
   includeGeometry?: boolean;
   geometryMode?: string;
   sinceVersion?: number;
@@ -21,7 +21,7 @@ export interface SearchPathItem {
   id: string;
   incidentId: string;
   opId: string;
-  policePhoneId: string;
+  accountId: string;
   status: string;
   version: number;
 }
@@ -36,7 +36,6 @@ export interface CorrectSearchPathSegmentResponse {
   movementType: string;
   movementTypeSource: string;
   opId: string;
-  policePhoneId: string;
   correctedByAccountId: string;
   correctedAt: string;
   version: number;
@@ -46,8 +45,7 @@ export interface StartSearchPathResponse {
   id: string;
   incidentId: string;
   opId: string;
-  policePhoneId: string;
-  accountId?: string;
+  accountId: string;
   version: number;
   status: string;
 }
@@ -56,8 +54,7 @@ export interface AppendSearchPathBatchResponse {
   id: string;
   dutyShiftId?: string | null;
   opId: string;
-  policePhoneId: string;
-  accountId?: string | null;
+  accountId: string;
   acceptedPointCount: number;
   excludedPointCount: number;
   version: number;
@@ -276,7 +273,7 @@ function toApiQuery(query: SearchPathListQuery): ApiQuery {
   return {
     incidentId: query.incidentId,
     opId: query.opId,
-    policePhoneId: query.policePhoneId,
+    accountId: query.accountId,
     includeGeometry: query.includeGeometry,
     geometryMode: query.geometryMode,
     sinceVersion: query.sinceVersion,

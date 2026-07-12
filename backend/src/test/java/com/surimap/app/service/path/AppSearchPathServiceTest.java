@@ -35,10 +35,9 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID OP_ID = UUID.fromString("65000000-0000-0000-0000-000000002621");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("60000000-0000-0000-0000-000000002621");
   private static final UUID ACCOUNT_ID = UUID.fromString("62000000-0000-0000-0000-000000002621");
-  private static final UUID POLICE_PHONE_ID = SearchPathFixtures.POLICE_PHONE_ID;
-  private static final UUID OTHER_POLICE_PHONE_ID =
-      UUID.fromString("50000000-0000-0000-0000-000000002622");
   private static final UUID PATH_ID = SearchPathFixtures.PATH_ID;
+  private static final UUID OTHER_PATH_ID =
+      UUID.fromString("71000000-0000-0000-0000-000000002622");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Autowired private AppSearchPathService appSearchPathService;
@@ -51,12 +50,11 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("수색 경로를 시작하면 계정의 근무교대에 연결해 저장한다")
   void startPersistsPathForAccountDutyShift() {
     SearchPathStartServiceResponse response =
-        appSearchPathService.start(startRequest("idem-path-start", POLICE_PHONE_ID));
+        appSearchPathService.start(startRequest("idem-path-start"));
 
     SearchPath found = searchPathMapper.findPathById(PATH_ID).orElseThrow();
     assertThat(response.getId()).isEqualTo(PATH_ID);
     assertThat(response.getAccountId()).isEqualTo(ACCOUNT_ID);
-    assertThat(response.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
     assertThat(found.getDutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
     assertThat(found.getStatus()).isEqualTo(SearchPathStatus.RECORDING);
   }
@@ -69,7 +67,6 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
             .searchPathId(PATH_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .startedAt(STARTED_AT)
             .idempotencyKey("idem-path-start-missing-account")
             .build();
@@ -86,7 +83,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("현재 수색 차수가 없으면 수색 경로 시작을 거부한다")
   void startRejectsMissingCurrentOperationalPeriod() {
     SearchPathStartServiceRequest request =
-        startRequest("idem-path-start-op-required", POLICE_PHONE_ID).toBuilder()
+        startRequest("idem-path-start-op-required").toBuilder()
             .incidentId(UUID.randomUUID())
             .build();
 
@@ -102,7 +99,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("요청한 수색 차수가 현재 수색 차수와 다르면 시작을 거부한다")
   void startRejectsOperationalPeriodMismatch() {
     SearchPathStartServiceRequest request =
-        startRequest("idem-path-start-op-mismatch", POLICE_PHONE_ID).toBuilder()
+        startRequest("idem-path-start-op-mismatch").toBuilder()
             .opId(BoundaryAreaFixtures.OP2_ID)
             .build();
 
@@ -115,51 +112,25 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @Sql(scripts = {"/sql/path/search-path-context.sql", "/sql/path/search-path-other-phone.sql"})
-  @DisplayName("사건에 배치된 계정은 다른 등록 업무폰으로도 경로를 시작할 수 있다")
-  void startAllowsAnotherRegisteredPhoneForAssignedAccount() {
-    SearchPathStartServiceResponse response =
-        appSearchPathService.start(
-            startRequest("idem-path-start-another-phone", OTHER_POLICE_PHONE_ID));
-
-    SearchPath found = searchPathMapper.findPathById(PATH_ID).orElseThrow();
-    assertThat(response.getAccountId()).isEqualTo(ACCOUNT_ID);
-    assertThat(response.getPolicePhoneId()).isEqualTo(OTHER_POLICE_PHONE_ID);
-    assertThat(found.getAccountId()).isEqualTo(ACCOUNT_ID);
-    assertThat(found.getPolicePhoneId()).isEqualTo(OTHER_POLICE_PHONE_ID);
-  }
-
-  @Test
-  @Sql(scripts = {"/sql/path/search-path-context.sql", "/sql/path/search-path-other-phone.sql"})
-  @DisplayName("일시정지와 재개 및 종료를 저장하고 요청 업무폰을 이력에 남긴다")
-  void updateStatusPersistsLifecycleAndActorPhone() {
-    appSearchPathService.start(startRequest("idem-path-start-lifecycle", POLICE_PHONE_ID));
+  @DisplayName("일시정지와 재개 및 종료를 생명주기 이력으로 저장한다")
+  void updateStatusPersistsLifecycleEvents() {
+    appSearchPathService.start(startRequest("idem-path-start-lifecycle"));
     AppSearchPathService restartedService = restartedService();
 
     restartedService.updateStatus(
         statusRequest(
-            SearchPathLifecycleAction.PAUSE,
-            OTHER_POLICE_PHONE_ID,
-            STARTED_AT.plusSeconds(30),
-            "idem-path-pause"));
+            SearchPathLifecycleAction.PAUSE, STARTED_AT.plusSeconds(30), "idem-path-pause"));
     restartedService.updateStatus(
         statusRequest(
-            SearchPathLifecycleAction.RESUME,
-            POLICE_PHONE_ID,
-            STARTED_AT.plusSeconds(60),
-            "idem-path-resume"));
+            SearchPathLifecycleAction.RESUME, STARTED_AT.plusSeconds(60), "idem-path-resume"));
     restartedService.updateStatus(
-        statusRequest(
-            SearchPathLifecycleAction.END,
-            POLICE_PHONE_ID,
-            STARTED_AT.plusSeconds(90),
-            "idem-path-end"));
+        statusRequest(SearchPathLifecycleAction.END, STARTED_AT.plusSeconds(90), "idem-path-end"));
 
     SearchPath found = searchPathMapper.findPathById(PATH_ID).orElseThrow();
     List<Map<String, Object>> lifecycleRows =
         jdbcTemplate.queryForList(
             """
-            SELECT event_type, actor_police_phone_id, version
+            SELECT event_type, version
             FROM search_path_lifecycle_event
             WHERE search_path_id = ?::uuid
             ORDER BY version
@@ -181,7 +152,6 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(lifecycleRows)
         .extracting(row -> row.get("event_type"))
         .containsExactly("STARTED", "PAUSED", "RESUMED", "ENDED");
-    assertThat(lifecycleRows.get(1).get("actor_police_phone_id")).isEqualTo(OTHER_POLICE_PHONE_ID);
     assertThat(stagedEventTypes)
         .containsExactly(
             "SEARCH_PATH_STARTED",
@@ -193,7 +163,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("같은 멱등성 요청을 다시 보내면 경로를 한 번만 저장한다")
   void startReplaysSameIdempotentRequest() {
-    SearchPathStartServiceRequest request = startRequest("idem-path-start-replay", POLICE_PHONE_ID);
+    SearchPathStartServiceRequest request = startRequest("idem-path-start-replay");
     SearchPathStartServiceResponse first = appSearchPathService.start(request);
 
     SearchPathStartServiceResponse replayed = restartedService().start(request);
@@ -206,9 +176,9 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("같은 멱등성 키로 다른 요청을 보내면 거부한다")
   void startRejectsSameIdempotencyKeyWithDifferentBody() {
-    appSearchPathService.start(startRequest("idem-path-start-mismatch", POLICE_PHONE_ID));
+    appSearchPathService.start(startRequest("idem-path-start-mismatch"));
     SearchPathStartServiceRequest changed =
-        startRequest("idem-path-start-mismatch", POLICE_PHONE_ID).toBuilder()
+        startRequest("idem-path-start-mismatch").toBuilder()
             .startedAt(STARTED_AT.plusSeconds(1))
             .build();
 
@@ -217,12 +187,27 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(rowCount("search_path")).isEqualTo(1);
   }
 
-  private SearchPathStartServiceRequest startRequest(String idempotencyKey, UUID policePhoneId) {
+  @Test
+  @DisplayName("같은 계정에 진행 중인 경로가 있으면 다른 경로 시작을 거부한다")
+  void startRejectsAnotherActivePathForSameAccount() {
+    appSearchPathService.start(startRequest("idem-path-start-first"));
+    SearchPathStartServiceRequest anotherPath =
+        startRequest("idem-path-start-another").toBuilder().searchPathId(OTHER_PATH_ID).build();
+
+    assertThatThrownBy(() -> appSearchPathService.start(anotherPath))
+        .isInstanceOf(SearchPathGuardException.class)
+        .satisfies(
+            exception ->
+                assertThat(((SearchPathGuardException) exception).errorCode())
+                    .isEqualTo("write_conflict"));
+    assertThat(rowCount("search_path")).isEqualTo(1);
+  }
+
+  private SearchPathStartServiceRequest startRequest(String idempotencyKey) {
     return SearchPathStartServiceRequest.builder()
         .searchPathId(PATH_ID)
         .incidentId(INCIDENT_ID)
         .opId(OP_ID)
-        .policePhoneId(policePhoneId)
         .accountId(ACCOUNT_ID)
         .startedAt(STARTED_AT)
         .clockOffsetMs(0)
@@ -231,13 +216,9 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private SearchPathStatusUpdateServiceRequest statusRequest(
-      SearchPathLifecycleAction action,
-      UUID policePhoneId,
-      Instant clientTs,
-      String idempotencyKey) {
+      SearchPathLifecycleAction action, Instant clientTs, String idempotencyKey) {
     return SearchPathStatusUpdateServiceRequest.builder()
         .searchPathId(PATH_ID)
-        .policePhoneId(policePhoneId)
         .accountId(ACCOUNT_ID)
         .action(action)
         .clientTs(clientTs)

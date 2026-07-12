@@ -92,7 +92,6 @@ data class PathPoint(
 data class SearchPathQuery(
     val incidentId: String,
     val opId: String? = null,
-    val policePhoneId: String? = null,
     val accountId: String? = null,
     val includeGeometry: Boolean? = null,
     val geometryMode: String? = null,
@@ -311,7 +310,6 @@ class SearchPathRepository(
         val queryPairs = listOfNotNull(
             "incidentId" to query.incidentId,
             query.opId?.let { "opId" to it },
-            query.policePhoneId?.let { "policePhoneId" to it },
             query.accountId?.let { "accountId" to it },
             query.includeGeometry?.let { "includeGeometry" to it.toString() },
             query.geometryMode?.let { "geometryMode" to it },

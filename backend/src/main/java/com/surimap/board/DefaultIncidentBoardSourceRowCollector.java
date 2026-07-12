@@ -715,7 +715,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     putUuid(payload, "opId", row.getOpId());
     putUuid(payload, "dutyShiftId", row.getDutyShiftId());
     putUuid(payload, "accountId", row.getAccountId());
-    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
     payload.put(
         "geometryHash", sourceHash("path", row.getId().toString(), row.getVersion(), status));
     payload.put("geometry", Map.of("type", "LineString", "coordinates", row.getGeometry()));

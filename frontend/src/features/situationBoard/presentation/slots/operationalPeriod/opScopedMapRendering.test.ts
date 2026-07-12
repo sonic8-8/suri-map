@@ -124,7 +124,6 @@ function createSearchAreaRow(overrides: Partial<BoardSearchAreaRow>): BoardSearc
 function createMovementPath(overrides: Partial<MovementPath>): MovementPath {
   return {
     id: 'path-op-7',
-    policePhoneId: 'phone-1',
     accountId: 'account-1',
     freshnessStatus: 'ONLINE',
     routeColor: null,

@@ -247,11 +247,11 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   1. 앱 흐름: 앱에서 `수색 시작`을 누르고 5초 주기 GPS 수집, 10초 배치 전송을 수행한다.
   2. 웹 흐름: 상황판에서 이미 저장된 경로의 차량·도보 구간을 확인하고 필요 시 수동 보정한다.
 - **then**:
-  1. 앱 흐름에서 `search_path`이 현재 OP와 로그인 계정 `accountId` 기준으로 생성되고, `policePhoneId`는 등록 단말 확인과 전송 컨텍스트로 함께 기록된다.
+  1. 앱 흐름에서 `search_path`이 현재 OP와 로그인 계정 `accountId` 기준으로 생성된다. `policePhoneId`는 APP 요청의 등록 단말 설정 확인과 S6 Outbox 전송 헤더에만 사용하며 경로에는 기록하지 않는다.
   2. 앱 흐름에서 경로 포인트가 `search_path`와 `search_path_segment`에 누적되고 GPS 속도 기반으로 차량·도보 구간이 자동 분리된다.
   3. 앱 흐름에서 `PATH_APPENDED` 발행 후 상황판이 경로와 단말 최신성을 갱신한다.
   4. 앱 흐름에서 현재 로그인 계정의 궤도는 앱·웹 모두에서 별도 스타일로 표시되고, 같은 사건/OP의 다른 계정 경로와 최신 위치도 함께 표시된다.
-  5. 앱 흐름에서 순찰차 폴리폰을 사용한 개인 계정 경로는 차량 구간 중심으로, 도보 수색 개인 계정 경로는 도보 구간 중심으로 OP1에 남는다.
+  5. 앱 흐름에서 차량으로 이동한 개인 계정 경로는 차량 구간 중심으로, 도보로 이동한 개인 계정 경로는 도보 구간 중심으로 OP1에 남는다.
   6. 앱 흐름에서 앱은 수색 경로의 시작·일시정지·재개·종료 상태와 현재 기록 중인 계정을 명확히 표시한다.
   7. 웹 흐름에서 현장 지휘관은 상황판에서 차량·도보 구간을 수동 보정할 수 있고, `SEARCH_PATH_SEGMENT_UPDATED` 발행 후 앱·웹의 구간 스타일이 갱신된다.
   8. 현재 OP에서 TEAM 수색구역을 배정받은 PolicePhone이 담당 구역 경계 밖 GPS fix를 수집하면, 앱은 서버 응답 전 짧은 로컬 진동과 경계 확인 안내를 표시하고 서버 반영 가능 시 `SEARCH_AREA_BOUNDARY_EXITED` 운영 참고 eventId와 FCM payload를 남긴다.
@@ -282,7 +282,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "현재 OP에서 담당 TEAM search_area가 배정된 앱이 구역 경계 밖 GPS fix를 받으면 서버 연결 없이도 짧은 진동과 중립적인 인앱 경계 확인 안내를 표시한다"
   - "구역 밖 GPS fix가 서버에 반영되면 `SEARCH_AREA_BOUNDARY_EXITED` eventId, incidentId, opId, searchAreaId, policePhoneId, status, version이 DB event, FCM payload, board refetch 신호에서 일치한다"
   - "담당 구역 경계 확인 안내는 같은 경계 밖 표시 상태에서 반복 발송되지 않고, 구역 재진입 후 다시 경계 밖으로 표시됐을 때 새 eventId로 기록된다"
-  - "순찰차 폴리폰을 사용한 개인 계정이 시작한 OP1 경로는 `movement_type=VEHICLE`과 PolicePhone 단말 컨텍스트 기준으로 차량 구간 스타일로 표시된다"
+  - "개인 계정이 차량으로 이동하며 기록한 OP1 경로는 GPS 속도로 분류된 `movement_type=VEHICLE`을 기준으로 차량 구간 스타일로 표시된다"
   - "도보 수색 개인 계정이 이어서 시작한 OP1 경로는 같은 사건·OP 아래 별도 accountId 경로로 저장된다"
   - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 channel_not_allowed`"
@@ -291,7 +291,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "상황판에서 차량·도보 구간 수동 보정 중에는 저장 CTA가 로딩·비활성 상태가 되고 실패 시 기존 구간 스타일을 유지한다"
   - "수색 경로 생성, 경로 배치 추가, 구간 수동 보정 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response path row가 같은 경로·구간 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `path` slot + `police_phone_freshness` slot
-- **notes**: 경로 기록 주체는 개인 `accountId`다. `policePhoneId`는 등록 단말 확인과 전송 컨텍스트로 남기고, 근무 교대는 OP와 duty_shift에 연결된 계정 흐름으로 구분한다.
+- **notes**: 경로 기록 주체는 개인 `accountId`다. `policePhoneId`는 등록 단말 설정 확인과 S6 Outbox 전송에만 사용하고, 근무 교대는 OP와 duty_shift에 연결된 계정 흐름으로 구분한다.
 
 ---
 
@@ -676,7 +676,7 @@ SC-11은 SC-10의 산출물인 OP 전환 판단, 인수인계 메모 저장, 지
 | 6개 Lane 하네스의 fixture 불일치 | 각자 PASS했지만 통합 SC가 실패 | seed account/policePhone/incident ID와 eventId/version/board response 기대값을 1주차 동결 후보로 고정 |
 | OP1 자동 생성 누락 | 대부분의 write API가 현재 OP를 찾지 못함 | SC-01 red test를 전 Lane 공통 선행 조건으로 둠 |
 | 지구대/파출소 초동 흐름 누락 | PRD v3 주요 사용자와 초동 대응 가치가 하네스에서 검증되지 않음 | SC-01/02/03/05/10/11에 초동 OP1 → 실종팀 인계 흐름 red test 포함 |
-| PolicePhone 기준 경로와 계정 권한 혼동 | 경로·마커 주체 불일치 | `accountId`, `policePhoneId`, `opId`를 모든 write payload에 명시 |
+| 업무폰과 계정 기준 혼동 | 경로 기록 주체 불일치 | 경로와 현재 사용자 판단은 `accountId`만 사용하고 업무폰은 등록 단말 설정 확인과 단말 전용 기능에만 사용 |
 | 오프라인 패키지 manifest 범위 과다 | 현장 다운로드 실패 | 전체 수색 구역과 담당 구역 기반으로 타일 목록을 제한 |
 | 수색 이력 요약이 자동 판단처럼 보임 | PRD 범위 이탈 | SC-11 red test에 "추천·누락 확정 문장 금지" 포함 |
 

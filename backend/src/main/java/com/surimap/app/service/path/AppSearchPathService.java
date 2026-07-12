@@ -73,7 +73,6 @@ public class AppSearchPathService {
             .id(request.getSearchPathId() == null ? UUID.randomUUID() : request.getSearchPathId())
             .incidentId(request.getIncidentId())
             .opId(request.getOpId())
-            .policePhoneId(request.getPolicePhoneId())
             .accountId(accountId)
             .startedAt(request.getStartedAt())
             .build();
@@ -121,7 +120,6 @@ public class AppSearchPathService {
             .id(current.getId())
             .incidentId(current.getIncidentId())
             .opId(current.getOpId())
-            .policePhoneId(request.getPolicePhoneId())
             .accountId(current.getAccountId())
             .status(nextStatus)
             .version(current.getVersion() + 1)
@@ -151,7 +149,9 @@ public class AppSearchPathService {
             .createdAt(path.getStartedAt())
             .updatedAt(path.getStartedAt())
             .build();
-    searchPathMapper.insertPath(persistedPath);
+    if (searchPathMapper.insertPath(persistedPath) == 0) {
+      throw new SearchPathGuardException("write_conflict");
+    }
     persistLifecycleEvent(path, "STARTED", path.getStartedAt(), Instant.now());
   }
 
@@ -172,7 +172,6 @@ public class AppSearchPathService {
             .eventType(eventType)
             .clientTs(safeClientTs)
             .serverReceivedAt(serverReceivedAt)
-            .actorPolicePhoneId(path.getPolicePhoneId())
             .version(path.getVersion())
             .createdAt(serverReceivedAt)
             .build());

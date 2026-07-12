@@ -287,7 +287,7 @@ class BoardDtoAssemblyModelRedTest {
     return switch (slot) {
       case "overall_search_area" -> new String[] {"geometry", "geometryHash"};
       case "area" -> new String[] {"opId", "geometry", "geometryHash"};
-      case "path" -> new String[] {"opId", "policePhoneId", "geometry", "geometryHash"};
+      case "path" -> new String[] {"opId", "accountId", "geometry", "geometryHash"};
       case "police_phone_freshness" ->
           new String[] {
             "policePhoneId", "freshness", "lastHeartbeatAt", "lastSyncAt", "elapsedSeconds"
@@ -609,7 +609,7 @@ class BoardDtoAssemblyModelRedTest {
       }
       case "path" -> {
         payload.put("opId", ACTIVE_OP_ID);
-        payload.put("policePhoneId", "dev-precinct-car-01");
+        payload.put("accountId", "acct-precinct-car");
         payload.put("geometryHash", "hash-geometry-" + sourceResponseId);
         payload.put("geometry", Map.of("type", "LineString"));
       }

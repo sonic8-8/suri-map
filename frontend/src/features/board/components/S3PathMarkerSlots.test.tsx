@@ -25,8 +25,8 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     expect(within(slot).getByText('hash-s3-path-mixed-current')).toBeInTheDocument();
     expect(within(slot).getByText('opId')).toBeInTheDocument();
     expect(within(slot).getByText(OP1_ID)).toBeInTheDocument();
-    expect(within(slot).getByText('policePhoneId')).toBeInTheDocument();
-    expect(within(slot).getByText(POLICE_PHONE_ID)).toBeInTheDocument();
+    expect(within(slot).getByText('accountId')).toBeInTheDocument();
+    expect(within(slot).getByText(ACCOUNT_ID)).toBeInTheDocument();
     expect(within(slot).getByText('LineString')).toBeInTheDocument();
     expect(within(slot).getByText('126.913000,35.162000')).toBeInTheDocument();
     expect(within(slot).getByText('126.915250,35.163120')).toBeInTheDocument();
@@ -91,7 +91,7 @@ function createPathRow(): PathSlotProps['rows'][number] {
     sourceId: PATH_MIXED_ID,
     incidentId: INCIDENT_ID,
     opId: OP1_ID,
-    policePhoneId: POLICE_PHONE_ID,
+    accountId: ACCOUNT_ID,
     status: 'ACTIVE',
     version: 2,
     sequence: 502,
@@ -177,7 +177,7 @@ function createMarkerRow(): MarkerSlotProps['rows'][number] {
 
 const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
 const OP1_ID = '88888888-8888-8888-8888-888888880001';
-const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
+const ACCOUNT_ID = '30000000-0000-0000-0000-000000000001';
 const PATH_MIXED_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const SEGMENT_VEHICLE_ID = '33333333-3333-3333-3333-333333330001';
 const SEGMENT_FOOT_ID = '33333333-3333-3333-3333-333333330002';

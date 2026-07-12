@@ -46,8 +46,8 @@ export function PathSlot({ rows, loadState = { kind: 'idle' } }: PathSlotProps) 
             <dd>{row.geometryHash}</dd>
             <dt>opId</dt>
             <dd>{row.opId}</dd>
-            <dt>policePhoneId</dt>
-            <dd>{row.policePhoneId}</dd>
+            <dt>accountId</dt>
+            <dd>{row.accountId}</dd>
             <dt>geometryType</dt>
             <dd>{row.geometry.type}</dd>
           </dl>

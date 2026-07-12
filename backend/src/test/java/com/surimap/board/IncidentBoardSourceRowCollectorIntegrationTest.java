@@ -462,7 +462,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     .incidentId(INCIDENT_ID)
                     .opId(OP_ID)
                     .dutyShiftId(DUTY_SHIFT_ID)
-                    .policePhoneId(PHONE_ID)
                     .accountId(ACCOUNT_ID)
                     .status(SearchPathStatus.RECORDING)
                     .startedAt(STARTED_AT)

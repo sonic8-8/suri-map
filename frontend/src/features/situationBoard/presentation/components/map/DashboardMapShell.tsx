@@ -257,7 +257,7 @@ function createLegendAvailabilityByClassName({
     'legend-swatch route-vehicle': movementPaths.some((path) => path.movementType === 'VEHICLE'),
     'legend-swatch route-walk': movementPaths.some((path) => path.movementType === 'FOOT'),
     'legend-swatch device-active': movementPaths.some(
-      (path) => path.policePhoneId && path.opId === activeOperationalPeriodId,
+      (path) => path.accountId && path.opId === activeOperationalPeriodId,
     ),
     'legend-swatch device-normal': movementPaths.some((path) => path.freshnessStatus === 'ONLINE'),
     'legend-swatch device-stale': movementPaths.some((path) => path.freshnessStatus === 'STALE'),

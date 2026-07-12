@@ -1,9 +1,8 @@
 import { describe, expect, test, vi } from 'vitest';
 import type maplibregl from 'maplibre-gl';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
-import type { MovementPath, SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
+import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
 import {
-  createPolicePhoneIdsByAccountId,
   canCorrectReferenceMarker,
   createManualSearchPathPoints,
   createReferenceMarkerCorrectionRequest,
@@ -92,68 +91,7 @@ describe('manual search path draft', () => {
       ),
     ).toBe('phone-child');
 
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [{ accountId: 'account-3', displayName: 'Team C' }],
-        }),
-        new Map([['account-3', 'phone-from-movement-path']]),
-      ),
-    ).toBe('phone-from-movement-path');
-
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [],
-          children: [
-            searchAreaNode({
-              id: 'child-2',
-              assignedAccounts: [{ accountId: 'account-4', displayName: 'Team D' }],
-            }),
-          ],
-        }),
-        new Map([['account-4', 'phone-from-child-movement-path']]),
-      ),
-    ).toBe('phone-from-child-movement-path');
-
     expect(resolveSearchAreaPolicePhoneId(searchAreaNode({ assignedAccounts: [] }))).toBeNull();
-  });
-
-  test('uses only active OP movement paths for PolicePhone ID fallback', () => {
-    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
-      [
-        movementPath({ accountId: 'account-1', opId: 'op-previous', policePhoneId: 'phone-previous' }),
-        movementPath({ accountId: 'account-1', opId: 'op-current', policePhoneId: 'phone-current' }),
-      ],
-      'op-current',
-    );
-
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A' }],
-        }),
-        policePhoneIdsByAccountId,
-      ),
-    ).toBe('phone-current');
-  });
-
-  test('prefers selected OP movement path PolicePhone ID over stale assigned account value', () => {
-    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
-      [movementPath({ accountId: 'account-1', opId: 'op-current', policePhoneId: 'phone-current' })],
-      'op-current',
-    );
-
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          opId: 'op-current',
-          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A', policePhoneId: 'phone-previous' }],
-        }),
-        policePhoneIdsByAccountId,
-        'op-current',
-      ),
-    ).toBe('phone-current');
   });
 
   test('does not infer PolicePhone ID from a child search area in another OP', () => {
@@ -170,24 +108,7 @@ describe('manual search path draft', () => {
             }),
           ],
         }),
-        new Map([['account-1', 'phone-current']]),
         'op-current',
-      ),
-    ).toBeNull();
-  });
-
-  test('does not infer PolicePhone ID from another OP movement path', () => {
-    const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(
-      [movementPath({ accountId: 'account-1', opId: 'op-previous', policePhoneId: 'phone-previous' })],
-      'op-current',
-    );
-
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A' }],
-        }),
-        policePhoneIdsByAccountId,
       ),
     ).toBeNull();
   });
@@ -274,26 +195,6 @@ function searchAreaNode(overrides: Partial<SearchAreaTreeNode> = {}): SearchArea
     status: 'ACTIVE',
     geometryState: 'saved',
     children: [],
-    ...overrides,
-  };
-}
-
-function movementPath(overrides: Partial<MovementPath> = {}): MovementPath {
-  return {
-    id: 'path-1',
-    policePhoneId: 'phone-1',
-    accountId: 'account-1',
-    freshnessStatus: 'ONLINE',
-    routeColor: null,
-    opId: 'op-current',
-    label: 'Team A',
-    movementType: 'FOOT',
-    coordinates: [
-      [126.9, 35.1],
-      [126.91, 35.11],
-    ],
-    startedAt: '2026-05-11T06:00:00.000Z',
-    endedAt: null,
     ...overrides,
   };
 }

@@ -127,7 +127,7 @@ describe('assignRouteColorsToMovementPaths', () => {
 
   test('keeps paths renderable for incident accounts that are not assigned to any area', () => {
     const paths = assignRouteColorsToMovementPaths(
-      [createMovementPath({ id: 'path-unassigned', accountId: UNASSIGNED_ACCOUNT_ID, policePhoneId: null })],
+      [createMovementPath({ id: 'path-unassigned', accountId: UNASSIGNED_ACCOUNT_ID })],
       {
         id: 'overall',
         kind: 'overall',
@@ -183,7 +183,6 @@ function createDraft(overrides: Partial<CompletedAreaDraft>): CompletedAreaDraft
 function createMovementPath(overrides: Partial<MovementPath>): MovementPath {
   return {
     id: 'path-a',
-    policePhoneId: POLICE_PHONE_ID,
     accountId: ACCOUNT_ID,
     freshnessStatus: 'UNKNOWN',
     routeColor: null,

@@ -46,7 +46,7 @@ const AREA_EDIT_MARKER_SYMBOL_LAYER_ID = 'area-edit-marker-symbol';
 
 export type AreaEditMovementPath = {
   id: string;
-  policePhoneId: string | null;
+  accountId: string;
   routeColor: string | null;
   opId: string;
   movementType: 'VEHICLE' | 'FOOT' | 'UNKNOWN';
@@ -268,7 +268,7 @@ function toMovementPathFeature(path: AreaEditMovementPath, activeOperationalPeri
     type: 'Feature',
     properties: {
       entityId: path.id,
-      policePhoneId: path.policePhoneId ?? '',
+      accountId: path.accountId,
       deviceColor: path.routeColor ?? '',
       routeCoreColor: getRouteCoreColor(path.routeColor),
       opId: path.opId,

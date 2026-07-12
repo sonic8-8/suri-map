@@ -29,12 +29,12 @@ public class SearchPathEventPublisher {
 
   public void publishLifecycle(SearchPath path, SearchPathEventType eventType) {
     validateLifecycle(path, eventType);
-    publishPathEvent(eventType.name(), path, path.getPolicePhoneId());
+    publishPathEvent(eventType.name(), path);
   }
 
-  public void publishPathAppended(SearchPath path, UUID policePhoneId) {
-    validatePath(path, policePhoneId);
-    publishPathEvent(PATH_APPENDED, path, policePhoneId);
+  public void publishPathAppended(SearchPath path) {
+    validatePath(path);
+    publishPathEvent(PATH_APPENDED, path);
   }
 
   public void publishSegmentUpdated(SearchPath path, SearchPathSegment segment) {
@@ -52,7 +52,7 @@ public class SearchPathEventPublisher {
             segmentPayload(path, segment, occurredAt)));
   }
 
-  private void publishPathEvent(String eventType, SearchPath path, UUID policePhoneId) {
+  private void publishPathEvent(String eventType, SearchPath path) {
     Instant occurredAt = Instant.now();
     eventHub.publish(
         new PublishRequest(
@@ -63,7 +63,7 @@ public class SearchPathEventPublisher {
             "search_path",
             path.getId(),
             occurredAt,
-            basePayload(path, policePhoneId, occurredAt)));
+            basePayload(path, occurredAt)));
   }
 
   private static void validateLifecycle(SearchPath path, SearchPathEventType eventType) {
@@ -74,22 +74,21 @@ public class SearchPathEventPublisher {
         || path.getOpId() == null) {
       throw new SearchPathGuardException("write_conflict");
     }
-    if (path.getPolicePhoneId() == null
-        || path.getAccountId() == null
+    if (path.getAccountId() == null
         || path.getStatus() == null
         || path.getVersion() <= 0) {
       throw new SearchPathGuardException("write_conflict");
     }
   }
 
-  private static void validatePath(SearchPath path, UUID policePhoneId) {
-    if (invalidPath(path, policePhoneId)) {
+  private static void validatePath(SearchPath path) {
+    if (invalidPath(path)) {
       throw new SearchPathApiException("write_conflict");
     }
   }
 
   private static void validateSegment(SearchPath path, SearchPathSegment segment) {
-    if (invalidPath(path, path == null ? null : path.getPolicePhoneId())
+    if (invalidPath(path)
         || segment == null
         || segment.getId() == null
         || segment.getMovementType() == null
@@ -98,14 +97,13 @@ public class SearchPathEventPublisher {
     }
   }
 
-  private static boolean invalidPath(SearchPath path, UUID policePhoneId) {
+  private static boolean invalidPath(SearchPath path) {
     return path == null
         || path.getId() == null
         || path.getIncidentId() == null
         || path.getStatus() == null
         || path.getVersion() <= 0
         || path.getOpId() == null
-        || policePhoneId == null
         || path.getAccountId() == null;
   }
 
@@ -116,7 +114,7 @@ public class SearchPathEventPublisher {
 
   private static Map<String, Object> segmentPayload(
       SearchPath path, SearchPathSegment segment, Instant occurredAt) {
-    Map<String, Object> payload = basePayload(path, path.getPolicePhoneId(), occurredAt);
+    Map<String, Object> payload = basePayload(path, occurredAt);
     payload.put("segmentId", segment.getId().toString());
     payload.put("movementType", segment.getMovementType().name());
     payload.put("movementTypeSource", segment.getMovementTypeSource().name());
@@ -124,12 +122,11 @@ public class SearchPathEventPublisher {
   }
 
   private static Map<String, Object> basePayload(
-      SearchPath path, UUID policePhoneId, Instant occurredAt) {
+      SearchPath path, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", path.getId().toString());
     payload.put("incidentId", path.getIncidentId().toString());
     payload.put("opId", path.getOpId().toString());
-    payload.put("policePhoneId", policePhoneId.toString());
     payload.put("accountId", path.getAccountId().toString());
     payload.put("status", path.getStatus().name());
     payload.put("version", path.getVersion());
@@ -137,5 +134,4 @@ public class SearchPathEventPublisher {
     payload.put("serverTs", occurredAt.toString());
     return payload;
   }
-
 }

@@ -15,7 +15,6 @@ public class SearchPathPointsAppendServiceRequest {
   private UUID pathId;
   private List<SearchPathPointServiceRequest> points;
   private Long clockOffsetMs;
-  private UUID policePhoneId;
   private UUID accountId;
   private String idempotencyKey;
 
@@ -26,7 +25,6 @@ public class SearchPathPointsAppendServiceRequest {
       UUID pathId,
       List<SearchPathPointServiceRequest> points,
       Long clockOffsetMs,
-      UUID policePhoneId,
       UUID accountId,
       String idempotencyKey) {
     this.incidentId = incidentId;
@@ -34,7 +32,6 @@ public class SearchPathPointsAppendServiceRequest {
     this.pathId = pathId;
     this.points = points;
     this.clockOffsetMs = clockOffsetMs;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.idempotencyKey = idempotencyKey;
   }

@@ -13,7 +13,6 @@ public class SearchPathStartServiceRequest {
   private UUID searchPathId;
   private UUID incidentId;
   private UUID opId;
-  private UUID policePhoneId;
   private UUID accountId;
   private Instant startedAt;
   private Integer clockOffsetMs;
@@ -24,7 +23,6 @@ public class SearchPathStartServiceRequest {
       UUID searchPathId,
       UUID incidentId,
       UUID opId,
-      UUID policePhoneId,
       UUID accountId,
       Instant startedAt,
       Integer clockOffsetMs,
@@ -32,7 +30,6 @@ public class SearchPathStartServiceRequest {
     this.searchPathId = searchPathId;
     this.incidentId = incidentId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.accountId = accountId;
     this.startedAt = startedAt;
     this.clockOffsetMs = clockOffsetMs;
