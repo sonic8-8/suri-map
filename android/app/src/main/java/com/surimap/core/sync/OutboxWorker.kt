@@ -21,8 +21,7 @@ import java.util.concurrent.TimeUnit
 data class OutboxReplayWorkRequest(
     val incidentId: String,
     val policePhoneId: String,
-    val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
-    val requireConnectedNetworkConstraint: Boolean = !BuildConfig.DEBUG
+    val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL
 ) {
     val uniqueWorkName: String = "outbox-replay-$incidentId-$policePhoneId"
 
@@ -37,13 +36,7 @@ data class OutboxReplayWorkRequest(
             )
             .setConstraints(
                 Constraints.Builder()
-                    .setRequiredNetworkType(
-                        if (requireConnectedNetworkConstraint) {
-                            NetworkType.CONNECTED
-                        } else {
-                            NetworkType.NOT_REQUIRED
-                        }
-                    )
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build()
             )
             .setBackoffCriteria(

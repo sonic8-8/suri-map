@@ -26,7 +26,9 @@ data class SuriMapApiResponse(
     val statusCode: Int,
     val body: String?,
     val errorCode: String?,
-    val retryAfterDelayMs: Long? = null
+    val retryAfterDelayMs: Long? = null,
+    val requestStartedAtMillis: Long? = null,
+    val responseReceivedAtMillis: Long? = null
 ) {
     val isSuccessful: Boolean = statusCode in 200..299
 }
@@ -45,18 +47,24 @@ object NoAccessTokenProvider : AccessTokenProvider {
 
 class SuriMapApiClient(
     private val baseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
-    private val callFactory: Call.Factory = OkHttpClient()
+    private val callFactory: Call.Factory = OkHttpClient(),
+    private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     suspend fun execute(request: SuriMapApiRequest): SuriMapApiResponse = withContext(Dispatchers.IO) {
         try {
-            val response = callFactory.newCall(toOkHttpRequest(request)).execute()
+            val call = callFactory.newCall(toOkHttpRequest(request))
+            val requestStartedAtMillis = nowMillis()
+            val response = call.execute()
+            val responseReceivedAtMillis = nowMillis()
             response.use {
                 val body = it.body.string()
                 SuriMapApiResponse(
                     statusCode = it.code,
                     body = body.ifBlank { null },
                     errorCode = parseErrorCode(body),
-                    retryAfterDelayMs = parseRetryAfterDelayMs(it.header("Retry-After"))
+                    retryAfterDelayMs = parseRetryAfterDelayMs(it.header("Retry-After")),
+                    requestStartedAtMillis = requestStartedAtMillis,
+                    responseReceivedAtMillis = responseReceivedAtMillis
                 )
             }
         } catch (exception: IOException) {

@@ -1,12 +1,15 @@
 package com.surimap.core.network
 
+import android.util.Log
+import com.surimap.BuildConfig
 import com.surimap.core.database.OutboxEntity
 import com.surimap.core.sync.OutboxSender
 import com.surimap.core.sync.SendResult
 
 class HttpOutboxSender(
     private val apiClient: SuriMapApiClient,
-    private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
+    private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider,
+    private val timingReporter: (OutboxEntity, SuriMapApiResponse) -> Unit = { _, _ -> }
 ) : OutboxSender {
     private var lastRetryableFailureErrorCode: String? = null
     private var lastRetryAfterDelayMs: Long? = null
@@ -31,6 +34,7 @@ class HttpOutboxSender(
             lastRetryableFailureErrorCode = "network_unavailable"
             return SendResult.RETRYABLE_FAILURE
         }
+        timingReporter(row, response)
 
         val errorCode = response.errorCode ?: "http_${response.statusCode}"
         return when {
@@ -78,12 +82,27 @@ class HttpOutboxSender(
 
 object AndroidNetworkFactory {
     fun createOutboxSender(
-        baseUrl: String = com.surimap.BuildConfig.SURI_MAP_API_BASE_URL,
+        baseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
         accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
     ): OutboxSender {
         return HttpOutboxSender(
             apiClient = SuriMapApiClient(baseUrl = baseUrl),
-            accessTokenProvider = accessTokenProvider
+            accessTokenProvider = accessTokenProvider,
+            timingReporter = { row, response ->
+                if (BuildConfig.DEBUG) {
+                    val durationMs = response.requestStartedAtMillis?.let { startedAt ->
+                        response.responseReceivedAtMillis?.minus(startedAt)
+                    }
+                    Log.d(
+                        OUTBOX_HTTP_TIMING_TAG,
+                        "outboxId=${row.outboxId} " +
+                            "path=${row.requestPath} " +
+                            "requestStartedAtMillis=${response.requestStartedAtMillis} " +
+                            "responseReceivedAtMillis=${response.responseReceivedAtMillis} " +
+                            "durationMs=$durationMs statusCode=${response.statusCode}"
+                    )
+                }
+            }
         )
     }
 
@@ -97,3 +116,5 @@ object AndroidNetworkFactory {
         )
     }
 }
+
+private const val OUTBOX_HTTP_TIMING_TAG = "SuriMapOutboxHttp"

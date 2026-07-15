@@ -51,6 +51,26 @@ class SuriMapApiClientTest {
     }
 
     @Test
+    fun executeRecordsHttpRequestStartAndResponseArrivalTimes() = runBlocking {
+        var now = 1_000L
+        val client = SuriMapApiClient(
+            baseUrl = "https://suri-map.example.com",
+            callFactory = CapturingCallFactory(
+                response = response(statusCode = 200, body = """{"ok":true}"""),
+                onExecute = { now = 1_450L }
+            ),
+            nowMillis = { now }
+        )
+
+        val result = client.execute(
+            SuriMapApiRequest(method = "POST", path = "/api/search-paths/batch", body = "{}")
+        )
+
+        assertEquals(1_000L, result.requestStartedAtMillis)
+        assertEquals(1_450L, result.responseReceivedAtMillis)
+    }
+
+    @Test
     fun executeParsesBackendErrorCode() = runBlocking {
         val client = SuriMapApiClient(
             baseUrl = "https://suri-map.example.com",
@@ -97,24 +117,27 @@ class SuriMapApiClientTest {
 
     private class CapturingCallFactory(
         private val response: Response? = null,
-        private val exception: IOException? = null
+        private val exception: IOException? = null,
+        private val onExecute: () -> Unit = {}
     ) : Call.Factory {
         var lastRequest: Request? = null
 
         override fun newCall(request: Request): Call {
             lastRequest = request
-            return CapturingCall(request, response, exception)
+            return CapturingCall(request, response, exception, onExecute)
         }
     }
 
     private class CapturingCall(
         private val request: Request,
         private val response: Response?,
-        private val exception: IOException?
+        private val exception: IOException?,
+        private val onExecute: () -> Unit
     ) : Call {
         override fun request(): Request = request
 
         override fun execute(): Response {
+            onExecute()
             exception?.let { throw it }
             return response!!.newBuilder().request(request).build()
         }
@@ -128,7 +151,7 @@ class SuriMapApiClientTest {
         override fun <T> tag(type: Class<out T>): T? = null
         override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
-        override fun clone(): Call = CapturingCall(request, response, exception)
+        override fun clone(): Call = CapturingCall(request, response, exception, onExecute)
     }
 
     private companion object {
