@@ -217,6 +217,7 @@ import com.surimap.feature.search.data.RoomSearchMapResponseCache
 import com.surimap.feature.search.data.SearchAreaBoundaryAlertLocalRecorder
 import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
+import com.surimap.feature.search.data.SearchPathLocationRecorder
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.data.SearchPathWriteResult
 import com.surimap.feature.search.data.SearchRecordingSessionState
@@ -259,10 +260,14 @@ import com.surimap.ui.theme.PoliPrimaryFillSoft
 import java.io.File
 import java.time.Instant
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -370,6 +375,67 @@ fun SuriMapApp() {
     var showIncidentExitConfirm by remember { mutableStateOf(false) }
     var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
     var searchMapStateByIncident by remember { mutableStateOf<Map<String, SearchMapUiState>>(emptyMap()) }
+    val searchRecordingContext =
+        incidentSessionState.incidentContext.toSearchMapSessionContext(incidentSessionState.policePhoneContext)
+    var recordingSession by rememberSaveable(
+        searchRecordingContext.incidentId,
+        searchRecordingContext.currentOpId,
+        searchRecordingContext.policePhoneId,
+        searchRecordingContext.accountId,
+        saver = SearchRecordingSessionStateSaver
+    ) {
+        mutableStateOf(SearchRecordingSessionState())
+    }
+    var latestRecordingLocationFix by remember(
+        searchRecordingContext.incidentId,
+        searchRecordingContext.accountId
+    ) {
+        mutableStateOf<GpsLocationFix?>(null)
+    }
+    val searchRecordingDatabase = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val searchRecordingReplayScheduler = remember(context) {
+        OutboxReplayScheduler(WorkManager.getInstance(context))
+    }
+    val searchRecordingApiBaseUrl =
+        incidentSessionState.policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val searchRecordingSyncClient =
+        remember(searchRecordingDatabase, searchRecordingReplayScheduler, searchRecordingApiBaseUrl) {
+            SchedulingSyncClient(
+                delegate =
+                RoomSyncClient(
+                    searchRecordingDatabase.outboxDao(),
+                    searchRecordingDatabase.localWriteDraftDao()
+                ),
+                scheduleReplay = searchRecordingReplayScheduler::schedule,
+                apiBaseUrl = searchRecordingApiBaseUrl
+            )
+        }
+    val searchPathRecorder = remember(searchRecordingSyncClient, clockSyncState) {
+        SearchPathLocalRecorder(
+            syncClient = searchRecordingSyncClient,
+            clockOffsetMs = clockSyncState::clockOffsetMs,
+            clockSyncedAt = clockSyncState::clockSyncedAt
+        )
+    }
+    val searchPathGpsBatchRecorder = remember(searchPathRecorder) {
+        SearchPathGpsBatchRecorder(searchPathRecorder)
+    }
+    val searchPathLocationUpdates = remember(context) { AndroidLocationUpdates(context) }
+    val searchPathLocationScope = rememberCoroutineScope()
+    val updateLatestRecordingLocation by rememberUpdatedState<(GpsLocationFix) -> Unit> { fix ->
+        latestRecordingLocationFix = fix
+    }
+    val searchPathLocationRecorder =
+        remember(searchPathLocationUpdates, searchPathGpsBatchRecorder, searchPathLocationScope) {
+            SearchPathLocationRecorder(
+                locationUpdates = searchPathLocationUpdates,
+                batchRecorder = searchPathGpsBatchRecorder,
+                coroutineScope = searchPathLocationScope,
+                onFix = { fix -> updateLatestRecordingLocation(fix) }
+            )
+        }
+    val activeRecordingSearchPathId = recordingSession.effectiveSearchPathId(serverActiveSearchPathId = null)
+    val shouldCollectRecordingGps = recordingSession.shouldCollectGps(serverActiveSearchPathId = null)
     val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
@@ -379,6 +445,29 @@ fun SuriMapApp() {
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
     val selectedBottomNavigationRoute = PolicePhoneBottomNavigation.selectedRouteFor(currentRoute)
+
+    LaunchedEffect(
+        searchPathLocationRecorder,
+        searchRecordingContext,
+        shouldCollectRecordingGps,
+        activeRecordingSearchPathId
+    ) {
+        if (!shouldCollectRecordingGps || activeRecordingSearchPathId == null) {
+            searchPathLocationRecorder.stop()
+            return@LaunchedEffect
+        }
+        try {
+            searchPathLocationRecorder.start(
+                context = searchRecordingContext.toSearchPathWriteContext(),
+                searchPathId = activeRecordingSearchPathId
+            )
+            awaitCancellation()
+        } finally {
+            withContext(NonCancellable) {
+                searchPathLocationRecorder.stop()
+            }
+        }
+    }
 
     LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
         sessionSnapshotStore.save(
@@ -528,6 +617,12 @@ fun SuriMapApp() {
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
                             mapViewHandle = searchMapViewHandle,
+                            recordingSession = recordingSession,
+                            onRecordingSessionChanged = { recordingSession = it },
+                            searchPathRecorder = searchPathRecorder,
+                            searchPathLocationRecorder = searchPathLocationRecorder,
+                            locationUpdates = searchPathLocationUpdates,
+                            recordingLocationFix = latestRecordingLocationFix,
                             cachedSearchMapState =
                             incidentSessionState.incidentContext
                                 ?.incidentId
@@ -1497,6 +1592,12 @@ private fun SearchMapRoute(
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
     mapViewHandle: MapLibreMapViewHandle? = null,
+    recordingSession: SearchRecordingSessionState,
+    onRecordingSessionChanged: (SearchRecordingSessionState) -> Unit,
+    searchPathRecorder: SearchPathLocalRecorder,
+    searchPathLocationRecorder: SearchPathLocationRecorder,
+    locationUpdates: AndroidLocationUpdates,
+    recordingLocationFix: GpsLocationFix?,
     cachedSearchMapState: SearchMapUiState? = null,
     restoredViewportBounds: SearchMapViewportBounds? = null,
     onSearchMapStateChanged: (String, SearchMapUiState) -> Unit = { _, _ -> },
@@ -1545,25 +1646,12 @@ private fun SearchMapRoute(
                 accessTokenPresent = !policePhoneContext?.accessToken.isNullOrBlank()
             )
         }
-    val searchPathRecorder = remember(syncClient, clockSyncState) {
-        SearchPathLocalRecorder(
-            syncClient = syncClient,
-            clockOffsetMs = clockSyncState::clockOffsetMs,
-            clockSyncedAt = clockSyncState::clockSyncedAt
-        )
-    }
-    val gpsBatchRecorder = remember(searchPathRecorder) {
-        SearchPathGpsBatchRecorder(searchPathRecorder)
-    }
     val boundaryAlertRecorder = remember(syncClient, clockSyncState) {
         SearchAreaBoundaryAlertLocalRecorder(
             syncClient = syncClient,
             clockOffsetMs = clockSyncState::clockOffsetMs,
             clockSyncedAt = clockSyncState::clockSyncedAt
         )
-    }
-    val locationUpdates = remember(context) {
-        AndroidLocationUpdates(context)
     }
     val markerRecorder = remember(syncClient, database, clockSyncState) {
         MarkerLocalRecorder(
@@ -1694,15 +1782,6 @@ private fun SearchMapRoute(
                 .withFocusedMarker(focusMarkerId ?: cachedSearchMapState?.focusedMarkerId)
         )
     }
-    var recordingSession by rememberSaveable(
-        sessionContext.incidentId,
-        sessionContext.currentOpId,
-        sessionContext.policePhoneId,
-        sessionContext.accountId,
-        saver = SearchRecordingSessionStateSaver
-    ) {
-        mutableStateOf(SearchRecordingSessionState())
-    }
     var elapsedTickerNowMs by remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
@@ -1729,8 +1808,8 @@ private fun SearchMapRoute(
         sessionContext.accountId
     ) { mutableStateOf(false) }
     val debugCurrentLocationFix = remember { debugCurrentLocationFix() }
-    var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix) }
-    var latestGpsLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
+    var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix ?: recordingLocationFix) }
+    var latestGpsLocationFix by remember { mutableStateOf(recordingLocationFix) }
     val boundaryMonitor = remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
@@ -1744,7 +1823,6 @@ private fun SearchMapRoute(
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCurrentLocationCenter by remember { mutableStateOf(false) }
-    val currentPendingCurrentLocationCenter by rememberUpdatedState(pendingCurrentLocationCenter)
     val localWarningMonitor = remember(
         sessionContext.incidentId,
         sessionContext.policePhoneId
@@ -2079,12 +2157,13 @@ private fun SearchMapRoute(
     LaunchedEffect(displayedLifecycle, activeSearchPathId, serverActiveSearchPathStartedAtMs) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
             val now = System.currentTimeMillis()
-            recordingSession =
+            onRecordingSessionChanged(
                 recordingSession.ensureActiveStarted(
                     searchPathId = activeSearchPathId,
                     nowMs = now,
                     serverStartedAtMs = serverActiveSearchPathStartedAtMs
                 )
+            )
             elapsedTickerNowMs = now
             while (true) {
                 delay(1_000L)
@@ -2093,72 +2172,46 @@ private fun SearchMapRoute(
         }
     }
 
-    DisposableEffect(
-        locationUpdates,
-        activeSearchPathId,
-        displayedLifecycle,
-        sessionContext
-    ) {
-        if (displayedLifecycle != SearchLifecycleStatus.Active || activeSearchPathId == null) {
-            onDispose {}
-        } else {
-            val handle =
-                locationUpdates.start { fix ->
-                    val displayedFix = debugCurrentLocationFix ?: fix
-                    latestGpsLocationFix = fix
-                    latestLocationFix = displayedFix
-                    if (currentPendingCurrentLocationCenter) {
-                        centerMapOnCurrentLocation(displayedFix)
-                    }
-                    when (
-                        val signal = boundaryMonitor.evaluate(
-                            boundaries = currentAssignedBoundaries,
-                            fix = SearchAreaBoundaryFix(lon = fix.lon, lat = fix.lat),
-                            nowMs = System.currentTimeMillis()
-                        )
-                    ) {
-                        is SearchAreaBoundarySignal.Exited -> {
-                            SearchAreaBoundaryAlertNotification.showLocalExit(
-                                context,
-                                signal.boundary.label,
-                                signal.boundary.searchAreaId
-                            )
-                            Toast.makeText(
-                                context,
-                                "GPS 기준 현재 위치가 ${signal.boundary.label} 경계 밖으로 표시됩니다.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            coroutineScope.launch {
-                                boundaryAlertRecorder.outsideAssignedArea(
-                                    context = sessionContext.toSearchPathWriteContext(),
-                                    boundary = signal.boundary,
-                                    searchPathId = activeSearchPathId,
-                                    fix = fix
-                                )
-                            }
-                        }
+    LaunchedEffect(recordingLocationFix, activeSearchPathId, displayedLifecycle, sessionContext) {
+        val fix = recordingLocationFix
+        if (fix == null || displayedLifecycle != SearchLifecycleStatus.Active || activeSearchPathId == null) {
+            return@LaunchedEffect
+        }
 
-                        is SearchAreaBoundarySignal.Reentered,
-                        null -> Unit
-                    }
-                    coroutineScope.launch {
-                        gpsBatchRecorder.recordFix(
-                            context = sessionContext.toSearchPathWriteContext(),
-                            searchPathId = activeSearchPathId,
-                            fix = fix
-                        )
-                    }
-                }
-            onDispose {
-                handle.stop()
-                coroutineScope.launch {
-                    gpsBatchRecorder.flush(
-                        context = sessionContext.toSearchPathWriteContext(),
-                        searchPathId = activeSearchPathId
-                    )
-                    gpsBatchRecorder.clear()
-                }
+        val displayedFix = debugCurrentLocationFix ?: fix
+        latestGpsLocationFix = fix
+        latestLocationFix = displayedFix
+        if (pendingCurrentLocationCenter) {
+            centerMapOnCurrentLocation(displayedFix)
+        }
+        when (
+            val signal = boundaryMonitor.evaluate(
+                boundaries = currentAssignedBoundaries,
+                fix = SearchAreaBoundaryFix(lon = fix.lon, lat = fix.lat),
+                nowMs = System.currentTimeMillis()
+            )
+        ) {
+            is SearchAreaBoundarySignal.Exited -> {
+                SearchAreaBoundaryAlertNotification.showLocalExit(
+                    context,
+                    signal.boundary.label,
+                    signal.boundary.searchAreaId
+                )
+                Toast.makeText(
+                    context,
+                    "GPS 기준 현재 위치가 ${signal.boundary.label} 경계 밖으로 표시됩니다.",
+                    Toast.LENGTH_LONG
+                ).show()
+                boundaryAlertRecorder.outsideAssignedArea(
+                    context = sessionContext.toSearchPathWriteContext(),
+                    boundary = signal.boundary,
+                    searchPathId = activeSearchPathId,
+                    fix = fix
+                )
             }
+
+            is SearchAreaBoundarySignal.Reentered,
+            null -> Unit
         }
     }
 
@@ -2189,25 +2242,29 @@ private fun SearchMapRoute(
                             clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                             val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
                             if (result is SearchPathWriteResult.Enqueued) {
-                                recordingSession = recordingSession.start(result.entityId, now)
+                                onRecordingSessionChanged(recordingSession.start(result.entityId, now))
                                 elapsedTickerNowMs = now
                             }
                         }
                         SearchLifecycleStatus.Active -> {
-                            gpsBatchRecorder.flush(
-                                context = sessionContext.toSearchPathWriteContext(),
-                                searchPathId = activeSearchPathId
-                            )
-                            gpsBatchRecorder.clear()
-                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+                            val writeContext = sessionContext.toSearchPathWriteContext()
                             val pauseResult =
-                                searchPathRecorder.pause(
-                                    context = sessionContext.toSearchPathWriteContext(),
-                                    searchPathId = activeSearchPathId
-                                )
+                                runCatching {
+                                    searchPathLocationRecorder.stop()
+                                    clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+                                    searchPathRecorder.pause(
+                                        context = writeContext,
+                                        searchPathId = activeSearchPathId
+                                    )
+                                }.getOrElse { error ->
+                                    if (error is CancellationException) throw error
+                                    null
+                                }
                             if (pauseResult is SearchPathWriteResult.Enqueued) {
-                                recordingSession = recordingSession.pause(now)
+                                onRecordingSessionChanged(recordingSession.pause(now))
                                 elapsedTickerNowMs = now
+                            } else {
+                                searchPathLocationRecorder.start(writeContext, activeSearchPathId)
                             }
                         }
                         SearchLifecycleStatus.Paused -> {
@@ -2218,7 +2275,7 @@ private fun SearchMapRoute(
                                     searchPathId = activeSearchPathId
                                 )
                             if (resumeResult is SearchPathWriteResult.Enqueued) {
-                                recordingSession = recordingSession.resume(now)
+                                onRecordingSessionChanged(recordingSession.resume(now))
                                 elapsedTickerNowMs = now
                             }
                         }
@@ -2233,21 +2290,25 @@ private fun SearchMapRoute(
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
                     val pathId = activeSearchPathId
-                    gpsBatchRecorder.flushAll(
-                        context = sessionContext.toSearchPathWriteContext(),
-                        searchPathId = pathId
-                    )
-                    gpsBatchRecorder.clear()
-                    clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+                    val writeContext = sessionContext.toSearchPathWriteContext()
                     val endResult =
-                        searchPathRecorder.end(
-                            context = sessionContext.toSearchPathWriteContext(),
-                            searchPathId = pathId
-                        )
-                    recordingSession = recordingSession.stop(now)
-                    elapsedTickerNowMs = now
+                        runCatching {
+                            searchPathLocationRecorder.stop()
+                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+                            searchPathRecorder.end(
+                                context = writeContext,
+                                searchPathId = pathId
+                            )
+                        }.getOrElse { error ->
+                            if (error is CancellationException) throw error
+                            null
+                        }
                     if (endResult is SearchPathWriteResult.Enqueued) {
+                        onRecordingSessionChanged(recordingSession.stop(now))
+                        elapsedTickerNowMs = now
                         onSearchPathEnded(true)
+                    } else {
+                        searchPathLocationRecorder.start(writeContext, pathId)
                     }
                 }
             },
