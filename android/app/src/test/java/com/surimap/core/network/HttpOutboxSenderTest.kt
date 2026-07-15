@@ -170,6 +170,34 @@ class HttpOutboxSenderTest {
         assertEquals("idem-outbox-001", request.header("Idempotency-Key"))
         assertEquals("https://suri-map.example.com/api/search-paths/batch", request.url.toString())
     }
+
+    @Test
+    fun sendReportsHttpTimingForOutboxRequest() = runBlocking {
+        var now = 1_000L
+        var reportedRow: OutboxEntity? = null
+        var reportedResponse: SuriMapApiResponse? = null
+        val sender = HttpOutboxSender(
+            apiClient = SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com",
+                callFactory = StaticCallFactory(
+                    response = response(201),
+                    onExecute = { now = 1_450L }
+                ),
+                nowMillis = { now }
+            ),
+            timingReporter = { row, response ->
+                reportedRow = row
+                reportedResponse = response
+            }
+        )
+
+        assertEquals(SendResult.ACKED, sender.send(outboxRow()))
+
+        assertEquals("outbox-001", reportedRow?.outboxId)
+        assertEquals(1_000L, reportedResponse?.requestStartedAtMillis)
+        assertEquals(1_450L, reportedResponse?.responseReceivedAtMillis)
+        assertEquals(201, reportedResponse?.statusCode)
+    }
 }
 
 private fun senderForStatus(statusCode: Int): HttpOutboxSender {
@@ -212,24 +240,27 @@ private fun outboxRow(): OutboxEntity {
 
 private class StaticCallFactory(
     private val response: Response? = null,
-    private val exception: java.io.IOException? = null
+    private val exception: java.io.IOException? = null,
+    private val onExecute: () -> Unit = {}
 ) : Call.Factory {
     var lastRequest: Request? = null
 
     override fun newCall(request: Request): Call {
         lastRequest = request
-        return StaticCall(request, response, exception)
+        return StaticCall(request, response, exception, onExecute)
     }
 }
 
 private class StaticCall(
     private val request: Request,
     private val response: Response?,
-    private val exception: java.io.IOException?
+    private val exception: java.io.IOException?,
+    private val onExecute: () -> Unit
 ) : Call {
     override fun request(): Request = request
 
     override fun execute(): Response {
+        onExecute()
         exception?.let { throw it }
         return response!!.newBuilder().request(request).build()
     }
@@ -243,7 +274,7 @@ private class StaticCall(
     override fun <T> tag(type: Class<out T>): T? = null
     override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
     override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
-    override fun clone(): Call = StaticCall(request, response, exception)
+    override fun clone(): Call = StaticCall(request, response, exception, onExecute)
 }
 
 private fun response(statusCode: Int, body: String = """{"status":"ok"}"""): Response {

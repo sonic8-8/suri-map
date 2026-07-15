@@ -67,6 +67,34 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun replayStoresAckTimeAfterSendFinishes() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("ack-time-001"),
+            idempotencyKey = "idem-ack-time-001",
+            bodyHash = "sha256:ack-time-001"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        var now = System.currentTimeMillis() + 1_000L
+        val sendFinishedAt = now + 500L
+        val replayWithClock = RoomOutboxReplay(
+            outboxDao = database.outboxDao(),
+            sender = OutboxSender {
+                now = sendFinishedAt
+                SendResult.ACKED
+            },
+            nowMillis = { now }
+        )
+
+        replayWithClock.flushPending(
+            policePhoneId = operation.policePhoneId,
+            incidentId = operation.incidentId
+        )
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(sendFinishedAt, row.serverAckTs)
+    }
+
+    @Test
     fun duplicateIdempotencyKeyWithSameBodyHashDoesNotCreateExtraRow() = runBlocking {
         val op = sampleOperation(idempotencyKey = "idem-dup-001", bodyHash = "sha256:same")
         syncClient.enqueue(op)
@@ -295,6 +323,29 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun offlineRowIsReplayedWhenClockIsSyncedAfterItWasRecorded() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("offline-clock-resynced-001"),
+            idempotencyKey = "idem-offline-clock-resynced-001",
+            bodyHash = "sha256:offline-clock-resynced"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        val clientRequestedAt = System.currentTimeMillis() - 600_000L
+        database.outboxDao().upsert(
+            database.outboxDao().findById(enqueue.outboxId)!!.copy(
+                clientRequestedAt = clientRequestedAt,
+                clockSyncedAt = clientRequestedAt + 600_000L
+            )
+        )
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.ACKED.name, row.idempotencyStatus)
+        assertEquals(1, sender.sendCountByKey(operation.idempotencyKey))
+    }
+
+    @Test
     fun rowCreatedWithStaleClockIsNotReplayedUntilResync() = runBlocking {
         val operation = sampleOperation(
             operationId = operationIdFixture("offline-clock-stale-001"),
@@ -454,7 +505,7 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
-    fun replayRequeuesAccessRepairRowsWhenAuthenticatedReplayIsAvailable() = runBlocking {
+    fun replayRequeuesAccessRepairRowsWhenAuthenticationAndClockAreRestored() = runBlocking {
         val retryableOp = sampleOperation(
             operationId = operationIdFixture("retryable-auth-repair-001"),
             idempotencyKey = "idem-retryable-auth-repair-001",
@@ -469,6 +520,13 @@ class RoomLocalSyncServicesTest {
         assertEquals(OutboxStatus.FAILED_RETRYABLE.name, blockedRow.idempotencyStatus)
         assertNull(blockedRow.nextAttemptAt)
         assertEquals("http_401", blockedRow.lastError)
+        val clockSyncedAt = System.currentTimeMillis()
+        database.outboxDao().upsert(
+            blockedRow.copy(
+                clientRequestedAt = clockSyncedAt - 600_000L,
+                clockSyncedAt = clockSyncedAt
+            )
+        )
 
         sender.decisionByKey.remove(retryableOp.idempotencyKey)
         sender.retryableFailureErrorByKey.remove(retryableOp.idempotencyKey)

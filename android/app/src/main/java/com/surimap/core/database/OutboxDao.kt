@@ -36,7 +36,7 @@ interface OutboxDao {
               incident_closed_at IS NULL
               AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
               AND clock_synced_at > 0
-              AND ABS(client_requested_at - clock_synced_at) <= :maxClockSyncAgeMs
+              AND client_requested_at - clock_synced_at <= :maxClockSyncAgeMs
             )
             OR (
               incident_closed_at IS NOT NULL
@@ -68,7 +68,7 @@ interface OutboxDao {
           AND last_error IN ('police_phone_required', 'http_401')
           AND incident_closed_at IS NULL
           AND clock_synced_at > 0
-          AND ABS(client_requested_at - clock_synced_at) <= :maxClockSyncAgeMs
+          AND client_requested_at - clock_synced_at <= :maxClockSyncAgeMs
         """
     )
     suspend fun requeueAccessRepairRequiredRows(

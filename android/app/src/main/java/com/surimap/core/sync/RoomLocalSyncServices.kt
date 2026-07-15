@@ -126,12 +126,13 @@ class RoomOutboxReplay(
     private val sender: OutboxSender,
     private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate(),
     private val accessRepairAvailable: () -> Boolean = { false },
-    private val enableRetryJitter: Boolean = false
+    private val enableRetryJitter: Boolean = false,
+    private val nowMillis: () -> Long = System::currentTimeMillis
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L
 
     override suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult {
-        val now = System.currentTimeMillis()
+        val now = nowMillis()
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
         outboxDao.requeueStaleSendingRows(
             incidentId = incidentId,
@@ -192,14 +193,14 @@ class RoomOutboxReplay(
                 }
 
                 IdempotencyReplayDecision.REPLAYED -> {
-                    persistAck(sending, now)
+                    persistAck(sending, nowMillis())
                     ackedCount += 1
                 }
 
                 IdempotencyReplayDecision.ACCEPTED -> {
                     when (sender.send(sending)) {
                         SendResult.ACKED -> {
-                            persistAck(sending, now)
+                            persistAck(sending, nowMillis())
                             ackedCount += 1
                         }
 
