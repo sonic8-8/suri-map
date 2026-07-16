@@ -79,6 +79,20 @@ val debugCurrentLocationBearingDegrees = providers
     .gradleProperty("suriMapDebugCurrentLocationBearingDegrees")
     .orElse("")
     .get()
+val debugLocationSampleIntervalMs = providers
+    .gradleProperty("suriMapDebugLocationSampleIntervalMs")
+    .orElse("5000")
+    .get()
+    .toLong()
+    .also { require(it > 0L) { "suriMapDebugLocationSampleIntervalMs must be greater than 0" } }
+val debugApplicationIdSuffix = providers
+    .gradleProperty("suriMapDebugApplicationIdSuffix")
+    .orElse("")
+    .get()
+val debugAppName = providers
+    .gradleProperty("suriMapDebugAppName")
+    .orElse("Suri-Map")
+    .get()
 val hasGoogleServicesJson = layout.projectDirectory.file("google-services.json").asFile.exists()
 
 if (hasGoogleServicesJson) {
@@ -125,10 +139,16 @@ android {
         buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LON", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LAT", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_BEARING_DEGREES", "\"\"")
+        buildConfigField("long", "SURI_MAP_LOCATION_SAMPLE_INTERVAL_MS", "5000L")
     }
 
     buildTypes {
         debug {
+            if (debugApplicationIdSuffix.isNotBlank()) {
+                applicationIdSuffix = debugApplicationIdSuffix
+            }
+            versionNameSuffix = "-gps-${debugLocationSampleIntervalMs}ms"
+            resValue("string", "app_name", debugAppName)
             buildConfigField("String", "SURI_MAP_API_BASE_URL", debugApiBaseUrl.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_KEYCLOAK_ISSUER_URL", keycloakIssuerUrl.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_KEYCLOAK_CLIENT_ID", keycloakClientId.quotedBuildConfig())
@@ -144,6 +164,7 @@ android {
             buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LON", debugCurrentLocationLon.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LAT", debugCurrentLocationLat.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_BEARING_DEGREES", debugCurrentLocationBearingDegrees.quotedBuildConfig())
+            buildConfigField("long", "SURI_MAP_LOCATION_SAMPLE_INTERVAL_MS", "${debugLocationSampleIntervalMs}L")
         }
         release {
             isMinifyEnabled = false

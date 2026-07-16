@@ -420,7 +420,12 @@ fun SuriMapApp() {
     val searchPathGpsBatchRecorder = remember(searchPathRecorder) {
         SearchPathGpsBatchRecorder(searchPathRecorder)
     }
-    val searchPathLocationUpdates = remember(context) { AndroidLocationUpdates(context) }
+    val searchPathLocationUpdates = remember(context) {
+        AndroidLocationUpdates(
+            context = context,
+            sampleIntervalMs = BuildConfig.SURI_MAP_LOCATION_SAMPLE_INTERVAL_MS
+        )
+    }
     val searchPathLocationScope = rememberCoroutineScope()
     val updateLatestRecordingLocation by rememberUpdatedState<(GpsLocationFix) -> Unit> { fix ->
         latestRecordingLocationFix = fix
