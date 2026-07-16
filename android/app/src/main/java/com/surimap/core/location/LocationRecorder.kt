@@ -37,6 +37,7 @@ fun interface LocationUpdates {
 
 class AndroidLocationUpdates(
     private val context: Context,
+    private val sampleIntervalMs: Long = DEFAULT_LOCATION_SAMPLE_INTERVAL_MS,
     private val now: () -> Instant = { Instant.now() }
 ) : LocationUpdates {
     fun lastKnownFix(): GpsLocationFix? {
@@ -74,7 +75,7 @@ class AndroidLocationUpdates(
             try {
                 locationManager.requestLocationUpdates(
                     provider,
-                    LOCATION_SAMPLE_INTERVAL_MS,
+                    sampleIntervalMs,
                     0f,
                     listener,
                     Looper.getMainLooper()
@@ -102,7 +103,7 @@ class AndroidLocationUpdates(
             .filter { provider -> runCatching { locationManager.isProviderEnabled(provider) }.getOrDefault(false) }
 
     private companion object {
-        const val LOCATION_SAMPLE_INTERVAL_MS = 5_000L
+        const val DEFAULT_LOCATION_SAMPLE_INTERVAL_MS = 5_000L
     }
 }
 

@@ -19,6 +19,24 @@ import org.robolectric.annotation.Config
 class AndroidLocationUpdatesTest {
 
     @Test
+    fun startUsesRequestedSampleInterval() {
+        val context = RuntimeEnvironment.getApplication()
+        shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val shadowLocationManager = shadowOf(locationManager)
+        shadowLocationManager.setLocationEnabled(true)
+        shadowLocationManager.setProviderEnabled(LocationManager.GPS_PROVIDER, true)
+
+        val handle = AndroidLocationUpdates(context, sampleIntervalMs = 2_500L).start { }
+
+        val request = shadowLocationManager
+            .getLegacyLocationRequests(LocationManager.GPS_PROVIDER)
+            .single()
+        assertEquals(2_500L, request.intervalMillis)
+        handle.stop()
+    }
+
+    @Test
     fun startCollectsNetworkFixWhenGpsIsEnabledButHasNoFix() {
         val context = RuntimeEnvironment.getApplication()
         shadowOf(context).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
