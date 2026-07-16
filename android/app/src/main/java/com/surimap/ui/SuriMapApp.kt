@@ -148,6 +148,7 @@ import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkAuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.OidcLoginSession
+import com.surimap.feature.bootstrap.data.refreshOidcSessionBeforeBootstrap
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
@@ -571,6 +572,7 @@ fun SuriMapApp() {
                             incidentSessionState = incidentSessionState,
                             navController = navController,
                             assignmentRefreshNonce = assignmentRefreshNonce,
+                            initialOidcSession = persistedOidcSession,
                             onOidcSessionChanged = { oidcSession ->
                                 if (oidcSession == null) {
                                     oidcSessionStateStore.clear()
@@ -2992,6 +2994,7 @@ private fun AuthBootstrapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
     assignmentRefreshNonce: Int,
+    initialOidcSession: OidcLoginSession?,
     onOidcSessionChanged: (OidcLoginSession?) -> Unit
 ) {
     val context = LocalContext.current
@@ -2999,7 +3002,7 @@ private fun AuthBootstrapRoute(
     val managedConfigurationReader = remember(appContext) {
         AndroidManagedConfigurationReader(context = appContext)
     }
-    var oidcSession by remember { mutableStateOf<OidcLoginSession?>(null) }
+    var oidcSession by remember(initialOidcSession) { mutableStateOf(initialOidcSession) }
     var retryNonce by remember { mutableStateOf(0) }
     val oidcLoginClient = remember(appContext) { AndroidOidcLoginClient(appContext) }
     val coroutineScope = rememberCoroutineScope()
@@ -3037,23 +3040,6 @@ private fun AuthBootstrapRoute(
     DisposableEffect(oidcLoginClient) {
         onDispose { oidcLoginClient.dispose() }
     }
-    val bootstrapCoordinator = remember(managedConfigurationReader, oidcSession?.accessToken) {
-        AuthBootstrapCoordinator(
-            managedConfigurationReader = managedConfigurationReader,
-            environmentCheck =
-            AuthBootstrapEnvironmentCheck { config ->
-                NetworkAuthBootstrapEnvironmentCheck(apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl))
-                    .verify(config)
-            },
-            serverCheck =
-            AuthBootstrapServerCheck { config ->
-                NetworkPolicePhoneBootstrapServerCheck(
-                    apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl),
-                    accessTokenProvider = { oidcSession?.accessToken }
-                ).verify(config)
-            }
-        )
-    }
     var state by remember {
         mutableStateOf(AuthBootstrapUiState.checking(apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL))
     }
@@ -3062,12 +3048,38 @@ private fun AuthBootstrapRoute(
     LaunchedEffect(retryNonce, assignmentRefreshNonce) {
         refreshing = true
         try {
-            val config = bootstrapCoordinator.readConfig()
+            val config = managedConfigurationReader.read()
+            val restoredSession = oidcSession
+            val sessionForBootstrap =
+                refreshOidcSessionBeforeBootstrap(restoredSession, oidcLoginClient::refresh)
+            if (restoredSession != null) {
+                oidcSession = sessionForBootstrap
+                onOidcSessionChanged(sessionForBootstrap)
+            }
+            val bootstrapCoordinator =
+                AuthBootstrapCoordinator(
+                    managedConfigurationReader = managedConfigurationReader,
+                    environmentCheck =
+                        AuthBootstrapEnvironmentCheck { checkedConfig ->
+                            NetworkAuthBootstrapEnvironmentCheck(
+                                apiClient = SuriMapApiClient(baseUrl = checkedConfig.apiBaseUrl)
+                            ).verify(checkedConfig)
+                        },
+                    serverCheck =
+                        AuthBootstrapServerCheck { checkedConfig ->
+                            NetworkPolicePhoneBootstrapServerCheck(
+                                apiClient = SuriMapApiClient(baseUrl = checkedConfig.apiBaseUrl),
+                                accessTokenProvider = { sessionForBootstrap?.accessToken }
+                            ).verify(checkedConfig)
+                        }
+                )
             state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
             val outcome = bootstrapCoordinator.check(config)
             state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
             if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-                incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome, oidcSession))
+                incidentSessionState.activatePolicePhoneContext(
+                    config.toPolicePhoneContext(outcome, sessionForBootstrap)
+                )
                 navController.navigate(PolicePhoneRoute.IncidentList.route) {
                     popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                         inclusive = true
@@ -3086,7 +3098,7 @@ private fun AuthBootstrapRoute(
             if (state.requiresAuthentication) {
                 oidcLoginLauncher.launch(
                     oidcLoginClient.createAuthorizationIntent(
-                        apiBaseUrl = bootstrapCoordinator.readConfig().apiBaseUrl,
+                        apiBaseUrl = managedConfigurationReader.read().apiBaseUrl,
                         toolbarColor = PoliPrimary.toArgb(),
                         navigationBarColor = PoliBgBase.toArgb()
                     )
@@ -3102,7 +3114,7 @@ private fun AuthBootstrapRoute(
             onOidcSessionChanged(null)
             oidcEndSessionLauncher.launch(
                 oidcLoginClient.createEndSessionIntent(
-                    apiBaseUrl = bootstrapCoordinator.readConfig().apiBaseUrl,
+                    apiBaseUrl = managedConfigurationReader.read().apiBaseUrl,
                     idTokenHint = previousIdToken,
                     toolbarColor = PoliPrimary.toArgb(),
                     navigationBarColor = PoliBgBase.toArgb()

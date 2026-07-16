@@ -20,7 +20,7 @@ val debugApiBaseUrl = providers
     .get()
 val keycloakIssuerUrl = providers
     .gradleProperty("suriMapKeycloakIssuerUrl")
-    .orElse("https://k14c106.p.ssafy.io/keycloak/realms/suri-map")
+    .orElse("")
     .get()
 val keycloakClientId = providers
     .gradleProperty("suriMapKeycloakClientId")
