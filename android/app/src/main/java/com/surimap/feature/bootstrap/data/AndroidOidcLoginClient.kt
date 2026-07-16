@@ -24,6 +24,11 @@ data class OidcLoginSession(
     val authStateJson: String
 )
 
+internal suspend fun refreshOidcSessionBeforeBootstrap(
+    session: OidcLoginSession?,
+    refresh: suspend (String) -> OidcLoginSession?
+): OidcLoginSession? = session?.let { refresh(it.authStateJson) }
+
 class AndroidOidcLoginClient(
     context: Context
 ) {

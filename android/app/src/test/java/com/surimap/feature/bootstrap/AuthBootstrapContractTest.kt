@@ -10,6 +10,9 @@ import com.surimap.feature.bootstrap.data.DebugManagedConfigurationOverrideProvi
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkAuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.OidcLoginSession
+import com.surimap.feature.bootstrap.data.keycloakIssuerUrl
+import com.surimap.feature.bootstrap.data.refreshOidcSessionBeforeBootstrap
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
@@ -136,6 +139,41 @@ class AuthBootstrapContractTest {
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD"))
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE"))
         assertFalse(oidcClient.contains("WebView"))
+    }
+
+    @Test
+    fun keycloakIssuerUsesCurrentApiHostWhenBuildOverrideIsMissing() {
+        assertEquals(
+            "https://suri-map.sonic8-8.com/keycloak/realms/suri-map",
+            keycloakIssuerUrl("https://suri-map.sonic8-8.com")
+        )
+    }
+
+    @Test
+    fun restoredOidcSessionIsRefreshedBeforeBootstrap() = runBlocking {
+        val restoredSession =
+            OidcLoginSession(
+                accessToken = "expired-access-token",
+                idToken = "id-token",
+                accessTokenExpiresAtEpochMs = 0L,
+                authStateJson = "stored-auth-state"
+            )
+        val freshSession =
+            restoredSession.copy(
+                accessToken = "fresh-access-token",
+                accessTokenExpiresAtEpochMs = Long.MAX_VALUE,
+                authStateJson = "refreshed-auth-state"
+            )
+        var refreshedAuthState: String? = null
+
+        val result =
+            refreshOidcSessionBeforeBootstrap(restoredSession) { authStateJson ->
+                refreshedAuthState = authStateJson
+                freshSession
+            }
+
+        assertEquals("stored-auth-state", refreshedAuthState)
+        assertEquals(freshSession, result)
     }
 
     @Test
