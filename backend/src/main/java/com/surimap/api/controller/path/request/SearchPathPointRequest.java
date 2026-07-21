@@ -17,6 +17,8 @@ public class SearchPathPointRequest {
   private BigDecimal speedMps;
   private Integer horizontalAccuracyM;
   private OffsetDateTime clientTs;
+  private String locationProvider;
+  private Long elapsedRealtimeNanos;
 
   @Builder
   private SearchPathPointRequest(
@@ -25,13 +27,17 @@ public class SearchPathPointRequest {
       BigDecimal lat,
       BigDecimal speedMps,
       Integer horizontalAccuracyM,
-      OffsetDateTime clientTs) {
+      OffsetDateTime clientTs,
+      String locationProvider,
+      Long elapsedRealtimeNanos) {
     this.pointId = pointId;
     this.lon = lon;
     this.lat = lat;
     this.speedMps = speedMps;
     this.horizontalAccuracyM = horizontalAccuracyM;
     this.clientTs = clientTs;
+    this.locationProvider = locationProvider;
+    this.elapsedRealtimeNanos = elapsedRealtimeNanos;
   }
 
   SearchPathPointServiceRequest toServiceRequest() {
@@ -42,6 +48,8 @@ public class SearchPathPointRequest {
         .speedMps(speedMps)
         .horizontalAccuracyM(horizontalAccuracyM)
         .clientTs(clientTs)
+        .locationProvider(locationProvider)
+        .elapsedRealtimeNanos(elapsedRealtimeNanos)
         .build();
   }
 }

@@ -46,12 +46,41 @@ class GpsPointValidatorTest {
   }
 
   @Test
-  void timestamp역전이면_invalid_geometry다() {
-    var fixture = GpsPointValidationFixtures.NON_MONOTONIC_CLIENT_TS;
+  void clientTs가_뒤로_가도_배치전체를_거부하지_않는다() {
+    var fixture = GpsPointValidationFixtures.CLIENT_TS_REVERSAL_POINTS;
+    var points =
+        List.of(
+            pointWithCaptureMetadata(fixture.get(0), "gps", 10_000_000_000L),
+            pointWithCaptureMetadata(fixture.get(1), "network", 15_000_000_000L));
 
-    assertThatThrownBy(() -> validator.validate(toPoints(fixture.points()), now()))
-        .isInstanceOf(InvalidGpsPathBatchException.class)
-        .hasMessageContaining("clientTs strict monotonic");
+    var result =
+        validator.validate(points, OffsetDateTime.parse("2026-04-28T09:07:10+09:00"));
+
+    assertThat(result.getAcceptedPoints())
+        .extracting(GpsPoint::getPointId)
+        .containsExactly("gps-ts-001", "gps-ts-002");
+    assertThat(result.getExcludedPoints()).isEmpty();
+  }
+
+  @Test
+  void elapsedRealtime이_앞선_좌표보다_작으면_해당_좌표만_제외한다() {
+    var fixture = GpsPointValidationFixtures.CLIENT_TS_REVERSAL_POINTS;
+    var points =
+        List.of(
+            pointWithCaptureMetadata(fixture.get(0), "gps", 15_000_000_000L),
+            pointWithCaptureMetadata(fixture.get(1), "network", 10_000_000_000L));
+
+    var result =
+        validator.validate(points, OffsetDateTime.parse("2026-04-28T09:07:10+09:00"));
+
+    assertThat(result.getAcceptedPoints())
+        .extracting(GpsPoint::getPointId)
+        .containsExactly("gps-ts-001");
+    assertThat(result.getExcludedPoints())
+        .singleElement()
+        .satisfies(
+            excluded ->
+                assertThat(excluded.getReason()).isEqualTo(GpsPointExclusionReason.OUT_OF_ORDER));
   }
 
   @Test
@@ -233,6 +262,22 @@ class GpsPointValidatorTest {
                     .horizontalAccuracyM(point.horizontalAccuracyM())
                     .build())
         .toList();
+  }
+
+  private static GpsPoint pointWithCaptureMetadata(
+      GpsPointValidationFixtures.GpsPointFixture point,
+      String locationProvider,
+      long elapsedRealtimeNanos) {
+    return GpsPoint.builder()
+        .pointId(point.pointId())
+        .clientTs(point.clientTs())
+        .lon(point.lon())
+        .lat(point.lat())
+        .speedMps(point.speedMps())
+        .horizontalAccuracyM(point.horizontalAccuracyM())
+        .locationProvider(locationProvider)
+        .elapsedRealtimeNanos(elapsedRealtimeNanos)
+        .build();
   }
 
   private static OffsetDateTime now() {

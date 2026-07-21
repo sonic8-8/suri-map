@@ -218,6 +218,20 @@ erDiagram
         BIGINT version
     }
 
+    search_path_gps_point {
+        UUID search_path_id PK, FK
+        INTEGER point_order PK
+        VARCHAR point_id
+        TIMESTAMPTZ client_ts
+        NUMERIC lon
+        NUMERIC lat
+        NUMERIC speed_mps
+        INTEGER horizontal_accuracy_m
+        VARCHAR location_provider
+        BIGINT elapsed_realtime_nanos
+        TIMESTAMPTZ created_at
+    }
+
     search_path_segment {
         UUID id PK
         UUID search_path_id FK
@@ -239,6 +253,12 @@ erDiagram
         VARCHAR point_id
         VARCHAR reason
         TIMESTAMPTZ client_ts
+        NUMERIC lon
+        NUMERIC lat
+        NUMERIC speed_mps
+        INTEGER horizontal_accuracy_m
+        VARCHAR location_provider
+        BIGINT elapsed_realtime_nanos
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }

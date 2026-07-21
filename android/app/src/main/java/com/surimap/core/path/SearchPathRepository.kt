@@ -90,7 +90,9 @@ data class PathPoint(
     val lat: Double,
     val speedMps: Double? = null,
     val horizontalAccuracyM: Int? = null,
-    val clientTs: Instant
+    val clientTs: Instant,
+    val locationProvider: String? = null,
+    val elapsedRealtimeNanos: Long? = null
 )
 
 data class SearchPathQuery(
@@ -304,7 +306,9 @@ class SearchPathRepository(
             "lat" to jsonCoordinate(point.lat),
             "speedMps" to point.speedMps?.let(::jsonNumber),
             "horizontalAccuracyM" to point.horizontalAccuracyM?.let(::jsonNumber),
-            "clientTs" to jsonInstant(point.clientTs)
+            "clientTs" to jsonInstant(point.clientTs),
+            "locationProvider" to point.locationProvider?.let(::jsonString),
+            "elapsedRealtimeNanos" to point.elapsedRealtimeNanos?.let(::jsonNumber)
         )
     }
 

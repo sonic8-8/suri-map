@@ -443,11 +443,13 @@ Android Room 로컬 엔티티
 - `lon`, `lat`: 앱이 측정한 경도와 위도
 - `speed_mps`: 앱이 측정한 초당 이동 속도
 - `horizontal_accuracy_m`: 앱이 전달한 GPS 오차 범위
+- `location_provider`: 좌표를 만든 Android 위치 제공자
+- `elapsed_realtime_nanos`: 기기가 켜진 뒤 좌표가 만들어질 때까지 흐른 시간. 같은 앱 실행 중 좌표 순서를 확인하는 데 사용
 - `created_at`: 서버가 측정값을 저장한 시각
 
 **설명**
 
-`search_path_gps_point`는 GPS 품질 검사를 통과한 원본 측정값을 수집 순서대로 저장한다. `search_path.geometry`는 지도에 경로 선을 그리는 데 사용하고, 이 테이블은 DB를 다시 읽은 뒤에도 좌표 식별자, 수집 시각, 속도, 정확도를 실제 값 그대로 돌려주는 데 사용한다.
+`search_path_gps_point`는 GPS 품질 검사를 통과한 원본 측정값을 수집 순서대로 저장한다. `client_ts`는 앱이 기록한 실제 시각이며, 좌표 순서는 `elapsed_realtime_nanos`로 확인한다. `search_path.geometry`는 지도에 경로 선을 그리는 데 사용하고, 이 테이블은 DB를 다시 읽은 뒤에도 좌표 식별자, 수집 시각, 속도, 정확도를 실제 값 그대로 돌려주는 데 사용한다.
 
 이 테이블을 만들기 전에 저장된 경로는 기존 `search_path.geometry`와 `search_path_segment`의 좌표·시각만 사용한다. DB에 남아 있지 않은 좌표 식별자, 수집 시각, 속도, 정확도는 임의로 만들지 않는다. 기존 경로의 좌표를 덮어쓰지 않도록 GPS 원본 측정값이 없는 기록 중 경로에는 새 좌표를 추가하지 않는다.
 
@@ -527,14 +529,19 @@ Android Room 로컬 엔티티
 - `id`: 제외 point evidence 식별자. 내부 참조와 FK는 UUID를 사용한다.
 - `search_path_id`: 제외 point가 속한 수색 경로
 - `point_id`: 앱 batch 요청의 point 식별자. 사람이 입력하는 값은 아니지만 DB 내부 PK/FK가 아니므로 문자열로 저장한다.
-- `reason`: 제외 사유. API 응답에서 사용하는 `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump` 값이다.
+- `reason`: 제외 사유. API 응답에서 사용하는 `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`, `out_of_order` 값이다.
 - `client_ts`: 앱이 수집한 point 시각
+- `lon`, `lat`: 앱이 보낸 경도와 위도
+- `speed_mps`: 앱이 보낸 초당 이동 속도
+- `horizontal_accuracy_m`: 앱이 보낸 GPS 오차 범위
+- `location_provider`: 좌표를 만든 Android 위치 제공자
+- `elapsed_realtime_nanos`: 기기가 켜진 뒤 좌표가 만들어질 때까지 흐른 시간
 - `created_at`: 생성 시각
 - `updated_at`: 수정 시각
 
 **설명**
 
-`search_path_excluded_point`는 품질 저하로 서버 canonical LineString과 `search_path_segment.geometry`에 들어가지 않은 GPS point evidence다. 지도에서 수색 완료 경로로 그리지는 않지만, 앱·상황판·인수인계가 저품질/제외 상태를 표시할 수 있게 `PathQuery`의 `excludedPoints` source가 된다.
+`search_path_excluded_point`는 품질 저하나 확인할 수 없는 수집 순서 때문에 서버 canonical LineString과 `search_path_segment.geometry`에 들어가지 않은 GPS point evidence다. 제외한 좌표도 원본 측정값과 사유를 함께 저장한다. 지도에서 수색 완료 경로로 그리지는 않지만, 앱·상황판·인수인계가 저품질/제외 상태를 표시할 수 있게 `PathQuery`의 `excludedPoints` source가 된다.
 
 ### 마커와 사진
 

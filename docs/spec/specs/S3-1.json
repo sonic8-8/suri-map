@@ -229,6 +229,16 @@
             "nullable": true
           },
           {
+            "name": "location_provider",
+            "type": "VARCHAR(32)",
+            "nullable": true
+          },
+          {
+            "name": "elapsed_realtime_nanos",
+            "type": "BIGINT",
+            "nullable": true
+          },
+          {
             "name": "created_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
@@ -339,12 +349,42 @@
             "name": "reason",
             "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "low_accuracy|clock_skew|invalid_speed|distance_jump"
+            "note": "low_accuracy|clock_skew|invalid_speed|distance_jump|out_of_order"
           },
           {
             "name": "client_ts",
             "type": "TIMESTAMPTZ",
             "nullable": false
+          },
+          {
+            "name": "lon",
+            "type": "NUMERIC",
+            "nullable": true
+          },
+          {
+            "name": "lat",
+            "type": "NUMERIC",
+            "nullable": true
+          },
+          {
+            "name": "speed_mps",
+            "type": "NUMERIC",
+            "nullable": true
+          },
+          {
+            "name": "horizontal_accuracy_m",
+            "type": "INTEGER",
+            "nullable": true
+          },
+          {
+            "name": "location_provider",
+            "type": "VARCHAR(32)",
+            "nullable": true
+          },
+          {
+            "name": "elapsed_realtime_nanos",
+            "type": "BIGINT",
+            "nullable": true
           },
           {
             "name": "created_at",
@@ -404,7 +444,8 @@
       "V20260428_432__create_search_path.sql",
       "V20260428_433__create_search_path_segment.sql",
       "V20260513_003__create_search_path_excluded_point.sql",
-      "V20260713_001__create_search_path_gps_point.sql"
+      "V20260713_001__create_search_path_gps_point.sql",
+      "V20260721_001__preserve_search_path_capture_order.sql"
     ]
   },
   "api_contracts": {
@@ -717,6 +758,14 @@
                   "clientTs": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "locationProvider": {
+                    "type": "string",
+                    "description": "Android location provider; gps or network"
+                  },
+                  "elapsedRealtimeNanos": {
+                    "type": "integer",
+                    "description": "elapsed realtime when Android created the location"
                   }
                 }
               }
@@ -728,12 +777,13 @@
         },
         "validation_rules": [
           "points는 2..120개여야 하며 pointId는 batch 안에서 중복될 수 없다.",
-          "clientTs는 수집 순서대로 strict monotonic increase여야 한다.",
+          "clientTs는 원본 수집 시각으로 보존하며 값이 뒤로 갔다는 이유만으로 batch 전체를 거부하지 않는다.",
+          "elapsedRealtimeNanos가 있으면 이 값으로 수집 순서를 확인한다. 앞선 accepted point보다 작거나 같은 point만 out_of_order로 제외한다.",
           "좌표는 LineString EPSG:4326 [lon, lat]이며 lon=-180..180, lat=-90..90, canonical precision은 소수 6자리다.",
           "연속 중복점은 canonicalization 단계에서 제거하되 제거 후 accepted point가 2개 미만이면 batch 전체를 거부한다.",
           "좌표 bbox는 하네스 envelope와 active SearchAreaQuery.overallOf(incidentId) 안에 있어야 한다.",
           "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m인 point는 low-quality로 분류해 서버 path geometry에서 제외하고 response/event/query excludedPoints에 노출한다.",
-          "좌표 누락/null/NaN, CRS 불일치, LineString type 불일치, point count/order/monotonic clientTs/maxItems/minItems 위반은 structural geometry failure로 batch 전체를 invalid_geometry로 거부한다."
+          "좌표 누락/null/NaN, CRS 불일치, LineString type 불일치, pointId 중복, maxItems/minItems 위반은 structural geometry failure로 batch 전체를 invalid_geometry로 거부한다."
         ],
         "response_schema": {
           "200": {
@@ -775,7 +825,8 @@
                         "low_accuracy",
                         "clock_skew",
                         "invalid_speed",
-                        "distance_jump"
+                        "distance_jump",
+                        "out_of_order"
                       ]
                     }
                   }
@@ -1840,7 +1891,7 @@
     "Web이 movement type 외 geometry나 path 상태를 patch하려는 경우"
   ],
   "error_handling": {
-    "invalid_geometry": "Path batch geometry, point count/order, coordinate range, CRS, precision, maxItems/minItems, monotonic clientTs, and overall_search_area containment failures use catalog error invalid_geometry.",
+    "invalid_geometry": "Path batch geometry, point count, duplicate pointId, coordinate range, CRS, precision, maxItems/minItems, and overall_search_area containment failures use catalog error invalid_geometry.",
     "low_quality_point": "품질 저하 point는 서버 path geometry에 승격하지 않고 excludedPoints로 응답·이벤트·PathQuery에 반영한다. 좌표 null/NaN 등 structural failure는 batch 전체 invalid_geometry다.",
     "pending_api_assembly": "S3-1 write는 성공했지만 board API version가 REST 응답보다 낮으면 path slot은 STALE_REFETCH 또는 stale 상태를 표시하고 수렴 후 해제한다.",
     "op_mismatch": "앱은 현재 OP 재조회가 필요하다는 로컬 경고를 표시하고 해당 writeOperation은 자동 재전송하지 않는다.",
@@ -1956,6 +2007,7 @@
         "timestampSkewSec > 30",
         "speedMps < 0 or > 45",
         "distance > 200m between 5-second samples",
+        "elapsedRealtimeNanos is not greater than the previous accepted point",
         "lon/lat missing, null, or NaN"
       ],
       "expected": "non-structural quality failures appear in excludedPoints and are not drawn as path; structural coordinate failures reject the batch with invalid_geometry"
@@ -1985,7 +2037,7 @@
       {
         "name": "PathBatchValidationHarnessFixtureTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "points minItems=2, maxItems=120, clientTs strict monotonic, EPSG:4326 lon/lat, precision 6 decimals, envelope/overall_search_area containment, 연속 중복점 제거를 검증하고 실패 시 신규 public code 없이 invalid_geometry로 응답한다."
+        "scenario": "points minItems=2, maxItems=120, pointId 중복, EPSG:4326 lon/lat, precision 6 decimals, envelope/overall_search_area containment, 연속 중복점 제거를 검증하고 구조 오류는 신규 public code 없이 invalid_geometry로 응답한다. clientTs 역전은 batch 전체를 거부하지 않고 elapsedRealtimeNanos 순서를 확인한다."
       },
       {
         "name": "PathBatchMax120UsesInvalidGeometryTest",
@@ -1995,7 +2047,7 @@
       {
         "name": "GpsQualityDegradedExcludedPointTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m fixture point는 path/segment geometry에 들어가지 않고 excludedPoints response/event/query에 남는다."
+        "scenario": "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m, elapsedRealtimeNanos 순서 역전 fixture point는 path/segment geometry에 들어가지 않고 excludedPoints response/event/query에 남는다."
       },
       {
         "name": "PauseResumeCreatesNoBridgePartTest",
@@ -2089,7 +2141,7 @@
       {
         "name": "GpsBatchEnqueueUsesCurrentPolicePhoneTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "GPS batch writeOperation은 current accountId를 path subject로 하고 current policePhoneId를 단말 컨텍스트로 포함하며 pointId/clientTs/lon/lat/speedMps/horizontalAccuracyM shape를 S6 SyncClient에 전달한다."
+        "scenario": "GPS batch writeOperation은 current accountId를 path subject로 하고 current policePhoneId를 단말 컨텍스트로 포함하며 pointId/clientTs/lon/lat/speedMps/horizontalAccuracyM/locationProvider/elapsedRealtimeNanos shape를 S6 SyncClient에 전달한다."
       },
       {
         "name": "ForegroundLocationQualityPropsTest",

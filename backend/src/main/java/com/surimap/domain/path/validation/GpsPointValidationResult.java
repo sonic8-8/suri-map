@@ -39,6 +39,7 @@ public class GpsPointValidationResult {
     LOW_ACCURACY,
     CLOCK_SKEW,
     INVALID_SPEED,
-    DISTANCE_JUMP
+    DISTANCE_JUMP,
+    OUT_OF_ORDER
   }
 }

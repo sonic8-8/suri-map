@@ -382,13 +382,25 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
             """
             SELECT point_id,
                    reason,
-                   client_ts
+                   client_ts,
+                   lon,
+                   lat,
+                   speed_mps,
+                   horizontal_accuracy_m,
+                   location_provider,
+                   elapsed_realtime_nanos
             FROM search_path_excluded_point
             WHERE search_path_id = ?::uuid
             """,
             PATH_ID.toString());
     assertThat(excludedRow.get("point_id")).isEqualTo("gps-precinct-low-accuracy");
     assertThat(excludedRow.get("reason")).isEqualTo("low_accuracy");
+    assertThat(excludedRow.get("lon").toString()).isEqualTo("126.913050");
+    assertThat(excludedRow.get("lat").toString()).isEqualTo("35.162020");
+    assertThat(excludedRow.get("speed_mps").toString()).isEqualTo("1.3");
+    assertThat(excludedRow.get("horizontal_accuracy_m")).isEqualTo(80);
+    assertThat(excludedRow.get("location_provider")).isEqualTo("network");
+    assertThat(excludedRow.get("elapsed_realtime_nanos")).isEqualTo(20_000_000_000L);
 
     SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
 
@@ -400,7 +412,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
               assertThat(point.getPointId()).isEqualTo("gps-precinct-low-accuracy");
               assertThat(point.getReason()).isEqualTo("low_accuracy");
               assertThat(point.getClientTs())
-                  .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:05+09:00"));
+                  .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:04+09:00"));
             });
   }
 
@@ -420,6 +432,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(reloaded.getLat()).isEqualByComparingTo(original.getLat());
     assertThat(reloaded.getSpeedMps()).isEqualByComparingTo(original.getSpeedMps());
     assertThat(reloaded.getHorizontalAccuracyM()).isEqualTo(original.getHorizontalAccuracyM());
+    assertThat(reloaded.getLocationProvider()).isEqualTo(original.getLocationProvider());
+    assertThat(reloaded.getElapsedRealtimeNanos()).isEqualTo(original.getElapsedRealtimeNanos());
   }
 
   @Test
@@ -598,7 +612,15 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     return pointsAppendRequest(
         idempotencyKey,
         List.of(
-            point("gps-precinct-001", "126.913000", "35.162000", 13.5, "2026-04-28T09:00:00+09:00"),
+            point(
+                "gps-precinct-001",
+                "126.913000",
+                "35.162000",
+                13.5,
+                "2026-04-28T09:00:00+09:00",
+                5,
+                "gps",
+                10_000_000_000L),
             point("gps-precinct-002", "126.913650", "35.162180", 12.8, "2026-04-28T09:00:05+09:00"),
             point("gps-precinct-003", "126.914300", "35.162360", 11.9, "2026-04-28T09:00:10+09:00"),
             point("gps-precinct-004", "126.914850", "35.162540", 9.8, "2026-04-28T09:00:15+09:00"),
@@ -660,18 +682,23 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
                 1.4,
                 "2026-04-28T09:00:00+09:00"),
             point(
-                "gps-precinct-low-accuracy",
-                "126.913050",
-                "35.162020",
-                1.3,
-                "2026-04-28T09:00:05+09:00",
-                80),
-            point(
                 "gps-precinct-good-002",
                 "126.913100",
                 "35.162040",
                 1.2,
-                "2026-04-28T09:00:10+09:00")));
+                "2026-04-28T09:00:05+09:00",
+                5,
+                "gps",
+                15_000_000_000L),
+            point(
+                "gps-precinct-low-accuracy",
+                "126.913050",
+                "35.162020",
+                1.3,
+                "2026-04-28T09:00:04+09:00",
+                80,
+                "network",
+                20_000_000_000L)));
   }
 
   private SearchPathPointsAppendServiceRequest pointsAppendRequest(
@@ -694,6 +721,18 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
 
   private SearchPathPointServiceRequest point(
       String pointId, String lon, String lat, double speed, String clientTs, int accuracyM) {
+    return point(pointId, lon, lat, speed, clientTs, accuracyM, null, null);
+  }
+
+  private SearchPathPointServiceRequest point(
+      String pointId,
+      String lon,
+      String lat,
+      double speed,
+      String clientTs,
+      int accuracyM,
+      String locationProvider,
+      Long elapsedRealtimeNanos) {
     return SearchPathPointServiceRequest.builder()
         .pointId(pointId)
         .lon(new BigDecimal(lon))
@@ -701,6 +740,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         .speedMps(BigDecimal.valueOf(speed))
         .horizontalAccuracyM(accuracyM)
         .clientTs(OffsetDateTime.parse(clientTs))
+        .locationProvider(locationProvider)
+        .elapsedRealtimeNanos(elapsedRealtimeNanos)
         .build();
   }
 }

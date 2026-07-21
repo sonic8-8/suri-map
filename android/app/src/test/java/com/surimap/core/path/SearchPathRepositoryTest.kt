@@ -168,7 +168,9 @@ class SearchPathRepositoryTest {
                         lat = 37.579123,
                         speedMps = 1.4,
                         horizontalAccuracyM = 5,
-                        clientTs = Instant.parse("2026-05-11T06:00:00Z")
+                        clientTs = Instant.parse("2026-05-11T06:00:00Z"),
+                        locationProvider = "gps",
+                        elapsedRealtimeNanos = 12_000_000_000L
                     ),
                     PathPoint(
                         pointId = "pt-002",
@@ -176,7 +178,9 @@ class SearchPathRepositoryTest {
                         lat = 37.579223,
                         speedMps = 1.5,
                         horizontalAccuracyM = 6,
-                        clientTs = Instant.parse("2026-05-11T06:00:05Z")
+                        clientTs = Instant.parse("2026-05-11T06:00:05Z"),
+                        locationProvider = "network",
+                        elapsedRealtimeNanos = 17_000_000_000L
                     )
                 ),
                 clockOffsetMs = 120,
@@ -189,7 +193,7 @@ class SearchPathRepositoryTest {
         assertEquals("/api/search-paths/batch", operation.endpoint)
         assertEquals(PATH_ID, operation.entityId)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","pathId":"$PATH_ID","points":[{"pointId":"pt-001","lon":126.969123,"lat":37.579123,"speedMps":1.4,"horizontalAccuracyM":5,"clientTs":"2026-05-11T06:00:00Z"},{"pointId":"pt-002","lon":126.969223,"lat":37.579223,"speedMps":1.5,"horizontalAccuracyM":6,"clientTs":"2026-05-11T06:00:05Z"}],"clockOffsetMs":120}""",
+            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","pathId":"$PATH_ID","points":[{"pointId":"pt-001","lon":126.969123,"lat":37.579123,"speedMps":1.4,"horizontalAccuracyM":5,"clientTs":"2026-05-11T06:00:00Z","locationProvider":"gps","elapsedRealtimeNanos":12000000000},{"pointId":"pt-002","lon":126.969223,"lat":37.579223,"speedMps":1.5,"horizontalAccuracyM":6,"clientTs":"2026-05-11T06:00:05Z","locationProvider":"network","elapsedRealtimeNanos":17000000000}],"clockOffsetMs":120}""",
             operation.payload
         )
     }

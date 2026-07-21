@@ -98,8 +98,8 @@ class SearchPathControllerTest {
                       "opId":"70000000-0000-0000-0000-000000000001",
                       "pathId":"81000000-0000-0000-0000-000000000001",
                       "points":[
-                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"},
-                        {"pointId":"p2","lon":126.914000,"lat":35.163000,"speedMps":3.1,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:05+09:00"}
+                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00","locationProvider":"gps","elapsedRealtimeNanos":12000000000},
+                        {"pointId":"p2","lon":126.914000,"lat":35.163000,"speedMps":3.1,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:05+09:00","locationProvider":"network","elapsedRealtimeNanos":17000000000}
                       ]
                     }
                     """))
@@ -124,7 +124,10 @@ class SearchPathControllerTest {
                         && opId.equals(request.getOpId())
                         && accountId.equals(request.getAccountId())
                         && "idem-path-batch-contract".equals(request.getIdempotencyKey())
-                        && request.getPoints().size() == 2));
+                        && request.getPoints().size() == 2
+                        && "gps".equals(request.getPoints().get(0).getLocationProvider())
+                        && Long.valueOf(12_000_000_000L)
+                            .equals(request.getPoints().get(0).getElapsedRealtimeNanos())));
   }
 
   @Test

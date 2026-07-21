@@ -17,6 +17,8 @@ public class GpsPoint {
   private BigDecimal lat;
   private BigDecimal speedMps;
   private Integer horizontalAccuracyM;
+  private String locationProvider;
+  private Long elapsedRealtimeNanos;
 
   @Builder
   private GpsPoint(
@@ -25,12 +27,16 @@ public class GpsPoint {
       BigDecimal lon,
       BigDecimal lat,
       BigDecimal speedMps,
-      Integer horizontalAccuracyM) {
+      Integer horizontalAccuracyM,
+      String locationProvider,
+      Long elapsedRealtimeNanos) {
     this.pointId = pointId;
     this.clientTs = clientTs;
     this.lon = lon;
     this.lat = lat;
     this.speedMps = speedMps;
     this.horizontalAccuracyM = horizontalAccuracyM;
+    this.locationProvider = locationProvider;
+    this.elapsedRealtimeNanos = elapsedRealtimeNanos;
   }
 }

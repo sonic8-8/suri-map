@@ -34,11 +34,13 @@ class SearchPathGpsBatchRecorder(
                 pointId = pointIdFactory(),
                 lon = fix.lon,
                 lat = fix.lat,
-                speedMps = fix.speedMps ?: estimatedSpeedMps(pending.lastOrNull(), fix),
+                speedMps = fix.speedMps,
                 horizontalAccuracyM = fix.horizontalAccuracyM,
-                clientTs = fix.capturedAt
+                clientTs = fix.capturedAt,
+                locationProvider = fix.locationProvider,
+                elapsedRealtimeNanos = fix.elapsedRealtimeNanos
             )
-        if (!shouldFlush(fix)) {
+        if (!shouldFlush()) {
             return null
         }
         return flush(context, pathId)
@@ -55,7 +57,8 @@ class SearchPathGpsBatchRecorder(
         if (pending.size < MIN_BATCH_POINTS) {
             return null
         }
-        val batch = pending.take(MAX_BATCH_POINTS)
+        sortPendingByCaptureOrder()
+        val batch = withEstimatedSpeeds(pending.take(MAX_BATCH_POINTS))
         val result = localRecorder.appendBatch(context, pathId, batch)
         if (result is SearchPathWriteResult.Enqueued) {
             pending.subList(0, batch.size).clear()
@@ -88,16 +91,24 @@ class SearchPathGpsBatchRecorder(
 
     fun pendingPointCount(): Int = pending.size
 
-    private fun estimatedSpeedMps(previous: PathPoint?, fix: GpsLocationFix): Double? {
+    private fun withEstimatedSpeeds(points: List<PathPoint>): List<PathPoint> =
+        points.mapIndexed { index, point ->
+            if (point.speedMps != null) {
+                point
+            } else {
+                point.copy(speedMps = estimatedSpeedMps(points.getOrNull(index - 1), point))
+            }
+        }
+
+    private fun estimatedSpeedMps(previous: PathPoint?, point: PathPoint): Double? {
         if (previous == null) {
             return 0.0
         }
-        val elapsedSeconds =
-            java.time.Duration.between(previous.clientTs, fix.capturedAt).toMillis() / 1_000.0
+        val elapsedSeconds = elapsedMillis(previous, point) / 1_000.0
         if (elapsedSeconds <= 0.0) {
             return 0.0
         }
-        val meters = haversineMeters(previous.lat, previous.lon, fix.lat, fix.lon)
+        val meters = haversineMeters(previous.lat, previous.lon, point.lat, point.lon)
         val speed = meters / elapsedSeconds
         return speed.takeIf { it.isFinite() && it >= 0.0 }
     }
@@ -112,13 +123,35 @@ class SearchPathGpsBatchRecorder(
         return EARTH_RADIUS_METERS * 2 * asin(sqrt(a))
     }
 
-    private fun shouldFlush(fix: GpsLocationFix): Boolean {
+    private fun shouldFlush(): Boolean {
         if (pending.size >= MAX_BATCH_POINTS) {
             return true
         }
-        val first = pending.firstOrNull()?.clientTs ?: return false
-        return pending.size >= MIN_BATCH_POINTS &&
-            java.time.Duration.between(first, fix.capturedAt).toMillis() >= FLUSH_INTERVAL_MS
+        return pending.size >= MIN_BATCH_POINTS && captureSpanMillis() >= FLUSH_INTERVAL_MS
+    }
+
+    private fun captureSpanMillis(): Long {
+        val elapsedTimes = pending.mapNotNull(PathPoint::elapsedRealtimeNanos)
+        if (elapsedTimes.size == pending.size) {
+            return ((elapsedTimes.maxOrNull() ?: 0L) - (elapsedTimes.minOrNull() ?: 0L)) / 1_000_000L
+        }
+        return java.time.Duration.between(pending.first().clientTs, pending.last().clientTs).toMillis()
+    }
+
+    private fun sortPendingByCaptureOrder() {
+        if (pending.all { it.elapsedRealtimeNanos != null }) {
+            pending.sortBy(PathPoint::elapsedRealtimeNanos)
+        }
+    }
+
+    private fun elapsedMillis(previous: PathPoint, current: PathPoint): Long {
+        val previousElapsed = previous.elapsedRealtimeNanos
+        val currentElapsed = current.elapsedRealtimeNanos
+        return if (previousElapsed != null && currentElapsed != null) {
+            (currentElapsed - previousElapsed) / 1_000_000L
+        } else {
+            java.time.Duration.between(previous.clientTs, current.clientTs).toMillis()
+        }
     }
 
     private companion object {
