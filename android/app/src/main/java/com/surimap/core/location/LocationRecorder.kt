@@ -24,7 +24,9 @@ data class GpsLocationFix(
     val bearingDegrees: Double?,
     val speedMps: Double?,
     val horizontalAccuracyM: Int?,
-    val capturedAt: Instant
+    val capturedAt: Instant,
+    val locationProvider: String? = null,
+    val elapsedRealtimeNanos: Long? = null
 )
 
 fun interface LocationUpdatesHandle {
@@ -50,7 +52,7 @@ class AndroidLocationUpdates(
             .mapNotNull { provider ->
                 runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
             }
-            .maxByOrNull(Location::getTime)
+            .maxByOrNull(Location::getElapsedRealtimeNanos)
             ?.toGpsLocationFix(now)
     }
 
@@ -114,5 +116,7 @@ private fun Location.toGpsLocationFix(now: () -> Instant): GpsLocationFix =
         bearingDegrees = if (hasBearing()) bearing.toDouble() else null,
         speedMps = if (hasSpeed()) speed.toDouble() else null,
         horizontalAccuracyM = if (hasAccuracy()) accuracy.toInt() else null,
-        capturedAt = time.takeIf { it > 0L }?.let(Instant::ofEpochMilli) ?: now()
+        capturedAt = time.takeIf { it > 0L }?.let(Instant::ofEpochMilli) ?: now(),
+        locationProvider = provider,
+        elapsedRealtimeNanos = elapsedRealtimeNanos
     )

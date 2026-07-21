@@ -6,7 +6,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,16 +51,6 @@ public class GpsPointValidator {
     if (points.size() > GpsPointValidationCriteria.MAX_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points maxItems=120");
     }
-    if (!points.equals(
-        points.stream().sorted(Comparator.comparing(GpsPoint::getClientTs)).toList())) {
-      throw new InvalidGpsPathBatchException("clientTs strict monotonic");
-    }
-    for (int i = 1; i < points.size(); i++) {
-      if (!points.get(i).getClientTs().isAfter(points.get(i - 1).getClientTs())) {
-        throw new InvalidGpsPathBatchException("clientTs strict monotonic");
-      }
-    }
-
     Set<String> uniquePointIds = new HashSet<>();
     for (GpsPoint point : points) {
       if (point.getPointId() == null || point.getPointId().isBlank()) {
@@ -125,9 +114,10 @@ public class GpsPointValidator {
 
     if (!accepted.isEmpty()) {
       GpsPoint previousAccepted = accepted.get(accepted.size() - 1);
-      long sampleSeconds =
-          Duration.between(previousAccepted.getClientTs(), point.getClientTs()).getSeconds();
-      if (sampleSeconds == 5) {
+      if (captureOrderIsNotIncreasing(previousAccepted, point)) {
+        return GpsPointValidationResult.GpsPointExclusionReason.OUT_OF_ORDER;
+      }
+      if (sampleMillis(previousAccepted, point) == 5_000L) {
         double distanceMeters = distanceMeters(previousAccepted, point);
         if (distanceMeters > GpsPointValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS) {
           return GpsPointValidationResult.GpsPointExclusionReason.DISTANCE_JUMP;
@@ -136,6 +126,19 @@ public class GpsPointValidator {
     }
 
     return null;
+  }
+
+  private boolean captureOrderIsNotIncreasing(GpsPoint previous, GpsPoint current) {
+    return previous.getElapsedRealtimeNanos() != null
+        && current.getElapsedRealtimeNanos() != null
+        && current.getElapsedRealtimeNanos() <= previous.getElapsedRealtimeNanos();
+  }
+
+  private long sampleMillis(GpsPoint previous, GpsPoint current) {
+    if (previous.getElapsedRealtimeNanos() != null && current.getElapsedRealtimeNanos() != null) {
+      return (current.getElapsedRealtimeNanos() - previous.getElapsedRealtimeNanos()) / 1_000_000L;
+    }
+    return Duration.between(previous.getClientTs(), current.getClientTs()).toMillis();
   }
 
   private double distanceMeters(GpsPoint previous, GpsPoint current) {

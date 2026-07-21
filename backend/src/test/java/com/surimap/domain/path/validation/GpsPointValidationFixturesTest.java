@@ -42,7 +42,6 @@ class GpsPointValidationFixturesTest {
         .containsExactly(
             "gps-batch-over-limit-121",
             "coord-latlon-swapped",
-            "gps-client-ts-non-monotonic",
             "point-null-nan",
             "precision-over-6dp");
     assertThat(GpsPointValidationFixtures.STRUCTURAL_FAILURE_FIXTURES)
@@ -82,8 +81,8 @@ class GpsPointValidationFixturesTest {
         .isGreaterThan(BigDecimal.valueOf(GpsPointValidationCriteria.HARNESS_ENVELOPE.getMaxLon()));
     assertThat(GpsPointValidationFixtures.COORDINATE_LAT_LON_SWAPPED.points().get(0).lat())
         .isGreaterThan(BigDecimal.valueOf(90));
-    assertThat(GpsPointValidationFixtures.NON_MONOTONIC_CLIENT_TS.points().get(1).clientTs())
-        .isBefore(GpsPointValidationFixtures.NON_MONOTONIC_CLIENT_TS.points().get(0).clientTs());
+    assertThat(GpsPointValidationFixtures.CLIENT_TS_REVERSAL_POINTS.get(1).clientTs())
+        .isBefore(GpsPointValidationFixtures.CLIENT_TS_REVERSAL_POINTS.get(0).clientTs());
     assertThat(GpsPointValidationFixtures.NULL_COORDINATE.points().get(0).lon()).isNull();
     assertThat(GpsPointValidationFixtures.PRECISION_OVER_SIX_DP.points().get(0).lon().scale())
         .isGreaterThan(GpsPointValidationCriteria.CANONICAL_COORDINATE_SCALE);

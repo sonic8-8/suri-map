@@ -55,6 +55,7 @@ class AndroidLocationUpdatesTest {
                 longitude = 126.851212
                 accuracy = 18f
                 time = 1_779_199_386_227L
+                elapsedRealtimeNanos = 12_345_678_900L
             }
         )
         shadowOf(Looper.getMainLooper()).idle()
@@ -64,5 +65,7 @@ class AndroidLocationUpdatesTest {
         assertEquals(35.14935, fixes.single().lat, 0.000001)
         assertEquals(126.851212, fixes.single().lon, 0.000001)
         assertTrue(fixes.single().horizontalAccuracyM!! <= 18)
+        assertEquals(LocationManager.NETWORK_PROVIDER, fixes.single().locationProvider)
+        assertEquals(12_345_678_900L, fixes.single().elapsedRealtimeNanos)
     }
 }

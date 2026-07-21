@@ -279,7 +279,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, accountId, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: 전체 수색구역과 담당 구역은 초동 경로 시작의 선행조건이 아니다. 수색 중 GPS 좌표가 전체 수색구역 또는 담당 TEAM 구역 밖으로 표시되어도 좌표 자체가 유효한 EPSG:4326 Point이면 경로 기록을 막지 않는다. GPS 경로 품질 검증은 좌표 누락, 시간 역전, 정확도 저하, 비정상 속도/점프처럼 샘플 자체의 신뢰도만 다루며, 구역 안팎 여부를 품질 실패로 보지 않는다. 담당 구역 밖 표시는 별도 `search-area-boundary-alerts` 운영 참고 이벤트로 다룬다.
+- Note: 전체 수색구역과 담당 구역은 초동 경로 시작의 선행조건이 아니다. 수색 중 GPS 좌표가 전체 수색구역 또는 담당 TEAM 구역 밖으로 표시되어도 좌표 자체가 유효한 EPSG:4326 Point이면 경로 기록을 막지 않는다. GPS 경로 품질 검증은 좌표 누락, 수집 순서 확인 실패, 정확도 저하, 비정상 속도/점프처럼 샘플 자체의 신뢰도만 다루며, 구역 안팎 여부를 품질 실패로 보지 않는다. 담당 구역 밖 표시는 별도 `search-area-boundary-alerts` 운영 참고 이벤트로 다룬다.
 
 #### PATCH `/api/search-paths/{searchPathId}`
 
@@ -303,11 +303,12 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `pathId`, `points[]`, optional `clockOffsetMs`
+- `points[]`: `pointId`, `lon`, `lat`, `clientTs`, optional `speedMps`, `horizontalAccuracyM`, `locationProvider`, `elapsedRealtimeNanos`
 - Request limit: `points` min 2, max 120
 - Response: `200 {id, dutyShiftId, opId, accountId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
-- `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`
+- `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`, `out_of_order`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수/순서 오류처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.
+- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `clientTs`는 원본 시각으로 보존하며 이 값이 뒤로 갔다는 이유만으로 batch 전체를 거부하지 않는다. `elapsedRealtimeNanos`가 있으면 이 값으로 수집 순서를 확인하고, 앞선 좌표보다 작거나 같은 좌표만 `out_of_order`로 제외한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수나 pointId 중복처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.
 
 #### POST `/api/search-area-boundary-alerts`
 

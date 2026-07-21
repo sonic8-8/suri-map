@@ -120,6 +120,28 @@ class SearchPathGpsBatchRecorderTest {
     }
 
     @Test
+    fun gpsFixesAreEnqueuedInElapsedRealtimeOrderWhenClientTimeMovesBackward() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val batchRecorder =
+            SearchPathGpsBatchRecorder(
+                localRecorder = SearchPathLocalRecorder(syncClient = syncClient),
+                pointIdFactory = pointIdFactory()
+            )
+
+        assertNull(batchRecorder.recordFix(CONTEXT, PATH_ID, fix(second = 0, elapsedSecond = 15)))
+        assertNull(batchRecorder.recordFix(CONTEXT, PATH_ID, fix(second = 5, elapsedSecond = 22)))
+        val result =
+            batchRecorder.recordFix(CONTEXT, PATH_ID, fix(second = 4, elapsedSecond = 10))
+
+        assertTrue(result is SearchPathWriteResult.Enqueued)
+        val payload = syncClient.operations.single().payload
+        assertTrue(payload.indexOf("pt-gps-003") < payload.indexOf("pt-gps-001"))
+        assertTrue(payload.indexOf("pt-gps-001") < payload.indexOf("pt-gps-002"))
+        assertTrue(payload.contains("\"locationProvider\":\"gps\""))
+        assertTrue(payload.contains("\"elapsedRealtimeNanos\":10000000000"))
+    }
+
+    @Test
     fun flushAllDrainsRemainingGpsBatchBeforeSearchStopClear() = runBlocking {
         val syncClient = CapturingSyncClient()
         val batchRecorder =
@@ -162,14 +184,16 @@ class SearchPathGpsBatchRecorderTest {
         }
     }
 
-    private fun fix(second: Long): GpsLocationFix =
+    private fun fix(second: Long, elapsedSecond: Long = second): GpsLocationFix =
         GpsLocationFix(
             lon = 126.970000 + (second * 0.00001),
             lat = 37.580000 + (second * 0.00001),
             bearingDegrees = null,
             speedMps = 1.4,
             horizontalAccuracyM = 5,
-            capturedAt = CLIENT_TS.plusSeconds(second)
+            capturedAt = CLIENT_TS.plusSeconds(second),
+            locationProvider = "gps",
+            elapsedRealtimeNanos = elapsedSecond * 1_000_000_000L
         )
 
     private fun fixWithoutSpeed(second: Long): GpsLocationFix =

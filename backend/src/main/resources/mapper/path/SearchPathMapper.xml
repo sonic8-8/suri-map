@@ -27,6 +27,8 @@
         <result property="lat" column="lat" javaType="java.math.BigDecimal"/>
         <result property="speedMps" column="speed_mps" javaType="java.math.BigDecimal"/>
         <result property="horizontalAccuracyM" column="horizontal_accuracy_m" javaType="java.lang.Integer"/>
+        <result property="locationProvider" column="location_provider" javaType="string"/>
+        <result property="elapsedRealtimeNanos" column="elapsed_realtime_nanos" javaType="java.lang.Long"/>
     </resultMap>
 
     <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
@@ -50,6 +52,12 @@
         <result property="pointId" column="point_id" javaType="string"/>
         <result property="reason" column="reason" javaType="string"/>
         <result property="clientTs" column="client_ts" javaType="java.time.OffsetDateTime"/>
+        <result property="lon" column="lon" javaType="java.math.BigDecimal"/>
+        <result property="lat" column="lat" javaType="java.math.BigDecimal"/>
+        <result property="speedMps" column="speed_mps" javaType="java.math.BigDecimal"/>
+        <result property="horizontalAccuracyM" column="horizontal_accuracy_m" javaType="java.lang.Integer"/>
+        <result property="locationProvider" column="location_provider" javaType="string"/>
+        <result property="elapsedRealtimeNanos" column="elapsed_realtime_nanos" javaType="java.lang.Long"/>
         <result property="createdAt" column="created_at" javaType="java.time.Instant"/>
         <result property="updatedAt" column="updated_at" javaType="java.time.Instant"/>
     </resultMap>
@@ -234,6 +242,8 @@
             lat,
             speed_mps,
             horizontal_accuracy_m,
+            location_provider,
+            elapsed_realtime_nanos,
             created_at
         )
         VALUES
@@ -247,6 +257,8 @@
                 #{point.lat},
                 #{point.speedMps},
                 #{point.horizontalAccuracyM},
+                #{point.locationProvider},
+                #{point.elapsedRealtimeNanos},
                 #{createdAt}
             )
         </foreach>
@@ -259,7 +271,9 @@
             lon,
             lat,
             speed_mps,
-            horizontal_accuracy_m
+            horizontal_accuracy_m,
+            location_provider,
+            elapsed_realtime_nanos
         FROM search_path_gps_point
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY point_order ASC
@@ -332,6 +346,12 @@
             point_id,
             reason,
             client_ts,
+            lon,
+            lat,
+            speed_mps,
+            horizontal_accuracy_m,
+            location_provider,
+            elapsed_realtime_nanos,
             created_at,
             updated_at
         )
@@ -341,6 +361,12 @@
             #{pointId},
             #{reason},
             #{clientTs},
+            #{lon},
+            #{lat},
+            #{speedMps},
+            #{horizontalAccuracyM},
+            #{locationProvider},
+            #{elapsedRealtimeNanos},
             #{createdAt},
             #{updatedAt}
         )
@@ -353,6 +379,12 @@
             point_id,
             reason,
             client_ts,
+            lon,
+            lat,
+            speed_mps,
+            horizontal_accuracy_m,
+            location_provider,
+            elapsed_realtime_nanos,
             created_at,
             updated_at
         FROM search_path_excluded_point

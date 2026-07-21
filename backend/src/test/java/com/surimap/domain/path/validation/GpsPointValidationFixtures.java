@@ -90,14 +90,10 @@ final class GpsPointValidationFixtures {
           "invalid_geometry",
           "lon/lat order must be EPSG:4326");
 
-  static final StructuralFailureFixture NON_MONOTONIC_CLIENT_TS =
-      new StructuralFailureFixture(
-          "gps-client-ts-non-monotonic",
-          List.of(
-              point("gps-ts-001", "2026-04-28T09:07:00+09:00", "126.913000", "35.162000", 3.0, 5),
-              point("gps-ts-002", "2026-04-28T09:06:55+09:00", "126.913100", "35.162100", 3.0, 5)),
-          "invalid_geometry",
-          "clientTs strict monotonic");
+  static final List<GpsPointFixture> CLIENT_TS_REVERSAL_POINTS =
+      List.of(
+          point("gps-ts-001", "2026-04-28T09:07:00+09:00", "126.913000", "35.162000", 3.0, 5),
+          point("gps-ts-002", "2026-04-28T09:06:55+09:00", "126.913100", "35.162100", 3.0, 5));
 
   static final StructuralFailureFixture NULL_COORDINATE =
       new StructuralFailureFixture(
@@ -236,7 +232,6 @@ final class GpsPointValidationFixtures {
       List.of(
           BATCH_LIMIT_EXCEEDED,
           COORDINATE_LAT_LON_SWAPPED,
-          NON_MONOTONIC_CLIENT_TS,
           NULL_COORDINATE,
           PRECISION_OVER_SIX_DP);
 

@@ -306,6 +306,8 @@ public class SearchPathService {
                     .lat(p.getLat())
                     .speedMps(p.getSpeedMps())
                     .horizontalAccuracyM(p.getHorizontalAccuracyM())
+                    .locationProvider(p.getLocationProvider())
+                    .elapsedRealtimeNanos(p.getElapsedRealtimeNanos())
                     .build())
         .toList();
   }
@@ -319,6 +321,12 @@ public class SearchPathService {
                     .pointId(p.getPoint().getPointId())
                     .reason(qualityReason(p.getReason()))
                     .clientTs(p.getPoint().getClientTs())
+                    .lon(p.getPoint().getLon())
+                    .lat(p.getPoint().getLat())
+                    .speedMps(p.getPoint().getSpeedMps())
+                    .horizontalAccuracyM(p.getPoint().getHorizontalAccuracyM())
+                    .locationProvider(p.getPoint().getLocationProvider())
+                    .elapsedRealtimeNanos(p.getPoint().getElapsedRealtimeNanos())
                     .build())
         .toList();
   }
@@ -329,6 +337,7 @@ public class SearchPathService {
       case CLOCK_SKEW -> "clock_skew";
       case INVALID_SPEED -> "invalid_speed";
       case DISTANCE_JUMP -> "distance_jump";
+      case OUT_OF_ORDER -> "out_of_order";
     };
   }
 
