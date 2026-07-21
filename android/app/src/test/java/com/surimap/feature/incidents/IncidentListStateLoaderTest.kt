@@ -3,6 +3,7 @@ package com.surimap.feature.incidents
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.incidents.data.IncidentListStateLoader
+import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
 import com.surimap.feature.incidents.ui.IncidentListStatus
 import com.surimap.testing.incidentIdFixture
 import java.io.IOException
@@ -154,6 +155,86 @@ class IncidentListStateLoaderTest {
     }
 
     @Test
+    fun networkFailureUsesLastIncidentListForSameAccount() = runBlocking {
+        val cachedIncident =
+            AssignedIncidentUiModel(
+                incidentId = INCIDENT_ID,
+                currentOpId = "88888888-8888-8888-8888-888888880001",
+                currentOpLabel = "OP 1차",
+                title = "광주 북구 산악 실종",
+                summary = "실종자 · 남색 등산복"
+            )
+        val loader =
+            IncidentListStateLoader(
+                repository =
+                IncidentReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory = FailingCallFactory()
+                    )
+                ),
+                policePhoneLabel = "지구대 순찰차 폴리폰",
+                accountId = ACCOUNT_ID,
+                cachedIncidents = { accountId ->
+                    if (accountId == ACCOUNT_ID) listOf(cachedIncident) else emptyList()
+                }
+            )
+
+        val state = loader.load()
+
+        assertEquals(IncidentListStatus.Stale, state.status)
+        assertEquals(listOf(cachedIncident), state.incidents)
+        assertTrue(state.canRefresh)
+    }
+
+    @Test
+    fun successfulLoadReplacesLastIncidentListForAccount() = runBlocking {
+        var savedAccountId: String? = null
+        var savedIncidents: List<AssignedIncidentUiModel>? = null
+        val loader =
+            IncidentListStateLoader(
+                repository =
+                IncidentReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory =
+                        CapturingCallFactory(
+                            response(
+                                200,
+                                """
+                                {
+                                  "items": [
+                                    {
+                                      "id":"$INCIDENT_ID",
+                                      "title":"광주 북구 산악 실종",
+                                      "currentOpId":"88888888-8888-8888-8888-888888880001",
+                                      "currentOpLabel":"OP 1차"
+                                    }
+                                  ]
+                                }
+                                """.trimIndent()
+                            )
+                        )
+                    )
+                ),
+                policePhoneLabel = "지구대 순찰차 폴리폰",
+                accountId = ACCOUNT_ID,
+                replaceCachedIncidents = { accountId, incidents ->
+                    savedAccountId = accountId
+                    savedIncidents = incidents
+                }
+            )
+
+        val state = loader.load()
+
+        assertEquals(IncidentListStatus.Ready, state.status)
+        assertEquals(ACCOUNT_ID, savedAccountId)
+        assertEquals(state.incidents, savedIncidents)
+    }
+
+    @Test
     fun appIncidentRouteStartsDutyShiftWhenNoActiveShift() {
         val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
@@ -225,6 +306,7 @@ class IncidentListStateLoaderTest {
     }
 
     private companion object {
+        const val ACCOUNT_ID = "account-001"
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
     }
 }

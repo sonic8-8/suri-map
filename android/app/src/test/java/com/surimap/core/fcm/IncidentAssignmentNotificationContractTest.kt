@@ -21,7 +21,7 @@ class IncidentAssignmentNotificationContractTest {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
         assertTrue(source.contains("IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })"))
-        assertTrue(source.contains("LaunchedEffect(retryNonce, assignmentRefreshNonce)"))
+        assertTrue(source.contains("LaunchedEffect(retryNonce, assignmentRefreshNonce, onlineCheckEnabled)"))
         assertTrue(source.contains("LaunchedEffect(assignmentRefreshNonce, manualRefreshNonce, incidentClosed, loader, policePhoneLabel)"))
     }
 

@@ -232,7 +232,7 @@ class RoomOfflinePackageWorkerInstallerTest {
     ): RoomOfflinePackageWorkerInstaller {
         val repository =
             OfflinePackageRepository(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 apiClient =
                 SuriMapApiClient(
                     baseUrl = "https://suri-map.internal",

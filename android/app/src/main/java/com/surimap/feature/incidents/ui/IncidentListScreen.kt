@@ -154,6 +154,18 @@ data class IncidentListUiState(
                 incidents = emptyList(),
                 message = "오프라인입니다. 내부망 연결 후 아래로 당겨 다시 확인하세요."
             )
+
+        fun stale(
+            policePhoneLabel: String,
+            incidents: List<AssignedIncidentUiModel>
+        ): IncidentListUiState =
+            IncidentListUiState(
+                policePhoneLabel = policePhoneLabel,
+                syncLabel = "이전 정보",
+                status = IncidentListStatus.Stale,
+                incidents = incidents,
+                message = "마지막으로 저장한 사건 목록입니다."
+            )
     }
 }
 

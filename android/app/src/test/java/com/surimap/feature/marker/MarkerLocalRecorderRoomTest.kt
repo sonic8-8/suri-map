@@ -58,7 +58,7 @@ class MarkerLocalRecorderRoomTest {
         val replayEligibleTs = Instant.ofEpochMilli(System.currentTimeMillis())
         val recorder =
             MarkerLocalRecorder(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 localMarkerDao = database.localMarkerDao(),
                 now = { replayEligibleTs },
                 clockSyncedAt = { replayEligibleTs },
@@ -91,7 +91,7 @@ class MarkerLocalRecorderRoomTest {
     fun markerAndPhotoWritesPersistPendingOutboxRowsBeforeNetworkReplay() = runBlocking {
         val recorder =
             MarkerLocalRecorder(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 localMarkerDao = database.localMarkerDao(),
                 now = { CLIENT_TS },
                 sequenceSource = sequenceSource(50),
@@ -179,7 +179,7 @@ class MarkerLocalRecorderRoomTest {
     fun allSc06MarkerTypesPersistAsPendingLocalMarkerMirrors() = runBlocking {
         val recorder =
             MarkerLocalRecorder(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 localMarkerDao = database.localMarkerDao(),
                 now = { CLIENT_TS },
                 sequenceSource = sequenceSource(100),
@@ -223,7 +223,7 @@ class MarkerLocalRecorderRoomTest {
         val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
         val recorder =
             MarkerLocalRecorder(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 localMarkerDao = database.localMarkerDao(),
                 now = { replayableClientTs },
                 sequenceSource = sequenceSource(80),
@@ -252,7 +252,7 @@ class MarkerLocalRecorderRoomTest {
     @Test
     fun markerCreateKeepsLocalMarkerSyncedWhenReplayAcksBeforeLocalMarkerInsert() = runBlocking {
         val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
-        val roomSyncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val roomSyncClient = RoomSyncClient(database)
         val replay =
             RoomOutboxReplay(
                 database.outboxDao(),

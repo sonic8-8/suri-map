@@ -71,6 +71,7 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
             LocalSyncPurgeHookAdapter(
                 outboxDao = database.outboxDao(),
                 localWriteDraftDao = database.localWriteDraftDao(),
+                searchRecordingStateDao = database.searchRecordingStateDao(),
                 closeDrainReplay = outboxReplay
             ).handleIncidentClosed(
                 incidentId = payload.incidentId,

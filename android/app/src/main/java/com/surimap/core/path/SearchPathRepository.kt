@@ -26,6 +26,7 @@ data class StartSearchPathCommand(
     val searchPathId: String,
     val incidentId: String,
     val opId: String,
+    val accountId: String,
     val policePhoneId: String,
     val idempotencyKey: String,
     val sequence: Long,
@@ -38,6 +39,7 @@ data class EndSearchPathCommand(
     val operationId: String,
     val incidentId: String,
     val opId: String,
+    val accountId: String,
     val searchPathId: String,
     val policePhoneId: String,
     val idempotencyKey: String,
@@ -57,6 +59,7 @@ data class PatchSearchPathCommand(
     val operationId: String,
     val incidentId: String,
     val opId: String,
+    val accountId: String,
     val searchPathId: String,
     val policePhoneId: String,
     val action: SearchPathLifecycleAction,
@@ -71,6 +74,7 @@ data class AppendPathBatchCommand(
     val operationId: String,
     val incidentId: String,
     val opId: String,
+    val accountId: String,
     val searchPathId: String,
     val policePhoneId: String,
     val idempotencyKey: String,
@@ -132,6 +136,7 @@ class SearchPathRepository(
                 operationId = command.operationId,
                 incidentId = command.incidentId,
                 opId = command.opId,
+                accountId = command.accountId,
                 searchPathId = command.searchPathId,
                 policePhoneId = command.policePhoneId,
                 action = SearchPathLifecycleAction.END,
@@ -215,7 +220,8 @@ class SearchPathRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = entityId,
-            entityType = entityType
+            entityType = entityType,
+            accountId = accountId
         )
     }
 
@@ -228,6 +234,7 @@ class SearchPathRepository(
             operationId = operationId,
             incidentId = incidentId,
             opId = opId,
+            accountId = accountId,
             searchPathId = searchPathId,
             policePhoneId = policePhoneId,
             action = SearchPathLifecycleAction.END,
@@ -259,7 +266,8 @@ class SearchPathRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = searchPathId,
-            entityType = "search_path"
+            entityType = "search_path",
+            accountId = accountId
         )
     }
 
@@ -284,7 +292,8 @@ class SearchPathRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = searchPathId,
-            entityType = "search_path"
+            entityType = "search_path",
+            accountId = accountId
         )
     }
 

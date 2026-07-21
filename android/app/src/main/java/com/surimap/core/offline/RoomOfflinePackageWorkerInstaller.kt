@@ -126,7 +126,7 @@ class RoomOfflinePackageWorkerInstaller(
                 database = database,
                 repository =
                 OfflinePackageRepository(
-                    syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                    syncClient = RoomSyncClient(database),
                     apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
                     accessTokenProvider = accessTokenProvider
                 ),

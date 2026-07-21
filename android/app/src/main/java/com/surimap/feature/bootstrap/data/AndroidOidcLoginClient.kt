@@ -24,10 +24,64 @@ data class OidcLoginSession(
     val authStateJson: String
 )
 
+sealed interface OidcSessionRefreshResult {
+    data class Refreshed(val session: OidcLoginSession) : OidcSessionRefreshResult
+
+    data object Unavailable : OidcSessionRefreshResult
+
+    data object AuthenticationRequired : OidcSessionRefreshResult
+}
+
+data class OidcBootstrapSessionDecision(
+    val session: OidcLoginSession?,
+    val replaceStoredSession: Boolean
+)
+
+internal fun decideBootstrapOidcSession(
+    restoredSession: OidcLoginSession,
+    refreshResult: OidcSessionRefreshResult
+): OidcBootstrapSessionDecision =
+    when (refreshResult) {
+        is OidcSessionRefreshResult.Refreshed ->
+            OidcBootstrapSessionDecision(
+                session = refreshResult.session,
+                replaceStoredSession = true
+            )
+
+        OidcSessionRefreshResult.Unavailable ->
+            OidcBootstrapSessionDecision(
+                session = restoredSession,
+                replaceStoredSession = false
+            )
+
+        OidcSessionRefreshResult.AuthenticationRequired ->
+            OidcBootstrapSessionDecision(
+                session = null,
+                replaceStoredSession = true
+            )
+    }
+
+internal fun classifyOidcRefreshFailure(
+    exception: AuthorizationException?
+): OidcSessionRefreshResult =
+    if (
+        exception.matches(AuthorizationException.GeneralErrors.NETWORK_ERROR) ||
+        exception.matches(AuthorizationException.GeneralErrors.SERVER_ERROR)
+    ) {
+        OidcSessionRefreshResult.Unavailable
+    } else {
+        OidcSessionRefreshResult.AuthenticationRequired
+    }
+
+private fun AuthorizationException?.matches(template: AuthorizationException): Boolean =
+    this?.type == template.type && code == template.code
+
 internal suspend fun refreshOidcSessionBeforeBootstrap(
     session: OidcLoginSession?,
-    refresh: suspend (String) -> OidcLoginSession?
-): OidcLoginSession? = session?.let { refresh(it.authStateJson) }
+    refresh: suspend (String) -> OidcSessionRefreshResult
+): OidcSessionRefreshResult =
+    session?.let { refresh(it.authStateJson) }
+        ?: OidcSessionRefreshResult.AuthenticationRequired
 
 class AndroidOidcLoginClient(
     context: Context
@@ -113,26 +167,29 @@ class AndroidOidcLoginClient(
         }
     }
 
-    suspend fun refresh(authStateJson: String): OidcLoginSession? {
+    suspend fun refresh(authStateJson: String): OidcSessionRefreshResult {
         val authState =
-            runCatching { AuthState.jsonDeserialize(authStateJson) }.getOrNull() ?: return null
+            runCatching { AuthState.jsonDeserialize(authStateJson) }.getOrNull()
+                ?: return OidcSessionRefreshResult.AuthenticationRequired
         return suspendCancellableCoroutine { continuation ->
             authState.performActionWithFreshTokens(authorizationService) action@ { accessToken, idToken, exception ->
                 if (exception != null) {
-                    continuation.resume(null)
+                    continuation.resume(classifyOidcRefreshFailure(exception))
                     return@action
                 }
                 val refreshedAccessToken = accessToken?.takeIf(String::isNotBlank)
                 if (refreshedAccessToken == null) {
-                    continuation.resume(null)
+                    continuation.resume(OidcSessionRefreshResult.AuthenticationRequired)
                     return@action
                 }
                 continuation.resume(
-                    OidcLoginSession(
-                        accessToken = refreshedAccessToken,
-                        idToken = idToken,
-                        accessTokenExpiresAtEpochMs = authState.accessTokenExpirationTime,
-                        authStateJson = authState.jsonSerializeString()
+                    OidcSessionRefreshResult.Refreshed(
+                        OidcLoginSession(
+                            accessToken = refreshedAccessToken,
+                            idToken = idToken,
+                            accessTokenExpiresAtEpochMs = authState.accessTokenExpirationTime,
+                            authStateJson = authState.jsonSerializeString()
+                        )
                     )
                 )
             }

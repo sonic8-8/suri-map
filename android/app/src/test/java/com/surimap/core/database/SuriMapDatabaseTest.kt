@@ -1,5 +1,7 @@
 package com.surimap.core.database
 
+import android.content.ContentValues
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import com.surimap.core.sync.DependencyGroup
 import com.surimap.testing.incidentIdFixture
@@ -57,6 +59,23 @@ class SuriMapDatabaseTest {
         assertTrue(tableNames.contains("local_marker"))
         assertTrue(tableNames.contains("search_map_response_cache"))
         assertFalse(tableNames.contains("sync_status"))
+    }
+
+    @Test
+    fun roomSchemaIncludesOfflineAppRecoveryTables() {
+        val tableNames = mutableSetOf<String>()
+        val cursor = database.openHelper.readableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+
+        cursor.use {
+            while (it.moveToNext()) {
+                tableNames += it.getString(0)
+            }
+        }
+
+        assertTrue(tableNames.contains("incident_summary"))
+        assertTrue(tableNames.contains("search_recording_state"))
     }
 
     @Test
@@ -576,6 +595,110 @@ class SuriMapDatabaseTest {
         )
     }
 
+    @Test
+    fun migration6To7PreservesPendingGpsBatchAndDraft() {
+        val payload =
+            """{"incidentId":"$INCIDENT_ID","pathId":"$SEARCH_PATH_ID","points":[{"lon":127.1,"lat":37.5}]}"""
+        val context = RuntimeEnvironment.getApplication()
+        context.deleteDatabase(MIGRATION_DATABASE_NAME)
+        val version6Database = Room.databaseBuilder(
+            context,
+            SuriMapDatabase::class.java,
+            MIGRATION_DATABASE_NAME
+        ).allowMainThreadQueries().build()
+        val writableDatabase = version6Database.openHelper.writableDatabase
+
+        val outboxValues = ContentValues().apply {
+            put("outbox_id", GPS_OUTBOX_ID)
+            put("client_operation_id", GPS_OPERATION_ID)
+            put("incident_id", INCIDENT_ID)
+            put("op_id", OP_ID)
+            put("police_phone_id", POLICE_PHONE_ID)
+            put("dependency_group", DependencyGroup.PATH.name)
+            put("sequence", GPS_BATCH_SEQUENCE)
+            put("request_method", "POST")
+            put("request_path", "/api/search-paths/batch")
+            put("payload_json", payload)
+            put("request_body_hash", GPS_BODY_HASH)
+            put("idempotency_key", GPS_IDEMPOTENCY_KEY)
+            put("idempotency_status", "PENDING")
+            put("local_mirror_status", "PENDING_SEND")
+            put("attempt_count", 0)
+            put("client_requested_at", 1_000L)
+            put("clock_offset_ms", 0L)
+            put("clock_synced_at", 1_000L)
+        }
+        val draftValues = ContentValues().apply {
+            put("draftId", GPS_DRAFT_ID)
+            put("incidentId", INCIDENT_ID)
+            put("operationId", GPS_OPERATION_ID)
+            put("entityType", "search_path")
+            put("entityId", SEARCH_PATH_ID)
+            put("payload", payload)
+            put("createdAtMillis", 1_000L)
+            put("updatedAtMillis", 1_000L)
+        }
+
+        assertTrue(
+            writableDatabase.insert(
+                "android_outbox_row",
+                SQLiteDatabase.CONFLICT_ABORT,
+                outboxValues
+            ) != -1L
+        )
+        assertTrue(
+            writableDatabase.insert(
+                "local_write_draft",
+                SQLiteDatabase.CONFLICT_ABORT,
+                draftValues
+            ) != -1L
+        )
+        writableDatabase.execSQL("DROP TABLE search_recording_state")
+        writableDatabase.execSQL("DROP TABLE incident_summary")
+        writableDatabase.execSQL(
+            "UPDATE room_master_table SET identity_hash = '$VERSION_6_IDENTITY_HASH' WHERE id = 42"
+        )
+        writableDatabase.version = 6
+        version6Database.close()
+
+        val migratedRoomDatabase = Room.databaseBuilder(
+            context,
+            SuriMapDatabase::class.java,
+            MIGRATION_DATABASE_NAME
+        )
+            .addMigrations(SuriMapDatabaseProvider.MIGRATION_6_7)
+            .allowMainThreadQueries()
+            .build()
+        val migratedDatabase = migratedRoomDatabase.openHelper.writableDatabase
+
+        migratedDatabase.query(
+            """
+            SELECT outbox_id, client_operation_id, sequence, payload_json,
+                   request_body_hash, idempotency_status, local_mirror_status
+            FROM android_outbox_row
+            """.trimIndent()
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(GPS_OUTBOX_ID, cursor.getString(0))
+            assertEquals(GPS_OPERATION_ID, cursor.getString(1))
+            assertEquals(GPS_BATCH_SEQUENCE, cursor.getLong(2))
+            assertEquals(payload, cursor.getString(3))
+            assertEquals(GPS_BODY_HASH, cursor.getString(4))
+            assertEquals("PENDING", cursor.getString(5))
+            assertEquals("PENDING_SEND", cursor.getString(6))
+        }
+        migratedDatabase.query(
+            "SELECT draftId, operationId, payload FROM local_write_draft"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(GPS_DRAFT_ID, cursor.getString(0))
+            assertEquals(GPS_OPERATION_ID, cursor.getString(1))
+            assertEquals(payload, cursor.getString(2))
+        }
+        migratedRoomDatabase.close()
+        context.deleteDatabase(MIGRATION_DATABASE_NAME)
+    }
+
     private fun tableColumns(tableName: String): List<ColumnSpec> {
         val columns = mutableListOf<ColumnSpec>()
         val cursor = database.openHelper.readableDatabase.query("PRAGMA table_info($tableName)")
@@ -669,6 +792,16 @@ class SuriMapDatabaseTest {
         )
 
     private companion object {
+        const val MIGRATION_DATABASE_NAME = "suri-map-migration-test.db"
+        const val VERSION_6_IDENTITY_HASH = "a832a337615d0663d90332e403a441bc"
+        const val GPS_OUTBOX_ID = "gps-outbox-001"
+        const val GPS_OPERATION_ID = "22222222-2222-4222-8222-222222222010"
+        const val GPS_DRAFT_ID = "gps-draft-001"
+        const val GPS_IDEMPOTENCY_KEY = "gps-idempotency-001"
+        const val GPS_BODY_HASH = "sha256:gps-batch-001"
+        const val GPS_BATCH_SEQUENCE = 41L
+        const val SEARCH_PATH_ID = "99999999-9999-4999-8999-999999999001"
+        const val OP_ID = "88888888-8888-4888-8888-888888888001"
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val POLICE_PHONE_2_ID = policePhoneIdFixture("precinct-002")

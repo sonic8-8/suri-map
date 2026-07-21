@@ -14,6 +14,9 @@ import org.json.JSONObject
 class IncidentListStateLoader(
     private val repository: IncidentReadRepository = IncidentReadRepository(),
     private val policePhoneLabel: String,
+    private val accountId: String? = null,
+    private val cachedIncidents: suspend (String) -> List<AssignedIncidentUiModel> = { emptyList() },
+    private val replaceCachedIncidents: suspend (String, List<AssignedIncidentUiModel>) -> Unit = { _, _ -> },
     private val operationalPeriods: suspend (String) -> SuriMapApiResponse = { incidentId ->
         OperationalPeriodReadRepository().list(incidentId)
     },
@@ -42,12 +45,27 @@ class IncidentListStateLoader(
                     )
             }
         } catch (_: SuriMapNetworkException) {
-            IncidentListUiState.offline(policePhoneLabel = policePhoneLabel)
+            val savedIncidents =
+                accountId
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { cachedIncidents(it) }
+                    .orEmpty()
+            if (savedIncidents.isEmpty()) {
+                IncidentListUiState.offline(policePhoneLabel = policePhoneLabel)
+            } else {
+                IncidentListUiState.stale(
+                    policePhoneLabel = policePhoneLabel,
+                    incidents = savedIncidents
+                )
+            }
         }
     }
 
     private suspend fun successState(body: String?): IncidentListUiState {
         val incidents = parseIncidents(body)
+        accountId
+            ?.takeIf(String::isNotBlank)
+            ?.let { replaceCachedIncidents(it, incidents) }
         return if (incidents.isEmpty()) {
             IncidentListUiState.empty(policePhoneLabel = policePhoneLabel)
         } else {

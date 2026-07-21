@@ -11,6 +11,10 @@ import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkAuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.OidcLoginSession
+import com.surimap.feature.bootstrap.data.OidcBootstrapSessionDecision
+import com.surimap.feature.bootstrap.data.OidcSessionRefreshResult
+import com.surimap.feature.bootstrap.data.classifyOidcRefreshFailure
+import com.surimap.feature.bootstrap.data.decideBootstrapOidcSession
 import com.surimap.feature.bootstrap.data.keycloakIssuerUrl
 import com.surimap.feature.bootstrap.data.refreshOidcSessionBeforeBootstrap
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
@@ -24,6 +28,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlinx.coroutines.runBlocking
+import net.openid.appauth.AuthorizationException
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Protocol
@@ -169,11 +174,56 @@ class AuthBootstrapContractTest {
         val result =
             refreshOidcSessionBeforeBootstrap(restoredSession) { authStateJson ->
                 refreshedAuthState = authStateJson
-                freshSession
+                OidcSessionRefreshResult.Refreshed(freshSession)
             }
 
         assertEquals("stored-auth-state", refreshedAuthState)
-        assertEquals(freshSession, result)
+        assertEquals(OidcSessionRefreshResult.Refreshed(freshSession), result)
+    }
+
+    @Test
+    fun oidcRefreshSeparatesNetworkFailureFromRejectedSession() {
+        assertEquals(
+            OidcSessionRefreshResult.Unavailable,
+            classifyOidcRefreshFailure(AuthorizationException.GeneralErrors.NETWORK_ERROR)
+        )
+        assertEquals(
+            OidcSessionRefreshResult.Unavailable,
+            classifyOidcRefreshFailure(AuthorizationException.GeneralErrors.SERVER_ERROR)
+        )
+        assertEquals(
+            OidcSessionRefreshResult.AuthenticationRequired,
+            classifyOidcRefreshFailure(AuthorizationException.TokenRequestErrors.INVALID_GRANT)
+        )
+    }
+
+    @Test
+    fun unavailableOidcRefreshKeepsStoredSessionButRejectedRefreshClearsIt() {
+        val restoredSession =
+            OidcLoginSession(
+                accessToken = "stored-access-token",
+                idToken = "stored-id-token",
+                accessTokenExpiresAtEpochMs = 0L,
+                authStateJson = "stored-auth-state"
+            )
+
+        assertEquals(
+            OidcBootstrapSessionDecision(
+                session = restoredSession,
+                replaceStoredSession = false
+            ),
+            decideBootstrapOidcSession(restoredSession, OidcSessionRefreshResult.Unavailable)
+        )
+        assertEquals(
+            OidcBootstrapSessionDecision(
+                session = null,
+                replaceStoredSession = true
+            ),
+            decideBootstrapOidcSession(
+                restoredSession,
+                OidcSessionRefreshResult.AuthenticationRequired
+            )
+        )
     }
 
     @Test
