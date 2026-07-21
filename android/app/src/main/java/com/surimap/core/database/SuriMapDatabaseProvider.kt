@@ -21,7 +21,8 @@ object SuriMapDatabaseProvider {
                     MIGRATION_2_3,
                     MIGRATION_3_4,
                     MIGRATION_4_5,
-                    MIGRATION_5_6
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
                 )
                 .build().also { database ->
                 instance = database
@@ -150,6 +151,56 @@ object SuriMapDatabaseProvider {
                     """
                     ALTER TABLE `search_map_response_cache`
                     ADD COLUMN `source_revision` TEXT NOT NULL DEFAULT ''
+                    """.trimIndent()
+                )
+            }
+        }
+
+    internal val MIGRATION_6_7 =
+        object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `incident_summary` (
+                        `account_id` TEXT NOT NULL,
+                        `incident_id` TEXT NOT NULL,
+                        `current_op_id` TEXT,
+                        `current_op_label` TEXT,
+                        `current_duty_shift_id` TEXT,
+                        `title` TEXT NOT NULL,
+                        `summary` TEXT NOT NULL,
+                        `package_status` TEXT NOT NULL,
+                        `display_order` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`account_id`, `incident_id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `idx_incident_summary_account_order`
+                    ON `incident_summary` (`account_id`, `display_order`)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `search_recording_state` (
+                        `account_id` TEXT NOT NULL,
+                        `incident_id` TEXT NOT NULL,
+                        `op_id` TEXT NOT NULL,
+                        `search_path_id` TEXT NOT NULL,
+                        `lifecycle_status` TEXT NOT NULL,
+                        `active_started_at` INTEGER,
+                        `accumulated_elapsed` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`account_id`, `incident_id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `idx_search_recording_state_recovery`
+                    ON `search_recording_state` (`account_id`, `lifecycle_status`, `updated_at`)
                     """.trimIndent()
                 )
             }

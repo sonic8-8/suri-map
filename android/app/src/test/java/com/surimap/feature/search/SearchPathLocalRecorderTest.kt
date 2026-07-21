@@ -81,6 +81,7 @@ class SearchPathLocalRecorderTest {
                 SearchPathWriteContext(
                     incidentId = INCIDENT_ID,
                     opId = null,
+                    accountId = ACCOUNT_ID,
                     policePhoneId = POLICE_PHONE_ID
                 )
             )
@@ -167,6 +168,7 @@ class SearchPathLocalRecorderTest {
         const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
         const val OP_ID = "88888888-8888-8888-8888-888888880001"
         const val PATH_ID = "ffffffff-ffff-ffff-ffff-ffffffff0001"
+        const val ACCOUNT_ID = "account-path-001"
         const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
         const val OP_START_ID = "11111111-1111-4111-8111-111111111001"
         const val OP_BATCH_ID = "11111111-1111-4111-8111-111111111002"
@@ -178,6 +180,7 @@ class SearchPathLocalRecorderTest {
             SearchPathWriteContext(
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 policePhoneId = POLICE_PHONE_ID
             )
     }

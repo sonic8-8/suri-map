@@ -45,7 +45,7 @@ class HandoverMemoLocalRecorderRoomTest {
     fun createHandoverMemoPersistsPendingOutboxRowBeforeNetworkReplay() = runBlocking {
         val recorder =
             HandoverMemoLocalRecorder(
-                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                syncClient = RoomSyncClient(database),
                 now = { CLIENT_TS },
                 sequenceSource = { 80L },
                 idFactory = operationIdFactory("handover-memo-001")

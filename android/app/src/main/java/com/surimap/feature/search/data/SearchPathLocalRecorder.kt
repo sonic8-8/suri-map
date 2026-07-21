@@ -13,6 +13,7 @@ import java.util.UUID
 data class SearchPathWriteContext(
     val incidentId: String?,
     val opId: String?,
+    val accountId: String?,
     val policePhoneId: String?
 )
 
@@ -54,6 +55,7 @@ class SearchPathLocalRecorder(
                     searchPathId = searchPathId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
+                    accountId = valid.accountId,
                     policePhoneId = valid.policePhoneId,
                     idempotencyKey = "idem-$operationId",
                     sequence = sequenceSource(),
@@ -86,6 +88,7 @@ class SearchPathLocalRecorder(
                     operationId = operationId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
+                    accountId = valid.accountId,
                     searchPathId = pathId,
                     policePhoneId = valid.policePhoneId,
                     idempotencyKey = "idem-$operationId",
@@ -166,6 +169,7 @@ class SearchPathLocalRecorder(
                     operationId = operationId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
+                    accountId = valid.accountId,
                     searchPathId = pathId,
                     policePhoneId = valid.policePhoneId,
                     action = action,
@@ -186,10 +190,12 @@ class SearchPathLocalRecorder(
     private fun SearchPathWriteContext.valid(): RequiredSearchPathContext? {
         val incidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
         val opId = opId?.takeIf(String::isNotBlank) ?: return null
+        val accountId = accountId?.takeIf(String::isNotBlank) ?: return null
         val policePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
         return RequiredSearchPathContext(
             incidentId = incidentId,
             opId = opId,
+            accountId = accountId,
             policePhoneId = policePhoneId
         )
     }
@@ -197,6 +203,7 @@ class SearchPathLocalRecorder(
     private data class RequiredSearchPathContext(
         val incidentId: String,
         val opId: String,
+        val accountId: String,
         val policePhoneId: String
     )
 

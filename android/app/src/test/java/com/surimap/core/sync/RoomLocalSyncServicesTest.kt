@@ -37,7 +37,7 @@ class RoomLocalSyncServicesTest {
             SuriMapDatabase::class.java
         ).build()
         sender = CapturingSender()
-        syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        syncClient = RoomSyncClient(database)
         replay = RoomOutboxReplay(database.outboxDao(), sender)
         requeue = RoomOutboxRequeue(database.outboxDao())
     }

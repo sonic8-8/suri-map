@@ -2,6 +2,7 @@ package com.surimap.core.sync
 
 import androidx.room.Room
 import com.surimap.core.database.OutboxEntity
+import com.surimap.core.database.SearchRecordingStateEntity
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.operationIdFixture
@@ -37,12 +38,13 @@ class IncidentLocalCleanupPolicyTest {
             SuriMapDatabase::class.java
         ).build()
         sender = CapturingSender()
-        syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        syncClient = RoomSyncClient(database)
         replay = RoomOutboxReplay(database.outboxDao(), sender)
         requeue = RoomOutboxRequeue(database.outboxDao())
         purgeHook = LocalSyncPurgeHookAdapter(
             outboxDao = database.outboxDao(),
             localWriteDraftDao = database.localWriteDraftDao(),
+            searchRecordingStateDao = database.searchRecordingStateDao(),
             closeDrainReplay = replay
         )
     }
@@ -335,6 +337,33 @@ class IncidentLocalCleanupPolicyTest {
             result.orderedCleanupSteps.map { it.code }
         )
         assertEquals("WAITING_FOR_SYNC", result.retainedRows.single().retentionAccountingState)
+    }
+
+    @Test
+    fun incidentCloseRemovesRecoverableSearchState() = runBlocking {
+        val incidentId = incidentIdFixture("close-recording-state-001")
+        val accountId = "account-close-recording-state-001"
+        database.searchRecordingStateDao().upsert(
+            SearchRecordingStateEntity(
+                accountId = accountId,
+                incidentId = incidentId,
+                opId = "88888888-8888-8888-8888-888888880001",
+                searchPathId = "77777777-7777-7777-7777-777777770001",
+                lifecycleStatus = "ACTIVE",
+                activeStartedAt = Instant.parse("2026-04-28T00:00:00Z").toEpochMilli(),
+                accumulatedElapsed = 0L,
+                updatedAt = Instant.parse("2026-04-28T00:00:00Z").toEpochMilli()
+            )
+        )
+
+        purgeHook.handleIncidentClosed(
+            incidentId = incidentId,
+            policePhoneId = policePhoneIdFixture("close-recording-state-001"),
+            closedAt = "2026-04-28T00:01:00Z",
+            purgeRunId = "purge-run-recording-state-001"
+        )
+
+        assertNull(database.searchRecordingStateDao().find(accountId, incidentId))
     }
 
     private suspend fun enqueueAckedOperation(operation: LocalWriteOperation): OutboxEntity {

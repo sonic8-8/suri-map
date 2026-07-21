@@ -129,6 +129,19 @@ interface OutboxDao {
 
     @Query(
         """
+        SELECT COUNT(*) FROM android_outbox_row
+        WHERE incident_id = :incidentId
+          AND (
+            (request_method = 'POST' AND request_path = '/api/search-paths')
+            OR (request_method = 'PATCH' AND request_path LIKE '/api/search-paths/%')
+          )
+          AND idempotency_status NOT IN ('ACKED', 'PURGED')
+        """
+    )
+    suspend fun countUnresolvedSearchPathLifecycleRequests(incidentId: String): Int
+
+    @Query(
+        """
         UPDATE local_marker
         SET sync_status = :syncStatus,
             updated_at_millis = :updatedAtMillis

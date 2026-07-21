@@ -47,7 +47,8 @@ data class LocalWriteOperation(
     val opId: String? = null,
     val entityId: String? = null,
     val entityType: String? = null,
-    val parentOperationId: String? = null
+    val parentOperationId: String? = null,
+    val accountId: String? = null
 )
 
 data class EnqueueResult(

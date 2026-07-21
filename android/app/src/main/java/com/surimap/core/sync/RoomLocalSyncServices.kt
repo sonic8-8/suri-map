@@ -1,12 +1,17 @@
 package com.surimap.core.sync
 
+import androidx.room.withTransaction
 import com.surimap.core.database.LocalWriteDraftDao
 import com.surimap.core.database.LocalWriteDraftEntity
 import com.surimap.core.database.OutboxDao
 import com.surimap.core.database.OutboxEntity
+import com.surimap.core.database.SearchRecordingStateDao
+import com.surimap.core.database.SearchRecordingStateEntity
+import com.surimap.core.database.SuriMapDatabase
 import java.time.Instant
 import java.util.UUID
 import kotlin.math.roundToLong
+import org.json.JSONObject
 
 private const val POST_CLOSE_REQUEUE_REJECTED = "post_close_requeue_rejected"
 private const val LOCAL_INCIDENT_CLOSED_PATH = "/_local/incident-closed"
@@ -17,11 +22,16 @@ private const val OUTBOX_RETRY_MAX_AGE_MS = 86_400_000L
 private const val OUTBOX_STALE_SENDING_AFTER_MS = 60_000L
 
 class RoomSyncClient(
-    private val outboxDao: OutboxDao,
-    private val localWriteDraftDao: LocalWriteDraftDao
+    private val database: SuriMapDatabase
 ) : SyncClient {
+    private val outboxDao = database.outboxDao()
+    private val localWriteDraftDao = database.localWriteDraftDao()
+    private val searchRecordingStateDao = database.searchRecordingStateDao()
 
-    override suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult {
+    override suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult =
+        database.withTransaction { enqueueInTransaction(writeOperation) }
+
+    private suspend fun enqueueInTransaction(writeOperation: LocalWriteOperation): EnqueueResult {
         val existing = outboxDao.findByIdempotencyKey(writeOperation.idempotencyKey)
         if (existing != null) {
             if (existing.requestBodyHash != writeOperation.bodyHash) {
@@ -110,6 +120,7 @@ class RoomSyncClient(
                     updatedAtMillis = now
                 )
             )
+            updateSearchRecordingState(writeOperation, now)
         }
 
         return EnqueueResult(
@@ -119,6 +130,116 @@ class RoomSyncClient(
             harnessStatus = if (isPostCloseWrite) HarnessSyncStatus.FAILED else initialHarnessStatus
         )
     }
+
+    private suspend fun updateSearchRecordingState(
+        operation: LocalWriteOperation,
+        updatedAt: Long
+    ) {
+        if (operation.entityType != "search_path") {
+            return
+        }
+        val accountId = operation.accountId?.takeIf(String::isNotBlank) ?: return
+        val opId = operation.opId?.takeIf(String::isNotBlank) ?: return
+        val searchPathId = operation.entityId?.takeIf(String::isNotBlank) ?: return
+        val action = operation.searchRecordingAction() ?: return
+        val current = searchRecordingStateDao.find(accountId, operation.incidentId)
+        val clientTs = operation.clientTs.toEpochMilli()
+
+        when (action) {
+            "START" -> {
+                if (current != null && (current.lifecycleStatus != "STOPPED" || current.searchPathId == searchPathId)) {
+                    return
+                }
+                searchRecordingStateDao.upsert(
+                    SearchRecordingStateEntity(
+                        accountId = accountId,
+                        incidentId = operation.incidentId,
+                        opId = opId,
+                        searchPathId = searchPathId,
+                        lifecycleStatus = "ACTIVE",
+                        activeStartedAt = clientTs,
+                        accumulatedElapsed = 0L,
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+
+            "PAUSE" -> {
+                if (current == null || current.searchPathId != searchPathId || current.lifecycleStatus != "ACTIVE") {
+                    return
+                }
+                searchRecordingStateDao.upsert(
+                    SearchRecordingStateEntity(
+                        accountId = accountId,
+                        incidentId = operation.incidentId,
+                        opId = opId,
+                        searchPathId = searchPathId,
+                        lifecycleStatus = "PAUSED",
+                        activeStartedAt = null,
+                        accumulatedElapsed = current.elapsedAt(clientTs),
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+
+            "RESUME" -> {
+                if (current == null || current.searchPathId != searchPathId || current.lifecycleStatus != "PAUSED") {
+                    return
+                }
+                searchRecordingStateDao.upsert(
+                    SearchRecordingStateEntity(
+                        accountId = accountId,
+                        incidentId = operation.incidentId,
+                        opId = opId,
+                        searchPathId = searchPathId,
+                        lifecycleStatus = "ACTIVE",
+                        activeStartedAt = clientTs,
+                        accumulatedElapsed = current?.accumulatedElapsed ?: 0L,
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+
+            "END" -> {
+                if (
+                    current == null ||
+                    current.searchPathId != searchPathId ||
+                    current.lifecycleStatus !in setOf("ACTIVE", "PAUSED")
+                ) {
+                    return
+                }
+                searchRecordingStateDao.upsert(
+                    SearchRecordingStateEntity(
+                        accountId = accountId,
+                        incidentId = operation.incidentId,
+                        opId = opId,
+                        searchPathId = searchPathId,
+                        lifecycleStatus = "STOPPED",
+                        activeStartedAt = null,
+                        accumulatedElapsed = current.elapsedAt(clientTs),
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+        }
+    }
+
+    private fun LocalWriteOperation.searchRecordingAction(): String? =
+        when {
+            method == "POST" && endpoint == "/api/search-paths" -> "START"
+            method == "PATCH" && endpoint.startsWith("/api/search-paths/") ->
+                runCatching { JSONObject(payload).optString("action") }.getOrNull()
+            else -> null
+        }
+
+    private fun SearchRecordingStateEntity?.elapsedAt(now: Long): Long {
+        if (this == null) {
+            return 0L
+        }
+        val activeElapsed = activeStartedAt?.let { (now - it).coerceAtLeast(0L) } ?: 0L
+        return accumulatedElapsed + activeElapsed
+    }
+
 }
 
 class RoomOutboxReplay(
@@ -412,6 +533,7 @@ class RoomOutboxRequeue(
 class LocalSyncPurgeHookAdapter(
     private val outboxDao: OutboxDao,
     private val localWriteDraftDao: LocalWriteDraftDao,
+    private val searchRecordingStateDao: SearchRecordingStateDao,
     private val closeDrainReplay: OutboxReplay
 ) : LocalSyncPurgeHook {
 
@@ -469,6 +591,7 @@ class LocalSyncPurgeHookAdapter(
             policePhoneId = policePhoneId,
             closedAt = closedAtMillis
         )
+        searchRecordingStateDao.deleteByIncidentId(incidentId)
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
         closeDrainReplay.flushPending(policePhoneId = policePhoneId, incidentId = incidentId)
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)

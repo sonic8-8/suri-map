@@ -65,6 +65,7 @@ class SearchMapStateLoader(
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
     private val pendingMarkers: suspend (String, String) -> List<LocalMarkerEntity> = { _, _ -> emptyList() },
     private val responseCache: SearchMapResponseCache? = null,
+    private val recordingStateStore: RoomSearchRecordingStateStore? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
@@ -119,7 +120,7 @@ class SearchMapStateLoader(
         }
         cache.read(context, CACHE_SOURCE_SEARCH_PATHS)?.let { body ->
             cacheHit = true
-            state = withSearchPathsBody(context, state, body)
+            state = withSearchPathsBody(context, state, body, saveRecordingState = false)
         }
         val liveMarkerBody = cache.read(context, CACHE_SOURCE_LIVE_MARKERS)
         if (liveMarkerBody != null) {
@@ -295,7 +296,7 @@ class SearchMapStateLoader(
             return if (cachedBody.isNullOrBlank()) {
                 state
             } else {
-                withSearchPathsBody(context, state, cachedBody)
+                withSearchPathsBody(context, state, cachedBody, saveRecordingState = true)
             }
         }
         val response =
@@ -316,13 +317,14 @@ class SearchMapStateLoader(
             return state
         }
         cacheResponse(context, CACHE_SOURCE_SEARCH_PATHS, response.body, revisionSnapshot)
-        return withSearchPathsBody(context, state, response.body)
+        return withSearchPathsBody(context, state, response.body, saveRecordingState = true)
     }
 
-    private fun withSearchPathsBody(
+    private suspend fun withSearchPathsBody(
         context: SearchMapSessionContext,
         state: SearchMapUiState,
-        body: String
+        body: String,
+        saveRecordingState: Boolean
     ): SearchMapUiState {
         val accountId = context.accountId?.takeIf(String::isNotBlank) ?: return state
         val pathLayerResult = searchPathLayers(
@@ -330,7 +332,7 @@ class SearchMapStateLoader(
             currentAccountId = accountId,
             areaColorCandidates = state.routeAreaColorCandidates()
         )
-        if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
+        if (!pathLayerResult.validResponse) {
             return state
         }
         val nextState =
@@ -346,7 +348,11 @@ class SearchMapStateLoader(
                 activeSearchPathId = pathLayerResult.activePathId,
                 activeSearchPathStartedAtEpochMs = pathLayerResult.activeStartedAtEpochMs
             )
-        return nextState.withViewportFromLayers(pathLayerResult.layers)
+        return nextState.withViewportFromLayers(pathLayerResult.layers).also { loadedState ->
+            if (saveRecordingState) {
+                recordingStateStore?.saveServerState(context, loadedState)
+            }
+        }
     }
 
     private suspend fun withInitialMarkers(
@@ -842,9 +848,14 @@ class SearchMapStateLoader(
         var activeStartedAtEpochMs: Long? = null
         var activeLifecycleStatus: SearchLifecycleStatus? = null
         var pathCount = 0
+        var validResponse = true
         val layers = buildList {
             repeat(paths.length()) { index ->
-                val path = paths.optJSONObject(index) ?: return@repeat
+                val path = paths.optJSONObject(index)
+                if (path == null) {
+                    validResponse = false
+                    return@repeat
+                }
                 val status = path.optString("status").uppercase()
                 val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
                 val pathAccountId = path.optString("accountId").takeIf(String::isNotBlank)
@@ -903,6 +914,7 @@ class SearchMapStateLoader(
             }
         }
         return SearchPathLayerResult(
+            validResponse = validResponse,
             layers = layers,
             pathCount = pathCount,
             activePathId = activePathId,
@@ -912,6 +924,7 @@ class SearchMapStateLoader(
     }
 
     private data class SearchPathLayerResult(
+        val validResponse: Boolean = false,
         val layers: List<SearchMapLayerUiState> = emptyList(),
         val pathCount: Int = 0,
         val activePathId: String? = null,

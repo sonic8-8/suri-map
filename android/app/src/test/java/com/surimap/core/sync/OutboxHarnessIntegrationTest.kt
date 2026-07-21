@@ -60,7 +60,7 @@ class OutboxHarnessIntegrationTest {
             catalog.requireFixture("outbox-path-001").ownerPath
         )
 
-        val syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val syncClient = RoomSyncClient(database)
         val callFactory = StaticCallFactory(response = response(201))
         val replay = RoomOutboxReplay(
             outboxDao = database.outboxDao(),
@@ -124,7 +124,7 @@ class OutboxHarnessIntegrationTest {
 
     @Test
     fun persistedAppWriteHeadersAreReplayedFromRoomOutboxRows() = runBlocking {
-        val syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val syncClient = RoomSyncClient(database)
         val callFactory = StaticCallFactory(response = response(201))
         val replay = RoomOutboxReplay(
             outboxDao = database.outboxDao(),

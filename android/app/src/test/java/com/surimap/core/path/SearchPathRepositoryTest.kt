@@ -42,6 +42,7 @@ class SearchPathRepositoryTest {
                 searchPathId = PATH_ID,
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-path-start-001",
                 sequence = 10,
@@ -83,6 +84,7 @@ class SearchPathRepositoryTest {
                 operationId = operationIdFixture("path-end-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 searchPathId = PATH_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-path-end-001",
@@ -112,6 +114,7 @@ class SearchPathRepositoryTest {
                 operationId = operationIdFixture("path-pause-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 searchPathId = PATH_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 action = SearchPathLifecycleAction.PAUSE,
@@ -125,6 +128,7 @@ class SearchPathRepositoryTest {
                 operationId = operationIdFixture("path-resume-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 searchPathId = PATH_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 action = SearchPathLifecycleAction.RESUME,
@@ -152,6 +156,7 @@ class SearchPathRepositoryTest {
                 operationId = operationIdFixture("path-batch-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 searchPathId = PATH_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-path-batch-001",
@@ -199,6 +204,7 @@ class SearchPathRepositoryTest {
                 operationId = operationIdFixture("path-batch-precision-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
+                accountId = ACCOUNT_ID,
                 searchPathId = PATH_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-path-batch-precision-001",
@@ -317,6 +323,7 @@ class SearchPathRepositoryTest {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("precinct-first-001")
         val PATH_ID = pathIdFixture("precinct-first-001")
+        const val ACCOUNT_ID = "account-path-001"
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T05:59:30Z")
