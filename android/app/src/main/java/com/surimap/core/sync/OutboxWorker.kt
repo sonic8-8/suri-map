@@ -116,7 +116,11 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
         val accessTokenProvider = LocalSyncRuntime.accessTokenProvider
             ?: OidcAccessTokenProvider(applicationContext)
         val accessToken = accessTokenProvider.accessToken()
-        val replay = LocalSyncRuntime.outboxReplay
+        val runtimeReplay = LocalSyncRuntime.outboxReplay
+        if (runtimeReplay == null && accessToken.isNullOrBlank()) {
+            return Result.retry()
+        }
+        val replay = runtimeReplay
             ?: LocalSyncRuntime.outboxReplayProvider?.create(applicationContext, apiBaseUrl, accessToken)
             ?: createRoomOutboxReplay(applicationContext, apiBaseUrl, accessToken)
         val replayResult = replay.flushPending(

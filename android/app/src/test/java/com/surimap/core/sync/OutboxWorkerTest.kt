@@ -104,6 +104,35 @@ class OutboxWorkerTest {
     }
 
     @Test
+    fun outboxWorkerWaitsForAuthenticationBeforeCreatingReplay() = runBlocking {
+        var replayCreated = false
+        LocalSyncRuntime.accessTokenProvider = AccessTokenProvider { null }
+        LocalSyncRuntime.outboxReplayProvider =
+            OutboxReplayProvider { _, _, _ ->
+                replayCreated = true
+                object : OutboxReplay {
+                    override suspend fun flushPending(
+                        policePhoneId: String,
+                        incidentId: String
+                    ): OutboxReplayResult = OutboxReplayResult()
+                }
+            }
+        val worker = TestListenableWorkerBuilder<OutboxWorker>(
+            RuntimeEnvironment.getApplication()
+        )
+            .setInputData(
+                Data.Builder()
+                    .putString(OutboxWorker.KEY_INCIDENT_ID, INCIDENT_ID)
+                    .putString(OutboxWorker.KEY_POLICE_PHONE_ID, POLICE_PHONE_ID)
+                    .build()
+            )
+            .build()
+
+        assertEquals(ListenableWorker.Result.retry(), worker.doWork())
+        assertEquals(false, replayCreated)
+    }
+
+    @Test
     fun outboxWorkerRetriesWhenReplayLeavesRetryableFailures() = runBlocking {
         LocalSyncRuntime.outboxReplay =
             object : OutboxReplay {

@@ -138,6 +138,12 @@ data class PolicePhoneContext(
 fun PolicePhoneContext?.accessTokenProvider(): AccessTokenProvider =
     AccessTokenProvider { this?.accessToken?.takeIf(String::isNotBlank) }
 
+fun PolicePhoneContext?.offlineStartupAccountId(): String? =
+    this
+        ?.takeIf { !it.accessToken.isNullOrBlank() }
+        ?.accountId
+        ?.takeIf(String::isNotBlank)
+
 fun String?.accountIdClaim(): String? {
     val token = this?.takeIf(String::isNotBlank) ?: return null
     val payloadPart = token.split('.').getOrNull(1)?.takeIf(String::isNotBlank) ?: return null
@@ -160,7 +166,20 @@ class IncidentSessionState(
         private set
 
     fun activatePolicePhoneContext(context: PolicePhoneContext) {
+        val previousAccountId = policePhoneContext?.accountId?.takeIf(String::isNotBlank)
+        val nextAccountId = context.accountId?.takeIf(String::isNotBlank)
+        if (incidentContext != null && previousAccountId != nextAccountId) {
+            incidentContext = null
+        }
         policePhoneContext = context
+    }
+
+    fun clearOidcSession() {
+        policePhoneContext =
+            policePhoneContext?.copy(
+                accessToken = null,
+                accessTokenExpiresAtEpochMs = null
+            )
     }
 
     fun activateIncidentContext(context: IncidentContext) {
