@@ -257,6 +257,7 @@ import com.surimap.ui.navigation.PolicePhoneRoutes
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.navigation.accountIdClaim
+import com.surimap.ui.navigation.offlineStartupAccountId
 import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
 import com.surimap.ui.theme.PoliBgSurface
@@ -409,7 +410,7 @@ fun SuriMapApp() {
             searchRecordingStateDao = searchRecordingDatabase.searchRecordingStateDao()
         )
     }
-    val startupAccountId = incidentSessionState.policePhoneContext?.accountId
+    val startupAccountId = incidentSessionState.policePhoneContext.offlineStartupAccountId()
     var offlineStartupState by remember(startupAccountId) {
         mutableStateOf<OfflineStartupState?>(null)
     }
@@ -612,7 +613,7 @@ fun SuriMapApp() {
         onSessionExpired = {
             oidcSessionStateStore.clear()
             oidcAuthStateJson = null
-            incidentSessionState.clearPolicePhoneContext()
+            incidentSessionState.clearOidcSession()
             navController.navigateToAuthBootstrapRoot()
         }
     )

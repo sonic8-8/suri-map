@@ -1,7 +1,10 @@
 package com.surimap.ui.session
 
+import com.surimap.ui.navigation.IncidentContext
+import com.surimap.ui.navigation.PolicePhoneContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,5 +46,55 @@ class SuriMapSessionSnapshotTest {
         assertNotNull(context)
         assertEquals("access-token", context?.accessToken)
         assertEquals(1779085219000L, context?.accessTokenExpiresAtEpochMs)
+    }
+
+    @Test
+    fun `json round trip keeps the account that owns the session`() {
+        val snapshot =
+            requireNotNull(
+                SuriMapSessionSnapshot.from(
+                    incidentContext = IncidentContext(incidentId = "incident-1"),
+                    policePhoneContext = phoneContext(accountId = "account-1")
+                )
+            )
+
+        val restoredContext =
+            requireNotNull(SuriMapSessionSnapshot.fromJson(snapshot.toJson()))
+                .toPolicePhoneContext()
+
+        assertEquals("account-1", restoredContext?.accountId)
+    }
+
+    @Test
+    fun `snapshot does not attach a token issued to another account`() {
+        val snapshot =
+            requireNotNull(
+                SuriMapSessionSnapshot.from(
+                    incidentContext = IncidentContext(incidentId = "incident-1"),
+                    policePhoneContext = phoneContext(accountId = "account-1")
+                )
+            )
+
+        val restoredContext = snapshot.toPolicePhoneContext(accessToken = accessToken("account-2"))
+
+        assertEquals("account-1", restoredContext?.accountId)
+        assertNull(restoredContext?.accessToken)
+    }
+
+    private fun phoneContext(accountId: String): PolicePhoneContext =
+        PolicePhoneContext(
+            policePhoneId = "phone-1",
+            apiBaseUrl = "https://k14c106.p.ssafy.io",
+            tileBaseUrl = "https://k14c106.p.ssafy.io/tiles",
+            objectStorageBaseUrl = "https://k14c106.p.ssafy.io",
+            accountId = accountId
+        )
+
+    private fun accessToken(accountId: String): String {
+        val payload =
+            java.util.Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString("""{"accountId":"$accountId"}""".toByteArray())
+        return "header.$payload.signature"
     }
 }

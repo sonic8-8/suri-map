@@ -58,6 +58,69 @@ class IncidentSessionStateTest {
         assertSame(phoneContext, state.policePhoneContext)
     }
 
+    @Test
+    fun oidcSessionExpiryKeepsIncidentAndAccountButRemovesToken() {
+        val incidentContext = IncidentContext(incidentId = INCIDENT_ID)
+        val state =
+            IncidentSessionState(
+                initialIncidentContext = incidentContext,
+                initialPolicePhoneContext = phoneContext(accountId = "account-1")
+            )
+
+        state.clearOidcSession()
+
+        assertSame(incidentContext, state.incidentContext)
+        assertEquals("account-1", state.policePhoneContext?.accountId)
+        assertNull(state.policePhoneContext?.accessToken)
+        assertNull(state.policePhoneContext?.accessTokenExpiresAtEpochMs)
+    }
+
+    @Test
+    fun sameAccountLoginKeepsCurrentIncident() {
+        val incidentContext = IncidentContext(incidentId = INCIDENT_ID)
+        val state =
+            IncidentSessionState(
+                initialIncidentContext = incidentContext,
+                initialPolicePhoneContext = phoneContext(accountId = "account-1")
+            )
+
+        state.activatePolicePhoneContext(phoneContext(accountId = "account-1"))
+
+        assertSame(incidentContext, state.incidentContext)
+    }
+
+    @Test
+    fun differentAccountLoginClearsCurrentIncident() {
+        val state =
+            IncidentSessionState(
+                initialIncidentContext = IncidentContext(incidentId = INCIDENT_ID),
+                initialPolicePhoneContext = phoneContext(accountId = "account-1")
+            )
+
+        state.activatePolicePhoneContext(phoneContext(accountId = "account-2"))
+
+        assertNull(state.incidentContext)
+    }
+
+    @Test
+    fun offlineStartupUsesOnlyAContextWithAuthentication() {
+        val authenticated = phoneContext(accountId = "account-1")
+
+        assertEquals("account-1", authenticated.offlineStartupAccountId())
+        assertNull(authenticated.copy(accessToken = null).offlineStartupAccountId())
+    }
+
+    private fun phoneContext(accountId: String): PolicePhoneContext =
+        PolicePhoneContext(
+            policePhoneId = POLICE_PHONE_ID,
+            apiBaseUrl = "https://suri-map.internal/api",
+            tileBaseUrl = "https://suri-map.internal/tiles",
+            objectStorageBaseUrl = "https://suri-map.internal/objects",
+            accessToken = "access-token",
+            accessTokenExpiresAtEpochMs = 1_000L,
+            accountId = accountId
+        )
+
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("precinct-001-op1")
