@@ -40,6 +40,11 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".feature.search.data.SearchPathLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <activity
             android:name="net.openid.appauth.RedirectUriReceiverActivity"
             android:exported="true"

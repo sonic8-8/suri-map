@@ -15,6 +15,9 @@
     <string name="notification_marker_alert_person_found_text">실종자 발견 마커가 생성되었습니다. 지도에서 위치를 확인하세요.</string>
     <string name="notification_marker_alert_support_request_title">지원 요청</string>
     <string name="notification_marker_alert_support_request_text">지원 요청 마커가 생성되었습니다. 지도에서 위치를 확인하세요.</string>
+    <string name="notification_search_path_recording_channel">수색 경로 기록</string>
+    <string name="notification_search_path_recording_title">수색 경로 기록 중</string>
+    <string name="notification_search_path_recording_text">GPS 좌표를 저장하고 있습니다.</string>
     <string name="restriction_police_phone_id_title">폴리폰 ID</string>
     <string name="restriction_police_phone_id_description">관리 콘솔에서 배정한 폴리폰 식별값</string>
     <string name="restriction_api_base_url_title">내부망 API URL</string>

@@ -97,6 +97,31 @@ class OutboxReplaySchedulerTest {
     }
 
     @Test
+    fun schedulingSyncClientUsesTheCurrentApiBaseUrl() = runBlocking {
+        val scheduled = mutableListOf<OutboxReplayWorkRequest>()
+        var apiBaseUrl = "https://old.suri-map.internal"
+        val client =
+            SchedulingSyncClient(
+                delegate =
+                SyncClient { writeOperation ->
+                    EnqueueResult(
+                        outboxId = "outbox-1",
+                        operationId = writeOperation.operationId,
+                        status = OutboxStatus.PENDING,
+                        harnessStatus = HarnessSyncStatus.PENDING_SEND
+                    )
+                },
+                scheduleReplay = { scheduled += it },
+                apiBaseUrl = { apiBaseUrl }
+            )
+        apiBaseUrl = "https://suri-map.sonic8-8.com"
+
+        client.enqueue(appWriteOperation())
+
+        assertEquals("https://suri-map.sonic8-8.com", scheduled.single().apiBaseUrl)
+    }
+
+    @Test
     fun schedulingSyncClientDoesNotScheduleFinalRejectedWrites() = runBlocking {
         var scheduled = false
         val client =
