@@ -74,6 +74,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.work.WorkManager
 import com.surimap.BuildConfig
+import com.surimap.SuriMapApplication
 import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageInstallationDao
@@ -224,9 +225,9 @@ import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.data.RoomSearchMapResponseCache
 import com.surimap.feature.search.data.RoomSearchRecordingStateStore
 import com.surimap.feature.search.data.SearchAreaBoundaryAlertLocalRecorder
-import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
 import com.surimap.feature.search.data.SearchPathLocationRecorder
+import com.surimap.feature.search.data.SearchPathLocationService
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.data.SearchPathWriteResult
 import com.surimap.feature.search.data.SearchRecordingSessionState
@@ -272,7 +273,6 @@ import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
@@ -354,6 +354,7 @@ fun SuriMapApp() {
         return
     }
     val context = LocalContext.current.applicationContext
+    val application = context as SuriMapApplication
     val navController = rememberNavController()
     var assignmentRefreshNonce by remember { mutableStateOf(0) }
     val sessionSnapshotStore = remember(context) { SuriMapSessionSnapshotStore(context) }
@@ -377,7 +378,7 @@ fun SuriMapApp() {
                 ) ?: debugMapOnlyPolicePhoneContext()
             )
         }
-    val clockSyncState = remember { ClockSyncState() }
+    val clockSyncState = application.clockSyncState
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
@@ -415,9 +416,6 @@ fun SuriMapApp() {
         mutableStateOf<OfflineStartupState?>(null)
     }
     var offlineStartupHandled by remember(startupAccountId) { mutableStateOf(false) }
-    val searchRecordingReplayScheduler = remember(context) {
-        OutboxReplayScheduler(WorkManager.getInstance(context))
-    }
     val searchRecordingApiBaseUrl =
         incidentSessionState.policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val searchRecoveryAccessTokenProvider = incidentSessionState.policePhoneContext.accessTokenProvider()
@@ -441,44 +439,13 @@ fun SuriMapApp() {
                 }
             )
         }
-    val searchRecordingSyncClient =
-        remember(searchRecordingDatabase, searchRecordingReplayScheduler, searchRecordingApiBaseUrl) {
-            SchedulingSyncClient(
-                delegate =
-                RoomSyncClient(searchRecordingDatabase),
-                scheduleReplay = searchRecordingReplayScheduler::schedule,
-                apiBaseUrl = searchRecordingApiBaseUrl
-            )
+    val searchPathRecorder =
+        remember(application, searchRecordingApiBaseUrl) {
+            application.configureSearchPathRecording(searchRecordingApiBaseUrl)
+            application.searchPathRecorder
         }
-    val searchPathRecorder = remember(searchRecordingSyncClient, clockSyncState) {
-        SearchPathLocalRecorder(
-            syncClient = searchRecordingSyncClient,
-            clockOffsetMs = clockSyncState::clockOffsetMs,
-            clockSyncedAt = clockSyncState::clockSyncedAt
-        )
-    }
-    val searchPathGpsBatchRecorder = remember(searchPathRecorder) {
-        SearchPathGpsBatchRecorder(searchPathRecorder)
-    }
-    val searchPathLocationUpdates = remember(context) {
-        AndroidLocationUpdates(
-            context = context,
-            sampleIntervalMs = BuildConfig.SURI_MAP_LOCATION_SAMPLE_INTERVAL_MS
-        )
-    }
-    val searchPathLocationScope = rememberCoroutineScope()
-    val updateLatestRecordingLocation by rememberUpdatedState<(GpsLocationFix) -> Unit> { fix ->
-        latestRecordingLocationFix = fix
-    }
-    val searchPathLocationRecorder =
-        remember(searchPathLocationUpdates, searchPathGpsBatchRecorder, searchPathLocationScope) {
-            SearchPathLocationRecorder(
-                locationUpdates = searchPathLocationUpdates,
-                batchRecorder = searchPathGpsBatchRecorder,
-                coroutineScope = searchPathLocationScope,
-                onFix = { fix -> updateLatestRecordingLocation(fix) }
-            )
-        }
+    val searchPathLocationUpdates = application.searchPathLocationUpdates
+    val searchPathLocationRecorder = application.searchPathLocationRecorder
     val activeRecordingSearchPathId = recordingSession.effectiveSearchPathId(serverActiveSearchPathId = null)
     val shouldCollectRecordingGps = recordingSession.shouldCollectGps(serverActiveSearchPathId = null)
     val searchMapViewHandle = rememberMapLibreMapViewHandle(incidentSessionState.incidentContext?.incidentId)
@@ -490,6 +457,16 @@ fun SuriMapApp() {
             hasIncidentContext = incidentSessionState.incidentContext != null
         )
     val selectedBottomNavigationRoute = PolicePhoneBottomNavigation.selectedRouteFor(currentRoute)
+
+    LaunchedEffect(
+        application,
+        searchRecordingContext.incidentId,
+        searchRecordingContext.accountId
+    ) {
+        application.searchPathLocationFixes.collect { fix ->
+            latestRecordingLocationFix = fix
+        }
+    }
 
     LaunchedEffect(offlineStartupStateLoader, startupAccountId) {
         offlineStartupState = offlineStartupStateLoader.load(startupAccountId)
@@ -526,26 +503,29 @@ fun SuriMapApp() {
     }
 
     LaunchedEffect(
-        searchPathLocationRecorder,
+        application,
+        context,
+        offlineStartupState,
+        offlineStartupHandled,
         searchRecordingContext,
+        searchRecordingApiBaseUrl,
         shouldCollectRecordingGps,
         activeRecordingSearchPathId
     ) {
-        if (!shouldCollectRecordingGps || activeRecordingSearchPathId == null) {
-            searchPathLocationRecorder.stop()
+        if (!canUpdateSearchPathLocationService(offlineStartupState, offlineStartupHandled)) {
             return@LaunchedEffect
         }
-        try {
-            searchPathLocationRecorder.start(
-                context = searchRecordingContext.toSearchPathWriteContext(),
-                searchPathId = activeRecordingSearchPathId
-            )
-            awaitCancellation()
-        } finally {
-            withContext(NonCancellable) {
-                searchPathLocationRecorder.stop()
-            }
+        if (!shouldCollectRecordingGps || activeRecordingSearchPathId == null) {
+            application.stopSearchPathLocationRecording()
+            SearchPathLocationService.stop(context)
+            return@LaunchedEffect
         }
+        SearchPathLocationService.start(
+            context = context,
+            writeContext = searchRecordingContext.toSearchPathWriteContext(),
+            searchPathId = activeRecordingSearchPathId,
+            apiBaseUrl = searchRecordingApiBaseUrl
+        )
     }
 
     LaunchedEffect(
@@ -2042,10 +2022,32 @@ private fun SearchMapRoute(
         }
     }
 
+    suspend fun startSearch() {
+        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+        val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
+        if (result is SearchPathWriteResult.Enqueued) {
+            val now = System.currentTimeMillis()
+            onRecordingSessionChanged(recordingSession.start(result.entityId, now))
+            elapsedTickerNowMs = now
+        }
+    }
+
+    var pendingLocationPermissionAction by remember {
+        mutableStateOf<SearchMapLocationPermissionAction?>(null)
+    }
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grantResults ->
+            val action = pendingLocationPermissionAction
+            pendingLocationPermissionAction = null
             if (grantResults.values.any { it }) {
-                requestCurrentLocationCenter()
+                when (action) {
+                    SearchMapLocationPermissionAction.StartSearch -> {
+                        coroutineScope.launch { startSearch() }
+                    }
+
+                    SearchMapLocationPermissionAction.CenterMap -> requestCurrentLocationCenter()
+                    null -> Unit
+                }
             }
         }
 
@@ -2364,16 +2366,21 @@ private fun SearchMapRoute(
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
             mapViewHandle = mapViewHandle,
             onPrimaryLifecycleAction = {
+                if (displayedLifecycle == SearchLifecycleStatus.Stopped && !context.hasLocationPermission()) {
+                    pendingLocationPermissionAction = SearchMapLocationPermissionAction.StartSearch
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                    return@SearchMapScreen
+                }
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
                     when (displayedLifecycle) {
                         SearchLifecycleStatus.Stopped -> {
-                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
-                            val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
-                            if (result is SearchPathWriteResult.Enqueued) {
-                                onRecordingSessionChanged(recordingSession.start(result.entityId, now))
-                                elapsedTickerNowMs = now
-                            }
+                            startSearch()
                         }
                         SearchLifecycleStatus.Active -> {
                             val writeContext = sessionContext.toSearchPathWriteContext()
@@ -2468,6 +2475,7 @@ private fun SearchMapRoute(
                 if (context.hasLocationPermission()) {
                     requestCurrentLocationCenter()
                 } else {
+                    pendingLocationPermissionAction = SearchMapLocationPermissionAction.CenterMap
                     locationPermissionLauncher.launch(
                         arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -4146,6 +4154,22 @@ private fun Intent.toBatterySnapshot(): BatterySnapshot {
 private fun Context.hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+internal fun canUpdateSearchPathLocationService(
+    offlineStartupState: OfflineStartupState?,
+    offlineStartupHandled: Boolean
+): Boolean =
+    when (offlineStartupState) {
+        null -> false
+        OfflineStartupState.RequiresConnection -> true
+        OfflineStartupState.IncidentList,
+        is OfflineStartupState.SearchMap -> offlineStartupHandled
+    }
+
+private enum class SearchMapLocationPermissionAction {
+    StartSearch,
+    CenterMap
+}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->

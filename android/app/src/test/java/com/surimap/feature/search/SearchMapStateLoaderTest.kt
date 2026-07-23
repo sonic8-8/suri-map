@@ -1416,8 +1416,6 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("SearchPathRepository"))
         assertTrue(source.contains("listSearchPaths"))
         assertTrue(source.contains("SearchPathLocalRecorder"))
-        assertTrue(source.contains("SearchPathGpsBatchRecorder"))
-        assertTrue(source.contains("AndroidLocationUpdates"))
         assertTrue(source.contains("latestLocationFix"))
         assertTrue(source.contains("latestGpsLocationFix"))
         assertTrue(source.contains("lastKnownFix"))

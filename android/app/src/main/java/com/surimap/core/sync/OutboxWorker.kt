@@ -69,8 +69,14 @@ class OutboxReplayScheduler(
 class SchedulingSyncClient(
     private val delegate: SyncClient,
     private val scheduleReplay: (OutboxReplayWorkRequest) -> Unit,
-    private val apiBaseUrl: String
+    private val apiBaseUrl: () -> String
 ) : SyncClient {
+    constructor(
+        delegate: SyncClient,
+        scheduleReplay: (OutboxReplayWorkRequest) -> Unit,
+        apiBaseUrl: String
+    ) : this(delegate, scheduleReplay, { apiBaseUrl })
+
     override suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult {
         val result = delegate.enqueue(writeOperation)
         if (result.shouldScheduleReplay()) {
@@ -78,7 +84,7 @@ class SchedulingSyncClient(
                 OutboxReplayWorkRequest(
                     incidentId = writeOperation.incidentId,
                     policePhoneId = writeOperation.policePhoneId,
-                    apiBaseUrl = apiBaseUrl
+                    apiBaseUrl = apiBaseUrl()
                 )
             )
         }
