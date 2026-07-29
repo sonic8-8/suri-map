@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IdempotentWriteService {
@@ -31,22 +32,29 @@ public class IdempotentWriteService {
     this.repository = Objects.requireNonNull(repository, "repository must not be null");
   }
 
-  public synchronized IdempotentWriteResponse reserveAndReplay(
+  @Transactional
+  public IdempotentWriteResponse reserveAndReplay(
       IdempotentWriteRequest request, Supplier<IdempotentWriteResponse> ownerOperation) {
     Objects.requireNonNull(request, "request must not be null");
     Objects.requireNonNull(ownerOperation, "ownerOperation must not be null");
 
-    var existing = repository.find(request.idempotencyKey());
-    if (existing.isEmpty()) {
-      repository.save(IdempotencyRecord.reserved(request));
+    var existing = repository.find(request.endpoint(), request.idempotencyKey());
+    if (existing.isEmpty() && repository.reserve(IdempotencyRecord.reserved(request))) {
       try {
         IdempotentWriteResponse response = ownerOperation.get();
         repository.save(IdempotencyRecord.committed(request, response.statusCode(), response));
         return response;
       } catch (RuntimeException | Error exception) {
-        repository.delete(request.idempotencyKey());
+        repository.delete(request.endpoint(), request.idempotencyKey());
         throw exception;
       }
+    }
+
+    if (existing.isEmpty()) {
+      existing = repository.find(request.endpoint(), request.idempotencyKey());
+    }
+    if (existing.isEmpty()) {
+      return conflict("write_conflict");
     }
 
     IdempotencyRecord record = existing.get();
@@ -74,7 +82,8 @@ public class IdempotentWriteService {
   }
 
   private IdempotentWriteResponse recoverCommittedResponse(IdempotencyRecord record) {
-    var recovered = recoveryPort.recover(record.endpoint(), record.operationId(), record.entityId());
+    var recovered =
+        recoveryPort.recover(record.endpoint(), record.operationId(), record.entityId());
 
     if (recovered.isEmpty() || !matchesCommittedEntity(record, recovered.get())) {
       return conflict("write_conflict");

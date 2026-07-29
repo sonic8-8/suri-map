@@ -25,7 +25,7 @@
     <result property="updatedAt" column="updated_at"/>
   </resultMap>
 
-  <select id="findByIdempotencyKey" resultMap="idempotencyRecordRowMap">
+  <select id="findByIdempotencyKeyAndEndpoint" resultMap="idempotencyRecordRowMap">
     SELECT
       id,
       client_operation_id,
@@ -47,8 +47,8 @@
       updated_at
     FROM idempotency_record
     WHERE idempotency_key = #{idempotencyKey}
-    ORDER BY created_at ASC, id ASC
-    LIMIT 1
+      AND request_path = #{requestPath}
+      AND request_method = #{requestMethod}
   </select>
 
   <insert id="insert">
@@ -92,9 +92,10 @@
       #{createdAt},
       #{updatedAt}
     )
+    ON CONFLICT DO NOTHING
   </insert>
 
-  <update id="updateByIdempotencyKey">
+  <update id="updateByIdempotencyKeyAndEndpoint">
     UPDATE idempotency_record
     SET
       client_operation_id = #{clientOperationId},
@@ -113,10 +114,14 @@
       replay_recovered = #{replayRecovered},
       updated_at = #{updatedAt}
     WHERE idempotency_key = #{idempotencyKey}
+      AND request_path = #{requestPath}
+      AND request_method = #{requestMethod}
   </update>
 
-  <delete id="deleteByIdempotencyKey">
+  <delete id="deleteByIdempotencyKeyAndEndpoint">
     DELETE FROM idempotency_record
     WHERE idempotency_key = #{idempotencyKey}
+      AND request_path = #{requestPath}
+      AND request_method = #{requestMethod}
   </delete>
 </mapper>

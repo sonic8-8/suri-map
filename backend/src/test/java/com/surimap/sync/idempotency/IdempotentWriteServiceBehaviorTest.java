@@ -9,15 +9,19 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
 import org.springframework.http.HttpStatus;
 
-/** Minimal L4-T06 RED unit tests for S6 server idempotency behavior. */
-@DisplayName("L4-T06 IdempotentWriteService behavior RED")
-class IdempotentWriteServiceBehaviorRedTest {
+@DisplayName("IdempotentWriteService behavior")
+class IdempotentWriteServiceBehaviorTest {
 
   @Test
   @DisplayName("same key and bodyHash replays cached response without invoking owner twice")
@@ -91,21 +95,17 @@ class IdempotentWriteServiceBehaviorRedTest {
   }
 
   @Test
-  @DisplayName("same key mismatch is global and is not scoped away by endpoint")
-  void sameIdempotencyKeyOnDifferentEndpointStillReturnsMismatch() {
+  @DisplayName("same key on different endpoints is handled as a separate request")
+  void sameIdempotencyKeyOnDifferentEndpointRunsOwner() {
     FakeOwnerReplayRecoveryPort recoveryPort = new FakeOwnerReplayRecoveryPort();
     IdempotentWriteService service = new IdempotentWriteService(recoveryPort);
     AtomicInteger ownerInvocations = new AtomicInteger();
 
     IdempotentWriteRequest firstRequest =
         request("POST /markers", "op-marker-004", "marker-004", "idem-global-001", "hash-marker");
-    IdempotentWriteRequest conflictingEndpointRequest =
+    IdempotentWriteRequest secondEndpointRequest =
         request(
-            "POST /search-paths/batch",
-            "op-path-004",
-            "path-004",
-            "idem-global-001",
-            "hash-path");
+            "POST /search-paths/batch", "op-path-004", "path-004", "idem-global-001", "hash-path");
 
     service.reserveAndReplay(
         firstRequest,
@@ -113,14 +113,17 @@ class IdempotentWriteServiceBehaviorRedTest {
           ownerInvocations.incrementAndGet();
           return response(201, "{\"id\":\"marker-004\",\"status\":\"ACTIVE\"}", 4L, 1404L);
         });
-    IdempotentWriteResponse mismatch =
+    IdempotentWriteResponse second =
         service.reserveAndReplay(
-            conflictingEndpointRequest,
-            () -> failOwner("same Idempotency-Key with different bodyHash must not reach owner"));
+            secondEndpointRequest,
+            () -> {
+              ownerInvocations.incrementAndGet();
+              return response(201, "{\"id\":\"path-004\",\"status\":\"ACTIVE\"}", 1L, 1405L);
+            });
 
-    assertThat(ownerInvocations).hasValue(1);
-    assertThat(mismatch.statusCode()).isEqualTo(409);
-    assertThat(mismatch.error()).isEqualTo("idempotency_mismatch");
+    assertThat(ownerInvocations).hasValue(2);
+    assertThat(second.statusCode()).isEqualTo(201);
+    assertThat(second.replayed()).isFalse();
   }
 
   @Test
@@ -181,7 +184,9 @@ class IdempotentWriteServiceBehaviorRedTest {
     IdempotentWriteResponse recovered =
         service.reserveAndReplay(
             request,
-            () -> failOwner("owner/domain operation must not run for committed-cache-missing replay"));
+            () ->
+                failOwner(
+                    "owner/domain operation must not run for committed-cache-missing replay"));
 
     assertThat(recoveryPort.calls()).isEqualTo(1);
     assertThat(recoveryPort.lastEndpoint()).isEqualTo("POST /search-paths/batch");
@@ -210,7 +215,8 @@ class IdempotentWriteServiceBehaviorRedTest {
   }
 
   @Test
-  @DisplayName("COMMITTED cache-missing replay returns write_conflict when recovery version mismatches")
+  @DisplayName(
+      "COMMITTED cache-missing replay returns write_conflict when recovery version mismatches")
   void committedCacheMissingRecoveryVersionMismatchReturnsWriteConflict() {
     FakeOwnerReplayRecoveryPort recoveryPort = new FakeOwnerReplayRecoveryPort();
     IdempotentWriteService service = new IdempotentWriteService(recoveryPort);
@@ -309,8 +315,72 @@ class IdempotentWriteServiceBehaviorRedTest {
     assertThat(writeConflict.getBody()).containsEntry("error", "write_conflict");
   }
 
+  @Test
+  @DisplayName("different idempotency keys do not wait for the previous owner operation")
+  void differentIdempotencyKeysRunConcurrently() throws Exception {
+    IdempotentWriteService service = new IdempotentWriteService(new FakeOwnerReplayRecoveryPort());
+    CountDownLatch firstOwnerStarted = new CountDownLatch(1);
+    CountDownLatch releaseFirstOwner = new CountDownLatch(1);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+
+    Future<IdempotentWriteResponse> first =
+        executor.submit(
+            () ->
+                service.reserveAndReplay(
+                    request(
+                        "POST /search-paths/batch",
+                        "operation-a",
+                        "entity-a",
+                        "idem-concurrent-a",
+                        "hash-a"),
+                    () -> {
+                      firstOwnerStarted.countDown();
+                      await(releaseFirstOwner);
+                      return response(
+                          201,
+                          "{\"id\":\"entity-a\",\"status\":\"APPENDED\"}",
+                          "entity-a",
+                          "APPENDED",
+                          1L,
+                          1L);
+                    }));
+
+    try {
+      assertThat(firstOwnerStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+      Future<IdempotentWriteResponse> second =
+          executor.submit(
+              () ->
+                  service.reserveAndReplay(
+                      request(
+                          "POST /search-paths/batch",
+                          "operation-b",
+                          "entity-b",
+                          "idem-concurrent-b",
+                          "hash-b"),
+                      () ->
+                          response(
+                              201,
+                              "{\"id\":\"entity-b\",\"status\":\"APPENDED\"}",
+                              "entity-b",
+                              "APPENDED",
+                              1L,
+                              1L)));
+
+      assertThat(second.get(2, TimeUnit.SECONDS).entityId()).isEqualTo("entity-b");
+    } finally {
+      releaseFirstOwner.countDown();
+      first.get(5, TimeUnit.SECONDS);
+      executor.shutdownNow();
+    }
+  }
+
   private static IdempotentWriteRequest request(
-      String endpoint, String operationId, String entityId, String idempotencyKey, String bodyHash) {
+      String endpoint,
+      String operationId,
+      String entityId,
+      String idempotencyKey,
+      String bodyHash) {
     return new IdempotentWriteRequest(endpoint, operationId, entityId, idempotencyKey, bodyHash);
   }
 
@@ -343,6 +413,17 @@ class IdempotentWriteServiceBehaviorRedTest {
   private static IdempotentWriteResponse failOwner(String message) {
     fail(message);
     return null;
+  }
+
+  private static void await(CountDownLatch latch) {
+    try {
+      if (!latch.await(5, TimeUnit.SECONDS)) {
+        throw new IllegalStateException("timed out while waiting for test release");
+      }
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("interrupted while waiting for test release", exception);
+    }
   }
 
   public static class TestWriteEndpoint {

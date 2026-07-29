@@ -153,7 +153,7 @@
   - 구현 산출물: `@IdempotentWrite` middleware, idempotency response cache, bodyHash mismatch tests, committed-cache-missing recovery tests
   - 예상 작업량: 2d
   - 완료 기준: 같은 idempotency key/body는 cached response를 replay하고, body가 바뀌면 mismatch를 반환하며, committed-cache-missing 복구는 owner port를 호출한다.
-  - 완료 근거: `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWrite.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteAspect.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteService.java`, `backend/src/main/java/com/surimap/sync/idempotency/InMemoryIdempotencyRecordRepository.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotencyReplayRecoveryRegistry.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorRedTest.java`, `./gradlew test --tests '*IdempotentWriteServiceBehaviorRedTest'` 통과
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWrite.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteAspect.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteService.java`, `backend/src/main/java/com/surimap/sync/idempotency/InMemoryIdempotencyRecordRepository.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotencyReplayRecoveryRegistry.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorTest.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceTest.java`, `./gradlew test --tests '*IdempotentWriteServiceBehaviorTest'`와 PostgreSQL 환경의 `./gradlew test --tests '*IdempotentWriteServiceTest'` 통과
 
 - [x] L4-T08 로컬 경고 감시 구현
   - 담당 Spec: S6

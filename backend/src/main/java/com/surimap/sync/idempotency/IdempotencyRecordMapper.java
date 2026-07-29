@@ -7,11 +7,17 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface IdempotencyRecordMapper {
 
-  Optional<IdempotencyRecordRow> findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+  Optional<IdempotencyRecordRow> findByIdempotencyKeyAndEndpoint(
+      @Param("idempotencyKey") String idempotencyKey,
+      @Param("requestPath") String requestPath,
+      @Param("requestMethod") String requestMethod);
 
-  void insert(IdempotencyRecordRow row);
+  int insert(IdempotencyRecordRow row);
 
-  int updateByIdempotencyKey(IdempotencyRecordRow row);
+  int updateByIdempotencyKeyAndEndpoint(IdempotencyRecordRow row);
 
-  void deleteByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+  void deleteByIdempotencyKeyAndEndpoint(
+      @Param("idempotencyKey") String idempotencyKey,
+      @Param("requestPath") String requestPath,
+      @Param("requestMethod") String requestMethod);
 }

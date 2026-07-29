@@ -21,21 +21,33 @@ public class DbIdempotencyRecordRepository implements IdempotencyRecordRepositor
   }
 
   @Override
-  public Optional<IdempotencyRecord> find(String idempotencyKey) {
-    return mapper.findByIdempotencyKey(idempotencyKey).map(this::toRecord);
+  public Optional<IdempotencyRecord> find(String endpoint, String idempotencyKey) {
+    Endpoint parsedEndpoint = Endpoint.parse(endpoint);
+    return mapper
+        .findByIdempotencyKeyAndEndpoint(
+            idempotencyKey, parsedEndpoint.path(), parsedEndpoint.method())
+        .map(this::toRecord);
+  }
+
+  @Override
+  public boolean reserve(IdempotencyRecord record) {
+    return mapper.insert(toRow(record)) == 1;
   }
 
   @Override
   public void save(IdempotencyRecord record) {
     IdempotencyRecordRow row = toRow(record);
-    if (mapper.updateByIdempotencyKey(row) == 0) {
-      mapper.insert(row);
+    if (mapper.updateByIdempotencyKeyAndEndpoint(row) == 0 && mapper.insert(row) == 0) {
+      throw new IllegalStateException(
+          "idempotency record already exists: " + record.idempotencyKey());
     }
   }
 
   @Override
-  public void delete(String idempotencyKey) {
-    mapper.deleteByIdempotencyKey(idempotencyKey);
+  public void delete(String endpoint, String idempotencyKey) {
+    Endpoint parsedEndpoint = Endpoint.parse(endpoint);
+    mapper.deleteByIdempotencyKeyAndEndpoint(
+        idempotencyKey, parsedEndpoint.path(), parsedEndpoint.method());
   }
 
   private IdempotencyRecord toRecord(IdempotencyRecordRow row) {
