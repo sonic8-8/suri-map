@@ -45,7 +45,7 @@ public interface SearchPathMapper {
 
   Optional<SearchPath> findPathById(@Param("id") UUID id);
 
-  Optional<SearchPath> findPathForUpdate(@Param("id") UUID id);
+  Optional<SearchPath> findPathMetadataForUpdate(@Param("id") UUID id);
 
   List<SearchPath> findAllPaths();
 

@@ -235,7 +235,7 @@
         WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
-    <select id="findPathForUpdate" resultMap="searchPathMap">
+    <select id="findPathMetadataForUpdate" resultMap="searchPathMap">
         SELECT
             sp.id,
             op.incident_id,
