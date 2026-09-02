@@ -813,6 +813,7 @@
               },
               "excludedPoints": {
                 "type": "array",
+                "description": "이번 요청에서 제외된 point만 포함한다.",
                 "items": {
                   "type": "object",
                   "properties": {
@@ -832,12 +833,9 @@
                   }
                 }
               },
-              "geometry": {
-                "type": "object",
-                "description": "GeoJSON LineString after accepted point append"
-              },
               "segments": {
                 "type": "array",
+                "description": "이번 요청에서 생성된 segment만 포함한다. 누적 경로는 GET /search-paths로 조회한다.",
                 "items": {
                   "type": "object",
                   "properties": {

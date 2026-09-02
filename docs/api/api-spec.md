@@ -305,7 +305,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `opId`, `pathId`, `points[]`, optional `clockOffsetMs`
 - `points[]`: `pointId`, `lon`, `lat`, `clientTs`, optional `speedMps`, `horizontalAccuracyM`, `locationProvider`, `elapsedRealtimeNanos`
 - Request limit: `points` min 2, max 120
-- Response: `200 {id, dutyShiftId, opId, accountId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
+- Response: `200 {id, dutyShiftId, opId, accountId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], segments, version, status}`
+- Response scope: `excludedPoints`와 `segments`는 이번 요청에서 제외되거나 생성된 항목만 포함한다. 누적된 전체 경로 도형, 구간과 제외 좌표는 `GET /api/search-paths`로 조회한다.
 - `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`, `out_of_order`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `clientTs`는 원본 시각으로 보존하며 이 값이 뒤로 갔다는 이유만으로 batch 전체를 거부하지 않는다. `elapsedRealtimeNanos`가 있으면 이 값으로 수집 순서를 확인하고, 앞선 좌표보다 작거나 같은 좌표만 `out_of_order`로 제외한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수나 pointId 중복처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.

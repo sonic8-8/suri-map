@@ -19,6 +19,7 @@ import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -328,6 +329,36 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("segment correction leaves other segment rows unchanged")
+  void segment_correction_keeps_other_segment_rows_unchanged() {
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(batchRequest("idem-path-segment-isolation"));
+    String correctedSegmentId = response.getSegments().get(0).getId();
+    jdbcTemplate.update(
+        """
+        UPDATE search_path_segment
+        SET updated_at = '2000-01-01T00:00:00Z'::timestamptz
+        WHERE search_path_id = ?::uuid
+        """,
+        PATH_ID.toString());
+
+    searchPathService.correctSegment(
+        segmentCorrectionRequest(correctedSegmentId, "idem-path-segment-isolation-correction"));
+
+    Integer unchangedSegmentCount =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM search_path_segment
+            WHERE search_path_id = ?::uuid
+              AND updated_at = '2000-01-01T00:00:00Z'::timestamptz
+            """,
+            Integer.class,
+            PATH_ID.toString());
+    assertThat(unchangedSegmentCount).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("single-point UNKNOWN segment persists as LineString and keeps query indexes")
   void single_point_segment_persists_and_reconstructs_indexes() {
     SearchPathPointsAppendServiceResponse response =
@@ -529,8 +560,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("next batch after DB reload preserves existing movement segments")
-  void append_after_reload_keeps_existing_segments() {
+  @DisplayName("next batch returns new segments while the path query keeps all segments")
+  void append_after_reload_returns_only_new_segments() {
     SearchPathPointsAppendServiceResponse first =
         searchPathService.appendPoints(batchRequest("idem-path-first-batch"));
 
@@ -542,9 +573,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT);
     assertThat(second.getSegments())
         .extracting(SearchPathSegmentServiceResponse::getMovementType)
-        .containsExactly(MovementType.VEHICLE, MovementType.FOOT, MovementType.VEHICLE);
-    assertThat(second.getSegments().get(0).getId()).isEqualTo(first.getSegments().get(0).getId());
-    assertThat(second.getSegments().get(1).getId()).isEqualTo(first.getSegments().get(1).getId());
+        .containsExactly(MovementType.VEHICLE);
 
     SearchPathQueryRowServiceResponse queried = queryPaths().getPaths().get(0);
     assertThat(queried.getGeometry()).hasSize(11);
@@ -554,6 +583,61 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(queried.getSegments().get(0).getGeometry()).hasSize(4);
     assertThat(queried.getSegments().get(1).getGeometry()).hasSize(4);
     assertThat(queried.getSegments().get(2).getGeometry()).hasSize(3);
+  }
+
+  @Test
+  @DisplayName("next batch leaves existing segment rows unchanged")
+  void append_keeps_existing_segment_rows_unchanged() {
+    searchPathService.appendPoints(batchRequest("idem-path-existing-segments"));
+    jdbcTemplate.update(
+        """
+        UPDATE search_path_segment
+        SET updated_at = '2000-01-01T00:00:00Z'::timestamptz
+        WHERE search_path_id = ?::uuid
+        """,
+        PATH_ID.toString());
+
+    searchPathService.appendPoints(nextVehicleBatchRequest());
+
+    Integer unchangedSegmentCount =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM search_path_segment
+            WHERE search_path_id = ?::uuid
+              AND updated_at = '2000-01-01T00:00:00Z'::timestamptz
+            """,
+            Integer.class,
+            PATH_ID.toString());
+    assertThat(unchangedSegmentCount).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("next batch leaves existing excluded point rows unchanged")
+  void append_keeps_existing_excluded_point_rows_unchanged() {
+    searchPathService.appendPoints(lowQualityPointRequest());
+    jdbcTemplate.update(
+        """
+        UPDATE search_path_excluded_point
+        SET updated_at = '2000-01-01T00:00:00Z'::timestamptz
+        WHERE search_path_id = ?::uuid
+        """,
+        PATH_ID.toString());
+
+    SearchPathPointsAppendServiceResponse response =
+        searchPathService.appendPoints(nextVehicleBatchRequest());
+
+    Instant updatedAt =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT updated_at
+            FROM search_path_excluded_point
+            WHERE search_path_id = ?::uuid
+            """,
+            Instant.class,
+            PATH_ID.toString());
+    assertThat(response.getExcludedPoints()).isEmpty();
+    assertThat(updatedAt).isEqualTo(Instant.parse("2000-01-01T00:00:00Z"));
   }
 
   private SearchPathQueryServiceResponse queryPaths() {

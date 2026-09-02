@@ -19,9 +19,6 @@ public class SearchPathPointsAppendResponse {
   private int acceptedPointCount;
   private int excludedPointCount;
   private List<SearchPathExcludedPointResponse> excludedPoints;
-
-  private LineStringGeometryJson geometry;
-
   private List<SearchPathSegmentResponse> segments;
   private long version;
   private SearchPathStatus status;
@@ -35,7 +32,6 @@ public class SearchPathPointsAppendResponse {
       int acceptedPointCount,
       int excludedPointCount,
       List<SearchPathExcludedPointResponse> excludedPoints,
-      LineStringGeometryJson geometry,
       List<SearchPathSegmentResponse> segments,
       long version,
       SearchPathStatus status) {
@@ -46,7 +42,6 @@ public class SearchPathPointsAppendResponse {
     this.acceptedPointCount = acceptedPointCount;
     this.excludedPointCount = excludedPointCount;
     this.excludedPoints = excludedPoints;
-    this.geometry = geometry;
     this.segments = segments;
     this.version = version;
     this.status = status;
@@ -65,7 +60,6 @@ public class SearchPathPointsAppendResponse {
             response.getExcludedPoints().stream()
                 .map(SearchPathExcludedPointResponse::from)
                 .toList())
-        .geometry(LineStringGeometryJson.from(response.getGeometry()))
         .segments(response.getSegments().stream().map(SearchPathSegmentResponse::from).toList())
         .version(response.getVersion())
         .status(response.getStatus())

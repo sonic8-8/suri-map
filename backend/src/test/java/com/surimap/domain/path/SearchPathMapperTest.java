@@ -9,10 +9,12 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,8 +40,12 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   private static final UUID NONMATCHING_ID =
       UUID.fromString("00000000-0000-0000-0000-000000009999");
   private static final UUID SEGMENT_ID = UUID.fromString("72000000-0000-0000-0000-000000002621");
+  private static final UUID SECOND_SEGMENT_ID =
+      UUID.fromString("72000000-0000-0000-0000-000000002622");
   private static final UUID EXCLUDED_POINT_ID =
       UUID.fromString("73000000-0000-0000-0000-000000002621");
+  private static final UUID SECOND_EXCLUDED_POINT_ID =
+      UUID.fromString("73000000-0000-0000-0000-000000002622");
   private static final UUID LIFECYCLE_EVENT_ID =
       UUID.fromString("74000000-0000-0000-0000-000000002621");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
@@ -163,8 +169,8 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
             .createdAt(STARTED_AT)
             .build();
 
-    searchPathMapper.insertSegment(segment);
-    searchPathMapper.insertExcludedPoint(excludedPoint);
+    searchPathMapper.insertSegments(List.of(segment));
+    searchPathMapper.insertExcludedPoints(List.of(excludedPoint));
     searchPathMapper.insertLifecycleEvent(lifecycleEvent);
 
     assertThat(searchPathMapper.findSegmentsByPathId(PATH_ID))
@@ -195,6 +201,196 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
               assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
               assertThat(found.getEventType()).isEqualTo("STARTED");
             });
+  }
+
+  @Test
+  @DisplayName("여러 수색 경로 구간을 한 번에 저장한다")
+  void insertSegmentsStoresEverySegment() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+    SearchPathSegment first =
+        SearchPathSegment.builder()
+            .id(SEGMENT_ID)
+            .searchPathId(PATH_ID)
+            .movementType(MovementType.FOOT)
+            .movementTypeSource(MovementTypeSource.AUTO)
+            .geometry(lineString())
+            .startedAt(STARTED_AT)
+            .endedAt(STARTED_AT.plusSeconds(5))
+            .version(1L)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    SearchPathSegment second =
+        first.toBuilder()
+            .id(SECOND_SEGMENT_ID)
+            .startedAt(STARTED_AT.plusSeconds(10))
+            .endedAt(STARTED_AT.plusSeconds(15))
+            .build();
+
+    searchPathMapper.insertSegments(List.of(first, second));
+
+    assertThat(searchPathMapper.findSegmentsByPathId(PATH_ID))
+        .extracting(SearchPathSegment::getId)
+        .containsExactly(SEGMENT_ID, SECOND_SEGMENT_ID);
+  }
+
+  @Test
+  @DisplayName("여러 제외 좌표를 한 번에 저장한다")
+  void insertExcludedPointsStoresEveryPoint() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+    SearchPathExcludedPoint first =
+        SearchPathExcludedPoint.builder()
+            .id(EXCLUDED_POINT_ID)
+            .searchPathId(PATH_ID)
+            .pointId("point-excluded-1")
+            .reason("low_accuracy")
+            .clientTs(OffsetDateTime.ofInstant(STARTED_AT, ZoneOffset.UTC))
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    SearchPathExcludedPoint second =
+        first.toBuilder()
+            .id(SECOND_EXCLUDED_POINT_ID)
+            .pointId("point-excluded-2")
+            .clientTs(OffsetDateTime.ofInstant(STARTED_AT.plusSeconds(5), ZoneOffset.UTC))
+            .build();
+
+    searchPathMapper.insertExcludedPoints(List.of(first, second));
+
+    assertThat(searchPathMapper.findExcludedPointsByPathId(PATH_ID))
+        .extracting(SearchPathExcludedPoint::getId)
+        .containsExactly(EXCLUDED_POINT_ID, SECOND_EXCLUDED_POINT_ID);
+  }
+
+  @Test
+  @DisplayName("새 좌표 묶음을 기존 경로 도형에 이어 붙인다")
+  void updatePathAfterPointAppendExtendsGeometry() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .geometry(lineString())
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+
+    int updated =
+        searchPathMapper.updatePathAfterPointAppend(
+            PATH_ID, 2, lineString(), 1L, 2L, STARTED_AT.plusSeconds(5));
+
+    Map<String, Object> stored =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT ST_NumPoints(geometry) AS point_count, version
+            FROM search_path
+            WHERE id = ?::uuid
+            """,
+            PATH_ID.toString());
+    assertThat(updated).isEqualTo(1);
+    assertThat(stored.get("point_count")).isEqualTo(4);
+    assertThat(stored.get("version")).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("첫 좌표 다음에 새 좌표를 중복 없이 이어 붙인다")
+  void updatePathAfterFirstPointRemovesStoredDuplicate() {
+    Coordinate firstCoordinate = new Coordinate(126.950000, 37.560000);
+    GeometryFactory geometryFactory = new GeometryFactory();
+    LineString firstPointGeometry =
+        geometryFactory.createLineString(
+            new Coordinate[] {firstCoordinate, firstCoordinate.copy()});
+    firstPointGeometry.setSRID(4326);
+    Geometry appendedPoint = geometryFactory.createPoint(new Coordinate(126.950200, 37.560200));
+    appendedPoint.setSRID(4326);
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .geometry(firstPointGeometry)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+
+    searchPathMapper.updatePathAfterPointAppend(
+        PATH_ID, 1, appendedPoint, 1L, 2L, STARTED_AT.plusSeconds(5));
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT ST_NumPoints(geometry) FROM search_path WHERE id = ?::uuid",
+                Integer.class,
+                PATH_ID.toString()))
+        .isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("좌표 묶음 추가에 필요한 경로 정보만 조회한다")
+  void findPathForAppendDoesNotLoadGeometry() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .geometry(lineString())
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+
+    SearchPath found = searchPathMapper.findPathForUpdate(PATH_ID).orElseThrow();
+
+    assertThat(found.getId()).isEqualTo(PATH_ID);
+    assertThat(found.getAccountId()).isEqualTo(ACCOUNT_ID);
+    assertThat(found.getGeometry()).isNull();
+  }
+
+  @Test
+  @DisplayName("마지막 GPS 좌표 다음 저장 순번을 조회한다")
+  void findNextGpsPointOrderReturnsNextStoredOrder() {
+    SearchPath path =
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+    searchPathMapper.insertPath(path);
+    searchPathMapper.insertGpsPoints(
+        PATH_ID,
+        5,
+        List.of(
+            gpsPoint("gps-count-001", "126.913001", "35.162001", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint(
+                "gps-count-002", "126.913002", "35.162002", "1.75", 4, "2026-04-28T00:00:05Z")),
+        STARTED_AT);
+
+    assertThat(searchPathMapper.findNextGpsPointOrder(PATH_ID)).isEqualTo(7);
   }
 
   @Test
