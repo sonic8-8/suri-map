@@ -640,6 +640,31 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(updatedAt).isEqualTo(Instant.parse("2000-01-01T00:00:00Z"));
   }
 
+  @Test
+  @DisplayName("batch append rejects a path after its account duty shift ends")
+  void append_rejects_inactive_account_duty_shift() {
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("idem-path-active-duty-shift"));
+    jdbcTemplate.update(
+        "UPDATE duty_shift SET status = 'ENDED' WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
+
+    assertThatThrownBy(() -> searchPathService.appendPoints(nextVehicleBatchRequest()))
+        .isInstanceOfSatisfying(
+            SearchPathApiException.class,
+            exception ->
+                assertThat(exception.getMessage()).isEqualTo("police_phone_not_assigned"));
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT version FROM search_path WHERE id = ?::uuid",
+                Long.class,
+                PATH_ID.toString()))
+        .isEqualTo(first.getVersion());
+    assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
+    assertThat(rowCount("search_path_segment")).isEqualTo(2);
+    assertThat(rowCount("event_dispatch_job")).isEqualTo(1);
+  }
+
   private SearchPathQueryServiceResponse queryPaths() {
     return searchPathService.query(
         SearchPathQueryServiceRequest.builder().incidentId(INCIDENT_ID).opId(OP_ID).build());

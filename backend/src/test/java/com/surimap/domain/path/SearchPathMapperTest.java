@@ -206,16 +206,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("여러 수색 경로 구간을 한 번에 저장한다")
   void insertSegmentsStoresEverySegment() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+    insertPath(null);
     SearchPathSegment first =
         SearchPathSegment.builder()
             .id(SEGMENT_ID)
@@ -246,16 +237,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("여러 제외 좌표를 한 번에 저장한다")
   void insertExcludedPointsStoresEveryPoint() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+    insertPath(null);
     SearchPathExcludedPoint first =
         SearchPathExcludedPoint.builder()
             .id(EXCLUDED_POINT_ID)
@@ -283,17 +265,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("새 좌표 묶음을 기존 경로 도형에 이어 붙인다")
   void updatePathAfterPointAppendExtendsGeometry() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .geometry(lineString())
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+    insertPath(lineString());
 
     int updated =
         searchPathMapper.updatePathAfterPointAppend(
@@ -323,17 +295,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     firstPointGeometry.setSRID(4326);
     Geometry appendedPoint = geometryFactory.createPoint(new Coordinate(126.950200, 37.560200));
     appendedPoint.setSRID(4326);
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .geometry(firstPointGeometry)
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+    insertPath(firstPointGeometry);
 
     searchPathMapper.updatePathAfterPointAppend(
         PATH_ID, 1, appendedPoint, 1L, 2L, STARTED_AT.plusSeconds(5));
@@ -348,20 +310,10 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
 
   @Test
   @DisplayName("좌표 묶음 추가에 필요한 경로 정보만 조회한다")
-  void findPathForAppendDoesNotLoadGeometry() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .geometry(lineString())
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+  void findPathMetadataForUpdateDoesNotLoadGeometry() {
+    insertPath(lineString());
 
-    SearchPath found = searchPathMapper.findPathForUpdate(PATH_ID).orElseThrow();
+    SearchPath found = searchPathMapper.findPathMetadataForUpdate(PATH_ID).orElseThrow();
 
     assertThat(found.getId()).isEqualTo(PATH_ID);
     assertThat(found.getAccountId()).isEqualTo(ACCOUNT_ID);
@@ -371,16 +323,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("마지막 GPS 좌표 다음 저장 순번을 조회한다")
   void findNextGpsPointOrderReturnsNextStoredOrder() {
-    SearchPath path =
-        SearchPath.builder()
-            .id(PATH_ID)
-            .dutyShiftId(DUTY_SHIFT_ID)
-            .accountId(ACCOUNT_ID)
-            .startedAt(STARTED_AT)
-            .createdAt(STARTED_AT)
-            .updatedAt(STARTED_AT)
-            .build();
-    searchPathMapper.insertPath(path);
+    insertPath(null);
     searchPathMapper.insertGpsPoints(
         PATH_ID,
         5,
@@ -442,6 +385,19 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
         .speedMps(new BigDecimal(speedMps))
         .horizontalAccuracyM(horizontalAccuracyM)
         .build();
+  }
+
+  private void insertPath(Geometry geometry) {
+    searchPathMapper.insertPath(
+        SearchPath.builder()
+            .id(PATH_ID)
+            .dutyShiftId(DUTY_SHIFT_ID)
+            .accountId(ACCOUNT_ID)
+            .startedAt(STARTED_AT)
+            .geometry(geometry)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build());
   }
 
   private void assertGpsPoint(GpsPoint actual, GpsPoint expected) {

@@ -79,14 +79,12 @@ public class SearchPathService {
         .toList();
   }
 
-  private SearchPath createPath(SearchPath path) {
+  private SearchPath createPath(SearchPath path, UUID dutyShiftId) {
     Instant now = Instant.now();
-    ResolvedDutyShift dutyShift = resolveDutyShift(path);
     Instant startedAt = startedAt(path, now);
     SearchPath persistedPath =
         path.toBuilder()
-            .dutyShiftId(dutyShift.id())
-            .accountId(dutyShift.accountId())
+            .dutyShiftId(dutyShiftId)
             .startedAt(startedAt)
             .createdAt(path.getCreatedAt() == null ? startedAt : path.getCreatedAt())
             .updatedAt(now)
@@ -126,10 +124,11 @@ public class SearchPathService {
     List<GpsPoint> acceptedPoints = validationResult.getAcceptedPoints();
     List<SearchPathExcludedPoint> excludedPoints =
         toExcludedPoints(validationResult.getExcludedPoints());
+    UUID activeDutyShiftId = requireActiveDutyShift(request.getOpId(), accountId);
 
     SearchPath path =
         searchPathMapper
-            .findPathForUpdate(request.getPathId())
+            .findPathMetadataForUpdate(request.getPathId())
             .orElseGet(
                 () ->
                     createPath(
@@ -138,7 +137,8 @@ public class SearchPathService {
                             .incidentId(request.getIncidentId())
                             .opId(request.getOpId())
                             .accountId(accountId)
-                            .build()));
+                            .build(),
+                        activeDutyShiftId));
     if (accountId != null
         && path.getAccountId() != null
         && !accountId.equals(path.getAccountId())) {
@@ -264,7 +264,7 @@ public class SearchPathService {
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
     SearchPath owner =
         searchPathMapper
-            .findPathForUpdate(corrected.getSearchPathId())
+            .findPathMetadataForUpdate(corrected.getSearchPathId())
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
     long expectedPathVersion = owner.getVersion();
     long expectedSegmentVersion = corrected.getVersion();
@@ -517,16 +517,10 @@ public class SearchPathService {
         .build();
   }
 
-  private ResolvedDutyShift resolveDutyShift(SearchPath path) {
-    UUID accountId = path.getAccountId();
-    if (accountId == null) {
-      throw new SearchPathApiException("channel_not_allowed");
-    }
-    UUID dutyShiftId =
-        searchPathMapper
-            .findActiveDutyShiftIdByAccount(path.getOpId(), accountId)
-            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
-    return new ResolvedDutyShift(dutyShiftId, accountId);
+  private UUID requireActiveDutyShift(UUID opId, UUID accountId) {
+    return searchPathMapper
+        .findActiveDutyShiftIdByAccount(opId, accountId)
+        .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
   }
 
   private void insertExcludedPoints(
@@ -676,8 +670,6 @@ public class SearchPathService {
   private static boolean sameCoordinate(Coordinate first, Coordinate second) {
     return Double.compare(first.x, second.x) == 0 && Double.compare(first.y, second.y) == 0;
   }
-
-  private record ResolvedDutyShift(UUID id, UUID accountId) {}
 
   private record SegmentIndexes(int start, int end) {}
 }
