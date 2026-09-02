@@ -204,7 +204,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("여러 수색 경로 구간을 한 번에 저장한다")
+  @DisplayName("구간 목록을 저장하면 모든 구간 ID가 조회된다")
   void insertSegmentsStoresEverySegment() {
     insertPath(null);
     SearchPathSegment first =
@@ -235,7 +235,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("여러 제외 좌표를 한 번에 저장한다")
+  @DisplayName("제외 좌표 목록을 저장하면 모든 제외 좌표 ID가 조회된다")
   void insertExcludedPointsStoresEveryPoint() {
     insertPath(null);
     SearchPathExcludedPoint first =
@@ -263,7 +263,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("새 좌표 묶음을 기존 경로 도형에 이어 붙인다")
+  @DisplayName("좌표 묶음을 추가하면 경로 도형의 좌표 수와 버전이 증가한다")
   void updatePathAfterPointAppendExtendsGeometry() {
     insertPath(lineString());
 
@@ -285,7 +285,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("첫 좌표 다음에 새 좌표를 중복 없이 이어 붙인다")
+  @DisplayName("좌표 하나로 시작한 경로에 다음 좌표를 추가하면 도형은 두 좌표만 가진다")
   void updatePathAfterFirstPointRemovesStoredDuplicate() {
     Coordinate firstCoordinate = new Coordinate(126.950000, 37.560000);
     GeometryFactory geometryFactory = new GeometryFactory();
@@ -309,7 +309,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("좌표 묶음 추가에 필요한 경로 정보만 조회한다")
+  @DisplayName("좌표 추가용 경로 정보를 잠금 조회하면 경로 도형은 읽지 않는다")
   void findPathMetadataForUpdateDoesNotLoadGeometry() {
     insertPath(lineString());
 
@@ -321,7 +321,7 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("마지막 GPS 좌표 다음 저장 순번을 조회한다")
+  @DisplayName("마지막 GPS 좌표 순번에 1을 더해 다음 저장 순번을 반환한다")
   void findNextGpsPointOrderReturnsNextStoredOrder() {
     insertPath(null);
     searchPathMapper.insertGpsPoints(

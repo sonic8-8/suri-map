@@ -332,7 +332,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("segment correction leaves other segment rows unchanged")
+  @DisplayName("구간을 보정하면 다른 구간의 수정 시각은 유지된다")
   void segment_correction_keeps_other_segment_rows_unchanged() {
     SearchPathPointsAppendServiceResponse response =
         searchPathService.appendPoints(batchRequest("idem-path-segment-isolation"));
@@ -563,7 +563,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("next batch returns new segments while the path query keeps all segments")
+  @DisplayName("두 번째 좌표 묶음을 추가하면 응답에는 새 구간만, 경로 조회에는 누적 구간을 반환한다")
   void append_after_reload_returns_only_new_segments() {
     SearchPathPointsAppendServiceResponse first =
         searchPathService.appendPoints(batchRequest("idem-path-first-batch"));
@@ -589,7 +589,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("next batch leaves existing segment rows unchanged")
+  @DisplayName("새 좌표 묶음을 추가하면 기존 구간의 수정 시각은 유지된다")
   void append_keeps_existing_segment_rows_unchanged() {
     searchPathService.appendPoints(batchRequest("idem-path-existing-segments"));
     jdbcTemplate.update(
@@ -616,7 +616,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("next batch leaves existing excluded point rows unchanged")
+  @DisplayName("새 좌표 묶음을 추가하면 기존 제외 좌표의 수정 시각은 유지된다")
   void append_keeps_existing_excluded_point_rows_unchanged() {
     searchPathService.appendPoints(lowQualityPointRequest());
     jdbcTemplate.update(
@@ -644,7 +644,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("batch append rejects a path after its account duty shift ends")
+  @DisplayName("근무가 종료된 계정이 좌표 묶음을 추가하면 police_phone_not_assigned로 거부하고 경로를 유지한다")
   void append_rejects_inactive_account_duty_shift() {
     SearchPathPointsAppendServiceResponse first =
         searchPathService.appendPoints(batchRequest("idem-path-active-duty-shift"));
@@ -669,7 +669,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("batch append rejects a path from another operational period")
+  @DisplayName("요청 OP와 경로 OP가 다르면 op_mismatch로 거부하고 경로를 유지한다")
   void append_rejects_path_from_another_operational_period() {
     SearchPathPointsAppendServiceResponse first =
         searchPathService.appendPoints(batchRequest("idem-path-current-op"));
