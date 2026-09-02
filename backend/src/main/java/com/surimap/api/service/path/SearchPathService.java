@@ -139,6 +139,9 @@ public class SearchPathService {
                             .accountId(accountId)
                             .build(),
                         activeDutyShiftId));
+    if (!Objects.equals(request.getOpId(), path.getOpId())) {
+      throw new SearchPathApiException("op_mismatch");
+    }
     if (accountId != null
         && path.getAccountId() != null
         && !accountId.equals(path.getAccountId())) {

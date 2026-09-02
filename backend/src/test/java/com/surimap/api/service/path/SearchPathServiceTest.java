@@ -38,6 +38,9 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID INCIDENT_ID = SearchPathFixtures.INCIDENT_ID;
   private static final UUID OP_ID = UUID.fromString("65000000-0000-0000-0000-000000002621");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("60000000-0000-0000-0000-000000002621");
+  private static final UUID PAST_OP_ID = UUID.fromString("65000000-0000-0000-0000-000000002622");
+  private static final UUID PAST_DUTY_SHIFT_ID =
+      UUID.fromString("60000000-0000-0000-0000-000000002622");
   private static final UUID ACCOUNT_ID = UUID.fromString("62000000-0000-0000-0000-000000002621");
   private static final UUID POLICE_PHONE_ID = SearchPathFixtures.POLICE_PHONE_ID;
   private static final UUID PATH_ID = SearchPathFixtures.PATH_ID;
@@ -663,6 +666,71 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
     assertThat(rowCount("search_path_segment")).isEqualTo(2);
     assertThat(rowCount("event_dispatch_job")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("batch append rejects a path from another operational period")
+  void append_rejects_path_from_another_operational_period() {
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("idem-path-current-op"));
+    jdbcTemplate.update(
+        """
+        INSERT INTO operational_period (
+            id, incident_id, sequence_number, status, reason, started_by_account_id,
+            started_at, ended_at, version, created_at, updated_at
+        ) VALUES (
+            ?::uuid, ?::uuid, 2, 'ENDED', 'MANUAL', ?::uuid,
+            '2026-04-27T00:00:00Z', '2026-04-27T08:00:00Z', 1,
+            '2026-04-27T00:00:00Z', '2026-04-27T08:00:00Z'
+        )
+        """,
+        PAST_OP_ID.toString(),
+        INCIDENT_ID.toString(),
+        ACCOUNT_ID.toString());
+    jdbcTemplate.update(
+        """
+        INSERT INTO duty_shift (
+            id, operational_period_id, incident_assignment_id, police_phone_id, status,
+            started_by_account_id, started_at, ended_at, version, created_at, updated_at
+        )
+        SELECT ?::uuid, ?::uuid, incident_assignment_id, police_phone_id, 'ENDED',
+               started_by_account_id, started_at, started_at + INTERVAL '8 hours',
+               1, created_at, updated_at
+        FROM duty_shift
+        WHERE id = ?::uuid
+        """,
+        PAST_DUTY_SHIFT_ID.toString(),
+        PAST_OP_ID.toString(),
+        DUTY_SHIFT_ID.toString());
+    jdbcTemplate.update(
+        "UPDATE search_path SET duty_shift_id = ?::uuid WHERE id = ?::uuid",
+        PAST_DUTY_SHIFT_ID.toString(),
+        PATH_ID.toString());
+
+    try {
+      assertThatThrownBy(() -> searchPathService.appendPoints(nextVehicleBatchRequest()))
+          .isInstanceOfSatisfying(
+              SearchPathApiException.class,
+              exception -> assertThat(exception.getMessage()).isEqualTo("op_mismatch"));
+
+      assertThat(
+              jdbcTemplate.queryForObject(
+                  "SELECT version FROM search_path WHERE id = ?::uuid",
+                  Long.class,
+                  PATH_ID.toString()))
+          .isEqualTo(first.getVersion());
+      assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
+      assertThat(rowCount("search_path_segment")).isEqualTo(2);
+      assertThat(rowCount("event_dispatch_job")).isEqualTo(1);
+    } finally {
+      jdbcTemplate.update(
+          "UPDATE search_path SET duty_shift_id = ?::uuid WHERE id = ?::uuid",
+          DUTY_SHIFT_ID.toString(),
+          PATH_ID.toString());
+      jdbcTemplate.update(
+          "DELETE FROM duty_shift WHERE id = ?::uuid", PAST_DUTY_SHIFT_ID.toString());
+      jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", PAST_OP_ID.toString());
+    }
   }
 
   private SearchPathQueryServiceResponse queryPaths() {
