@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.locationtech.jts.geom.Geometry;
 
 @Mapper
 public interface SearchPathMapper {
@@ -15,7 +16,19 @@ public interface SearchPathMapper {
 
   int insertPath(SearchPath path);
 
-  int updatePath(SearchPath path);
+  int updatePathAfterPointAppend(
+      @Param("id") UUID id,
+      @Param("pointOffset") int pointOffset,
+      @Param("appendedGeometry") Geometry appendedGeometry,
+      @Param("expectedVersion") long expectedVersion,
+      @Param("nextVersion") long nextVersion,
+      @Param("updatedAt") Instant updatedAt);
+
+  int updatePathVersion(
+      @Param("id") UUID id,
+      @Param("expectedVersion") long expectedVersion,
+      @Param("nextVersion") long nextVersion,
+      @Param("updatedAt") Instant updatedAt);
 
   int endPath(
       @Param("id") UUID id,
@@ -32,6 +45,8 @@ public interface SearchPathMapper {
 
   Optional<SearchPath> findPathById(@Param("id") UUID id);
 
+  Optional<SearchPath> findPathForUpdate(@Param("id") UUID id);
+
   List<SearchPath> findAllPaths();
 
   List<SearchPath> findPaths(
@@ -45,21 +60,26 @@ public interface SearchPathMapper {
       @Param("points") List<GpsPoint> points,
       @Param("createdAt") Instant createdAt);
 
+  int findNextGpsPointOrder(@Param("pathId") UUID pathId);
+
   List<GpsPoint> findGpsPointsByPathId(@Param("pathId") UUID pathId);
 
   void insertLifecycleEvent(SearchPathLifecycleEvent event);
 
   List<SearchPathLifecycleEvent> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);
 
-  void deleteSegments(@Param("pathId") UUID pathId);
+  void insertSegments(@Param("segments") List<SearchPathSegment> segments);
 
-  void insertSegment(SearchPathSegment segment);
+  Optional<SearchPathSegment> findSegmentById(@Param("id") UUID id);
+
+  int updateSegmentCorrection(
+      @Param("segment") SearchPathSegment segment,
+      @Param("expectedVersion") long expectedVersion,
+      @Param("updatedAt") Instant updatedAt);
 
   List<SearchPathSegment> findSegmentsByPathId(@Param("pathId") UUID pathId);
 
-  void deleteExcludedPoints(@Param("pathId") UUID pathId);
-
-  void insertExcludedPoint(SearchPathExcludedPoint point);
+  void insertExcludedPoints(@Param("excludedPoints") List<SearchPathExcludedPoint> excludedPoints);
 
   List<SearchPathExcludedPoint> findExcludedPointsByPathId(@Param("pathId") UUID pathId);
 }

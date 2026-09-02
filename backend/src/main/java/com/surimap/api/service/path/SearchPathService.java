@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -80,37 +79,23 @@ public class SearchPathService {
         .toList();
   }
 
-  private Optional<SearchPath> findById(UUID pathId) {
-    return searchPathMapper.findPathById(pathId).map(this::loadSearchPathDetails);
-  }
-
-  private SearchPath save(SearchPath path) {
+  private SearchPath createPath(SearchPath path) {
     Instant now = Instant.now();
     ResolvedDutyShift dutyShift = resolveDutyShift(path);
-    Geometry geometry =
-        path.getPoints().isEmpty() ? path.getGeometry() : lineStringOrNull(path.getPoints());
     Instant startedAt = startedAt(path, now);
     SearchPath persistedPath =
         path.toBuilder()
             .dutyShiftId(dutyShift.id())
             .accountId(dutyShift.accountId())
             .startedAt(startedAt)
-            .geometry(geometry)
             .createdAt(path.getCreatedAt() == null ? startedAt : path.getCreatedAt())
             .updatedAt(now)
             .build();
 
-    if (searchPathMapper.findPathById(path.getId()).isPresent()) {
-      searchPathMapper.updatePath(persistedPath);
-    } else {
-      if (searchPathMapper.insertPath(persistedPath) == 0) {
-        throw new SearchPathApiException("write_conflict");
-      }
+    if (searchPathMapper.insertPath(persistedPath) == 0) {
+      throw new SearchPathApiException("write_conflict");
     }
-
-    List<SearchPathSegment> persistedSegments = persistSegments(path, now);
-    persistExcludedPoints(path, now);
-    return persistedPath.toBuilder().segments(persistedSegments).build();
+    return persistedPath;
   }
 
   @Transactional
@@ -143,10 +128,11 @@ public class SearchPathService {
         toExcludedPoints(validationResult.getExcludedPoints());
 
     SearchPath path =
-        findById(request.getPathId())
+        searchPathMapper
+            .findPathForUpdate(request.getPathId())
             .orElseGet(
                 () ->
-                    save(
+                    createPath(
                         SearchPath.builder()
                             .id(request.getPathId())
                             .incidentId(request.getIncidentId())
@@ -161,21 +147,36 @@ public class SearchPathService {
     if (path.getStatus() != SearchPathStatus.RECORDING) {
       throw new SearchPathApiException("write_conflict");
     }
-    if (path.getPoints().isEmpty() && path.getGeometry() != null && !path.getGeometry().isEmpty()) {
+    int pointOffset = searchPathMapper.findNextGpsPointOrder(path.getId());
+    Geometry storedGeometry =
+        pointOffset == 0
+            ? searchPathMapper.findPathById(path.getId()).map(SearchPath::getGeometry).orElse(null)
+            : null;
+    if (pointOffset == 0 && storedGeometry != null && !storedGeometry.isEmpty()) {
       throw new SearchPathApiException("write_conflict");
     }
 
-    int pointOffset = path.getPoints().size();
-    List<SearchPathSegment> segments = new ArrayList<>(path.getSegments());
-    segments.addAll(autoSegments(acceptedPoints, pointOffset));
+    List<SearchPathSegment> newSegments = autoSegments(acceptedPoints, pointOffset);
 
-    path.appendAcceptedPoints(acceptedPoints);
-    path.appendExcludedPoints(excludedPoints);
-    path.replaceSegments(segments);
+    long expectedVersion = path.getVersion();
     path.bumpVersion();
-    path = save(path);
+    Instant now = Instant.now();
+    if (searchPathMapper.updatePathAfterPointAppend(
+            path.getId(),
+            pointOffset,
+            geometryForAppend(acceptedPoints),
+            expectedVersion,
+            path.getVersion(),
+            now)
+        == 0) {
+      throw new SearchPathApiException("write_conflict");
+    }
+    path = path.toBuilder().updatedAt(now).build();
+    List<SearchPathSegment> persistedNewSegments =
+        insertSegments(path.getId(), acceptedPoints, pointOffset, newSegments, now);
+    insertExcludedPoints(path.getId(), excludedPoints, now);
     if (!acceptedPoints.isEmpty()) {
-      searchPathMapper.insertGpsPoints(path.getId(), pointOffset, acceptedPoints, Instant.now());
+      searchPathMapper.insertGpsPoints(path.getId(), pointOffset, acceptedPoints, now);
     }
 
     eventPublisher.publishPathAppended(path);
@@ -188,11 +189,9 @@ public class SearchPathService {
         .acceptedPointCount(validationResult.getAcceptedPoints().size())
         .excludedPointCount(validationResult.getExcludedPoints().size())
         .excludedPoints(
-            path.getExcludedPoints().stream()
-                .map(SearchPathExcludedPointServiceResponse::from)
-                .toList())
-        .geometry(toGeometry(path.getPoints()))
-        .segments(path.getSegments().stream().map(SearchPathSegmentServiceResponse::from).toList())
+            excludedPoints.stream().map(SearchPathExcludedPointServiceResponse::from).toList())
+        .segments(
+            persistedNewSegments.stream().map(SearchPathSegmentServiceResponse::from).toList())
         .version(path.getVersion())
         .status(path.getStatus())
         .build();
@@ -258,32 +257,42 @@ public class SearchPathService {
 
   private SearchPathSegmentCorrectionServiceResponse correctSegmentOnce(
       SearchPathSegmentCorrectionServiceRequest request) {
-    SearchPath owner =
-        findAll().stream()
-            .filter(
-                path ->
-                    path.getSegments().stream()
-                        .anyMatch(
-                            segment ->
-                                segment.getId() != null
-                                    && segment
-                                        .getId()
-                                        .toString()
-                                        .equals(request.getSearchPathSegmentId())))
-            .findFirst()
-            .orElseThrow(() -> new SearchPathApiException("write_conflict"));
-
+    UUID segmentId = parseSegmentId(request.getSearchPathSegmentId());
     SearchPathSegment corrected =
-        owner.correctSegment(
-            request.getSearchPathSegmentId(),
-            request.getMovementType(),
-            request.getCorrectedByAccountId(),
-            OffsetDateTime.now());
+        searchPathMapper
+            .findSegmentById(segmentId)
+            .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+    SearchPath owner =
+        searchPathMapper
+            .findPathForUpdate(corrected.getSearchPathId())
+            .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+    long expectedPathVersion = owner.getVersion();
+    long expectedSegmentVersion = corrected.getVersion();
+    Instant now = Instant.now();
+    corrected.correct(
+        request.getMovementType(),
+        request.getCorrectedByAccountId(),
+        OffsetDateTime.ofInstant(now, ZoneOffset.UTC));
     owner.bumpVersion();
-    save(owner);
+    if (searchPathMapper.updatePathVersion(
+            owner.getId(), expectedPathVersion, owner.getVersion(), now)
+        == 0) {
+      throw new SearchPathApiException("write_conflict");
+    }
+    if (searchPathMapper.updateSegmentCorrection(corrected, expectedSegmentVersion, now) == 0) {
+      throw new SearchPathApiException("write_conflict");
+    }
 
     eventPublisher.publishSegmentUpdated(owner, corrected);
     return SearchPathSegmentCorrectionServiceResponse.from(corrected, owner.getOpId());
+  }
+
+  private UUID parseSegmentId(String segmentId) {
+    try {
+      return UUID.fromString(segmentId);
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      throw new SearchPathApiException("write_conflict");
+    }
   }
 
   private ResponseMetadata metadataForSegmentCorrection(
@@ -339,10 +348,6 @@ public class SearchPathService {
       case DISTANCE_JUMP -> "distance_jump";
       case OUT_OF_ORDER -> "out_of_order";
     };
-  }
-
-  private List<SearchPathSegment> autoSegments(List<GpsPoint> points) {
-    return autoSegments(points, 0);
   }
 
   private List<SearchPathSegment> autoSegments(List<GpsPoint> points, int pointOffset) {
@@ -471,34 +476,31 @@ public class SearchPathService {
         && segment.getEndIndex() < points.size();
   }
 
-  private List<SearchPathSegment> persistSegments(SearchPath path, Instant now) {
-    searchPathMapper.deleteSegments(path.getId());
-    List<GpsPoint> points = path.getPoints();
+  private List<SearchPathSegment> insertSegments(
+      UUID pathId,
+      List<GpsPoint> points,
+      int pointOffset,
+      List<SearchPathSegment> segments,
+      Instant now) {
     List<SearchPathSegment> persistedSegments = new ArrayList<>();
-    for (SearchPathSegment segment : path.getSegments()) {
-      UUID segmentId = uuidSegmentId(path.getId(), segment);
-      Geometry geometry =
-          points.isEmpty() ? segment.getGeometry() : segmentLineString(points, segment);
-      Instant startedAt =
-          points.isEmpty()
-              ? segment.getStartedAt()
-              : instant(points.get(segment.getStartIndex()).getClientTs());
-      Instant endedAt =
-          points.isEmpty()
-              ? segment.getEndedAt()
-              : instant(points.get(segment.getEndIndex()).getClientTs());
+    for (SearchPathSegment segment : segments) {
+      int startIndex = segment.getStartIndex() - pointOffset;
+      int endIndex = segment.getEndIndex() - pointOffset;
+      UUID segmentId = uuidSegmentId(pathId, segment);
       SearchPathSegment persistedSegment =
           segment.toBuilder()
               .id(segmentId)
-              .searchPathId(path.getId())
-              .geometry(geometry)
-              .startedAt(startedAt)
-              .endedAt(endedAt)
+              .searchPathId(pathId)
+              .geometry(lineString(points.subList(startIndex, endIndex + 1)))
+              .startedAt(instant(points.get(startIndex).getClientTs()))
+              .endedAt(instant(points.get(endIndex).getClientTs()))
               .createdAt(segment.getCreatedAt() == null ? now : segment.getCreatedAt())
               .updatedAt(now)
               .build();
-      searchPathMapper.insertSegment(persistedSegment);
       persistedSegments.add(persistedSegment);
+    }
+    if (!persistedSegments.isEmpty()) {
+      searchPathMapper.insertSegments(persistedSegments);
     }
     return List.copyOf(persistedSegments);
   }
@@ -527,17 +529,21 @@ public class SearchPathService {
     return new ResolvedDutyShift(dutyShiftId, accountId);
   }
 
-  private void persistExcludedPoints(SearchPath path, Instant now) {
-    searchPathMapper.deleteExcludedPoints(path.getId());
-    for (SearchPathExcludedPoint point : path.getExcludedPoints()) {
+  private void insertExcludedPoints(
+      UUID pathId, List<SearchPathExcludedPoint> excludedPoints, Instant now) {
+    List<SearchPathExcludedPoint> persistedPoints = new ArrayList<>();
+    for (SearchPathExcludedPoint point : excludedPoints) {
       SearchPathExcludedPoint persistedPoint =
           point.toBuilder()
-              .id(point.getId() == null ? excludedPointId(path.getId(), point) : point.getId())
-              .searchPathId(path.getId())
+              .id(point.getId() == null ? excludedPointId(pathId, point) : point.getId())
+              .searchPathId(pathId)
               .createdAt(point.getCreatedAt() == null ? now : point.getCreatedAt())
               .updatedAt(now)
               .build();
-      searchPathMapper.insertExcludedPoint(persistedPoint);
+      persistedPoints.add(persistedPoint);
+    }
+    if (!persistedPoints.isEmpty()) {
+      searchPathMapper.insertExcludedPoints(persistedPoints);
     }
   }
 
@@ -608,9 +614,14 @@ public class SearchPathService {
     return true;
   }
 
-  private Geometry lineStringOrNull(List<GpsPoint> points) {
+  private Geometry geometryForAppend(List<GpsPoint> points) {
     if (points.isEmpty()) {
       return null;
+    }
+    if (points.size() == 1) {
+      GpsPoint point = points.get(0);
+      return GEOMETRY_FACTORY.createPoint(
+          new Coordinate(point.getLon().doubleValue(), point.getLat().doubleValue()));
     }
     return lineString(points);
   }
@@ -626,10 +637,6 @@ public class SearchPathService {
     LineString lineString = GEOMETRY_FACTORY.createLineString(coordinates);
     lineString.setSRID(SRID);
     return lineString;
-  }
-
-  private LineString segmentLineString(List<GpsPoint> points, SearchPathSegment segment) {
-    return lineString(points.subList(segment.getStartIndex(), segment.getEndIndex() + 1));
   }
 
   private Instant startedAt(SearchPath path, Instant fallback) {

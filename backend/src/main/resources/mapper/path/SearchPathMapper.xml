@@ -113,15 +113,43 @@
         ON CONFLICT DO NOTHING
     </insert>
 
-    <update id="updatePath" parameterType="com.surimap.domain.path.SearchPath">
+    <update id="updatePathAfterPointAppend">
+        WITH append_input AS (
+            SELECT
+            <choose>
+                <when test="appendedGeometry != null">
+                    ST_GeomFromEWKT(#{appendedGeometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler})
+                </when>
+                <otherwise>
+                    NULL::geometry
+                </otherwise>
+            </choose>
+            AS new_geometry
+        )
+        UPDATE search_path sp
+        SET geometry = CASE
+                WHEN append_input.new_geometry IS NULL THEN sp.geometry
+                WHEN sp.geometry IS NULL AND GeometryType(append_input.new_geometry) = 'POINT'
+                    THEN ST_MakeLine(append_input.new_geometry, append_input.new_geometry)
+                WHEN sp.geometry IS NULL THEN append_input.new_geometry
+                WHEN #{pointOffset} = 1
+                    THEN ST_MakeLine(ST_StartPoint(sp.geometry), append_input.new_geometry)
+                ELSE ST_MakeLine(sp.geometry, append_input.new_geometry)
+            END,
+            version = #{nextVersion},
+            updated_at = #{updatedAt}
+        FROM append_input
+        WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND sp.status = 'RECORDING'
+          AND sp.version = #{expectedVersion}
+    </update>
+
+    <update id="updatePathVersion">
         UPDATE search_path
-        SET status = #{status},
-            account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            ended_at = #{endedAt},
-            geometry = ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
-            version = #{version},
+        SET version = #{nextVersion},
             updated_at = #{updatedAt}
         WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
     </update>
 
     <update id="endPath">
@@ -207,6 +235,24 @@
         WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
+    <select id="findPathForUpdate" resultMap="searchPathMap">
+        SELECT
+            sp.id,
+            op.incident_id,
+            ds.operational_period_id AS op_id,
+            sp.duty_shift_id,
+            sp.account_id,
+            sp.status,
+            sp.started_at,
+            sp.ended_at,
+            sp.version,
+            sp.created_at,
+            sp.updated_at
+        <include refid="searchPathReadJoins"/>
+        WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        FOR UPDATE OF sp
+    </select>
+
     <select id="findAllPaths" resultMap="searchPathMap">
         SELECT
         <include refid="searchPathReadColumns"/>
@@ -279,12 +325,17 @@
         ORDER BY point_order ASC
     </select>
 
-    <delete id="deleteSegments">
-        DELETE FROM search_path_segment
-        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-    </delete>
+    <select id="findNextGpsPointOrder" resultType="int">
+        SELECT COALESCE((
+            SELECT point_order + 1
+            FROM search_path_gps_point
+            WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            ORDER BY point_order DESC
+            LIMIT 1
+        ), 0)
+    </select>
 
-    <insert id="insertSegment" parameterType="com.surimap.domain.path.SearchPathSegment">
+    <insert id="insertSegments">
         INSERT INTO search_path_segment (
             id,
             search_path_id,
@@ -299,21 +350,54 @@
             created_at,
             updated_at
         )
-        VALUES (
-            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{movementType},
-            #{movementTypeSource},
-            ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
-            #{startedAt},
-            #{endedAt},
-            #{correctedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{correctedAt},
-            #{version},
-            #{createdAt},
-            #{updatedAt}
-        )
+        VALUES
+        <foreach collection="segments" item="segment" separator=",">
+            (
+                #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{segment.searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{segment.movementType},
+                #{segment.movementTypeSource},
+                ST_GeomFromEWKT(#{segment.geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+                #{segment.startedAt},
+                #{segment.endedAt},
+                #{segment.correctedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{segment.correctedAt},
+                #{segment.version},
+                #{segment.createdAt},
+                #{segment.updatedAt}
+            )
+        </foreach>
     </insert>
+
+    <select id="findSegmentById" resultMap="searchPathSegmentMap">
+        SELECT
+            id,
+            search_path_id,
+            movement_type,
+            movement_type_source,
+            ST_AsEWKT(geometry) AS geometry,
+            started_at,
+            ended_at,
+            corrected_by_account_id,
+            corrected_at,
+            version,
+            created_at,
+            updated_at
+        FROM search_path_segment
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <update id="updateSegmentCorrection">
+        UPDATE search_path_segment
+        SET movement_type = #{segment.movementType},
+            movement_type_source = #{segment.movementTypeSource},
+            corrected_by_account_id = #{segment.correctedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            corrected_at = #{segment.correctedAt},
+            version = #{segment.version},
+            updated_at = #{updatedAt}
+        WHERE id = #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
+    </update>
 
     <select id="findSegmentsByPathId" resultMap="searchPathSegmentMap">
         SELECT
@@ -334,12 +418,7 @@
         ORDER BY started_at ASC, id ASC
     </select>
 
-    <delete id="deleteExcludedPoints">
-        DELETE FROM search_path_excluded_point
-        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-    </delete>
-
-    <insert id="insertExcludedPoint" parameterType="com.surimap.domain.path.SearchPathExcludedPoint">
+    <insert id="insertExcludedPoints">
         INSERT INTO search_path_excluded_point (
             id,
             search_path_id,
@@ -355,21 +434,24 @@
             created_at,
             updated_at
         )
-        VALUES (
-            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{pointId},
-            #{reason},
-            #{clientTs},
-            #{lon},
-            #{lat},
-            #{speedMps},
-            #{horizontalAccuracyM},
-            #{locationProvider},
-            #{elapsedRealtimeNanos},
-            #{createdAt},
-            #{updatedAt}
-        )
+        VALUES
+        <foreach collection="excludedPoints" item="point" separator=",">
+            (
+                #{point.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{point.searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                #{point.pointId},
+                #{point.reason},
+                #{point.clientTs},
+                #{point.lon},
+                #{point.lat},
+                #{point.speedMps},
+                #{point.horizontalAccuracyM},
+                #{point.locationProvider},
+                #{point.elapsedRealtimeNanos},
+                #{point.createdAt},
+                #{point.updatedAt}
+            )
+        </foreach>
     </insert>
 
     <select id="findExcludedPointsByPathId" resultMap="searchPathExcludedPointMap">

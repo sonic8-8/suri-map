@@ -18,7 +18,6 @@ public class SearchPathPointsAppendServiceResponse {
   private int acceptedPointCount;
   private int excludedPointCount;
   private List<SearchPathExcludedPointServiceResponse> excludedPoints;
-  private List<List<Double>> geometry;
   private List<SearchPathSegmentServiceResponse> segments;
   private long version;
   private SearchPathStatus status;
@@ -32,7 +31,6 @@ public class SearchPathPointsAppendServiceResponse {
       int acceptedPointCount,
       int excludedPointCount,
       List<SearchPathExcludedPointServiceResponse> excludedPoints,
-      List<List<Double>> geometry,
       List<SearchPathSegmentServiceResponse> segments,
       long version,
       SearchPathStatus status) {
@@ -43,7 +41,6 @@ public class SearchPathPointsAppendServiceResponse {
     this.acceptedPointCount = acceptedPointCount;
     this.excludedPointCount = excludedPointCount;
     this.excludedPoints = excludedPoints;
-    this.geometry = geometry;
     this.segments = segments;
     this.version = version;
     this.status = status;

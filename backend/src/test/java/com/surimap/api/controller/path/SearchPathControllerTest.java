@@ -69,7 +69,6 @@ class SearchPathControllerTest {
                 .acceptedPointCount(2)
                 .excludedPointCount(0)
                 .excludedPoints(List.of())
-                .geometry(List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)))
                 .segments(
                     List.of(
                         SearchPathSegmentServiceResponse.builder()
@@ -110,9 +109,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.accountId", is(accountId.toString())))
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
-        .andExpect(jsonPath("$.geometry.type", is("LineString")))
-        .andExpect(jsonPath("$.geometry.coordinates[0][0]", is(126.913)))
-        .andExpect(jsonPath("$.geometry.coordinates[0][1]", is(35.162)))
+        .andExpect(jsonPath("$.geometry").doesNotExist())
         .andExpect(jsonPath("$.version", is(2)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
 
