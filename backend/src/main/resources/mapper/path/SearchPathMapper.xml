@@ -113,37 +113,6 @@
         ON CONFLICT DO NOTHING
     </insert>
 
-    <update id="updatePathAfterPointAppend">
-        WITH append_input AS (
-            SELECT
-            <choose>
-                <when test="appendedGeometry != null">
-                    ST_GeomFromEWKT(#{appendedGeometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler})
-                </when>
-                <otherwise>
-                    NULL::geometry
-                </otherwise>
-            </choose>
-            AS new_geometry
-        )
-        UPDATE search_path sp
-        SET geometry = CASE
-                WHEN append_input.new_geometry IS NULL THEN sp.geometry
-                WHEN sp.geometry IS NULL AND GeometryType(append_input.new_geometry) = 'POINT'
-                    THEN ST_MakeLine(append_input.new_geometry, append_input.new_geometry)
-                WHEN sp.geometry IS NULL THEN append_input.new_geometry
-                WHEN #{pointOffset} = 1
-                    THEN ST_MakeLine(ST_StartPoint(sp.geometry), append_input.new_geometry)
-                ELSE ST_MakeLine(sp.geometry, append_input.new_geometry)
-            END,
-            version = #{nextVersion},
-            updated_at = #{updatedAt}
-        FROM append_input
-        WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND sp.status = 'RECORDING'
-          AND sp.version = #{expectedVersion}
-    </update>
-
     <update id="updatePathVersion">
         UPDATE search_path
         SET version = #{nextVersion},

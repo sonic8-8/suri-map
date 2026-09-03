@@ -137,7 +137,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("batch append idempotency replay does not append geometry twice")
+  @DisplayName("같은 좌표 묶음을 재전송해도 GPS 좌표를 중복 저장하지 않는다")
   void batch_append_idempotency_replay_does_not_append_twice() {
     SearchPathPointsAppendServiceResponse first =
         searchPathService.appendPoints(batchRequest("idem-path-batch-db-replay"));
@@ -146,22 +146,18 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         searchPathService.appendPoints(batchRequest("idem-path-batch-db-replay"));
 
     assertThat(replayed).usingRecursiveComparison().isEqualTo(first);
-    Integer pointCount =
-        jdbcTemplate.queryForObject(
-            """
-            SELECT ST_NumPoints(geometry)
-            FROM search_path
-            WHERE id = ?::uuid
-            """,
-            Integer.class,
-            PATH_ID.toString());
-    assertThat(pointCount).isEqualTo(8);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT geometry IS NULL FROM search_path WHERE id = ?::uuid",
+                Boolean.class,
+                PATH_ID.toString()))
+        .isTrue();
     assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
     assertThat(idempotencyStatus("idem-path-batch-db-replay")).isEqualTo("COMPLETED");
   }
 
   @Test
-  @DisplayName("batch append rejects a changed request with the same idempotency key")
+  @DisplayName("같은 멱등성 키로 변경된 요청이 오면 기존 좌표와 버전을 유지한다")
   void batch_append_rejects_same_idempotency_key_with_changed_request() {
     String idempotencyKey = "idem-path-batch-mismatch";
     searchPathService.appendPoints(batchRequest(idempotencyKey));
@@ -175,13 +171,14 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         jdbcTemplate.queryForMap(
             """
             SELECT version,
-                   ST_NumPoints(geometry) AS point_count
+                   geometry IS NULL AS geometry_is_null
             FROM search_path
             WHERE id = ?::uuid
             """,
             PATH_ID.toString());
     assertThat(pathRow.get("version")).isEqualTo(2L);
-    assertThat(pathRow.get("point_count")).isEqualTo(8);
+    assertThat(pathRow.get("geometry_is_null")).isEqualTo(true);
+    assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
     assertThat(rowCount("event_dispatch_job")).isEqualTo(1);
   }
 
@@ -242,7 +239,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("batch append persists path geometry, version, and UUID segment rows")
+  @DisplayName("좌표 묶음을 추가하면 경로 도형 대신 GPS 좌표와 새 구간을 저장한다")
   void batch_append_persists_path_and_segments() {
     SearchPathPointsAppendServiceResponse response =
         searchPathService.appendPoints(batchRequest("idem-path-persist"));
@@ -254,8 +251,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
                    sp.duty_shift_id,
                    sp.status,
                    sp.version,
-                   ST_SRID(sp.geometry) AS srid,
-                   ST_NumPoints(sp.geometry) AS point_count
+                   sp.geometry IS NULL AS geometry_is_null
             FROM search_path sp
             WHERE sp.id = ?::uuid
             """,
@@ -266,8 +262,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThat(pathRow.get("duty_shift_id")).isEqualTo(DUTY_SHIFT_ID);
     assertThat(pathRow.get("status")).isEqualTo("RECORDING");
     assertThat(pathRow.get("version")).isEqualTo(response.getVersion());
-    assertThat(pathRow.get("srid")).isEqualTo(4326);
-    assertThat(pathRow.get("point_count")).isEqualTo(8);
+    assertThat(pathRow.get("geometry_is_null")).isEqualTo(true);
+    assertThat(rowCount("search_path_gps_point")).isEqualTo(8);
 
     List<Map<String, Object>> segments =
         jdbcTemplate.queryForList(
@@ -654,8 +650,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     assertThatThrownBy(() -> searchPathService.appendPoints(nextVehicleBatchRequest()))
         .isInstanceOfSatisfying(
             SearchPathApiException.class,
-            exception ->
-                assertThat(exception.getMessage()).isEqualTo("police_phone_not_assigned"));
+            exception -> assertThat(exception.getMessage()).isEqualTo("police_phone_not_assigned"));
 
     assertThat(
             jdbcTemplate.queryForObject(
@@ -729,7 +724,8 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
           PATH_ID.toString());
       jdbcTemplate.update(
           "DELETE FROM duty_shift WHERE id = ?::uuid", PAST_DUTY_SHIFT_ID.toString());
-      jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", PAST_OP_ID.toString());
+      jdbcTemplate.update(
+          "DELETE FROM operational_period WHERE id = ?::uuid", PAST_OP_ID.toString());
     }
   }
 

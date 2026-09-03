@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.locationtech.jts.geom.Geometry;
 
 @Mapper
 public interface SearchPathMapper {
@@ -15,14 +14,6 @@ public interface SearchPathMapper {
       @Param("opId") UUID opId, @Param("accountId") UUID accountId);
 
   int insertPath(SearchPath path);
-
-  int updatePathAfterPointAppend(
-      @Param("id") UUID id,
-      @Param("pointOffset") int pointOffset,
-      @Param("appendedGeometry") Geometry appendedGeometry,
-      @Param("expectedVersion") long expectedVersion,
-      @Param("nextVersion") long nextVersion,
-      @Param("updatedAt") Instant updatedAt);
 
   int updatePathVersion(
       @Param("id") UUID id,

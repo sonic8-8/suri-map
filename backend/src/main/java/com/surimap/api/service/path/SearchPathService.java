@@ -164,13 +164,7 @@ public class SearchPathService {
     long expectedVersion = path.getVersion();
     path.bumpVersion();
     Instant now = Instant.now();
-    if (searchPathMapper.updatePathAfterPointAppend(
-            path.getId(),
-            pointOffset,
-            geometryForAppend(acceptedPoints),
-            expectedVersion,
-            path.getVersion(),
-            now)
+    if (searchPathMapper.updatePathVersion(path.getId(), expectedVersion, path.getVersion(), now)
         == 0) {
       throw new SearchPathApiException("write_conflict");
     }
@@ -609,18 +603,6 @@ public class SearchPathService {
       }
     }
     return true;
-  }
-
-  private Geometry geometryForAppend(List<GpsPoint> points) {
-    if (points.isEmpty()) {
-      return null;
-    }
-    if (points.size() == 1) {
-      GpsPoint point = points.get(0);
-      return GEOMETRY_FACTORY.createPoint(
-          new Coordinate(point.getLon().doubleValue(), point.getLat().doubleValue()));
-    }
-    return lineString(points);
   }
 
   private LineString lineString(List<GpsPoint> points) {

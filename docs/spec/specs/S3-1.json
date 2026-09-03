@@ -6,7 +6,7 @@
     "owner": "4",
     "character": "domain_plus_foundation",
     "created": "2026-04-28",
-    "updated": "2026-04-28"
+    "updated": "2026-09-03"
   },
   "context_refs": {
     "prd": [
@@ -47,7 +47,7 @@
   "scope": {
     "included": [
       "현재 OP와 현재 로그인 계정 기준 search_path 시작·종료",
-      "앱이 보낸 GPS batch를 search_path LineString과 search_path_segment로 누적",
+      "앱이 보낸 GPS batch를 search_path_gps_point와 search_path_segment로 누적하고 조회할 때 LineString으로 조립",
       "GPS 속도 기반 VEHICLE|FOOT|UNKNOWN segment 자동 분리",
       "웹 상황판에서 이미 저장된 search_path_segment.type만 수동 보정",
       "PATH_APPENDED, SEARCH_PATH_STARTED, SEARCH_PATH_PAUSED, SEARCH_PATH_RESUMED, SEARCH_PATH_ENDED, SEARCH_PATH_SEGMENT_UPDATED 이벤트 payload 발행 요청",
@@ -156,7 +156,8 @@
           {
             "name": "geometry",
             "type": "GEOMETRY(LINESTRING,4326)",
-            "nullable": true
+            "nullable": true,
+            "note": "GPS 원본이 없는 legacy geometry-only 경로의 읽기 fallback. GPS 원본이 있는 경로의 기존 값은 호환 기간 동안 보존하지만 읽기와 좌표 추가에는 사용하지 않는다."
           },
           {
             "name": "version",
@@ -184,7 +185,7 @@
       {
         "name": "search_path_gps_point",
         "owner_spec": "S3-1",
-        "description": "GPS 품질 검사를 통과해 search_path에 반영된 원본 측정값. 지도 표시용 LineString과 별도로 수집 순서와 측정 정보를 보존한다.",
+        "description": "GPS 품질 검사를 통과한 현대 search_path의 기준 데이터. 수집 순서와 측정 정보를 보존하며 지도 표시용 LineString은 point_order 순서로 조회할 때 조립한다.",
         "fields": [
           {
             "name": "search_path_id",
@@ -327,7 +328,7 @@
       {
         "name": "search_path_excluded_point",
         "owner_spec": "S3-1",
-        "description": "품질 저하로 canonical search_path/search_path_segment geometry에서 제외된 GPS point evidence.",
+        "description": "품질 저하로 canonical search_path_gps_point와 search_path_segment geometry에서 제외된 GPS point evidence.",
         "fields": [
           {
             "name": "id",
@@ -782,7 +783,7 @@
           "좌표는 LineString EPSG:4326 [lon, lat]이며 lon=-180..180, lat=-90..90, canonical precision은 소수 6자리다.",
           "연속 중복점은 canonicalization 단계에서 제거하되 제거 후 accepted point가 2개 미만이면 batch 전체를 거부한다.",
           "좌표 bbox는 하네스 envelope와 active SearchAreaQuery.overallOf(incidentId) 안에 있어야 한다.",
-          "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m인 point는 low-quality로 분류해 서버 path geometry에서 제외하고 response/event/query excludedPoints에 노출한다.",
+          "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m인 point는 low-quality로 분류해 canonical GPS point와 segment geometry에서 제외하고 response/event/query excludedPoints에 노출한다.",
           "좌표 누락/null/NaN, CRS 불일치, LineString type 불일치, pointId 중복, maxItems/minItems 위반은 structural geometry failure로 batch 전체를 invalid_geometry로 거부한다."
         ],
         "response_schema": {
@@ -1393,7 +1394,7 @@
       },
       {
         "type": "PATH_APPENDED",
-        "trigger": "search_path LineString append commit",
+        "trigger": "accepted GPS point, 새 segment와 search_path version commit",
         "payload_schema": {
           "type": "object",
           "required": [
@@ -1560,10 +1561,10 @@
       }
     ],
     "geometry_policy": {
-      "original_storage": "search_path.geometry stores one canonical unsimplified LineString. Recording stop/start is represented by separate search_path rows; when recording starts again, a new search_path row is created. search_path_segment.geometry stores canonical unsimplified LineString. All geometry uses EPSG:4326 lon/lat with 6 decimal precision.",
+      "original_storage": "search_path_gps_point에 point_order 순서로 저장된 accepted GPS point가 현대 search_path의 canonical storage다. canonical unsimplified LineString은 전체 경로 조회 시 이 좌표들로 조립한다. search_path.geometry는 GPS 원본이 없는 legacy geometry-only 경로의 읽기 fallback이다. GPS 원본이 있는 경로의 기존 geometry 값은 호환 기간 동안 보존하지만 읽기와 좌표 추가에는 사용하지 않는다. search_path_segment.geometry는 canonical unsimplified LineString을 저장한다. 모든 geometry는 EPSG:4326 lon/lat과 소수 6자리 정밀도를 사용한다.",
       "legacy_geometry_only": "search_path_gps_point 도입 전에 저장된 경로는 기존 search_path/search_path_segment geometry와 segment 시각만 읽기에 사용한다. 사라진 pointId/clientTs/speedMps/horizontalAccuracyM은 임의로 만들거나 backfill하지 않으며, 기존 geometry를 덮어쓰지 않도록 해당 RECORDING 경로의 batch append는 write_conflict로 거부한다.",
-      "hash": "SearchPath.version and geometryMode separate source geometry from render-simplified response geometry for read-only SC-11 evidence.",
-      "rendering": "S3-2 may request RENDER_SIMPLIFIED geometry for performance, but simplification is response-only and never replaces canonical search_path.geometry.",
+      "hash": "SearchPath.version과 point_order 순서의 canonical GPS 좌표열은 source geometry를 render-simplified response geometry와 구분하는 SC-11 read-only evidence다. legacy 경로는 저장된 search_path.geometry를 사용한다.",
+      "rendering": "S3-2 may request RENDER_SIMPLIFIED geometry for performance, but simplification is response-only and never replaces canonical search_path_gps_point or legacy search_path.geometry.",
       "no_bridge": "Recording stop/start creates a new search_path row. Board rendering must not connect distinct search_path rows across gaps."
     },
     "classification_policy": {
@@ -1579,7 +1580,7 @@
         "speedMps < 0 or speedMps > 45",
         "distance over 200m between 5-second samples"
       ],
-      "server_effect": "low-quality points are stored as excluded point evidence but are not appended to server path geometry or search_path_segment geometry; structural null/NaN/missing coordinates reject the batch.",
+      "server_effect": "low-quality points are stored as excluded point evidence but are not appended to canonical search_path_gps_point or search_path_segment geometry; structural null/NaN/missing coordinates reject the batch.",
       "app_ux": "Android foreground location service exposes low-quality and excluded counts to screen/control/overlay props and does not mark excluded points as server-synced path.",
       "board_ux": "PathQuery and PATH_APPENDED expose excludedPoints so S3-2 can show low-quality/excluded badges without drawing them as covered search path."
     },
@@ -1626,7 +1627,7 @@
         },
         {
           "name": "SearchPathService",
-          "responsibility": "LineString append, segment classification and correction, filtered path query, and event publish request"
+          "responsibility": "GPS point append, read-time LineString assembly, segment classification and correction, filtered path query, and event publish request"
         },
         {
           "name": "SearchPathMapper",
@@ -1797,7 +1798,7 @@
       ],
       "given": "RECORDING search_path과 10초 GPS batch가 있다",
       "when": "앱이 POST /search-paths/batch를 전송한다",
-      "then": "search_path LineString이 EPSG:4326 lon/lat 순서로 append되고 path subject는 accountId로 저장된다. policePhoneId는 등록 단말 설정 확인과 S6 Outbox 전송에만 사용한다.",
+      "then": "accepted GPS point가 point_order 순서로 저장되고 PathQuery는 전체 좌표를 EPSG:4326 lon/lat 순서의 LineString으로 조립한다. path subject는 accountId로 저장되며 policePhoneId는 등록 단말 설정 확인과 S6 Outbox 전송에만 사용한다.",
       "priority": "critical"
     },
     {
@@ -1852,7 +1853,7 @@
       ],
       "given": "GPS 품질 저하 fixture가 horizontalAccuracyM, timestamp skew, 비정상 speed, 거리 jump 중 하나를 포함한다",
       "when": "앱이 POST /search-paths/batch를 전송한다",
-      "then": "서버는 저품질 point를 path/segment geometry에서 제외하고 excludedPoints로 응답·이벤트·PathQuery에 노출하며 앱과 상황판은 저품질/제외 상태를 표시한다.",
+      "then": "서버는 저품질 point를 canonical GPS point와 segment geometry에서 제외하고 excludedPoints로 응답·이벤트·PathQuery에 노출하며 앱과 상황판은 저품질/제외 상태를 표시한다.",
       "priority": "high"
     },
     {
@@ -1890,7 +1891,7 @@
   ],
   "error_handling": {
     "invalid_geometry": "Path batch geometry, point count, duplicate pointId, coordinate range, CRS, precision, maxItems/minItems, and overall_search_area containment failures use catalog error invalid_geometry.",
-    "low_quality_point": "품질 저하 point는 서버 path geometry에 승격하지 않고 excludedPoints로 응답·이벤트·PathQuery에 반영한다. 좌표 null/NaN 등 structural failure는 batch 전체 invalid_geometry다.",
+    "low_quality_point": "품질 저하 point는 canonical search_path_gps_point에 저장하지 않고 excludedPoints로 응답·이벤트·PathQuery에 반영한다. 좌표 null/NaN 등 structural failure는 batch 전체 invalid_geometry다.",
     "pending_api_assembly": "S3-1 write는 성공했지만 board API version가 REST 응답보다 낮으면 path slot은 STALE_REFETCH 또는 stale 상태를 표시하고 수렴 후 해제한다.",
     "op_mismatch": "앱은 현재 OP 재조회가 필요하다는 로컬 경고를 표시하고 해당 writeOperation은 자동 재전송하지 않는다.",
     "write_conflict": "앱은 서버 path 상태를 재조회하고 로컬 경로 CTA를 서버 상태에 맞춘다.",
@@ -2011,7 +2012,7 @@
       "expected": "non-structural quality failures appear in excludedPoints and are not drawn as path; structural coordinate failures reject the batch with invalid_geometry"
     },
     "read_only_geometry_hash": {
-      "expected": "SC-11 evidence uses canonical LineString geometry and SearchPath.version"
+      "expected": "SC-11 evidence uses the canonical point_order coordinate stream and SearchPath.version; legacy paths use stored search_path.geometry"
     },
     "stale_version": {
       "expected": "mock board ignores event payloads below current version"
@@ -2060,7 +2061,7 @@
       {
         "name": "ReadOnlyEvidenceOriginalGeometryHashTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "SC-11 read-only PathQuery ORIGINAL과 RENDER_SIMPLIFIED 응답 모두 canonical search_path.geometry와 version을 보존한다."
+        "scenario": "SC-11 read-only PathQuery ORIGINAL과 RENDER_SIMPLIFIED 응답 모두 point_order 좌표열에서 조립한 canonical geometry와 version을 보존하며 legacy 경로는 저장된 search_path.geometry를 사용한다."
       },
       {
         "name": "PathQueryMockContractTest",
@@ -2182,9 +2183,14 @@
       "template_sections_filled"
     ],
     "error_logs": [],
-    "last_updated": "2026-04-28"
+    "last_updated": "2026-09-03"
   },
   "change_log": [
+    {
+      "date": "2026-09-03",
+      "change": "GPS point 기반 canonical 경로 저장으로 변경",
+      "reason": "좌표 묶음을 추가할 때 누적 LineString을 다시 저장하지 않고 전체 경로 조회 시 point_order 순서로 조립한다."
+    },
     {
       "date": "2026-04-28",
       "change": "Tester blocker JSON 보정",
