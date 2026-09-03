@@ -146,10 +146,34 @@
             WHERE id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ),
         scoped_paths AS (
-            SELECT sp.*
+            SELECT
+                sp.*,
+                COALESCE(gps_path.geometry, sp.geometry) AS path_geometry
             FROM search_path sp
             JOIN duty_shift ds
               ON ds.id = sp.duty_shift_id
+            LEFT JOIN LATERAL (
+                SELECT CASE
+                    WHEN cardinality(ordered.points) = 1
+                        THEN ST_MakeLine(ordered.points[1], ordered.points[1])
+                    ELSE ST_MakeLine(ordered.points)
+                END AS geometry
+                FROM (
+                    SELECT array_agg(
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                gps_point.lon::double precision,
+                                gps_point.lat::double precision
+                            ),
+                            4326
+                        )
+                        ORDER BY gps_point.point_order
+                    ) AS points
+                    FROM search_path_gps_point gps_point
+                    WHERE gps_point.search_path_id = sp.id
+                ) ordered
+                WHERE cardinality(ordered.points) > 0
+            ) gps_path ON TRUE
             WHERE ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
             <if test="dutyShiftId != null">
                 AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
@@ -240,9 +264,9 @@
                 ),
                 'pathCount', (SELECT COUNT(*) FROM scoped_paths),
                 'totalDistanceMeters', (
-                    SELECT ROUND(COALESCE(SUM(ST_Length(geometry::geography)), 0)::numeric)::int
+                    SELECT ROUND(COALESCE(SUM(ST_Length(path_geometry::geography)), 0)::numeric)::int
                     FROM scoped_paths
-                    WHERE geometry IS NOT NULL
+                    WHERE path_geometry IS NOT NULL
                 ),
                 'walkingDistanceMeters', (
                     SELECT ROUND(COALESCE(SUM(ST_Length(geometry::geography)) FILTER (WHERE movement_type = 'FOOT'), 0)::numeric)::int
@@ -272,7 +296,7 @@
                             'status', sp.status,
                             'startedAt', sp.started_at,
                             'endedAt', sp.ended_at,
-                            'distanceMeters', ROUND(COALESCE(ST_Length(sp.geometry::geography), 0)::numeric)::int,
+                            'distanceMeters', ROUND(COALESCE(ST_Length(sp.path_geometry::geography), 0)::numeric)::int,
                             'movementTypes', COALESCE((
                                 SELECT jsonb_agg(DISTINCT sps.movement_type)
                                 FROM search_path_segment sps

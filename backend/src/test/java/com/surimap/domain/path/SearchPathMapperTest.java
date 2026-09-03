@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -260,52 +259,6 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     assertThat(searchPathMapper.findExcludedPointsByPathId(PATH_ID))
         .extracting(SearchPathExcludedPoint::getId)
         .containsExactly(EXCLUDED_POINT_ID, SECOND_EXCLUDED_POINT_ID);
-  }
-
-  @Test
-  @DisplayName("좌표 묶음을 추가하면 경로 도형의 좌표 수와 버전이 증가한다")
-  void updatePathAfterPointAppendExtendsGeometry() {
-    insertPath(lineString());
-
-    int updated =
-        searchPathMapper.updatePathAfterPointAppend(
-            PATH_ID, 2, lineString(), 1L, 2L, STARTED_AT.plusSeconds(5));
-
-    Map<String, Object> stored =
-        jdbcTemplate.queryForMap(
-            """
-            SELECT ST_NumPoints(geometry) AS point_count, version
-            FROM search_path
-            WHERE id = ?::uuid
-            """,
-            PATH_ID.toString());
-    assertThat(updated).isEqualTo(1);
-    assertThat(stored.get("point_count")).isEqualTo(4);
-    assertThat(stored.get("version")).isEqualTo(2L);
-  }
-
-  @Test
-  @DisplayName("좌표 하나로 시작한 경로에 다음 좌표를 추가하면 도형은 두 좌표만 가진다")
-  void updatePathAfterFirstPointRemovesStoredDuplicate() {
-    Coordinate firstCoordinate = new Coordinate(126.950000, 37.560000);
-    GeometryFactory geometryFactory = new GeometryFactory();
-    LineString firstPointGeometry =
-        geometryFactory.createLineString(
-            new Coordinate[] {firstCoordinate, firstCoordinate.copy()});
-    firstPointGeometry.setSRID(4326);
-    Geometry appendedPoint = geometryFactory.createPoint(new Coordinate(126.950200, 37.560200));
-    appendedPoint.setSRID(4326);
-    insertPath(firstPointGeometry);
-
-    searchPathMapper.updatePathAfterPointAppend(
-        PATH_ID, 1, appendedPoint, 1L, 2L, STARTED_AT.plusSeconds(5));
-
-    assertThat(
-            jdbcTemplate.queryForObject(
-                "SELECT ST_NumPoints(geometry) FROM search_path WHERE id = ?::uuid",
-                Integer.class,
-                PATH_ID.toString()))
-        .isEqualTo(2);
   }
 
   @Test

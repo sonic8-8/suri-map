@@ -413,14 +413,14 @@ Android Room 로컬 엔티티
 - `status`: 경로 기록 상태 (`RECORDING`, `PAUSED`, `ENDED`)
 - `started_at`: 경로 기록 시작 시각
 - `ended_at`: 경로 기록 종료 시각
-- `geometry`: 지도에 표시할 경로 LineString
+- `geometry`: GPS 원본이 없는 legacy geometry-only 경로의 조회 fallback. GPS 원본이 있는 경로의 기존 값은 호환 기간 동안 보존하지만 읽기와 좌표 추가에는 사용하지 않음
 - `version`: 경로 변경 버전
 - `created_at`: 생성 시각
 - `updated_at`: 수정 시각
 
 **설명**
 
-`search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 주체는 `account_id`가 맡는다. 업무폰은 APP 요청이 등록된 단말 설정을 사용했는지 확인하는 데만 쓰며 경로의 기록 주체로 저장하지 않는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
+`search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 주체는 `account_id`가 맡는다. 현대 경로의 좌표는 `search_path_gps_point`에 추가하며 `search_path.geometry`를 좌표 묶음마다 다시 저장하지 않는다. 업무폰은 APP 요청이 등록된 단말 설정을 사용했는지 확인하는 데만 쓰며 경로의 기록 주체로 저장하지 않는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
 
 #### search_path_gps_point
 
@@ -449,7 +449,7 @@ Android Room 로컬 엔티티
 
 **설명**
 
-`search_path_gps_point`는 GPS 품질 검사를 통과한 원본 측정값을 수집 순서대로 저장한다. `client_ts`는 앱이 기록한 실제 시각이며, 좌표 순서는 `elapsed_realtime_nanos`로 확인한다. `search_path.geometry`는 지도에 경로 선을 그리는 데 사용하고, 이 테이블은 DB를 다시 읽은 뒤에도 좌표 식별자, 수집 시각, 속도, 정확도를 실제 값 그대로 돌려주는 데 사용한다.
+`search_path_gps_point`는 GPS 품질 검사를 통과한 현대 수색 경로의 기준 데이터를 수집 순서대로 저장한다. `client_ts`는 앱이 기록한 실제 시각이며, 좌표 순서는 `elapsed_realtime_nanos`로 확인한다. 전체 수색 경로를 조회하면 `point_order` 순서의 좌표로 LineString을 조립한다. 따라서 DB를 다시 읽은 뒤에도 좌표 식별자, 수집 시각, 속도와 정확도를 실제 값 그대로 유지하면서 좌표 묶음 추가 시 누적 LineString을 다시 저장하지 않는다.
 
 이 테이블을 만들기 전에 저장된 경로는 기존 `search_path.geometry`와 `search_path_segment`의 좌표·시각만 사용한다. DB에 남아 있지 않은 좌표 식별자, 수집 시각, 속도, 정확도는 임의로 만들지 않는다. 기존 경로의 좌표를 덮어쓰지 않도록 GPS 원본 측정값이 없는 기록 중 경로에는 새 좌표를 추가하지 않는다.
 
@@ -541,7 +541,7 @@ Android Room 로컬 엔티티
 
 **설명**
 
-`search_path_excluded_point`는 품질 저하나 확인할 수 없는 수집 순서 때문에 서버 canonical LineString과 `search_path_segment.geometry`에 들어가지 않은 GPS point evidence다. 제외한 좌표도 원본 측정값과 사유를 함께 저장한다. 지도에서 수색 완료 경로로 그리지는 않지만, 앱·상황판·인수인계가 저품질/제외 상태를 표시할 수 있게 `PathQuery`의 `excludedPoints` source가 된다.
+`search_path_excluded_point`는 품질 저하나 확인할 수 없는 수집 순서 때문에 canonical `search_path_gps_point`와 `search_path_segment.geometry`에 들어가지 않은 GPS point evidence다. 제외한 좌표도 원본 측정값과 사유를 함께 저장한다. 지도에서 수색 완료 경로로 그리지는 않지만, 앱·상황판·인수인계가 저품질/제외 상태를 표시할 수 있게 `PathQuery`의 `excludedPoints` source가 된다.
 
 ### 마커와 사진
 
