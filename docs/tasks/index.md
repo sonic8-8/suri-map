@@ -122,6 +122,11 @@ Angular-style Conventional Commits에 필요한 경우 runtime area tag와 Jira 
 
 `type[(scope)]: 한글 요약 (<JIRA-KEY>)`
 
+커밋 제목과 상세 메시지는 다음 역할로 나눈다.
+
+- **제목 — 문제와 목적:** 무엇이 문제였는지와 이번 변경으로 무엇을 달성하려는지 요약한다. 구현 세부는 상세 메시지로 내린다.
+- **상세 메시지 — 원인과 구현 방식:** 첫 문단에는 기존 동작이 문제를 만든 원인을 설명하고, 다음 문단에는 무엇을 어떻게 바꿨는지 설명한다. 호환성이나 검증처럼 변경을 이해하는 데 필요한 정보가 있으면 뒤에 덧붙인다.
+
 scope는 optional이다. Angular Convention의 scope처럼 영향받는 제품 domain/module/package가 명확할 때만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다.
 
 허용 area tag:
