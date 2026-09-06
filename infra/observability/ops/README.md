@@ -13,7 +13,7 @@ cd /srv/ops
 sudo ./setup-grafana-rendering.sh
 ```
 
-이후에는 목표 RPS, UTC 시작·종료 시각과 출력 경로를 지정해 PNG를 만든다. 명령이 renderer를 시작하고 PNG signature를 확인한 뒤 renderer를 다시 중지한다.
+이후에는 목표 RPS, UTC 시작·종료 시각과 출력 경로를 지정해 PNG를 만든다. `target_rps`가 없는 시나리오는 목표 RPS 대신 `all`을 사용한다. 명령이 renderer를 시작하고 PNG signature를 확인한 뒤 renderer를 다시 중지한다.
 
 ```bash
 /srv/ops/render-load-test-dashboard.sh \

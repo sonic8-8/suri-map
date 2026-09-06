@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: render-load-test-dashboard.sh TARGET_RPS FROM TO OUTPUT.png
+Usage: render-load-test-dashboard.sh TARGET_RPS|all FROM TO OUTPUT.png
 
 Example:
   render-load-test-dashboard.sh \
@@ -30,8 +30,12 @@ FROM="$2"
 TO="$3"
 OUTPUT_PATH="$4"
 
-if [[ ! "$TARGET_RPS" =~ ^[1-9][0-9]*$ ]]; then
-  printf 'TARGET_RPS must be a positive integer: %s\n' "$TARGET_RPS" >&2
+if [[ "$TARGET_RPS" == "all" ]]; then
+  TARGET_RPS_FILTER='.*'
+elif [[ "$TARGET_RPS" =~ ^[1-9][0-9]*$ ]]; then
+  TARGET_RPS_FILTER="$TARGET_RPS"
+else
+  printf 'TARGET_RPS must be a positive integer or all: %s\n' "$TARGET_RPS" >&2
   exit 2
 fi
 
@@ -125,7 +129,7 @@ curl \
   --get 'http://127.0.0.1:3000/render/d/suri-map-load-test/suri-map-load-test' \
   --data-urlencode "from=$FROM_MS" \
   --data-urlencode "to=$TO_MS" \
-  --data-urlencode "var-target_rps=$TARGET_RPS" \
+  --data-urlencode "var-target_rps=$TARGET_RPS_FILTER" \
   --data-urlencode 'width=2560' \
   --data-urlencode 'height=1440' \
   --data-urlencode 'tz=Asia/Seoul' \
