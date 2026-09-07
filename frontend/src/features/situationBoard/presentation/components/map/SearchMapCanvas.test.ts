@@ -1,5 +1,10 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render } from '@testing-library/react';
+import { createElement } from 'react';
 import { describe, expect, test, vi } from 'vitest';
-import type maplibregl from 'maplibre-gl';
+import maplibregl from 'maplibre-gl';
+import * as config from '../../../../../shared/config';
+import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
 import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
 import {
@@ -8,8 +13,59 @@ import {
   createReferenceMarkerCorrectionRequest,
   interpolateManualRouteCoordinates,
   resolveSearchAreaPolicePhoneId,
+  SearchMapCanvas,
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
+
+test('상황판에서 자체 타일을 사용할 때 로그인 인증 정보를 함께 보낸다', () => {
+  vi.spyOn(config, 'getVWorldApiKey').mockReturnValue('');
+  vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  const mapConstructor = vi.spyOn(maplibregl, 'Map').mockImplementation(function () {
+    // 생성자에 전달하는 요청 설정만 확인하고 WebGL 초기화는 진행하지 않는다.
+    throw new Error('WebGL initialization is outside this test');
+  });
+
+  try {
+    render(
+      createElement(
+        QueryClientProvider,
+        { client: new QueryClient() },
+        createElement(SearchMapCanvas, {
+          activeOperationalPeriodId: null,
+          incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+          layerVisibility: { vehiclePath: true, footPath: true, searchArea: true, marker: true },
+          movementPaths: [],
+          recentMarkers: [],
+          operationalPeriods: [],
+          focusedMarkerId: null,
+          focusedMarkerSequence: 0,
+          focusedSearchAreaId: null,
+          focusedSearchAreaSequence: 0,
+          visibleMarkerIds: [],
+          savedAreaDrafts: [],
+          selectedPolicePhoneLegendFilters: [],
+          selectedSearchAreaLegendFilters: [],
+          searchAreaTree: searchAreaNode(),
+          selectedSearchAreaId: null,
+          onSelectSearchArea: vi.fn(),
+          onClearSelectedSearchArea: vi.fn(),
+          onOpenSearchAreaSplit: vi.fn(),
+          onOpenSearchAreaAssign: vi.fn(),
+        }),
+      ),
+    );
+
+    expect(mapConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        style: '/map-style/osm-local.json',
+        transformRequest: transformLocalTileRequest,
+      }),
+    );
+  } finally {
+    cleanup();
+    vi.restoreAllMocks();
+  }
+});
 
 describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
   test('updates an existing GeoJSON source without waiting for map.loaded()', () => {
