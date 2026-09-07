@@ -3,6 +3,7 @@ package com.surimap.offlinepackage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.surimap.offlinepackage.dto.TileBlobResponse;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
@@ -218,6 +220,21 @@ class TileserverGlTileServiceTest {
     assertThat(tile.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
     assertThat(tile.bytes()).isEqualTo(compressedTileBytes);
     assertThat(tile.contentEncoding()).isEqualTo("gzip");
+    server.verify();
+  }
+
+  @Test
+  @DisplayName("지도 데이터가 없는 구역의 204 응답은 빈 벡터 타일로 반환한다")
+  void getTileReturnsEmptyVectorTileForNoContent() {
+    server
+        .expect(requestTo("http://tileserver-gl:8080/data/osm-local/12/3489/1621.pbf"))
+        .andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+    TileBlobResponse tile = tileService.getTile("osm-local", 12, 3489, 1621);
+
+    assertThat(tile.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
+    assertThat(tile.bytes()).isEmpty();
+    assertThat(tile.contentEncoding()).isNull();
     server.verify();
   }
 

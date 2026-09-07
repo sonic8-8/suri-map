@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,10 @@ public class TileserverGlTileService implements TileService {
       ResponseEntity<byte[]> response =
           restTemplate.exchange(
               properties.tileUri(style, z, x, y), HttpMethod.GET, null, byte[].class);
+      if (response.getStatusCode().value() == HttpStatus.NO_CONTENT.value()) {
+        // 데이터가 없는 구역은 오류 대신 레이어가 없는 빈 MVT로 전달한다.
+        return new TileBlobResponse(APPLICATION_X_PROTOBUF, new byte[0]);
+      }
       byte[] body = response.getBody();
       if (!response.getStatusCode().is2xxSuccessful() || body == null) {
         throw new TileUnavailableException();

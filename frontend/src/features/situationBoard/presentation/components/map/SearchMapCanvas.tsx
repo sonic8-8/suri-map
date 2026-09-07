@@ -11,6 +11,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import { ApiHttpError, createIdempotencyKey } from '../../../../../shared/api/client';
 import { getVWorldApiKey } from '../../../../../shared/config';
+import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
 import {
@@ -1871,6 +1872,7 @@ export function SearchMapCanvas({
       map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: createVWorldBaseStyle(vWorldApiKey),
+        transformRequest: vWorldApiKey ? undefined : transformLocalTileRequest,
         center: DEFAULT_GWANGJU_CENTER,
         zoom: INITIAL_MAP_FALLBACK_ZOOM,
         maxZoom: V_WORLD_MAX_ZOOM,
