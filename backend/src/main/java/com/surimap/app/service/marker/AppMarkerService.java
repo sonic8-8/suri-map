@@ -84,25 +84,6 @@ public class AppMarkerService {
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
-      Clock clock,
-      Supplier<UUID> markerIdSupplier) {
-    this(
-        markerRepository,
-        markerOpBindingValidator,
-        markerWriteGuardPort,
-        markerEventPublisher,
-        null,
-        null,
-        clock,
-        markerIdSupplier,
-        null);
-  }
-
-  public AppMarkerService(
-      MarkerRepository markerRepository,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher,
       MarkerNotificationService markerNotificationService,
       Clock clock,
       Supplier<UUID> markerIdSupplier) {

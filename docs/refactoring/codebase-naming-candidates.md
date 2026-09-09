@@ -10,12 +10,13 @@
 
 `MarkerLocationValidatorRedTest`는 좌표 검증 규칙을 공통 도메인으로 옮기면서 [MarkerTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerTest.java)에 통합했다.
 
+`Sc06MarkerPhotoHarnessRedTest`·`Sc06MarkerPhotoHarnessRunner`는 [AppMarkerServiceTest](../../backend/src/test/java/com/surimap/app/service/marker/AppMarkerServiceTest.java)에 실제 DB 기반 마커 생성 후 사진 첨부·잘못된 좌표 거부 검증을 보강한 뒤 제거했다. 테스트 내부에서 흉내 낸 SSE 수신·상황판 갱신은 실제 연동 검증으로 옮기지 않았다.
+
 | 현재 이름 | 변경 후보 |
 |---|---|
 | [MarkerOpBindingRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerOpBindingRedTest.java) | `MarkerOpBindingValidatorTest` |
 | [MarkerNotificationToastQueryIntegrationTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationToastQueryIntegrationTest.java) | `MarkerNotificationMapperTest` |
 | [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |
-| [Sc06MarkerPhotoHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc06/Sc06MarkerPhotoHarnessRedTest.java) / [Sc06MarkerPhotoHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc06/Sc06MarkerPhotoHarnessRunner.java) | 마커 사진 검증과 실행 지원 역할을 확인해 이름 결정 |
 | [Sc08NotificationHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc08/Sc08NotificationHarnessRedTest.java) / [Sc08NotificationHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc08/Sc08NotificationHarnessRunner.java) | 마커 알림 검증과 실행 지원 역할을 확인해 이름 결정 |
 | [SupportRequestNotificationDispatchService](../../backend/src/main/java/com/surimap/marker/notification/service/SupportRequestNotificationDispatchService.java) | 역할 확인 후 결정 |
 | [BoardToastEvidence](../../backend/src/main/java/com/surimap/marker/notification/service/BoardToastEvidence.java) | 역할 확인 후 결정 |
