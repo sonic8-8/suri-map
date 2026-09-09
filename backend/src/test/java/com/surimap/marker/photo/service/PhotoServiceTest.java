@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = "surimap.object-storage.provider=mock")
@@ -252,6 +253,71 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("종료된 사건에 업로드 주소를 요청하면, 사진을 저장하지 않고 incident_closed 오류를 반환한다")
+  void createUploadUrl_closedIncident_rejectsWithoutSavingPhoto() {
+    // given: 배정과 마커는 유지되지만 사건은 종료되어 있다.
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+
+    // when & then: 실제 사건 상태로 업로드를 거부하고 사진·마커·이벤트를 변경하지 않는다.
+    assertUploadRejected("incident_closed", HttpStatus.CONFLICT);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("업로드 후 사건이 종료되면, 사진 첨부를 거부하고 대기 사진·마커·이벤트를 그대로 유지한다")
+  void attach_incidentClosedAfterUpload_rejectsWithoutChangingPhotoMarkerOrEvents() {
+    // given: 사진 업로드는 완료됐지만 첨부 요청 전에 사건이 종료되었다.
+    PhotoUploadUrlResponse upload =
+        photoService.createUploadUrl(
+            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
+    MarkerPhoto uploadedPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(uploadedPhoto.objectKey());
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+    PhotoRequestContext context =
+        new PhotoRequestContext(
+            new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID),
+            ATTACH_IDEMPOTENCY_KEY);
+    PhotoAttachRequest request =
+        new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
+
+    // when: 종료된 사건의 마커에 사진을 첨부하려 한다.
+    assertThatThrownBy(() -> photoService.attach(MARKER_ID, upload.photoId(), request, context))
+        .isInstanceOf(PhotoApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_closed", HttpStatus.CONFLICT);
+
+    // then: 사진은 대기 상태·버전 1로 남고 마커와 수정 이벤트도 변경되지 않는다.
+    MarkerPhoto savedPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
+    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(savedPhoto.version()).isEqualTo(1L);
+    assertThat(savedPhoto.attachedAt()).isNull();
+    assertThat(savedPhoto.width()).isNull();
+    assertThat(savedPhoto.height()).isNull();
+    Marker marker = markerMapper.findById(MARKER_ID).orElseThrow();
+    assertThat(marker.getStatus()).isEqualTo("ACTIVE");
+    assertThat(marker.getVersion()).isEqualTo(1L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                ATTACH_IDEMPOTENCY_KEY))
+        .isEmpty();
+  }
+
+  @Test
   @DisplayName("현재 수색 차수가 없으면, op_required 오류를 반환하고 사진을 저장하지 않는다")
   void createUploadUrl_noCurrentOp_rejectsWithoutSavingPhoto() {
     // given: 마커의 수색 차수가 종료되어 활성 수색 차수가 없다.
@@ -259,7 +325,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE id = ?", OP1_ID);
 
     // when & then: 실제 DB의 수색 차수 상태로 업로드를 거부한다.
-    assertUploadRejected("op_required");
+    assertUploadRejected("op_required", HttpStatus.CONFLICT);
   }
 
   @Test
@@ -270,7 +336,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         "UPDATE duty_shift SET status = 'ENDED', ended_at = NOW() WHERE id = ?", DUTY_SHIFT_ID);
 
     // when & then: 배정과 활성 근무교대의 실제 SQL 조회 결과를 구분한다.
-    assertUploadRejected("police_phone_not_assigned");
+    assertUploadRejected("police_phone_not_assigned", HttpStatus.FORBIDDEN);
   }
 
   @Test
@@ -281,17 +347,17 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         "UPDATE marker SET created_by_account_id = ? WHERE id = ?", SUPPORT_TEAM_ID, MARKER_ID);
 
     // when & then: 실제 마커의 작성 계정으로 사진 수정 권한을 판단한다.
-    assertUploadRejected("incident_access_denied");
+    assertUploadRejected("incident_access_denied", HttpStatus.FORBIDDEN);
   }
 
-  private void assertUploadRejected(String error) {
+  private void assertUploadRejected(String error, HttpStatus status) {
     assertThatThrownBy(
             () ->
                 photoService.createUploadUrl(
                     MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
         .isInstanceOf(PhotoApiException.class)
-        .extracting("error")
-        .isEqualTo(error);
+        .extracting("error", "status")
+        .containsExactly(error, status);
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM photo WHERE marker_id = ?", Integer.class, MARKER_ID))
