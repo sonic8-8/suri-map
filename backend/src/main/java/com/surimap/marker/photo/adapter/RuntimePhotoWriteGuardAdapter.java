@@ -1,12 +1,12 @@
 package com.surimap.marker.photo.adapter;
 
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.service.PhotoRequestContext;
-import com.surimap.marker.repository.MarkerRepository;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -17,12 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
 
-  private final MarkerRepository markerRepository;
+  private final MarkerMapper markerMapper;
   private final MarkerRuntimeGuardMapper markerRuntimeGuardMapper;
 
   public RuntimePhotoWriteGuardAdapter(
-      MarkerRepository markerRepository, MarkerRuntimeGuardMapper markerRuntimeGuardMapper) {
-    this.markerRepository = Objects.requireNonNull(markerRepository);
+      MarkerMapper markerMapper, MarkerRuntimeGuardMapper markerRuntimeGuardMapper) {
+    this.markerMapper = Objects.requireNonNull(markerMapper);
     this.markerRuntimeGuardMapper = Objects.requireNonNull(markerRuntimeGuardMapper);
   }
 
@@ -77,7 +77,7 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
       throw conflict();
     }
     Marker marker =
-        markerRepository.findById(markerId).orElseThrow(RuntimePhotoWriteGuardAdapter::conflict);
+        markerMapper.findById(markerId).orElseThrow(RuntimePhotoWriteGuardAdapter::conflict);
     if ("DELETED".equals(marker.getStatus())) {
       throw conflict();
     }
