@@ -3,6 +3,7 @@ package com.surimap.app.service.photo;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
 import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
@@ -16,7 +17,6 @@ import com.surimap.marker.photo.dto.PublishRequest;
 import com.surimap.marker.photo.dto.PublishRequestPayload;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
-import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -50,7 +50,7 @@ public class PhotoService {
       Set.of(PhotoStatus.PENDING_UPLOAD, PhotoStatus.ATTACHED);
 
   private final ObjectStoragePort storagePort;
-  private final PhotoWriteGuardPort photoWriteGuardPort;
+  private final MarkerRuntimeGuardMapper markerRuntimeGuardMapper;
   private final PhotoEventPublisher photoEventPublisher;
   private final MarkerMapper markerMapper;
   private final Clock clock = Clock.systemUTC();
@@ -61,14 +61,14 @@ public class PhotoService {
 
   public PhotoService(
       ObjectStoragePort storagePort,
-      PhotoWriteGuardPort photoWriteGuardPort,
+      MarkerRuntimeGuardMapper markerRuntimeGuardMapper,
       PhotoEventPublisher photoEventPublisher,
       MarkerMapper markerMapper,
       PlatformTransactionManager transactionManager,
       PhotoMapper photoMapper,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
-    this.photoWriteGuardPort = Objects.requireNonNull(photoWriteGuardPort);
+    this.markerRuntimeGuardMapper = Objects.requireNonNull(markerRuntimeGuardMapper);
     this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
     this.markerMapper = Objects.requireNonNull(markerMapper);
     this.idempotentResponseCache = Objects.requireNonNull(idempotentResponseCache);
@@ -96,7 +96,7 @@ public class PhotoService {
 
   private PhotoUploadUrlResponse createNewUploadUrl(
       UUID markerId, PhotoUploadUrlRequest request, PhotoRequestContext context) {
-    Marker marker = photoWriteGuardPort.requireUploadUrlAccess(markerId, context);
+    Marker marker = requirePhotoAccess(markerId, context);
     requirePhotoSlot(markerId);
 
     UUID photoId = UUID.randomUUID();
@@ -157,7 +157,7 @@ public class PhotoService {
 
   private PhotoAttachResult attachUploadedPhoto(
       UUID markerId, UUID photoId, PhotoAttachRequest request, PhotoRequestContext context) {
-    Marker marker = photoWriteGuardPort.requireAttachAccess(markerId, photoId, context);
+    Marker marker = requirePhotoAccess(markerId, context);
 
     MarkerPhoto photo = photoMapper.findById(photoId).orElseThrow(() -> conflict("write_conflict"));
     requireAttachableMarker(markerId, photo);
@@ -228,6 +228,87 @@ public class PhotoService {
     if (context.getIdempotencyKey() == null || context.getIdempotencyKey().isBlank()) {
       throw conflict("write_conflict");
     }
+  }
+
+  private Marker requirePhotoAccess(UUID markerId, PhotoRequestContext context) {
+    requireAppContext(context);
+    Marker marker = findActiveMarker(markerId);
+    UUID accountId = context.getAuthentication().accountId();
+
+    requireOpenIncident(marker.getIncidentId());
+    requireAccountAssignment(marker.getIncidentId(), accountId);
+    requireCurrentOp(marker);
+    requireActiveDutyShift(marker.getOperationalPeriodId(), accountId);
+    requireAppOwnFieldMarker(marker, accountId);
+
+    return marker;
+  }
+
+  private void requireAppContext(PhotoRequestContext context) {
+    if (context == null || context.getAuthentication() == null) {
+      throw denied();
+    }
+    if (!"APP".equals(context.getAuthentication().channel())) {
+      throw new PhotoApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+    }
+  }
+
+  private Marker findActiveMarker(UUID markerId) {
+    requireMarkerId(markerId);
+    Marker marker = markerMapper.findById(markerId).orElseThrow(() -> conflict("write_conflict"));
+    if ("DELETED".equals(marker.getStatus())) {
+      throw conflict("write_conflict");
+    }
+    return marker;
+  }
+
+  private void requireOpenIncident(UUID incidentId) {
+    String status =
+        markerRuntimeGuardMapper.findIncidentStatus(incidentId).orElseThrow(PhotoService::denied);
+    if ("OPEN".equals(status)) {
+      return;
+    }
+    if ("CLOSED".equals(status)) {
+      throw new PhotoApiException("incident_closed", HttpStatus.CONFLICT);
+    }
+    throw denied();
+  }
+
+  private void requireAccountAssignment(UUID incidentId, UUID accountId) {
+    if (markerRuntimeGuardMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
+      throw new PhotoApiException("team_not_assigned", HttpStatus.FORBIDDEN);
+    }
+    if (markerRuntimeGuardMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
+      throw denied();
+    }
+  }
+
+  private void requireCurrentOp(Marker marker) {
+    UUID currentOpId =
+        markerRuntimeGuardMapper
+            .findCurrentOpId(marker.getIncidentId())
+            .orElseThrow(() -> new PhotoApiException("op_required", HttpStatus.CONFLICT));
+    if (!currentOpId.equals(marker.getOperationalPeriodId())) {
+      throw new PhotoApiException("op_mismatch", HttpStatus.CONFLICT);
+    }
+  }
+
+  private void requireActiveDutyShift(UUID opId, UUID accountId) {
+    markerRuntimeGuardMapper
+        .findActiveDutyShiftIdByAccount(opId, accountId)
+        .orElseThrow(
+            () -> new PhotoApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN));
+  }
+
+  private void requireAppOwnFieldMarker(Marker marker, UUID accountId) {
+    if (!"APP".equals(marker.getMarkerSource())
+        || !accountId.equals(marker.getCreatedByAccountId())) {
+      throw denied();
+    }
+  }
+
+  private static PhotoApiException denied() {
+    return new PhotoApiException("incident_access_denied", HttpStatus.FORBIDDEN);
   }
 
   private void requirePhotoSlot(UUID markerId) {

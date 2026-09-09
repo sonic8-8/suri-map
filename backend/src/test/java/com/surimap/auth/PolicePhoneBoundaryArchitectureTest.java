@@ -2,13 +2,13 @@ package com.surimap.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.surimap.api.service.path.SearchPathService;
 import com.surimap.app.service.path.AppSearchPathService;
+import com.surimap.app.service.photo.PhotoService;
 import com.surimap.app.service.searcharea.AppSearchAreaBoundaryAlertService;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
 import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
-import com.surimap.marker.photo.adapter.RuntimePhotoWriteGuardAdapter;
-import com.surimap.api.service.path.SearchPathService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -35,8 +35,10 @@ class PolicePhoneBoundaryArchitectureTest {
   }
 
   @Test
-  @DisplayName("마커 비즈니스 guard는 업무폰 등록 조회 계약을 갖지 않는다")
-  void markerBusinessGuardDoesNotOwnRegisteredPhoneLookup() {
+  @DisplayName("마커 권한 검사와 사진 서비스는 업무폰 등록 조회 메서드를 갖지 않는다")
+  void markerBusinessLogic_doesNotDeclareRegisteredPhoneLookup() {
+    // given: 업무폰 등록 검사는 Controller의 공통 인증 가드가 담당한다.
+    // when & then: 마커 권한 조회·검사와 사진 서비스에 등록 조회 메서드를 두지 않는다.
     assertThat(
             Arrays.stream(MarkerRuntimeGuardMapper.class.getDeclaredMethods()).map(Method::getName))
         .doesNotContain("countRegisteredPolicePhone");
@@ -44,9 +46,7 @@ class PolicePhoneBoundaryArchitectureTest {
             Arrays.stream(RuntimeMarkerWriteGuardAdapter.class.getDeclaredMethods())
                 .map(Method::getName))
         .doesNotContain("requireRegisteredPolicePhone");
-    assertThat(
-            Arrays.stream(RuntimePhotoWriteGuardAdapter.class.getDeclaredMethods())
-                .map(Method::getName))
+    assertThat(Arrays.stream(PhotoService.class.getDeclaredMethods()).map(Method::getName))
         .doesNotContain("requireRegisteredPolicePhone");
   }
 
