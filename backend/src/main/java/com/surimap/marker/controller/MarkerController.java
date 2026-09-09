@@ -9,12 +9,17 @@ import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerListResponse;
 import com.surimap.marker.dto.MarkerMutationResponse;
 import com.surimap.marker.dto.MarkerUpdateRequest;
+import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
+import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import com.surimap.retention.purge.RecordLocationAccess;
+import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -64,11 +69,17 @@ public class MarkerController {
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-      @RequestBody(required = false) MarkerUpdateRequest request) {
+      @Valid @RequestBody(required = false) MarkerUpdateRequest request,
+      BindingResult validation) {
     MarkerRequestContext context =
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(markerUpdateDeleteService.update(markerId, request, context));
+    if (request == null || validation.hasErrors()) {
+      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+    }
+    MarkerMutationServiceResponse response =
+        markerUpdateDeleteService.update(request.toServiceRequest(markerId, context));
+    return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 
   @DeleteMapping("/{markerId}")
@@ -81,10 +92,16 @@ public class MarkerController {
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-      @RequestBody(required = false) MarkerDeleteRequest request) {
+      @Valid @RequestBody(required = false) MarkerDeleteRequest request,
+      BindingResult validation) {
     MarkerRequestContext context =
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(markerUpdateDeleteService.delete(markerId, request, context));
+    if (request == null || validation.hasErrors()) {
+      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+    }
+    MarkerMutationServiceResponse response =
+        markerUpdateDeleteService.delete(request.toServiceRequest(markerId, context));
+    return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 }

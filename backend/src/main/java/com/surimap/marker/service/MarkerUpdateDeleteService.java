@@ -3,12 +3,9 @@ package com.surimap.marker.service;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
-import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerMutationResponse;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
-import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
@@ -16,14 +13,13 @@ import com.surimap.marker.repository.MarkerDeleteRecord;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.repository.MarkerUpdateRecord;
+import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
+import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
+import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 import org.locationtech.jts.geom.Point;
@@ -92,35 +88,36 @@ public class MarkerUpdateDeleteService {
   }
 
   @Transactional
-  public MarkerMutationResponse update(
-      UUID markerId, MarkerUpdateRequest request, MarkerRequestContext context) {
-    requireMarkerId(markerId);
-    requireRequestVersion(request == null ? null : request.version());
+  public MarkerMutationServiceResponse update(MarkerUpdateServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    MarkerRequestContext context = request.getContext();
     requireWriteContext(context);
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
-          "PATCH /api/markers/" + markerId,
+          "PATCH /api/markers/" + request.getMarkerId(),
           context.idempotencyKey(),
-          fingerprint("update:" + markerId, request),
+          request,
+          () -> MarkerMutationLegacyRequestBody.formatUpdate(request),
           200,
-          MarkerMutationResponse.class,
-          () -> updateMarker(markerId, request, context),
+          MarkerMutationServiceResponse.class,
+          () -> updateMarker(request),
           this::metadataFor);
     }
-    return updateMarker(markerId, request, context);
+    return updateMarker(request);
   }
 
-  private MarkerMutationResponse updateMarker(
-      UUID markerId, MarkerUpdateRequest request, MarkerRequestContext context) {
+  private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
+    UUID markerId = request.getMarkerId();
     MarkerMutationContext mutationContext =
-        markerWriteGuardPort.requireUpdateAccess(markerId, context);
+        markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
     requireMutationContext(markerId, mutationContext);
     MarkerRecord current = findOpenMarker(markerId);
-    requireVersion(current, request.version());
+    requireVersion(current, request.getVersion());
 
-    MarkerType markerType = nextMarkerType(current, request.type());
+    MarkerType markerType = nextMarkerType(current, request.getType());
     MarkerGeoJsonPoint location = nextLocation(mutationContext.incidentId(), current, request);
-    String memo = nextMemo(current, request.memo());
+    String memo = nextMemo(current, request.getMemo());
     long nextVersion = current.getVersion() + 1L;
 
     int updated =
@@ -146,35 +143,40 @@ public class MarkerUpdateDeleteService {
             location);
     markerEventPublisher.publish(publishRequest);
 
-    return new MarkerMutationResponse(markerId, MarkerStatus.UPDATED.name(), nextVersion);
+    return MarkerMutationServiceResponse.builder()
+        .id(markerId)
+        .status(MarkerStatus.UPDATED.name())
+        .version(nextVersion)
+        .build();
   }
 
   @Transactional
-  public MarkerMutationResponse delete(
-      UUID markerId, MarkerDeleteRequest request, MarkerRequestContext context) {
-    requireMarkerId(markerId);
-    requireRequestVersion(request == null ? null : request.version());
+  public MarkerMutationServiceResponse delete(MarkerDeleteServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    MarkerRequestContext context = request.getContext();
     requireWriteContext(context);
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
-          "DELETE /api/markers/" + markerId,
+          "DELETE /api/markers/" + request.getMarkerId(),
           context.idempotencyKey(),
-          fingerprint("delete:" + markerId, request),
+          request,
+          () -> MarkerMutationLegacyRequestBody.formatDelete(request),
           200,
-          MarkerMutationResponse.class,
-          () -> deleteMarker(markerId, request, context),
+          MarkerMutationServiceResponse.class,
+          () -> deleteMarker(request),
           this::metadataFor);
     }
-    return deleteMarker(markerId, request, context);
+    return deleteMarker(request);
   }
 
-  private MarkerMutationResponse deleteMarker(
-      UUID markerId, MarkerDeleteRequest request, MarkerRequestContext context) {
+  private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
+    UUID markerId = request.getMarkerId();
     MarkerMutationContext mutationContext =
-        markerWriteGuardPort.requireDeleteAccess(markerId, context);
+        markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
     requireMutationContext(markerId, mutationContext);
     MarkerRecord current = findOpenMarker(markerId);
-    requireVersion(current, request.version());
+    requireVersion(current, request.getVersion());
     long nextVersion = current.getVersion() + 1L;
 
     int updated =
@@ -194,7 +196,11 @@ public class MarkerUpdateDeleteService {
             null);
     markerEventPublisher.publish(publishRequest);
 
-    return new MarkerMutationResponse(markerId, MarkerStatus.DELETED.name(), nextVersion);
+    return MarkerMutationServiceResponse.builder()
+        .id(markerId)
+        .status(MarkerStatus.DELETED.name())
+        .version(nextVersion)
+        .build();
   }
 
   private MarkerRecord findOpenMarker(UUID markerId) {
@@ -249,11 +255,11 @@ public class MarkerUpdateDeleteService {
   }
 
   private MarkerGeoJsonPoint nextLocation(
-      UUID incidentId, MarkerRecord current, MarkerUpdateRequest request) {
-    if (request.location() == null) {
+      UUID incidentId, MarkerRecord current, MarkerUpdateServiceRequest request) {
+    if (request.getLocation() == null) {
       return MarkerGeoJsonPoint.from(current.getLocation());
     }
-    MarkerGeoJsonPoint canonicalLocation = request.location().canonical();
+    MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
     markerLocationValidator.validate(incidentId, location);
     return canonicalLocation;
@@ -321,20 +327,11 @@ public class MarkerUpdateDeleteService {
     return new MarkerApiException(error, HttpStatus.CONFLICT);
   }
 
-  private ResponseMetadata metadataFor(MarkerMutationResponse response) {
+  private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {
     return new ResponseMetadata(
-        response.id().toString(), response.status(), response.version(), response.version());
-  }
-
-  private String fingerprint(String operation, Object request) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hashed =
-          digest.digest(
-              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hashed);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is not available", exception);
-    }
+        response.getId().toString(),
+        response.getStatus(),
+        response.getVersion(),
+        response.getVersion());
   }
 }
