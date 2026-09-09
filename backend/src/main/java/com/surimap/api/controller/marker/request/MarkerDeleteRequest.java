@@ -1,4 +1,4 @@
-package com.surimap.marker.dto;
+package com.surimap.api.controller.marker.request;
 
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.request.MarkerDeleteServiceRequest;

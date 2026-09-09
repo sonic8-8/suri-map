@@ -1,4 +1,4 @@
-package com.surimap.marker.dto;
+package com.surimap.api.controller.marker.response;
 
 import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import java.util.UUID;

@@ -1,16 +1,17 @@
-package com.surimap.marker.controller;
+package com.surimap.api.controller.marker;
 
+import com.surimap.api.controller.marker.request.MarkerDeleteRequest;
+import com.surimap.api.controller.marker.request.MarkerUpdateRequest;
+import com.surimap.api.controller.marker.response.MarkerListResponse;
+import com.surimap.api.controller.marker.response.MarkerMutationResponse;
+import com.surimap.api.service.marker.MarkerService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
-import com.surimap.marker.dto.MarkerDeleteRequest;
-import com.surimap.marker.dto.MarkerListResponse;
-import com.surimap.marker.dto.MarkerMutationResponse;
-import com.surimap.marker.dto.MarkerUpdateRequest;
+import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
 import com.surimap.marker.service.response.MarkerMutationServiceResponse;
@@ -35,15 +36,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class MarkerController {
 
   private final MarkerUpdateDeleteService markerUpdateDeleteService;
-  private final MarkerReadService markerReadService;
+  private final MarkerService markerService;
   private final MarkerRequestContextResolver contextResolver;
 
   public MarkerController(
       MarkerUpdateDeleteService markerUpdateDeleteService,
-      MarkerReadService markerReadService,
+      MarkerService markerService,
       MarkerRequestContextResolver contextResolver) {
     this.markerUpdateDeleteService = markerUpdateDeleteService;
-    this.markerReadService = markerReadService;
+    this.markerService = markerService;
     this.contextResolver = contextResolver;
   }
 
@@ -56,7 +57,8 @@ public class MarkerController {
       @RequestParam(required = false) UUID opId,
       @RequestParam(required = false) String type,
       @RequestParam(required = false) String status) {
-    return ResponseEntity.ok(markerReadService.list(incidentId, opId, type, status));
+    return ResponseEntity.ok(
+        MarkerListResponse.from(markerService.list(incidentId, opId, type, status)));
   }
 
   @PatchMapping("/{markerId}")
