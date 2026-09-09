@@ -32,7 +32,7 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - Domain model, mapper, SQL, 핵심 정책은 채널별로 복제하지 않는다. 공통 로직은 `domain` 기준으로 공유한다.
 - `SuriMapApplication`은 `com.surimap` 루트에 둔다. 같은 레벨의 최상위 패키지는 `api`, `app`, `domain`, `client`, `config`, 기존 공용 기반인 `common`을 사용한다.
 - Controller는 HTTP 요청 수신, 입력 검증, channel/principal 해석, Service 호출, Response DTO 반환만 담당한다.
-- Service는 use case 실행, transaction 처리, guard orchestration, mapper 조합, event staging을 담당한다.
+- Service는 도메인 객체의 메서드·Mapper·외부 연동을 사용해 업무 흐름, transaction, 권한 검사 순서, event staging을 조율한다.
 - Mapper는 SQL 실행과 row/DTO mapping만 담당한다. domain 판단과 transaction 흐름을 넣지 않는다.
 - Public response로 DB row나 domain object를 직접 반환하지 않는다. API 계약에 맞는 Response DTO로 변환한다.
 - 보호 API를 추가하거나 보안 설정을 바꿀 때는 request parameter보다 인증 principal과 `SecurityContext` 기반 해석을 우선한다.
@@ -51,7 +51,7 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - APP/WEB 공용 read라도 Web 상황판 응답 조립이면 `api`, Android 현장 앱 응답 조립이면 `app`에 둔다. 양쪽에서 쓰는 domain 조회/정책/mapper는 `domain`에 둔다.
 - `domain` 하위는 DB 테이블 개수보다 애그리거트 경계를 우선한다.
 - 모든 백엔드 도메인 객체는 `class`로 작성한다. 현재 로직이 없는 값 객체도 이후 상태 변경, 검증, 계산 로직을 담을 수 있으므로 `record`로 만들지 않는다. `enum`과 역할이 분명한 `interface`만 예외로 둔다.
-- 도메인 객체 필드는 `private`으로 선언하고 기본적으로 `final`을 붙이지 않는다. 외부 변경은 setter가 아니라 의미 있는 도메인 메서드로 통제한다.
+- 도메인 객체 필드는 `private`으로 선언하고 기본적으로 `final`을 붙이지 않는다. 상태 변경·검증·계산 규칙은 해당 도메인 객체의 동작 메서드에 구현하고 Service에서 호출한다.
 - 도메인 객체는 Lombok `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`를 기본으로 사용한다. MyBatis와 프레임워크가 객체를 만들 수 있게 열어두되, 애플리케이션 코드가 빈 객체를 직접 만들지 못하게 한다.
 - `@Setter`는 사용하지 않는다. 상태 변경은 `start`, `end`, `append...`, `correct...`처럼 업무 의미가 드러나는 메서드로 만든다.
 - 생성 경로가 필요하면 `@Builder`나 정적 팩터리를 사용한다. UUID와 시간이 많은 생성자는 public all-args 생성자로 열지 않는다.
@@ -160,6 +160,7 @@ ResponseEntity<SearchPathStartResponse> start(
 ## Service 분리 기준
 
 - 서비스 계층 로직은 먼저 `{Domain}Service`에 작성한다. 메서드 이름으로 동작을 명확히 구분하고, 처음부터 `CommandService`, `QueryService`, `UseCaseService`로 쪼개지 않는다.
+- Service는 하나의 업무 흐름에 필요한 여러 도메인 객체를 조합할 수 있다. SRP는 참조하는 도메인 개수가 아니라 변경 이유를 기준으로 판단한다.
 - 메서드 안에서 책임이 여러 개로 갈라지면 SRP 기준의 분리 신호로 본다. 단, 실제 신호가 보일 때만 진행한다. 예: 변경 이유가 둘 이상으로 갈라짐, 서로 관련 없는 의존성이 많아짐, 테스트 준비가 메서드별로 크게 달라짐, 조회 성능 최적화가 쓰기 흐름과 충돌함, 멱등성/이벤트 저장/재시도 같은 부수효과가 한쪽에만 커짐.
 - 애플리케이션 흐름 조율 책임이면 `{Domain}{Action/Responsibility}Service`로 분리하고, 순수 계산/판단/검증 같은 도메인 로직이면 도메인 객체나 `Calculator`, `Policy`, `Validator` 같은 이름으로 분리한다.
 - 분리할 때도 추상적인 모듈 이름보다 현재 업무 이름을 우선한다. 기능이 작으면 유지하고, 책임이 커진 뒤에만 더 구체적인 이름으로 나눈다.

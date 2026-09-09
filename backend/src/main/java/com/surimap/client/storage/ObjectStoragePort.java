@@ -1,13 +1,13 @@
-package com.surimap.marker.photo.port;
+package com.surimap.client.storage;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
 /**
- * S3-compatible object storage 추상화 port. 운영: S3/MinIO adapter, 개발·하네스: MockObjectStorage.
+ * 업무 영역과 무관하게 파일을 저장하고 조회하는 object storage 연동이다.
  *
- * @see com.surimap.marker.photo.adapter.MockObjectStorage
+ * @see MockObjectStorageAdapter
  */
 public interface ObjectStoragePort {
 

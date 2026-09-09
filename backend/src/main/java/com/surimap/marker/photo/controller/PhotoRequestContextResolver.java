@@ -1,9 +1,9 @@
 package com.surimap.marker.photo.controller;
 
+import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
-import com.surimap.marker.photo.service.PhotoRequestContext;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;

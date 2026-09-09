@@ -78,6 +78,28 @@ class MarkerTest {
   }
 
   @Test
+  @DisplayName("마커 변경을 기록하면, 기존 내용은 유지하고 수정 상태와 다음 버전을 기록한다")
+  void markUpdated_currentVersion_preservesContentAndAdvancesVersion() {
+    // given: 사진 첨부처럼 마커 내용은 유지하면서 변경을 기록해야 한다.
+    Marker marker = createMarker();
+
+    // when: 현재 버전의 마커를 수정 상태로 변경한다.
+    marker.markUpdated(1L);
+
+    // then: 메모·유형·위치는 유지하고 수정 상태와 버전만 변경한다.
+    assertThat(marker.getMemo()).isEqualTo("기존 메모");
+    assertThat(marker.getMarkerType()).isEqualTo("CLUE");
+    assertThat(marker.getLocation()).isEqualTo(MarkerGeometryFixtures.VALID_MARKER_POINT);
+    assertThat(marker.getStatus()).isEqualTo("UPDATED");
+    assertThat(marker.getVersion()).isEqualTo(2L);
+
+    // when & then: 변경을 한 번 더 기록하면 수정 상태를 유지하고 버전은 3이 된다.
+    marker.markUpdated(2L);
+    assertThat(marker.getStatus()).isEqualTo("UPDATED");
+    assertThat(marker.getVersion()).isEqualTo(3L);
+  }
+
+  @Test
   @DisplayName("메모만 수정하면, 나머지 값은 유지하고 수정 상태와 다음 버전을 기록한다")
   void update_onlyMemoChanges_preservesOtherFieldsAndAdvancesVersion() {
     // given: 위치와 유형이 정해진 현장 마커를 준비한다.
@@ -120,6 +142,10 @@ class MarkerTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.WRITE_CONFLICT);
+    assertThatThrownBy(() -> marker.markUpdated(2L))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.WRITE_CONFLICT);
     assertThat(marker.getVersion()).isEqualTo(2L);
   }
 
@@ -136,6 +162,10 @@ class MarkerTest {
         .extracting("errorCode")
         .isEqualTo(ErrorCode.WRITE_CONFLICT);
     assertThatThrownBy(() -> marker.delete(requestedVersion))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.WRITE_CONFLICT);
+    assertThatThrownBy(() -> marker.markUpdated(requestedVersion))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.WRITE_CONFLICT);

@@ -1,12 +1,11 @@
 package com.surimap.marker.photo.adapter;
 
+import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
-import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
-import com.surimap.marker.photo.service.PhotoRequestContext;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -28,25 +27,23 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
 
   @Override
   @Transactional(readOnly = true)
-  public PhotoMarkerContext requireUploadUrlAccess(UUID markerId, PhotoRequestContext context) {
+  public Marker requireUploadUrlAccess(UUID markerId, PhotoRequestContext context) {
     return requirePhotoAccess(markerId, context);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public PhotoMarkerContext requireAttachAccess(
-      UUID markerId, UUID photoId, PhotoRequestContext context) {
+  public Marker requireAttachAccess(UUID markerId, UUID photoId, PhotoRequestContext context) {
     if (photoId == null) {
       throw conflict();
     }
     return requirePhotoAccess(markerId, context);
   }
 
-  private PhotoMarkerContext requirePhotoAccess(UUID markerId, PhotoRequestContext context) {
+  private Marker requirePhotoAccess(UUID markerId, PhotoRequestContext context) {
     requireAppContext(context);
     Marker marker = findActiveMarker(markerId);
-    UUID accountId = context.authentication().accountId();
-    UUID policePhoneId = context.authentication().policePhoneId();
+    UUID accountId = context.getAuthentication().accountId();
 
     requireOpenIncident(marker.getIncidentId());
     requireAccountAssignment(marker.getIncidentId(), accountId);
@@ -54,20 +51,14 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
     requireActiveDutyShift(marker.getOperationalPeriodId(), accountId);
     requireAppOwnFieldMarker(marker, accountId);
 
-    return new PhotoMarkerContext(
-        marker.getIncidentId(),
-        marker.getId(),
-        marker.getOperationalPeriodId(),
-        policePhoneId,
-        marker.getStatus(),
-        marker.getVersion());
+    return marker;
   }
 
   private void requireAppContext(PhotoRequestContext context) {
-    if (context == null || context.authentication() == null) {
+    if (context == null || context.getAuthentication() == null) {
       throw denied();
     }
-    if (!"APP".equals(context.authentication().channel())) {
+    if (!"APP".equals(context.getAuthentication().channel())) {
       throw new PhotoApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
     }
   }

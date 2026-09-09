@@ -1,5 +1,6 @@
 package com.surimap.marker.photo.repository;
 
+import com.surimap.marker.photo.domain.MarkerPhoto;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +26,12 @@ public interface PhotoMapper {
       @Param("version") long version);
 
   Optional<PhotoRecord> findById(@Param("photoId") UUID photoId);
+
+  int failPendingPhoto(
+      @Param("photoId") UUID photoId, @Param("expectedVersion") long expectedVersion);
+
+  int attachPendingPhoto(
+      @Param("photo") MarkerPhoto photo, @Param("expectedVersion") long expectedVersion);
 
   long countByMarkerIdAndStatusIn(
       @Param("markerId") UUID markerId, @Param("statuses") Set<String> statuses);

@@ -1,7 +1,7 @@
 package com.surimap.marker.photo.port;
 
-import com.surimap.marker.photo.domain.PhotoMarkerContext;
-import com.surimap.marker.photo.service.PhotoRequestContext;
+import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.domain.marker.Marker;
 import java.util.UUID;
 
 public interface PhotoWriteGuardPort {
@@ -11,7 +11,7 @@ public interface PhotoWriteGuardPort {
    * incident/PolicePhone guard와 함께 marker opId가 S8 current OP와 다르면 {@code op_mismatch}, current OP가
    * 없으면 {@code op_required}로 차단해야 한다.
    */
-  PhotoMarkerContext requireUploadUrlAccess(UUID markerId, PhotoRequestContext context);
+  Marker requireUploadUrlAccess(UUID markerId, PhotoRequestContext context);
 
-  PhotoMarkerContext requireAttachAccess(UUID markerId, UUID photoId, PhotoRequestContext context);
+  Marker requireAttachAccess(UUID markerId, UUID photoId, PhotoRequestContext context);
 }

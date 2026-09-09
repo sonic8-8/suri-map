@@ -122,11 +122,11 @@ public class Marker {
 
   public void update(
       long expectedVersion, String requestedType, Point requestedLocation, String requestedMemo) {
-    requireVersion(expectedVersion);
     validateType(requestedType);
     if (requestedMemo != null && requestedMemo.length() > MAX_MEMO_LENGTH) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
+    markUpdated(expectedVersion);
     if (requestedType != null && !requestedType.isBlank()) {
       markerType = requestedType;
     }
@@ -136,6 +136,10 @@ public class Marker {
     if (requestedMemo != null) {
       memo = requestedMemo;
     }
+  }
+
+  public void markUpdated(long expectedVersion) {
+    requireVersion(expectedVersion);
     status = MarkerStatus.UPDATED.name();
     version++;
   }

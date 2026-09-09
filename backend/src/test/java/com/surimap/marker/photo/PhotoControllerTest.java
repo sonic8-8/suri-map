@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.app.service.photo.PhotoService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
@@ -29,7 +30,6 @@ import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.exception.PhotoExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
-import com.surimap.marker.photo.service.PhotoService;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.util.UUID;
@@ -93,9 +93,9 @@ class PhotoControllerTest {
             eq(new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null)),
             argThat(
                 context ->
-                    context.authentication().accountId().equals(ACCOUNT_ID)
-                        && context.authentication().policePhoneId().equals(POLICE_PHONE_ID)
-                        && context.idempotencyKey().equals("idem-photo-upload-url-001"))))
+                    context.getAuthentication().accountId().equals(ACCOUNT_ID)
+                        && context.getAuthentication().policePhoneId().equals(POLICE_PHONE_ID)
+                        && context.getIdempotencyKey().equals("idem-photo-upload-url-001"))))
         .thenReturn(response);
 
     mockMvc
@@ -120,8 +120,8 @@ class PhotoControllerTest {
             eq(new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null)),
             argThat(
                 context ->
-                    context.authentication().channel().equals("APP")
-                        && context.authentication().policePhoneId().equals(POLICE_PHONE_ID)));
+                    context.getAuthentication().channel().equals("APP")
+                        && context.getAuthentication().policePhoneId().equals(POLICE_PHONE_ID)));
   }
 
   @Test
@@ -311,7 +311,7 @@ class PhotoControllerTest {
             eq(MARKER_ID),
             eq(PHOTO_ID),
             eq(new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, null)),
-            argThat(context -> context.idempotencyKey().equals("idem-photo-attach-001"))))
+            argThat(context -> context.getIdempotencyKey().equals("idem-photo-attach-001"))))
         .thenReturn(result);
 
     mockMvc
@@ -337,7 +337,7 @@ class PhotoControllerTest {
             eq(MARKER_ID),
             eq(PHOTO_ID),
             eq(new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, null)),
-            argThat(context -> context.authentication().accountId().equals(ACCOUNT_ID)));
+            argThat(context -> context.getAuthentication().accountId().equals(ACCOUNT_ID)));
   }
 
   @Test

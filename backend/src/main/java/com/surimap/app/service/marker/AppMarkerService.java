@@ -143,7 +143,7 @@ public class AppMarkerService {
                 serverTs));
     markerEventPublisher.publish(publishRequest);
     AttachmentResult attachmentResult =
-        attachStagedPhotos(markerId, request, opId, context.authentication().policePhoneId());
+        photoAttachmentService.attachForCreate(marker, request.getPhotos());
     MarkerCreateServiceResponse response =
         MarkerCreateServiceResponse.builder()
             .id(markerId)
@@ -208,20 +208,6 @@ public class AppMarkerService {
     if (!request.getPhotos().isEmpty() && request.getId() == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
-  }
-
-  private AttachmentResult attachStagedPhotos(
-      UUID markerId, MarkerCreateServiceRequest request, UUID opId, UUID policePhoneId) {
-    if (request.getPhotos().isEmpty()) {
-      return new AttachmentResult(MarkerStatus.ACTIVE.name(), INITIAL_VERSION, java.util.List.of());
-    }
-    return photoAttachmentService.attachForCreate(
-        request.getIncidentId(),
-        opId,
-        markerId,
-        policePhoneId,
-        INITIAL_VERSION,
-        request.getPhotos());
   }
 
   private void requireAppContext(MarkerRequestContext context) {

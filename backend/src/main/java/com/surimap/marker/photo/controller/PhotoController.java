@@ -1,5 +1,7 @@
 package com.surimap.marker.photo.controller;
 
+import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.app.service.photo.PhotoService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
@@ -8,8 +10,6 @@ import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
-import com.surimap.marker.photo.service.PhotoRequestContext;
-import com.surimap.marker.photo.service.PhotoService;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
