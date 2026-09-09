@@ -34,8 +34,14 @@ import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
+import com.surimap.marker.photo.dto.PhotoAttachRequest;
+import com.surimap.marker.photo.dto.PhotoAttachResult;
+import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
+import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
+import com.surimap.marker.photo.service.PhotoRequestContext;
+import com.surimap.marker.photo.service.PhotoService;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -72,6 +78,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
       UUID.fromString("00000000-0000-0000-0000-000000000208");
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:05:00Z");
   private static final String IDEMPOTENCY_KEY = "idem-marker-create-001";
+  private static final String PHOTO_UPLOAD_IDEMPOTENCY_KEY = "idem-sc06-photo-upload-001";
+  private static final String PHOTO_ATTACH_IDEMPOTENCY_KEY = "idem-sc06-photo-attach-001";
   private static final String MARKER_MEMO = "field clue";
   // 이전 DTO 문자열 형식으로 계산해 둔 값이다. 운영 코드의 해시 함수를 기대값 생성에 사용하지 않는다.
   private static final String LEGACY_UPDATE_REQUEST_HASH =
@@ -80,6 +88,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
       "ceec70afabd12682afa1687e5c92946715fd369056003191189b1b2bcba3689a";
 
   @Autowired private AppMarkerService appMarkerService;
+  @Autowired private PhotoService photoService;
   @Autowired private MarkerRepository markerRepository;
   @Autowired private PhotoRepository photoRepository;
   @Autowired private MockObjectStorageAdapter objectStorage;
@@ -100,7 +109,10 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         INCIDENT_ID);
     jdbcTemplate.update("DELETE FROM marker WHERE incident_id = ?", INCIDENT_ID);
     jdbcTemplate.update(
-        "DELETE FROM idempotency_record WHERE idempotency_key = ?", IDEMPOTENCY_KEY);
+        "DELETE FROM idempotency_record WHERE idempotency_key IN (?, ?, ?)",
+        IDEMPOTENCY_KEY,
+        PHOTO_UPLOAD_IDEMPOTENCY_KEY,
+        PHOTO_ATTACH_IDEMPOTENCY_KEY);
     jdbcTemplate.update("DELETE FROM duty_shift WHERE operational_period_id = ?", OP1_ID);
     jdbcTemplate.update("DELETE FROM incident_assignment WHERE incident_id = ?", INCIDENT_ID);
     objectStorage.clear();
@@ -263,6 +275,72 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("마커 생성 후 사진을 첨부하면, 사진과 변경된 마커·수정 이벤트를 함께 저장한다")
+  void createMarker_photoAttachedAfterCreation_savesPhotoAndUpdatedEvent() throws Exception {
+    // given: 실제 앱 서비스로 마커를 생성하고, 발급받은 주소로 사진 업로드를 완료한다.
+    MarkerCreateServiceResponse created = appMarkerService.create(createRequest("CLUE", null));
+    UUID markerId = created.getId();
+    PhotoUploadUrlResponse upload =
+        photoService.createUploadUrl(
+            markerId,
+            new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, CHECKSUM_SHA256),
+            new PhotoRequestContext(context.authentication(), PHOTO_UPLOAD_IDEMPOTENCY_KEY));
+    MarkerPhoto pendingPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
+    assertThat(created.getStatus()).isEqualTo("ACTIVE");
+    assertThat(created.getVersion()).isEqualTo(1L);
+    assertThat(pendingPhoto.status()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(upload.uploadUrl()).endsWith(pendingPhoto.objectKey());
+    objectStorage.simulateUpload(pendingPhoto.objectKey());
+
+    // when: 생성 요청과 별개의 사진 첨부 요청을 실제 사진 서비스로 처리한다.
+    PhotoAttachResult attached =
+        photoService.attach(
+            markerId,
+            upload.photoId(),
+            new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, CHECKSUM_SHA256),
+            new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY));
+
+    // then: 사진과 부모 마커의 상태·버전이 바뀌고, DB에 생성·수정 이벤트가 하나씩 남는다.
+    assertThat(attached.response().photoId()).isEqualTo(upload.photoId());
+    assertThat(attached.response().status()).isEqualTo("ATTACHED");
+    assertThat(attached.response().version()).isEqualTo(2L);
+    assertThat(attached.response().markerId()).isEqualTo(markerId);
+    assertThat(attached.response().markerVersion()).isEqualTo(2L);
+    MarkerPhoto photo = photoRepository.findById(upload.photoId()).orElseThrow();
+    assertThat(photo.markerId()).isEqualTo(markerId);
+    assertThat(photo.status()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(photo.version()).isEqualTo(2L);
+    assertThat(photo.width()).isEqualTo(640);
+    assertThat(photo.height()).isEqualTo(480);
+    assertThat(photo.attachedAt()).isNotNull();
+    Marker marker = markerRepository.findById(markerId).orElseThrow();
+    assertThat(marker.getStatus()).isEqualTo("UPDATED");
+    assertThat(marker.getVersion()).isEqualTo(2L);
+    assertThat(readMarkerIds()).containsExactly(markerId);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, markerId))
+        .containsExactly(upload.photoId());
+    assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
+    JsonNode createdEvent = readEventPayload("MARKER_CREATED");
+    assertThat(createdEvent.path("id").asText()).isEqualTo(markerId.toString());
+    assertThat(createdEvent.path("status").asText()).isEqualTo("ACTIVE");
+    assertThat(createdEvent.path("version").asLong()).isEqualTo(1L);
+    JsonNode updatedEvent = readEventPayload("MARKER_UPDATED");
+    assertThat(updatedEvent.path("id").asText()).isEqualTo(markerId.toString());
+    assertThat(updatedEvent.path("incidentId").asText()).isEqualTo(INCIDENT_ID.toString());
+    assertThat(updatedEvent.path("opId").asText()).isEqualTo(OP1_ID.toString());
+    assertThat(updatedEvent.path("policePhoneId").asText())
+        .isEqualTo(ASSIGNED_POLICE_PHONE_ID.toString());
+    assertThat(updatedEvent.path("status").asText()).isEqualTo("UPDATED");
+    assertThat(updatedEvent.path("version").asLong()).isEqualTo(2L);
+    JsonNode photoDelta = updatedEvent.path("photoDelta");
+    assertThat(photoDelta.path("photoId").asText()).isEqualTo(upload.photoId().toString());
+    assertThat(photoDelta.path("status").asText()).isEqualTo("ATTACHED");
+    assertThat(photoDelta.path("version").asLong()).isEqualTo(2L);
+  }
+
+  @Test
   @DisplayName("웹 채널에서 마커 생성을 요청하면, 요청을 거부하고 마커·이벤트를 저장하지 않는다")
   void createMarker_webChannel_rejectsWithoutSavingMarkerOrEvent() {
     // given: 앱이 아닌 웹 채널에서 단서 마커 생성을 요청한다.
@@ -284,15 +362,18 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(readEventTypes()).isEmpty();
   }
 
-  @Test
+  @ParameterizedTest(name = "경도: {0}, 위도: {1}")
+  @CsvSource({"126.9,91", "35.163100,126.913400"})
   @DisplayName("경위도 범위를 벗어난 좌표로 마커를 생성하면, 오류를 반환하고 마커·이벤트를 저장하지 않는다")
-  void createMarker_invalidLocation_rejectsWithoutSavingMarkerOrEvent() {
+  void createMarker_invalidLocation_rejectsWithoutSavingMarkerOrEvent(
+      String longitude, String latitude) {
     // given: 현재 수색 차수와 앱 권한은 유효하지만 위도 범위를 벗어난 좌표를 보낸다.
     MarkerCreateServiceRequest request =
         createRequest("CLUE", null).toBuilder()
+            .id(MARKER_ID)
             .location(
                 new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.9"), new BigDecimal("91"))))
+                    "Point", List.of(new BigDecimal(longitude), new BigDecimal(latitude))))
             .build();
 
     // when: 실제 서비스에서 좌표 검증에 실패한다.
@@ -301,9 +382,19 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .extracting("errorCode")
         .isEqualTo(ErrorCode.INVALID_GEOMETRY);
 
-    // then: 마커와 생성 이벤트가 DB에 남지 않는다.
+    // then: 위도 초과와 경위도를 뒤집은 요청 모두 마커·사진·이벤트·요청 키를 남기지 않는다.
     assertThat(readMarkerIds()).isEmpty();
     assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM photo WHERE marker_id = ?", Integer.class, MARKER_ID))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                Integer.class,
+                IDEMPOTENCY_KEY))
+        .isZero();
   }
 
   @Test
