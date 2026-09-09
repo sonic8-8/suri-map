@@ -1,8 +1,6 @@
 package com.surimap.marker.config;
 
-import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.port.OperationalPeriodQueryPort;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import java.util.Optional;
@@ -13,12 +11,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MarkerCreateConfig {
-
-  @Bean
-  @ConditionalOnMissingBean(MarkerLocationValidator.class)
-  MarkerLocationValidator markerLocationValidator() {
-    return new MarkerLocationValidatorImpl();
-  }
 
   @Bean
   @ConditionalOnMissingBean(OperationalPeriodQueryPort.class)

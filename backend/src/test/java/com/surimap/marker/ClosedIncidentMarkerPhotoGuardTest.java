@@ -15,7 +15,6 @@ import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -108,7 +107,6 @@ class ClosedIncidentMarkerPhotoGuardTest {
       AppMarkerService service =
           new AppMarkerService(
               markerRepository,
-              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
               closedMarkerGuard,
               markerEventPublisher,
@@ -139,7 +137,6 @@ class ClosedIncidentMarkerPhotoGuardTest {
       AppMarkerService service =
           new AppMarkerService(
               markerRepository,
-              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
               closedMarkerGuard,
               markerEventPublisher,
@@ -337,7 +334,6 @@ class ClosedIncidentMarkerPhotoGuardTest {
   private AppMarkerService createMarkerService() {
     return new AppMarkerService(
         markerRepository,
-        new MarkerLocationValidatorImpl(),
         new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
         closedMarkerGuard,
         markerEventPublisher,

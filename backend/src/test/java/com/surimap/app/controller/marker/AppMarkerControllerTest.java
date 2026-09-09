@@ -1,6 +1,7 @@
 package com.surimap.app.controller.marker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -85,6 +86,38 @@ class AppMarkerControllerTest {
   void setUp() {
     when(authenticationResolver.resolve(AUTHORIZATION, "APP"))
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID));
+  }
+
+  @Test
+  @DisplayName("앱 마커 생성 중 좌표 오류가 발생하면, HTTP 400과 오류 코드만 반환한다")
+  void createMarker_invalidGeometry_returnsBadRequestWithoutInternalDetails() throws Exception {
+    // given: 앱 서비스에서 좌표 오류와 내부 진단 메시지를 전달한다.
+    when(appMarkerService.create(any(MarkerCreateServiceRequest.class)))
+        .thenThrow(
+            new BusinessException(ErrorCode.INVALID_GEOMETRY, "latitude out of range: 91.0"));
+
+    // when & then: 공통 예외 처리로 기존 오류 응답을 유지하며 진단 메시지는 노출하지 않는다.
+    mockMvc
+        .perform(
+            post("/api/markers")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "incidentId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+                      "opId":"88888888-8888-8888-8888-888888880001",
+                      "type":"CLUE",
+                      "location":{"type":"Point","coordinates":[126.9,91]},
+                      "clientTs":"2026-04-28T00:05:00Z"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("invalid_geometry"))
+        .andExpect(jsonPath("$.*").value(hasSize(1)));
   }
 
   @Test

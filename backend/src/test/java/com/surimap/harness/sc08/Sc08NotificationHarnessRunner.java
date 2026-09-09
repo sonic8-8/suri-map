@@ -16,7 +16,6 @@ import com.surimap.board.BoardSourceRow;
 import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
@@ -310,7 +309,6 @@ public class Sc08NotificationHarnessRunner {
       appMarkerService =
           new AppMarkerService(
               markerRepository,
-              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(
                   incidentId -> Optional.of(MarkerGeometryFixtures.OP1_ID)),
               markerGuard,

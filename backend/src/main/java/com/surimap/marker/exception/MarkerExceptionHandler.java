@@ -1,6 +1,5 @@
 package com.surimap.marker.exception;
 
-import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
 import java.util.Map;
@@ -15,12 +14,6 @@ public class MarkerExceptionHandler {
   @ExceptionHandler(MarkerApiException.class)
   ResponseEntity<Map<String, String>> handleMarkerApiException(MarkerApiException exception) {
     return ResponseEntity.status(exception.getStatus()).body(Map.of("error", exception.getError()));
-  }
-
-  @ExceptionHandler(InvalidGeometryException.class)
-  ResponseEntity<Map<String, String>> handleInvalidGeometry(InvalidGeometryException exception) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(Map.of("error", exception.errorCode()));
   }
 
   @ExceptionHandler(OpRequiredException.class)

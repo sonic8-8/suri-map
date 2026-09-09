@@ -1,6 +1,7 @@
 package com.surimap.api.controller.marker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -32,6 +33,8 @@ import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.ClockConfig;
 import com.surimap.config.GuardConfig;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
@@ -114,6 +117,32 @@ class MarkerControllerTest {
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID));
     when(authenticationResolver.resolve(AUTHORIZATION, "WEB"))
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "WEB", null));
+  }
+
+  @Test
+  @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
+  @DisplayName("웹 마커 수정 중 좌표 오류가 발생하면, HTTP 400과 오류 코드만 반환한다")
+  void updateMarker_invalidGeometry_returnsBadRequestWithoutInternalDetails() throws Exception {
+    // given: 웹 서비스에서 좌표 오류와 내부 진단 메시지를 전달한다.
+    when(markerService.update(any(MarkerUpdateServiceRequest.class)))
+        .thenThrow(
+            new BusinessException(ErrorCode.INVALID_GEOMETRY, "latitude out of range: 91.0"));
+
+    // when & then: 공통 예외 처리로 기존 오류 응답을 유지하며 진단 메시지는 노출하지 않는다.
+    mockMvc
+        .perform(
+            patch("/api/markers/{markerId}", MARKER_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "WEB")
+                .header("Idempotency-Key", "idem-marker-update-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"version":1,"location":{"type":"Point","coordinates":[126.9,91]}}
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("invalid_geometry"))
+        .andExpect(jsonPath("$.*").value(hasSize(1)));
   }
 
   @Test

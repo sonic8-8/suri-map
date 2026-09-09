@@ -14,11 +14,14 @@ import com.surimap.api.service.marker.response.MarkerListServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
+import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.port.ObjectStoragePort;
@@ -27,6 +30,7 @@ import com.surimap.marker.query.MarkerPhotoSummary;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -282,6 +286,30 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .extracting("error")
         .isEqualTo("incident_closed");
     assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("웹에서 경위도 범위를 벗어난 좌표로 수정하면, 오류를 반환하고 기존 마커를 유지한다")
+  void updateMarker_invalidLocation_preservesMarkerAndEvents() {
+    // given: 수정 권한이 있는 기준 마커에 위도 범위를 벗어난 좌표를 지정한다.
+    prepareMarkerMutation();
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder()
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.9"), new BigDecimal("91"))))
+            .build();
+
+    // when: 실제 서비스에서 좌표 검증에 실패한다.
+    assertThatThrownBy(() -> markerService.update(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_GEOMETRY);
+
+    // then: 위치·메모·버전을 바꾸거나 수정 이벤트를 남기지 않는다.
+    assertUnchangedMarker();
+    assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getLocation())
+        .isEqualTo(MarkerGeometryFixtures.VALID_MARKER_POINT);
   }
 
   @Test

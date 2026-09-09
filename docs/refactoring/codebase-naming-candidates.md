@@ -8,9 +8,10 @@
 
 ## 마커·알림 — 먼저 진행
 
+`MarkerLocationValidatorRedTest`는 좌표 검증 규칙을 공통 도메인으로 옮기면서 [MarkerTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerTest.java)에 통합했다.
+
 | 현재 이름 | 변경 후보 |
 |---|---|
-| [MarkerLocationValidatorRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerLocationValidatorRedTest.java) | `MarkerLocationValidatorTest` |
 | [MarkerOpBindingRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerOpBindingRedTest.java) | `MarkerOpBindingValidatorTest` |
 | [MarkerNotificationToastQueryIntegrationTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationToastQueryIntegrationTest.java) | `MarkerNotificationMapperTest` |
 | [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |

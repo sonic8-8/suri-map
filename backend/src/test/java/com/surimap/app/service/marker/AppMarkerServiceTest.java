@@ -276,6 +276,28 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("경위도 범위를 벗어난 좌표로 마커를 생성하면, 오류를 반환하고 마커·이벤트를 저장하지 않는다")
+  void createMarker_invalidLocation_rejectsWithoutSavingMarkerOrEvent() {
+    // given: 현재 수색 차수와 앱 권한은 유효하지만 위도 범위를 벗어난 좌표를 보낸다.
+    MarkerCreateServiceRequest request =
+        createRequest("CLUE", null).toBuilder()
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.9"), new BigDecimal("91"))))
+            .build();
+
+    // when: 실제 서비스에서 좌표 검증에 실패한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_GEOMETRY);
+
+    // then: 마커와 생성 이벤트가 DB에 남지 않는다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+  }
+
+  @Test
   @DisplayName("요청의 OP가 현재 OP와 다르면, 요청을 거부하고 마커·이벤트를 저장하지 않는다")
   void createMarker_mismatchedOp_rejectsWithoutSavingMarkerOrEvent() {
     // given: 현재 OP는 OP1인데 생성 요청은 OP2를 가리킨다.
