@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doAnswer;
 
+import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.client.storage.ObjectStoragePort.ObjectMetadata;
 import com.surimap.domain.marker.Marker;
@@ -25,8 +27,6 @@ import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
-import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
@@ -162,26 +162,24 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     Instant requestedAt = Instant.now();
 
     // when: 실제 사진 서비스에서 업로드 주소를 발급한다.
-    PhotoUploadUrlResponse response =
-        photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
+    PhotoUploadUrlServiceResponse response = photoService.createUploadUrl(createUploadRequest());
 
     // then: 업로드 대기 사진을 저장하고 마커 자체는 아직 변경하지 않는다.
-    MarkerPhoto photo = photoMapper.findById(response.photoId()).orElseThrow();
+    MarkerPhoto photo = photoMapper.findById(response.getPhotoId()).orElseThrow();
     assertThat(photo.getMarkerId()).isEqualTo(MARKER_ID);
     assertThat(photo.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
     assertThat(photo.getContentType()).isEqualTo("image/jpeg");
     assertThat(photo.getSizeBytes()).isEqualTo(1024L);
     assertThat(photo.getChecksumSha256()).isEqualTo(CHECKSUM_SHA256);
     String expectedObjectKey =
-        "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId() + ".jpg";
+        "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.getPhotoId() + ".jpg";
     assertThat(photo.getObjectKey()).isEqualTo(expectedObjectKey);
-    assertThat(response.uploadUrl())
+    assertThat(response.getUploadUrl())
         .isEqualTo("http://127.0.0.1:18080/mock-upload/" + expectedObjectKey);
-    assertThat(response.expiresAt())
+    assertThat(response.getExpiresAt())
         .isBetween(requestedAt.plusSeconds(15 * 60), Instant.now().plusSeconds(15 * 60));
-    assertThat(response.maxSizeBytes()).isEqualTo(10_485_760L);
-    assertThat(response.version()).isEqualTo(1L);
+    assertThat(response.getMaxSizeBytes()).isEqualTo(10_485_760L);
+    assertThat(response.getVersion()).isEqualTo(1L);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
   }
 
@@ -193,16 +191,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         createContext(ASSIGNED_POLICE_PHONE_ID).getAuthentication();
     for (int index = 0; index < 10; index++) {
       photoService.createUploadUrl(
-          MARKER_ID,
-          createUploadRequest(),
-          new PhotoRequestContext(authentication, IDEMPOTENCY_KEY + "-" + index));
+          createUploadRequest().toBuilder()
+              .context(new PhotoRequestContext(authentication, IDEMPOTENCY_KEY + "-" + index))
+              .build());
     }
 
     // when: 11번째 사진의 업로드 주소를 새 요청 키로 발급하려 한다.
-    assertThatThrownBy(
-            () ->
-                photoService.createUploadUrl(
-                    MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
+    assertThatThrownBy(() -> photoService.createUploadUrl(createUploadRequest()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
@@ -220,8 +215,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("사진이 허용 크기 10,485,760바이트를 넘으면, 업로드 주소를 발급하거나 사진을 저장하지 않는다")
   void createUploadUrl_oversizedPhoto_rejectsWithoutSavingPhoto() {
     // given: 파일 크기가 허용값보다 1바이트 큰 사진이다.
-    PhotoUploadUrlRequest request =
-        new PhotoUploadUrlRequest("image/jpeg", 10_485_761L, CHECKSUM_SHA256);
+    PhotoUploadUrlServiceRequest request =
+        createUploadRequest().toBuilder().sizeBytes(10_485_761L).build();
 
     // when & then: 크기 초과 요청을 거부하고 사진·마커·이벤트를 변경하지 않는다.
     assertUploadRejected(request, "photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
@@ -231,10 +226,12 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("같은 작성자가 다른 등록 업무폰으로 사진을 첨부하면, 요청한 업무폰을 수정 이벤트에 기록한다")
   void attach_sameAuthorOnAnotherPhone_savesPhotoAndEventWithRequestPhone() {
     // given: 현재 계정은 마커 작성자이며 요청에 다른 등록 업무폰을 사용한다.
-    PhotoUploadUrlResponse response =
+    PhotoUploadUrlServiceResponse response =
         photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(OTHER_REGISTERED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoMapper.findById(response.photoId()).orElseThrow();
+            createUploadRequest().toBuilder()
+                .context(createContext(OTHER_REGISTERED_POLICE_PHONE_ID))
+                .build());
+    MarkerPhoto photo = photoMapper.findById(response.getPhotoId()).orElseThrow();
     objectStorage.simulateUpload(photo.getObjectKey());
     PhotoRequestContext attachContext =
         new PhotoRequestContext(
@@ -266,18 +263,18 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate.queryForMap(
                 """
-        SELECT event_id, event_type, incident_id, source_entity_type, source_entity_id,
-            payload_format_version, payload ->> 'id' AS payload_marker_id,
-            payload ->> 'incidentId' AS payload_incident_id,
-            payload ->> 'opId' AS op_id, payload ->> 'policePhoneId' AS police_phone_id,
-            payload ->> 'status' AS marker_status, payload ->> 'version' AS marker_version,
-            jsonb_typeof(payload -> 'version') AS marker_version_type,
-            payload -> 'photoDelta' ->> 'photoId' AS photo_id,
-            payload -> 'photoDelta' ->> 'status' AS photo_status,
-            payload -> 'photoDelta' ->> 'version' AS photo_version,
-            jsonb_typeof(payload -> 'photoDelta' -> 'version') AS photo_version_type
-        FROM event_dispatch_job WHERE source_entity_id = ?
-        """,
+                SELECT event_id, event_type, incident_id, source_entity_type, source_entity_id,
+                    payload_format_version, payload ->> 'id' AS payload_marker_id,
+                    payload ->> 'incidentId' AS payload_incident_id,
+                    payload ->> 'opId' AS op_id, payload ->> 'policePhoneId' AS police_phone_id,
+                    payload ->> 'status' AS marker_status, payload ->> 'version' AS marker_version,
+                    jsonb_typeof(payload -> 'version') AS marker_version_type,
+                    payload -> 'photoDelta' ->> 'photoId' AS photo_id,
+                    payload -> 'photoDelta' ->> 'status' AS photo_status,
+                    payload -> 'photoDelta' ->> 'version' AS photo_version,
+                    jsonb_typeof(payload -> 'photoDelta' -> 'version') AS photo_version_type
+                FROM event_dispatch_job WHERE source_entity_id = ?
+                """,
                 MARKER_ID))
         .containsEntry("event_id", UUID.fromString("efc021e0-8e1b-3c84-9f1e-7ef2a508ff52"))
         .containsEntry("event_type", "MARKER_UPDATED")
@@ -305,8 +302,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
       String storedHashFormat) {
     // given: 업로드 주소와 대기 사진이 이미 저장된 요청이다.
     PhotoRequestContext context = createContext(ASSIGNED_POLICE_PHONE_ID);
-    PhotoUploadUrlResponse first =
-        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+    PhotoUploadUrlServiceResponse first =
+        photoService.createUploadUrl(createUploadRequest().toBuilder().context(context).build());
     assertThat(readRequestBodyHash(IDEMPOTENCY_KEY))
         .isEqualTo("889df90ae1c14800e18bc78211742114a3763c7237ee2c07139ef8358abf1d98");
     if ("LEGACY".equals(storedHashFormat)) {
@@ -315,16 +312,16 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     String storedRequestHash = readRequestBodyHash(IDEMPOTENCY_KEY);
 
     // when: 같은 키와 본문으로 업로드 주소를 다시 요청한다.
-    PhotoUploadUrlResponse repeated =
-        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+    PhotoUploadUrlServiceResponse repeated =
+        photoService.createUploadUrl(createUploadRequest().toBuilder().context(context).build());
 
     // then: 주소·사진 ID·만료 시각을 재사용하고 DB에는 대기 사진 하나만 남는다.
-    assertThat(repeated).isEqualTo(first);
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
-        .containsExactly(first.photoId());
-    assertThat(photoMapper.findById(first.photoId()).orElseThrow().getStatus())
+        .containsExactly(first.getPhotoId());
+    assertThat(photoMapper.findById(first.getPhotoId()).orElseThrow().getStatus())
         .isEqualTo(PhotoStatus.PENDING_UPLOAD);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
     assertThat(
@@ -339,29 +336,60 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
 
   @ParameterizedTest(name = "{0} 해시 기록")
   @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("체크섬 없는 업로드 요청을 재전송하면, 기존 해시와 응답을 유지하고 사진을 추가하지 않는다")
+  void createUploadUrl_sameRequestWithoutChecksum_returnsStoredResponse(String storedHashFormat) {
+    // given: 체크섬이 없는 요청을 현재 또는 과거 해시로 기록했다.
+    PhotoUploadUrlServiceRequest request =
+        createUploadRequest().toBuilder().checksumSha256(null).build();
+    PhotoUploadUrlServiceResponse first = photoService.createUploadUrl(request);
+    assertThat(readRequestBodyHash(IDEMPOTENCY_KEY))
+        .isEqualTo("baba74fa35c232ab4ab7eef3e4109d7cbd315b036f1e98dcc9765b2104129b0e");
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(
+          IDEMPOTENCY_KEY, "2055f961b43bc5b19d01765f45acce69f586c3d5ee67bc3061823afd0499164c");
+    }
+    String storedRequestHash = readRequestBodyHash(IDEMPOTENCY_KEY);
+
+    // when: 새 Service Request 객체로 같은 요청을 다시 전달한다.
+    PhotoUploadUrlServiceResponse repeated =
+        photoService.createUploadUrl(request.toBuilder().build());
+
+    // then: DTO가 바뀌어도 체크섬의 null 표현과 기존 응답을 유지한다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    assertThat(readRequestBodyHash(IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
+        .containsExactly(first.getPhotoId());
+    assertThat(photoMapper.findById(first.getPhotoId()).orElseThrow().getChecksumSha256()).isNull();
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
   @DisplayName("처리한 업로드 주소 요청 키에 다른 파일 크기를 보내면, 거부하고 기존 대기 사진을 유지한다")
   void createUploadUrl_sameKeyWithDifferentSize_rejectsWithoutChangingPhoto(
       String storedHashFormat) {
     // given: 현재 또는 과거 해시로 기록된 업로드 주소 요청과 대기 사진이 있다.
     PhotoRequestContext context = createContext(ASSIGNED_POLICE_PHONE_ID);
-    PhotoUploadUrlResponse first =
-        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
-    MarkerPhoto photo = photoMapper.findById(first.photoId()).orElseThrow();
+    PhotoUploadUrlServiceResponse first =
+        photoService.createUploadUrl(createUploadRequest().toBuilder().context(context).build());
+    MarkerPhoto photo = photoMapper.findById(first.getPhotoId()).orElseThrow();
     if ("LEGACY".equals(storedHashFormat)) {
       replaceStoredRequestHash(IDEMPOTENCY_KEY, LEGACY_UPLOAD_REQUEST_HASH);
     }
     String storedRequestHash = readRequestBodyHash(IDEMPOTENCY_KEY);
 
     // when: 같은 요청 키를 유지하고 파일 크기만 바꿔 보낸다.
-    PhotoUploadUrlRequest changed = new PhotoUploadUrlRequest("image/jpeg", 2048L, CHECKSUM_SHA256);
-    assertThatThrownBy(() -> photoService.createUploadUrl(MARKER_ID, changed, context))
+    PhotoUploadUrlServiceRequest changed =
+        createUploadRequest().toBuilder().sizeBytes(2048L).context(context).build();
+    assertThatThrownBy(() -> photoService.createUploadUrl(changed))
         .isInstanceOf(IdempotencyMismatchException.class);
 
     // then: 사진을 추가하거나 변경하지 않고 마커·이벤트·기존 요청 기록도 유지한다.
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
-        .containsExactly(first.photoId());
+        .containsExactly(first.getPhotoId());
     assertPhotoNotAttached(photo, PhotoStatus.PENDING_UPLOAD, 1L);
     assertThat(photoMapper.findById(photo.getId()).orElseThrow().getSizeBytes()).isEqualTo(1024L);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
@@ -381,10 +409,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_sameRequest_returnsStoredResponseWithoutDuplicateChanges(String storedHashFormat)
       throws Exception {
     // given: 업로드된 사진의 첨부 요청을 한 번 처리했다.
-    PhotoUploadUrlResponse upload =
-        photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    PhotoUploadUrlServiceResponse upload = photoService.createUploadUrl(createUploadRequest());
+    MarkerPhoto photo = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     objectStorage.simulateUpload(photo.getObjectKey());
     PhotoRequestContext context =
         new PhotoRequestContext(
@@ -463,19 +489,18 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("가로·세로 길이와 체크섬이 없는 과거 첨부 요청을 재전송하면, 기존 응답을 반환하고 중복 처리하지 않는다")
   void attach_legacyRequestWithoutOptionalMetadata_returnsStoredResponse() throws Exception {
     // given: 선택 항목 없이 첨부한 사진과 과거 형식의 요청 해시가 남아 있다.
-    PhotoUploadUrlResponse upload =
+    PhotoUploadUrlServiceResponse upload =
         photoService.createUploadUrl(
-            MARKER_ID,
-            new PhotoUploadUrlRequest("image/jpeg", 1024L, null),
-            createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+            createUploadRequest().toBuilder().checksumSha256(null).build());
+    MarkerPhoto photo = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     objectStorage.simulateUpload(photo.getObjectKey());
     PhotoAttachRequest request = new PhotoAttachRequest(1024L, "image/jpeg", null, null, null);
     PhotoAttachResponse first =
         photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext());
     replaceStoredAttachRequestHash(
         photo.getId(),
-        "PhotoAttachRequest[sizeBytes=1024, contentType=image/jpeg, width=null, height=null, checksumSha256=null]");
+        "PhotoAttachRequest[sizeBytes=1024, contentType=image/jpeg, width=null, height=null,"
+            + " checksumSha256=null]");
     String storedRequestHash = readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY);
 
     // when: 선택 항목이 없는 같은 요청을 다시 보낸다.
@@ -522,10 +547,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("업로드 주소가 만료된 사진을 첨부하면, 요청을 거부하고 사진을 실패 상태로 저장한다")
   void attach_expiredUploadUrl_savesFailedPhoto() {
     // given: 업로드는 완료됐지만 사진의 업로드 주소가 만료되었다.
-    PhotoUploadUrlResponse upload =
-        photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    PhotoUploadUrlServiceResponse upload = photoService.createUploadUrl(createUploadRequest());
+    MarkerPhoto photo = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     objectStorage.simulateUpload(photo.getObjectKey());
     jdbcTemplate.update(
         "UPDATE photo SET upload_url_expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?",
@@ -806,7 +829,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
               concurrentTransaction.executeWithoutResult(
                   transaction ->
                       jdbcTemplate.update(
-                          "UPDATE photo SET status = 'FAILED', version = 2, updated_at = NOW() WHERE id = ?",
+                          "UPDATE photo SET status = 'FAILED', version = 2, updated_at = NOW()"
+                              + " WHERE id = ?",
                           photo.getId()));
               return invocation.callRealMethod();
             })
@@ -869,10 +893,10 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                   transaction ->
                       jdbcTemplate.update(
                           """
-                        UPDATE photo SET status = ?, version = ?, updated_at = NOW(),
-                            attached_at = CASE WHEN ? = 'ATTACHED' THEN NOW() ELSE NULL END
-                        WHERE id = ?
-                        """,
+                          UPDATE photo SET status = ?, version = ?, updated_at = NOW(),
+                              attached_at = CASE WHEN ? = 'ATTACHED' THEN NOW() ELSE NULL END
+                          WHERE id = ?
+                          """,
                           status,
                           version,
                           status,
@@ -940,10 +964,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("업로드 후 사건이 종료되면, 사진 첨부를 거부하고 대기 사진·마커·이벤트를 그대로 유지한다")
   void attach_incidentClosedAfterUpload_rejectsWithoutChangingPhotoMarkerOrEvents() {
     // given: 사진 업로드는 완료됐지만 첨부 요청 전에 사건이 종료되었다.
-    PhotoUploadUrlResponse upload =
-        photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto uploadedPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
+    PhotoUploadUrlServiceResponse upload = photoService.createUploadUrl(createUploadRequest());
+    MarkerPhoto uploadedPhoto = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     objectStorage.simulateUpload(uploadedPhoto.getObjectKey());
     jdbcTemplate.update(
         "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
@@ -955,13 +977,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
 
     // when: 종료된 사건의 마커에 사진을 첨부하려 한다.
-    assertThatThrownBy(() -> photoService.attach(MARKER_ID, upload.photoId(), request, context))
+    assertThatThrownBy(() -> photoService.attach(MARKER_ID, upload.getPhotoId(), request, context))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("incident_closed", HttpStatus.CONFLICT);
 
     // then: 사진은 대기 상태·버전 1로 남고 마커와 수정 이벤트도 변경되지 않는다.
-    MarkerPhoto savedPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
+    MarkerPhoto savedPhoto = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
     assertThat(savedPhoto.getVersion()).isEqualTo(1L);
     assertThat(savedPhoto.getAttachedAt()).isNull();
@@ -1023,10 +1045,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MARKER_ID);
 
     // when: 존재하지 않는 마커의 업로드 주소를 요청한다.
-    assertThatThrownBy(
-            () ->
-                photoService.createUploadUrl(
-                    MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
+    assertThatThrownBy(() -> photoService.createUploadUrl(createUploadRequest()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -1071,11 +1090,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private void assertUploadRejected(
-      PhotoUploadUrlRequest request, String error, HttpStatus status) {
-    assertThatThrownBy(
-            () ->
-                photoService.createUploadUrl(
-                    MARKER_ID, request, createContext(ASSIGNED_POLICE_PHONE_ID)))
+      PhotoUploadUrlServiceRequest request, String error, HttpStatus status) {
+    assertThatThrownBy(() -> photoService.createUploadUrl(request))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly(error, status);
@@ -1094,15 +1110,19 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThat(marker.getVersion()).isEqualTo(1L);
   }
 
-  private PhotoUploadUrlRequest createUploadRequest() {
-    return new PhotoUploadUrlRequest("image/jpeg", 1024L, CHECKSUM_SHA256);
+  private PhotoUploadUrlServiceRequest createUploadRequest() {
+    return PhotoUploadUrlServiceRequest.builder()
+        .markerId(MARKER_ID)
+        .context(createContext(ASSIGNED_POLICE_PHONE_ID))
+        .contentType("image/jpeg")
+        .sizeBytes(1024L)
+        .checksumSha256(CHECKSUM_SHA256)
+        .build();
   }
 
   private MarkerPhoto createPendingPhoto() {
-    PhotoUploadUrlResponse upload =
-        photoService.createUploadUrl(
-            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    return photoMapper.findById(upload.photoId()).orElseThrow();
+    PhotoUploadUrlServiceResponse upload = photoService.createUploadUrl(createUploadRequest());
+    return photoMapper.findById(upload.getPhotoId()).orElseThrow();
   }
 
   private PhotoAttachRequest createAttachRequest() {
