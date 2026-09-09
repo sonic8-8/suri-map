@@ -21,6 +21,7 @@ import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
@@ -31,6 +32,7 @@ import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
+import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
@@ -42,8 +44,8 @@ import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.service.PhotoRequestContext;
 import com.surimap.marker.photo.service.PhotoService;
-import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.service.MarkerRequestContext;
+import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -62,6 +64,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @TestPropertySource(properties = {"surimap.object-storage.provider=mock", "fcm.provider=mock"})
 class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
@@ -81,6 +85,9 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   private static final String PHOTO_UPLOAD_IDEMPOTENCY_KEY = "idem-sc06-photo-upload-001";
   private static final String PHOTO_ATTACH_IDEMPOTENCY_KEY = "idem-sc06-photo-attach-001";
   private static final String MARKER_MEMO = "field clue";
+  private static final String TEAM_FCM_TOKEN = "token-marker-team";
+  private static final String COMMANDER_FCM_TOKEN = "token-marker-commander";
+  private static final String FIELD_COMMANDER_FCM_TOKEN = "token-marker-field-commander";
   // 이전 DTO 문자열 형식으로 계산해 둔 값이다. 운영 코드의 해시 함수를 기대값 생성에 사용하지 않는다.
   private static final String LEGACY_UPDATE_REQUEST_HASH =
       "5071d0522889dba1ae1cc2d04aaa4321bc3ec01a86b8cdc1b4eececcfb272a93";
@@ -89,10 +96,13 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
   @Autowired private AppMarkerService appMarkerService;
   @Autowired private PhotoService photoService;
-  @Autowired private MarkerRepository markerRepository;
+  @Autowired private MarkerMapper markerMapper;
   @Autowired private PhotoRepository photoRepository;
   @Autowired private MockObjectStorageAdapter objectStorage;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private MockFcmDispatcher fcmDispatcher;
+  @Autowired private PolicePhonePersistenceService policePhonePersistenceService;
+  @Autowired private PlatformTransactionManager transactionManager;
 
   private MarkerRequestContext context;
 
@@ -116,6 +126,24 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("DELETE FROM duty_shift WHERE operational_period_id = ?", OP1_ID);
     jdbcTemplate.update("DELETE FROM incident_assignment WHERE incident_id = ?", INCIDENT_ID);
     objectStorage.clear();
+    fcmDispatcher.reset();
+    jdbcTemplate.update(
+        "DELETE FROM fcm_token WHERE police_phone_id IN (?, ?, ?)",
+        ASSIGNED_POLICE_PHONE_ID,
+        COMMANDER_PHONE_ID,
+        FIELD_COMMANDER_PHONE_ID);
+    // 기본 시드의 지휘 업무폰은 미등록 상태다. 이 테스트는 등록과 토큰 발급을 마친 수신자를 가정한다.
+    jdbcTemplate.update(
+        "UPDATE police_phone SET registered = TRUE WHERE id = ?", COMMANDER_PHONE_ID);
+    policePhonePersistenceService.registerFcmToken(
+        ASSIGNED_POLICE_PHONE_ID, PRECINCT_TEAM_ID.toString(), "marker-test", TEAM_FCM_TOKEN);
+    policePhonePersistenceService.registerFcmToken(
+        COMMANDER_PHONE_ID, PRECINCT_COMMANDER_ID.toString(), "marker-test", COMMANDER_FCM_TOKEN);
+    policePhonePersistenceService.registerFcmToken(
+        FIELD_COMMANDER_PHONE_ID,
+        SUPPORT_TEAM_ID.toString(),
+        "marker-test",
+        FIELD_COMMANDER_FCM_TOKEN);
 
     jdbcTemplate.update(
         """
@@ -177,7 +205,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(response.getVersion()).isEqualTo(1L);
     assertThat(response.getPhotos()).isEmpty();
 
-    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerMapper.findById(response.getId()).orElseThrow();
     assertThat(marker.getId()).isEqualTo(response.getId());
     assertThat(marker.getOperationalPeriodId()).isEqualTo(OP1_ID);
     assertThat(marker.getMarkerType()).isEqualTo("CLUE");
@@ -231,7 +259,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceResponse response = appMarkerService.create(request);
 
     // then: 저장된 좌표와 이벤트 좌표가 모두 소수점 아래 6자리로 반올림된다.
-    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerMapper.findById(response.getId()).orElseThrow();
     assertThat(marker.getLocation().getX()).isEqualTo(126.913401);
     assertThat(marker.getLocation().getY()).isEqualTo(35.163101);
     JsonNode coordinates = readEventPayload("MARKER_CREATED").path("location").path("coordinates");
@@ -264,7 +292,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photo.version()).isEqualTo(2L);
     assertThat(photo.width()).isEqualTo(640);
     assertThat(photo.height()).isEqualTo(480);
-    Marker marker = markerRepository.findById(MARKER_ID).orElseThrow();
+    Marker marker = markerMapper.findById(MARKER_ID).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("UPDATED");
     assertThat(marker.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
@@ -313,7 +341,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photo.width()).isEqualTo(640);
     assertThat(photo.height()).isEqualTo(480);
     assertThat(photo.attachedAt()).isNotNull();
-    Marker marker = markerRepository.findById(markerId).orElseThrow();
+    Marker marker = markerMapper.findById(markerId).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("UPDATED");
     assertThat(marker.getVersion()).isEqualTo(2L);
     assertThat(readMarkerIds()).containsExactly(markerId);
@@ -463,7 +491,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 구역 밖이라는 이유로 거부하지 않고 마커와 생성 이벤트를 저장한다.
     assertThat(response.getStatus()).isEqualTo("ACTIVE");
     assertThat(readMarkerIds()).containsExactly(response.getId());
-    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerMapper.findById(response.getId()).orElseThrow();
     assertThat(marker.getLocation().getX()).isEqualTo(127.2);
     assertThat(marker.getLocation().getY()).isEqualTo(35.1631);
     assertThat(readEventTypes()).containsExactly("MARKER_CREATED");
@@ -473,18 +501,25 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("지원 요청 마커를 생성하면, 지휘 계정과 현장 지휘관 대상 알림을 저장한다")
-  void createSupportRequestMarker_savesNotification() throws Exception {
+  @DisplayName("지원 요청 마커를 생성하면, 지휘 계정·현장 지휘관 대상 알림을 저장하고 커밋 후 FCM으로 전달한다")
+  void createMarker_supportRequest_savesNotificationAndDispatchesAfterCommit() throws Exception {
     // given: 일반 대원·지휘 계정·현장 지휘관이 배정된 사건에서 드론 지원을 요청한다.
     MarkerCreateServiceRequest request = createRequest("SUPPORT_REQUEST", "DRONE");
     Instant startedAt = Instant.now();
 
-    // when: 지원 요청 마커를 생성한다.
-    MarkerCreateServiceResponse response = appMarkerService.create(request);
+    // when: 실제 트랜잭션 안에서 생성하며, 커밋 전에는 FCM 전달이 일어나지 않는다.
+    MarkerCreateServiceResponse response =
+        new TransactionTemplate(transactionManager)
+            .execute(
+                status -> {
+                  MarkerCreateServiceResponse created = appMarkerService.create(request);
+                  assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+                  return created;
+                });
     Instant completedAt = Instant.now();
 
     // then: 일반 대원은 제외하고 지휘 계정과 현장 지휘관의 계정·업무폰만 알림 대상으로 저장한다.
-    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerMapper.findById(response.getId()).orElseThrow();
     assertThat(marker.getSupportRequestType()).isEqualTo("DRONE");
     assertNotificationStored(
         response,
@@ -493,19 +528,27 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         "COMMANDERS_AND_FIELD_COMMANDERS",
         List.of(PRECINCT_COMMANDER_ID, SUPPORT_TEAM_ID),
         List.of(COMMANDER_PHONE_ID, FIELD_COMMANDER_PHONE_ID),
+        List.of(COMMANDER_FCM_TOKEN, FIELD_COMMANDER_FCM_TOKEN),
         startedAt,
         completedAt);
   }
 
   @Test
-  @DisplayName("발견 마커를 생성하면, 사건에 배정된 계정·업무폰 대상 알림을 저장한다")
-  void createPersonFoundMarker_savesNotification() throws Exception {
+  @DisplayName("발견 마커를 생성하면, 사건에 배정된 계정·업무폰 대상 알림을 저장하고 커밋 후 FCM으로 전달한다")
+  void createMarker_personFound_savesNotificationAndDispatchesAfterCommit() throws Exception {
     // given: 일반 대원·지휘 계정·현장 지휘관이 배정된 사건에서 발견 마커 생성을 요청한다.
     MarkerCreateServiceRequest request = createRequest("PERSON_FOUND", null);
     Instant startedAt = Instant.now();
 
-    // when: 발견 마커를 생성한다.
-    MarkerCreateServiceResponse response = appMarkerService.create(request);
+    // when: 실제 트랜잭션 안에서 생성하며, 커밋 전에는 FCM 전달이 일어나지 않는다.
+    MarkerCreateServiceResponse response =
+        new TransactionTemplate(transactionManager)
+            .execute(
+                status -> {
+                  MarkerCreateServiceResponse created = appMarkerService.create(request);
+                  assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+                  return created;
+                });
     Instant completedAt = Instant.now();
 
     // then: 역할에 관계없이 이 사건에 배정된 세 계정과 각 업무폰을 알림 대상으로 저장한다.
@@ -516,8 +559,73 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         "ALL_INCIDENT_ASSIGNED",
         List.of(PRECINCT_TEAM_ID, PRECINCT_COMMANDER_ID, SUPPORT_TEAM_ID),
         List.of(ASSIGNED_POLICE_PHONE_ID, COMMANDER_PHONE_ID, FIELD_COMMANDER_PHONE_ID),
+        List.of(TEAM_FCM_TOKEN, COMMANDER_FCM_TOKEN, FIELD_COMMANDER_FCM_TOKEN),
         startedAt,
         completedAt);
+  }
+
+  @ParameterizedTest(name = "마커 유형: {0}")
+  @CsvSource({"SUPPORT_REQUEST,DRONE", "PERSON_FOUND,"})
+  @DisplayName("알림을 만드는 마커 요청의 멱등성 키가 비어 있으면, 저장하거나 FCM으로 전달하지 않는다")
+  void createMarker_blankIdempotencyKey_rejectsWithoutSavingOrDispatching(
+      String markerType, String supportRequestType) {
+    // given: 지원 요청·발견 마커를 만들지만 필수 요청 키는 비어 있다.
+    MarkerCreateServiceRequest request =
+        createRequest(markerType, supportRequestType).toBuilder()
+            .id(MARKER_ID)
+            .context(new MarkerRequestContext(context.authentication(), ""))
+            .build();
+
+    // when: 실제 앱 서비스가 빈 멱등성 키를 거부한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("write_conflict", HttpStatus.CONFLICT);
+
+    // then: 마커·알림·이벤트를 저장하지 않고 FCM도 전달하지 않는다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM marker_notification WHERE marker_id = ?",
+                Integer.class,
+                MARKER_ID))
+        .isZero();
+    assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+  }
+
+  @ParameterizedTest(name = "마커 유형: {0}")
+  @CsvSource({"SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED", "PERSON_FOUND,,PERSON_FOUND"})
+  @DisplayName("커밋 후 FCM 전달이 실패해도, 저장된 마커·알림·이벤트와 요청 처리 결과는 유지한다")
+  void createMarker_fcmDeliveryFails_preservesMarkerNotificationAndEvents(
+      String markerType, String supportRequestType, String eventType) {
+    // given: 마커 저장은 허용하고 외부 FCM 전달만 실패하게 한다.
+    MarkerCreateServiceRequest request = createRequest(markerType, supportRequestType);
+
+    // when: 커밋 전에 저장된 이벤트 ID를 확인해 해당 FCM 전달에 실패를 주입한다.
+    MarkerCreateServiceResponse response =
+        new TransactionTemplate(transactionManager)
+            .execute(
+                status -> {
+                  MarkerCreateServiceResponse created = appMarkerService.create(request);
+                  fcmDispatcher.injectFailureFor(readEventId(eventType));
+                  return created;
+                });
+
+    // then: FCM 성공 기록은 없지만 실제 DB의 마커·알림·이벤트는 삭제되거나 롤백되지 않는다.
+    assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+    assertThat(readMarkerIds()).containsExactly(response.getId());
+    Marker marker = markerMapper.findById(response.getId()).orElseThrow();
+    assertThat(marker.getStatus()).isEqualTo("ACTIVE");
+    assertThat(marker.getVersion()).isEqualTo(1L);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM marker_notification WHERE marker_id = ?",
+                Integer.class,
+                response.getId()))
+        .isEqualTo(1);
+    assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", eventType);
+    assertCompletedRequest();
   }
 
   @Test
@@ -602,7 +710,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 기존 마커를 덮어쓰거나 이벤트·알림을 추가하지 않는다.
     assertThat(readMarkerIds()).containsExactly(firstResponse.getId());
-    assertThat(markerRepository.findById(firstResponse.getId()).orElseThrow().getMemo())
+    assertThat(markerMapper.findById(firstResponse.getId()).orElseThrow().getMemo())
         .isEqualTo(MARKER_MEMO);
     assertThat(readEventTypes())
         .containsExactlyInAnyOrder("MARKER_CREATED", "SUPPORT_REQUEST_CREATED");
@@ -647,7 +755,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 사진·마커 버전과 생성·첨부 이벤트 수를 그대로 유지한다.
     assertThat(repeatedResponse).usingRecursiveComparison().isEqualTo(firstResponse);
-    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(photoRepository.findById(PHOTO_ID).orElseThrow().version()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
   }
@@ -682,7 +790,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 최초 마커의 내용과 버전, 생성 이벤트가 유지된다.
     assertThat(readMarkerIds()).containsExactly(first.getId());
-    Marker saved = markerRepository.findById(first.getId()).orElseThrow();
+    Marker saved = markerMapper.findById(first.getId()).orElseThrow();
     assertThat(saved.getMarkerType()).isEqualTo("CLUE");
     assertThat(saved.getMemo()).isEqualTo(MARKER_MEMO);
     assertThat(saved.getVersion()).isEqualTo(1L);
@@ -788,6 +896,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
       String recipientPolicy,
       List<UUID> expectedAccountIds,
       List<UUID> expectedPhoneIds,
+      List<String> expectedFcmTokens,
       Instant startedAt,
       Instant completedAt)
       throws Exception {
@@ -795,8 +904,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(response.getStatus()).isEqualTo("ACTIVE");
     assertThat(response.getVersion()).isEqualTo(1L);
     assertThat(readMarkerIds()).containsExactly(markerId);
-    assertThat(markerRepository.findById(markerId).orElseThrow().getMarkerType())
-        .isEqualTo(markerType);
+    assertThat(markerMapper.findById(markerId).orElseThrow().getMarkerType()).isEqualTo(markerType);
 
     JsonNode notification =
         objectMapper.readTree(
@@ -837,6 +945,43 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(snapshot.path("clientTs").asText()).isEqualTo(CLIENT_TS.toString());
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", eventType);
     assertThat(readEventPayload(eventType)).isEqualTo(snapshot);
+
+    // 실제 DB에서 조회한 토큰으로 전달하며, FCM에서도 같은 알림·마커·기록 시각을 사용한다.
+    assertThat(fcmDispatcher.getAllDispatches())
+        .singleElement()
+        .satisfies(
+            dispatch -> {
+              assertThat(dispatch.eventId()).isEqualTo(readEventId(eventType));
+              assertThat(dispatch.recipients())
+                  .containsExactlyInAnyOrderElementsOf(expectedFcmTokens);
+              assertThat(dispatch.recipientAccountIds())
+                  .containsExactlyInAnyOrderElementsOf(
+                      expectedAccountIds.stream().map(UUID::toString).toList());
+              assertThat(dispatch.recipientPolicePhoneIds())
+                  .containsExactlyInAnyOrderElementsOf(
+                      expectedPhoneIds.stream().map(UUID::toString).toList());
+              assertThat(dispatch.payload())
+                  .containsEntry("type", eventType)
+                  .containsEntry("id", notification.path("id").asText())
+                  .containsEntry("markerId", markerId.toString())
+                  .containsEntry("incidentId", INCIDENT_ID.toString())
+                  .containsEntry("opId", OP1_ID.toString())
+                  .containsEntry("policePhoneId", ASSIGNED_POLICE_PHONE_ID.toString())
+                  .containsEntry("status", "SNAPSHOT_CREATED")
+                  .containsEntry("version", 1L)
+                  .containsEntry("recipientPolicy", recipientPolicy)
+                  .containsEntry("markerType", markerType)
+                  .containsEntry("locationLabel", "126.913400,35.163100")
+                  .containsEntry("clientTs", CLIENT_TS.toString());
+            });
+  }
+
+  private String readEventId(String eventType) {
+    return jdbcTemplate.queryForObject(
+        "SELECT event_id::text FROM event_dispatch_job WHERE incident_id = ? AND event_type = ?",
+        String.class,
+        INCIDENT_ID,
+        eventType);
   }
 
   private void assertStoredResponseWithoutDuplicates(
@@ -854,6 +999,15 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                 INCIDENT_ID))
         .containsExactly(markerId);
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", notificationEventType);
+
+    // 같은 생성 요청을 재전송해도 외부 FCM 전달은 최초 한 번만 수행한다.
+    assertThat(fcmDispatcher.getAllDispatches())
+        .singleElement()
+        .satisfies(
+            dispatch -> {
+              assertThat(dispatch.eventId()).isEqualTo(readEventId(notificationEventType));
+              assertThat(dispatch.payload()).containsEntry("markerId", markerId.toString());
+            });
 
     JsonNode storedResponse =
         objectMapper.readTree(
@@ -893,7 +1047,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 응답·마커·이벤트에 같은 수정 내용과 버전이 남는다.
     assertResponse(response, "UPDATED");
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getMarkerType()).isEqualTo("NOTE");
     assertThat(saved.getMemo()).isEqualTo("updated clue memo");
     assertThat(saved.getLocation().getSRID()).isEqualTo(4326);
@@ -922,7 +1076,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 기존 내용은 남기고 삭제 결과를 응답과 이벤트에 기록한다.
     assertResponse(response, "DELETED");
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getMemo()).isEqualTo("initial clue");
     assertThat(saved.getStatus()).isEqualTo("DELETED");
     assertThat(saved.getVersion()).isEqualTo(2L);
@@ -1087,8 +1241,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: DB 버전과 이벤트는 한 번만 증가한다.
     assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
-    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
-        .isEqualTo(2L);
+    assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
     assertCompletedRequest();
   }
@@ -1106,7 +1259,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 저장된 응답을 반환하고 수정 내용·버전·이벤트를 그대로 유지한다.
     assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getMemo()).isEqualTo("updated clue memo");
     assertThat(saved.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
@@ -1128,7 +1281,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 과거 좌표 표현을 인식하고 마커·이벤트는 한 번만 변경된다.
     assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getLocation().getX()).isEqualTo(126.9134);
     assertThat(saved.getLocation().getY()).isEqualTo(35.1631);
     assertThat(saved.getVersion()).isEqualTo(2L);
@@ -1154,7 +1307,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .isInstanceOf(IdempotencyMismatchException.class);
 
     // then: 최초 수정 결과와 처리 기록이 유지된다.
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getMemo()).isEqualTo("updated clue memo");
     assertThat(saved.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
@@ -1175,8 +1328,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 저장된 응답을 반환하고 삭제 이벤트는 하나만 남는다.
     assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
-    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
-        .isEqualTo(2L);
+    assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
     assertCompletedRequest();
   }
@@ -1194,7 +1346,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // then: 삭제 상태·버전·이벤트를 추가로 변경하지 않는다.
     assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("DELETED");
     assertThat(saved.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
@@ -1221,7 +1373,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .isInstanceOf(IdempotencyMismatchException.class);
 
     // then: 최초 삭제 결과와 처리 기록이 유지된다.
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("DELETED");
     assertThat(saved.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
@@ -1298,8 +1450,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .isInstanceOf(MarkerApiException.class)
         .extracting("error")
         .isEqualTo("channel_not_allowed");
-    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
-        .isEqualTo(2L);
+    assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
   }
 
@@ -1352,7 +1503,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private void insertMarker(MarkerSource source, UUID policePhoneId) {
-    markerRepository.insertSeed(
+    markerMapper.insertSeed(
         Marker.builder()
             .id(MUTATION_MARKER_ID)
             .incidentId(INCIDENT_ID)
@@ -1376,7 +1527,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private void assertUnchangedMarker() {
-    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("ACTIVE");
     assertThat(saved.getVersion()).isEqualTo(1L);
     assertThat(saved.getMemo()).isEqualTo("initial clue");
