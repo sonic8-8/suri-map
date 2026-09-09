@@ -157,17 +157,18 @@ class MarkerPhotoIdempotencyIntegrationTest {
   }
 
   @Test
-  @DisplayName("marker update replay does not mutate marker or publish twice")
+  @DisplayName("같은 수정 요청을 다시 보내면, 기존 응답을 반환하고 마커·이벤트를 중복 변경하지 않는다")
   void markerUpdateReplayUsesDurableRecord() {
+    // given: 저장된 마커와 같은 키로 반복할 수정 요청을 준비한다.
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
     MarkerUpdateRequest request = new MarkerUpdateRequest(1L, null, "updated durable marker", "NOTE");
 
-    MarkerMutationResponse updated =
-        markerUpdateDeleteService.update(MARKER_ID, request, context).response();
-    MarkerMutationResponse replayed =
-        markerUpdateDeleteService.update(MARKER_ID, request, context).response();
+    // when: 같은 키와 본문으로 두 번 수정한다.
+    MarkerMutationResponse updated = markerUpdateDeleteService.update(MARKER_ID, request, context);
+    MarkerMutationResponse replayed = markerUpdateDeleteService.update(MARKER_ID, request, context);
 
+    // then: 첫 응답을 재사용하고 수정·이벤트 발행은 한 번만 한다.
     assertThat(replayed).isEqualTo(updated);
     assertThat(updated.version()).isEqualTo(2L);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getMemo())
@@ -177,17 +178,18 @@ class MarkerPhotoIdempotencyIntegrationTest {
   }
 
   @Test
-  @DisplayName("marker delete replay does not delete marker or publish twice")
+  @DisplayName("같은 삭제 요청을 다시 보내면, 기존 응답을 반환하고 마커·이벤트를 중복 변경하지 않는다")
   void markerDeleteReplayUsesDurableRecord() {
+    // given: 저장된 마커와 같은 키로 반복할 삭제 요청을 준비한다.
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
     MarkerDeleteRequest request = new MarkerDeleteRequest(1L, "duplicate delete");
 
-    MarkerMutationResponse deleted =
-        markerUpdateDeleteService.delete(MARKER_ID, request, context).response();
-    MarkerMutationResponse replayed =
-        markerUpdateDeleteService.delete(MARKER_ID, request, context).response();
+    // when: 같은 키와 본문으로 두 번 삭제한다.
+    MarkerMutationResponse deleted = markerUpdateDeleteService.delete(MARKER_ID, request, context);
+    MarkerMutationResponse replayed = markerUpdateDeleteService.delete(MARKER_ID, request, context);
 
+    // then: 첫 응답을 재사용하고 삭제·이벤트 발행은 한 번만 한다.
     assertThat(replayed).isEqualTo(deleted);
     assertThat(deleted.version()).isEqualTo(2L);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getStatus())

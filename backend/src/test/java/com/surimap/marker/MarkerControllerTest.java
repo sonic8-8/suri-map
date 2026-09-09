@@ -19,9 +19,6 @@ import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerMutationResponse;
-import com.surimap.marker.dto.MarkerMutationResult;
-import com.surimap.marker.dto.MarkerPublishRequest;
-import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
@@ -30,7 +27,6 @@ import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
 import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,12 +49,9 @@ import org.springframework.test.web.servlet.MockMvc;
 class MarkerControllerTest {
 
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550071");
-  private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
-  private static final UUID OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110071");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220071");
-  private static final Instant SERVER_TS = Instant.parse("2026-04-28T00:05:03Z");
   private static final String AUTHORIZATION = "Bearer marker-create-app";
 
   @Autowired private MockMvc mockMvc;
@@ -77,8 +70,9 @@ class MarkerControllerTest {
   }
 
   @Test
-  @DisplayName("APP PATCH /api/markers/{markerId}는 200 canonical response를 반환한다")
+  @DisplayName("앱에서 마커를 수정하면, 수정 결과와 HTTP 200 응답을 반환한다")
   void appUpdateReturnsCanonicalResponse() throws Exception {
+    // given: 앱의 수정 요청과 서비스 응답을 준비한다.
     MarkerUpdateRequest serviceRequest =
         new MarkerUpdateRequest(
             1L,
@@ -86,22 +80,7 @@ class MarkerControllerTest {
                 "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))),
             "S3-2 detail panel memo",
             "NOTE");
-    MarkerMutationResult serviceResult =
-        new MarkerMutationResult(
-            new MarkerMutationResponse(MARKER_ID, "UPDATED", 2L),
-            new MarkerPublishRequest(
-                "MARKER_UPDATED",
-                new MarkerPublishRequestPayload(
-                    MARKER_ID,
-                    INCIDENT_ID,
-                    OP_ID,
-                    POLICE_PHONE_ID,
-                    "UPDATED",
-                    2L,
-                    "NOTE",
-                    serviceRequest.location(),
-                    null,
-                    SERVER_TS)));
+    MarkerMutationResponse serviceResponse = new MarkerMutationResponse(MARKER_ID, "UPDATED", 2L);
     when(markerUpdateDeleteService.update(
             eq(MARKER_ID),
             eq(serviceRequest),
@@ -110,8 +89,9 @@ class MarkerControllerTest {
                     context.authentication().channel().equals("APP")
                         && context.authentication().policePhoneId().equals(POLICE_PHONE_ID)
                         && context.idempotencyKey().equals("idem-marker-update-001"))))
-        .thenReturn(serviceResult);
+        .thenReturn(serviceResponse);
 
+    // when & then: 수정 요청을 보내고 응답 본문과 상태 코드를 확인한다.
     mockMvc
         .perform(
             patch("/api/markers/{markerId}", MARKER_ID)
@@ -140,25 +120,11 @@ class MarkerControllerTest {
 
   @Test
   @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
-  @DisplayName("WEB DELETE /api/markers/{markerId}는 PolicePhone 헤더 없이 200 canonical response를 반환한다")
+  @DisplayName("웹에서 업무폰 헤더 없이 마커를 삭제하면, 삭제 결과와 HTTP 200 응답을 반환한다")
   void webDeleteReturnsCanonicalResponse() throws Exception {
+    // given: 웹의 삭제 요청과 서비스 응답을 준비한다.
     MarkerDeleteRequest serviceRequest = new MarkerDeleteRequest(2L, "board cleanup");
-    MarkerMutationResult serviceResult =
-        new MarkerMutationResult(
-            new MarkerMutationResponse(MARKER_ID, "DELETED", 3L),
-            new MarkerPublishRequest(
-                "MARKER_DELETED",
-                new MarkerPublishRequestPayload(
-                    MARKER_ID,
-                    INCIDENT_ID,
-                    OP_ID,
-                    POLICE_PHONE_ID,
-                    "DELETED",
-                    3L,
-                    null,
-                    null,
-                    null,
-                    SERVER_TS)));
+    MarkerMutationResponse serviceResponse = new MarkerMutationResponse(MARKER_ID, "DELETED", 3L);
     when(markerUpdateDeleteService.delete(
             eq(MARKER_ID),
             eq(serviceRequest),
@@ -167,8 +133,9 @@ class MarkerControllerTest {
                     context.authentication().channel().equals("WEB")
                         && context.authentication().policePhoneId() == null
                         && context.idempotencyKey().equals("idem-marker-delete-001"))))
-        .thenReturn(serviceResult);
+        .thenReturn(serviceResponse);
 
+    // when & then: 업무폰 헤더 없이 삭제를 요청하고 응답을 확인한다.
     mockMvc
         .perform(
             delete("/api/markers/{markerId}", MARKER_ID)
@@ -190,8 +157,10 @@ class MarkerControllerTest {
   }
 
   @Test
-  @DisplayName("APP PATCH /api/markers/{markerId}에서 PolicePhone 헤더가 없으면 police_phone_required다")
+  @DisplayName("앱에서 업무폰 헤더 없이 마커 수정을 요청하면, police_phone_required 오류로 거부한다")
   void appUpdateMissingPolicePhoneRejected() throws Exception {
+    // given: 업무폰 헤더가 없는 앱 요청이다.
+    // when & then: 요청을 거부하고 수정 서비스를 호출하지 않는다.
     mockMvc
         .perform(
             patch("/api/markers/{markerId}", MARKER_ID)
