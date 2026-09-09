@@ -565,6 +565,44 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @ParameterizedTest(name = "마커 유형: {0}")
+  @CsvSource({"SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED", "PERSON_FOUND,,PERSON_FOUND"})
+  @DisplayName("마커 생성 트랜잭션이 롤백되면, 마커·알림·이벤트를 남기지 않고 FCM도 전달하지 않는다")
+  void createMarker_transactionRolledBack_discardsChangesWithoutSendingFcm(
+      String markerType, String supportRequestType, String eventType) {
+    // given: 유효한 수신 토큰이 있고, 지원 요청 또는 발견 마커를 생성할 수 있다.
+    MarkerCreateServiceRequest request =
+        createRequest(markerType, supportRequestType).toBuilder().id(MARKER_ID).build();
+
+    // when: 마커와 알림을 저장한 뒤, 같은 트랜잭션을 커밋하지 않고 롤백한다.
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(
+            status -> {
+              appMarkerService.create(request);
+              assertThat(readMarkerIds()).containsExactly(MARKER_ID);
+              assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", eventType);
+              assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+              status.setRollbackOnly();
+            });
+
+    // then: 저장과 요청 처리 기록을 되돌리고, 예약했던 외부 FCM 전달도 실행하지 않는다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM marker_notification WHERE marker_id = ?",
+                Integer.class,
+                MARKER_ID))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                Integer.class,
+                IDEMPOTENCY_KEY))
+        .isZero();
+    assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+  }
+
+  @ParameterizedTest(name = "마커 유형: {0}")
   @CsvSource({"SUPPORT_REQUEST,DRONE", "PERSON_FOUND,"})
   @DisplayName("알림을 만드는 마커 요청의 멱등성 키가 비어 있으면, 저장하거나 FCM으로 전달하지 않는다")
   void createMarker_blankIdempotencyKey_rejectsWithoutSavingOrDispatching(

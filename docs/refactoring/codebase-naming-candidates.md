@@ -16,6 +16,8 @@
 
 `SupportRequestNotificationDispatchService`·`BoardToastEvidence`와 전용 테스트 2개는 서버에서 사용하지 않아 제거했다. 실제 알림 저장·전달 검증은 기존 `AppMarkerServiceTest`에 남아 있다. 미사용 코드의 Map 검사와 테스트용 표시 결과를 실제 서버·상황판 동작으로 옮기지는 않았다.
 
+`MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/marker/notification/service/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/marker/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
+
 | 현재 이름 | 변경 후보 |
 |---|---|
 | [MarkerOpBindingRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerOpBindingRedTest.java) | `MarkerOpBindingValidatorTest` |
