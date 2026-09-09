@@ -50,9 +50,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {"surimap.object-storage.provider=mock", "fcm.provider=mock"})
@@ -920,24 +922,64 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertUnchangedMarker();
   }
 
+  @ParameterizedTest(name = "마커 유형: {0}")
+  @CsvSource({"CLUE,", "SUPPORT_REQUEST,DRONE"})
+  @DisplayName("종료된 사건에 마커 생성을 요청하면, 마커·알림·이벤트를 저장하지 않고 거부한다")
+  void createMarker_closedIncident_rejectsWithoutSavingMarkerNotificationOrEvent(
+      String markerType, String supportRequestType) {
+    // given: 사건이 종료되었고 단서 또는 지원 요청 마커를 새로 기록하려 한다.
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+    MarkerCreateServiceRequest request =
+        createRequest(markerType, supportRequestType).toBuilder().id(MARKER_ID).build();
+
+    // when: 실제 서비스의 사건 상태 조회로 생성 요청을 거부한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_closed", HttpStatus.CONFLICT);
+
+    // then: 마커와 지원 요청 알림·이벤트가 생기지 않고 요청 키도 남기지 않는다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM marker_notification WHERE marker_id = ?",
+                Integer.class,
+                MARKER_ID))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                Integer.class,
+                IDEMPOTENCY_KEY))
+        .isZero();
+  }
+
   @Test
   @DisplayName("사건이 종료되었으면, 마커 수정과 삭제를 거부한다")
   void changeMarker_closedIncident_preservesMarkerAndEvents() {
-    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     // given: 마커가 속한 사건이 종료되어 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     jdbcTemplate.update(
         "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
 
     // when & then: 수정·삭제 모두 사건 종료 오류를 반환한다.
     assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
         .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
-        .isEqualTo("incident_closed");
+        .extracting("error", "status")
+        .containsExactly("incident_closed", HttpStatus.CONFLICT);
     assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
         .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
-        .isEqualTo("incident_closed");
+        .extracting("error", "status")
+        .containsExactly("incident_closed", HttpStatus.CONFLICT);
     assertUnchangedMarker();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                Integer.class,
+                IDEMPOTENCY_KEY))
+        .isZero();
   }
 
   @Test
