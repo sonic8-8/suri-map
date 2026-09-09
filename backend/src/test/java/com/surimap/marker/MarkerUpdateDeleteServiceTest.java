@@ -9,11 +9,8 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
-import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerMutationResponse;
 import com.surimap.marker.dto.MarkerPublishRequest;
-import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.repository.MarkerCreateRecord;
@@ -23,6 +20,9 @@ import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
+import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
+import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
+import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -88,7 +88,7 @@ class MarkerUpdateDeleteServiceTest {
 
   @Test
   @DisplayName("업무폰 정보가 없는 사전 등록 마커를 웹에서 수정하면, 수정 이벤트에도 업무폰 정보 없이 기록한다")
-  void webUpdateAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+  void updateMarker_webSeedWithoutPolicePhone_publishesEventWithoutPolicePhone() {
     // given: 업무폰 정보가 없는 사전 등록 마커와 웹 요청을 준비한다.
     insertMockSeedMarkerWithNullPolicePhone();
     guard.mutationPolicePhoneId = null;
@@ -97,16 +97,20 @@ class MarkerUpdateDeleteServiceTest {
             new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-update-null-phone-001");
 
     // when: 메모와 마커 유형을 수정한다.
-    MarkerMutationResponse response =
+    MarkerMutationServiceResponse response =
         service.update(
-            MOCK_SEED_MARKER_ID,
-            new MarkerUpdateRequest(1L, null, "web corrected seed marker", "NOTE"),
-            webContext);
+            MarkerUpdateServiceRequest.builder()
+                .markerId(MOCK_SEED_MARKER_ID)
+                .version(1L)
+                .memo("web corrected seed marker")
+                .type("NOTE")
+                .context(webContext)
+                .build());
 
     // then: 수정 결과와 이벤트에 업무폰 정보가 추가되지 않는다.
-    assertThat(response.id()).isEqualTo(MOCK_SEED_MARKER_ID);
-    assertThat(response.status()).isEqualTo("UPDATED");
-    assertThat(response.version()).isEqualTo(2L);
+    assertThat(response.getId()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(response.getStatus()).isEqualTo("UPDATED");
+    assertThat(response.getVersion()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
     assertThat(row.getPolicePhoneId()).isNull();
@@ -123,7 +127,7 @@ class MarkerUpdateDeleteServiceTest {
 
   @Test
   @DisplayName("업무폰 정보가 없는 사전 등록 마커를 웹에서 삭제하면, 삭제 이벤트에도 업무폰 정보 없이 기록한다")
-  void webDeleteAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+  void deleteMarker_webSeedWithoutPolicePhone_publishesEventWithoutPolicePhone() {
     // given: 업무폰 정보가 없는 사전 등록 마커와 웹 요청을 준비한다.
     insertMockSeedMarkerWithNullPolicePhone();
     guard.mutationPolicePhoneId = null;
@@ -132,14 +136,19 @@ class MarkerUpdateDeleteServiceTest {
             new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-delete-null-phone-001");
 
     // when: 사전 등록 마커를 삭제한다.
-    MarkerMutationResponse response =
+    MarkerMutationServiceResponse response =
         service.delete(
-            MOCK_SEED_MARKER_ID, new MarkerDeleteRequest(1L, "seed cleanup"), webContext);
+            MarkerDeleteServiceRequest.builder()
+                .markerId(MOCK_SEED_MARKER_ID)
+                .version(1L)
+                .reason("seed cleanup")
+                .context(webContext)
+                .build());
 
     // then: 삭제 결과와 이벤트에 업무폰 정보가 추가되지 않는다.
-    assertThat(response.id()).isEqualTo(MOCK_SEED_MARKER_ID);
-    assertThat(response.status()).isEqualTo("DELETED");
-    assertThat(response.version()).isEqualTo(2L);
+    assertThat(response.getId()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(response.getStatus()).isEqualTo("DELETED");
+    assertThat(response.getVersion()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
     assertThat(row.getPolicePhoneId()).isNull();
@@ -155,7 +164,7 @@ class MarkerUpdateDeleteServiceTest {
 
   @Test
   @DisplayName("수정할 메모가 2,000자를 넘으면, 마커와 이벤트를 변경하지 않고 거부한다")
-  void updateRejectsMemoLongerThanTwoThousandCharactersWithoutMutatingRowOrEvent() {
+  void updateMarker_memoExceedsTwoThousandCharacters_rejectsWithoutChangingMarkerOrEvents() {
     // given: 허용 길이를 넘는 메모를 준비한다.
     String tooLongMemo = "m".repeat(2001);
 
@@ -163,7 +172,12 @@ class MarkerUpdateDeleteServiceTest {
     assertThatThrownBy(
             () ->
                 service.update(
-                    MARKER_ID, new MarkerUpdateRequest(1L, null, tooLongMemo, null), appContext))
+                    MarkerUpdateServiceRequest.builder()
+                        .markerId(MARKER_ID)
+                        .version(1L)
+                        .memo(tooLongMemo)
+                        .context(appContext)
+                        .build()))
         .isInstanceOf(MarkerApiException.class);
 
     // then: 기존 마커를 유지하고 이벤트를 발행하지 않는다.
@@ -176,23 +190,27 @@ class MarkerUpdateDeleteServiceTest {
 
   @Test
   @DisplayName("마커를 수정하면, 변경된 내용과 증가한 버전을 저장하고 수정 이벤트를 발행한다")
-  void updatePersistsVersionedRowAndPublishesMarkerUpdated() {
+  void updateMarker_currentVersion_savesChangesAndPublishesUpdatedEvent() {
     // given: 현재 버전과 변경할 좌표·메모·유형을 준비한다.
-    MarkerUpdateRequest request =
-        new MarkerUpdateRequest(
-            1L,
-            new MarkerGeoJsonPoint(
-                "Point", List.of(new BigDecimal("126.9137007"), new BigDecimal("35.1634007"))),
-            "updated clue memo",
-            "NOTE");
+    MarkerUpdateServiceRequest request =
+        MarkerUpdateServiceRequest.builder()
+            .markerId(MARKER_ID)
+            .version(1L)
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.9137007"), new BigDecimal("35.1634007"))))
+            .memo("updated clue memo")
+            .type("NOTE")
+            .context(appContext)
+            .build();
 
     // when: 마커를 수정한다.
-    MarkerMutationResponse response = service.update(MARKER_ID, request, appContext);
+    MarkerMutationServiceResponse response = service.update(request);
 
     // then: 수정 결과와 이벤트에 같은 내용과 버전을 기록한다.
-    assertThat(response.id()).isEqualTo(MARKER_ID);
-    assertThat(response.status()).isEqualTo("UPDATED");
-    assertThat(response.version()).isEqualTo(2L);
+    assertThat(response.getId()).isEqualTo(MARKER_ID);
+    assertThat(response.getStatus()).isEqualTo("UPDATED");
+    assertThat(response.getVersion()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.records().get(0);
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.UPDATED.name());
@@ -219,16 +237,22 @@ class MarkerUpdateDeleteServiceTest {
 
   @Test
   @DisplayName("마커를 삭제하면, 삭제 상태와 증가한 버전을 저장하고 삭제 이벤트를 발행한다")
-  void deletePersistsVersionedTombstoneAndPublishesMarkerDeleted() {
+  void deleteMarker_currentVersion_marksDeletedAndPublishesDeletedEvent() {
     // given: 버전이 1인 앱 마커가 저장되어 있다.
     // when: 현재 버전으로 마커 삭제를 요청한다.
-    MarkerMutationResponse response =
-        service.delete(MARKER_ID, new MarkerDeleteRequest(1L, "wrong marker"), appContext);
+    MarkerMutationServiceResponse response =
+        service.delete(
+            MarkerDeleteServiceRequest.builder()
+                .markerId(MARKER_ID)
+                .version(1L)
+                .reason("wrong marker")
+                .context(appContext)
+                .build());
 
     // then: 행을 지우지 않고 삭제 상태와 새 버전을 기록한다.
-    assertThat(response.id()).isEqualTo(MARKER_ID);
-    assertThat(response.status()).isEqualTo("DELETED");
-    assertThat(response.version()).isEqualTo(2L);
+    assertThat(response.getId()).isEqualTo(MARKER_ID);
+    assertThat(response.getStatus()).isEqualTo("DELETED");
+    assertThat(response.getVersion()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.records().get(0);
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.DELETED.name());
@@ -249,15 +273,18 @@ class MarkerUpdateDeleteServiceTest {
 
     @Test
     @DisplayName("요청 버전이 저장된 버전과 다르면, 마커와 이벤트를 변경하지 않고 write_conflict 오류로 거부한다")
-    void versionConflictRejectedBeforeWrite() {
+    void updateMarker_versionMismatch_rejectsWithoutChangingMarkerOrEvents() {
       // given: 저장된 마커 버전은 1인데 요청 버전은 99이다.
       // when & then: 버전이 다른 수정 요청을 거부한다.
       assertThatThrownBy(
               () ->
                   service.update(
-                      MARKER_ID,
-                      new MarkerUpdateRequest(99L, null, "stale memo", null),
-                      appContext))
+                      MarkerUpdateServiceRequest.builder()
+                          .markerId(MARKER_ID)
+                          .version(99L)
+                          .memo("stale memo")
+                          .context(appContext)
+                          .build()))
           .isInstanceOf(MarkerApiException.class)
           .extracting("error")
           .isEqualTo("write_conflict");
@@ -272,7 +299,7 @@ class MarkerUpdateDeleteServiceTest {
 
     @Test
     @DisplayName("권한 검사에서 삭제를 거부하면, 마커와 이벤트를 변경하지 않고 role_denied 오류를 전달한다")
-    void policyDenialRejectedBeforeWrite() {
+    void deleteMarker_accessDenied_rejectsWithoutChangingMarkerOrEvents() {
       // given: 권한 검사가 삭제를 거부하도록 준비한다.
       guard.error = new MarkerApiException("role_denied", HttpStatus.FORBIDDEN);
 
@@ -280,7 +307,12 @@ class MarkerUpdateDeleteServiceTest {
       assertThatThrownBy(
               () ->
                   service.delete(
-                      MARKER_ID, new MarkerDeleteRequest(1L, "not authorized"), appContext))
+                      MarkerDeleteServiceRequest.builder()
+                          .markerId(MARKER_ID)
+                          .version(1L)
+                          .reason("not authorized")
+                          .context(appContext)
+                          .build()))
           .isInstanceOf(MarkerApiException.class)
           .extracting("error")
           .isEqualTo("role_denied");

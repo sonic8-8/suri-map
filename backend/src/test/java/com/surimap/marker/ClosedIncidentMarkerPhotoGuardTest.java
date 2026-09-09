@@ -14,10 +14,8 @@ import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
-import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
 import com.surimap.marker.notification.domain.NotificationRecipients;
@@ -49,6 +47,8 @@ import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
+import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
+import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
 import com.surimap.retention.purge.PurgeHookName;
 import com.surimap.retention.purge.PurgeHookRequest;
 import com.surimap.retention.purge.PurgeHookResult;
@@ -162,16 +162,20 @@ class ClosedIncidentMarkerPhotoGuardTest {
 
     @Test
     @DisplayName("PATCH /markers/{markerId}는 incident_closed이고 기존 row와 PublishRequest를 변경하지 않는다")
-    void updateClosedIncidentRejectedWithoutMarkerMutationOrPublishRequest() {
+    void updateMarker_closedIncident_rejectsWithoutChangingMarkerOrEvents() {
       seedActiveMarker();
       MarkerUpdateDeleteService service = updateDeleteService();
 
       assertIncidentClosed(
           () ->
               service.update(
-                  MARKER_ID,
-                  new MarkerUpdateRequest(1L, null, "post-close edit", "NOTE"),
-                  markerContext),
+                  MarkerUpdateServiceRequest.builder()
+                      .markerId(MARKER_ID)
+                      .version(1L)
+                      .memo("post-close edit")
+                      .type("NOTE")
+                      .context(markerContext)
+                      .build()),
           MarkerApiException.class);
 
       MarkerRecord row = markerRepository.findById(MARKER_ID).orElseThrow();
@@ -183,12 +187,19 @@ class ClosedIncidentMarkerPhotoGuardTest {
 
     @Test
     @DisplayName("DELETE /markers/{markerId}는 incident_closed이고 기존 row와 PublishRequest를 변경하지 않는다")
-    void deleteClosedIncidentRejectedWithoutMarkerMutationOrPublishRequest() {
+    void deleteMarker_closedIncident_rejectsWithoutChangingMarkerOrEvents() {
       seedActiveMarker();
       MarkerUpdateDeleteService service = updateDeleteService();
 
       assertIncidentClosed(
-          () -> service.delete(MARKER_ID, new MarkerDeleteRequest(1L, "closed"), markerContext),
+          () ->
+              service.delete(
+                  MarkerDeleteServiceRequest.builder()
+                      .markerId(MARKER_ID)
+                      .version(1L)
+                      .reason("closed")
+                      .context(markerContext)
+                      .build()),
           MarkerApiException.class);
 
       MarkerRecord row = markerRepository.findById(MARKER_ID).orElseThrow();

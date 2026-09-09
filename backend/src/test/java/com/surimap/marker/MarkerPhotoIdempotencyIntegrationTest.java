@@ -11,11 +11,8 @@ import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerMutationResponse;
 import com.surimap.marker.dto.MarkerPublishRequest;
-import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
@@ -35,6 +32,9 @@ import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
+import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
+import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
+import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.math.BigDecimal;
@@ -48,6 +48,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -56,7 +58,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DisplayName("S5 marker/photo durable idempotency")
 class MarkerPhotoIdempotencyIntegrationTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0505");
@@ -158,19 +159,21 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   @Test
   @DisplayName("같은 수정 요청을 다시 보내면, 기존 응답을 반환하고 마커·이벤트를 중복 변경하지 않는다")
-  void markerUpdateReplayUsesDurableRecord() {
+  void updateMarker_sameKeyAndBody_returnsStoredResponseWithoutDuplicates() {
     // given: 저장된 마커와 같은 키로 반복할 수정 요청을 준비한다.
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
-    MarkerUpdateRequest request = new MarkerUpdateRequest(1L, null, "updated durable marker", "NOTE");
+    MarkerUpdateServiceRequest request = createUpdateRequest(context);
 
     // when: 같은 키와 본문으로 두 번 수정한다.
-    MarkerMutationResponse updated = markerUpdateDeleteService.update(MARKER_ID, request, context);
-    MarkerMutationResponse replayed = markerUpdateDeleteService.update(MARKER_ID, request, context);
+    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    assertThat(requestBodyHash("idem-s5-marker-update-db"))
+        .isEqualTo("ee82990a08aec3357c7e06eb1743929cf95f1138d4b556044daa02e5815c903d");
+    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
 
     // then: 첫 응답을 재사용하고 수정·이벤트 발행은 한 번만 한다.
-    assertThat(replayed).isEqualTo(updated);
-    assertThat(updated.version()).isEqualTo(2L);
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
+    assertThat(updated.getVersion()).isEqualTo(2L);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getMemo())
         .isEqualTo("updated durable marker");
     assertThat(markerEventPublisher.published()).hasSize(1);
@@ -178,24 +181,145 @@ class MarkerPhotoIdempotencyIntegrationTest {
   }
 
   @Test
+  @DisplayName("변경 전 해시로 기록된 수정 요청을 다시 보내면, 기존 응답을 반환하고 중복 수정하지 않는다")
+  void updateMarker_legacyRequestHash_returnsStoredResponseWithoutDuplicates() {
+    // given: 이전 서버가 처리한 수정 요청의 해시와 응답이 남아 있다.
+    seedMarker();
+    MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
+    MarkerUpdateServiceRequest request = createUpdateRequest(context);
+    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    replaceStoredRequestHash(
+        context.idempotencyKey(),
+        "0f9374acb0c8578e46c7b9e1c3959a494316a8651d5e889f644fcbf5b97ab84a");
+
+    // when: 같은 키와 본문을 재전송한다.
+    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
+
+    // then: 저장된 응답을 반환하고 수정과 이벤트 발행은 한 번만 한다.
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerEventPublisher.published()).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("좌표가 포함된 과거 수정 요청을 다시 보내면, 기존 응답을 반환하고 중복 수정하지 않는다")
+  void updateMarker_legacyRequestWithLocation_returnsStoredResponseWithoutDuplicates() {
+    // given: 좌표만 바꾼 과거 요청의 해시와 응답이 남아 있다.
+    seedMarker();
+    MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
+    MarkerUpdateServiceRequest request =
+        createUpdateRequest(context).toBuilder().location(point()).memo(null).type(null).build();
+    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    replaceStoredRequestHash(
+        context.idempotencyKey(),
+        "f5c8248db29432930ec45ab14b1c3787da80b5f8806c0fd15afc890f181ad748");
+
+    // when: 같은 좌표를 포함한 요청을 재전송한다.
+    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
+
+    // then: 과거 좌표 표현을 동일하게 비교하고 마커·이벤트를 추가로 변경하지 않는다.
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerEventPublisher.published()).hasSize(1);
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("같은 수정 요청 키에 다른 메모를 보내면, 기존 마커·이벤트를 변경하지 않고 거부한다")
+  void updateMarker_sameKeyWithDifferentMemo_rejectsWithoutChangingMarkerOrEvents(
+      String storedHashFormat) {
+    // given: 새 방식 또는 과거 방식으로 처리된 수정 요청이 있다.
+    seedMarker();
+    MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
+    MarkerUpdateServiceRequest request = createUpdateRequest(context);
+    markerUpdateDeleteService.update(request);
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(
+          context.idempotencyKey(),
+          "0f9374acb0c8578e46c7b9e1c3959a494316a8651d5e889f644fcbf5b97ab84a");
+    }
+
+    // when & then: 같은 키에 다른 메모를 담아 보내면 본문 불일치로 거부한다.
+    assertThatThrownBy(
+            () ->
+                markerUpdateDeleteService.update(request.toBuilder().memo("changed memo").build()))
+        .isInstanceOf(IdempotencyMismatchException.class);
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getMemo())
+        .isEqualTo("updated durable marker");
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerEventPublisher.published()).hasSize(1);
+  }
+
+  @Test
   @DisplayName("같은 삭제 요청을 다시 보내면, 기존 응답을 반환하고 마커·이벤트를 중복 변경하지 않는다")
-  void markerDeleteReplayUsesDurableRecord() {
+  void deleteMarker_sameKeyAndBody_returnsStoredResponseWithoutDuplicates() {
     // given: 저장된 마커와 같은 키로 반복할 삭제 요청을 준비한다.
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
-    MarkerDeleteRequest request = new MarkerDeleteRequest(1L, "duplicate delete");
+    MarkerDeleteServiceRequest request = createDeleteRequest(context);
 
     // when: 같은 키와 본문으로 두 번 삭제한다.
-    MarkerMutationResponse deleted = markerUpdateDeleteService.delete(MARKER_ID, request, context);
-    MarkerMutationResponse replayed = markerUpdateDeleteService.delete(MARKER_ID, request, context);
+    MarkerMutationServiceResponse deleted = markerUpdateDeleteService.delete(request);
+    assertThat(requestBodyHash("idem-s5-marker-delete-db"))
+        .isEqualTo("45e854b54a52a25efec7e881c38e87e42f91fc6d8548bbb315daad75bc7e0509");
+    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.delete(request);
 
     // then: 첫 응답을 재사용하고 삭제·이벤트 발행은 한 번만 한다.
-    assertThat(replayed).isEqualTo(deleted);
-    assertThat(deleted.version()).isEqualTo(2L);
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(deleted);
+    assertThat(deleted.getVersion()).isEqualTo(2L);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getStatus())
         .isEqualTo(MarkerStatus.DELETED.name());
     assertThat(markerEventPublisher.published()).hasSize(1);
     assertThat(idempotencyStatus("idem-s5-marker-delete-db")).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("변경 전 해시로 기록된 삭제 요청을 다시 보내면, 기존 응답을 반환하고 중복 삭제하지 않는다")
+  void deleteMarker_legacyRequestHash_returnsStoredResponseWithoutDuplicates() {
+    // given: 이전 서버가 삭제를 처리한 해시와 응답이 남아 있다.
+    seedMarker();
+    MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
+    MarkerDeleteServiceRequest request = createDeleteRequest(context);
+    MarkerMutationServiceResponse deleted = markerUpdateDeleteService.delete(request);
+    replaceStoredRequestHash(
+        context.idempotencyKey(),
+        "9a48917e665529861efdd50c08e262a63ad8bf6573651f4897808d9cd3797c1f");
+
+    // when: 같은 삭제 요청을 재전송한다.
+    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.delete(request);
+
+    // then: 삭제 결과를 재사용하고 버전과 이벤트를 추가로 변경하지 않는다.
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(deleted);
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getStatus()).isEqualTo("DELETED");
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerEventPublisher.published()).hasSize(1);
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("같은 삭제 요청 키에 다른 사유를 보내면, 기존 마커·이벤트를 변경하지 않고 거부한다")
+  void deleteMarker_sameKeyWithDifferentReason_rejectsWithoutChangingMarkerOrEvents(
+      String storedHashFormat) {
+    // given: 새 방식 또는 과거 방식으로 처리된 삭제 요청이 있다.
+    seedMarker();
+    MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
+    MarkerDeleteServiceRequest request = createDeleteRequest(context);
+    markerUpdateDeleteService.delete(request);
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(
+          context.idempotencyKey(),
+          "9a48917e665529861efdd50c08e262a63ad8bf6573651f4897808d9cd3797c1f");
+    }
+
+    // when & then: 같은 키에 다른 삭제 사유를 보내면 본문 불일치로 거부한다.
+    assertThatThrownBy(
+            () ->
+                markerUpdateDeleteService.delete(
+                    request.toBuilder().reason("changed reason").build()))
+        .isInstanceOf(IdempotencyMismatchException.class);
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getStatus()).isEqualTo("DELETED");
+    assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(markerEventPublisher.published()).hasSize(1);
   }
 
   @Test
@@ -232,6 +356,32 @@ class MarkerPhotoIdempotencyIntegrationTest {
     assertThat(attached.version()).isEqualTo(2L);
     assertThat(photoEventPublisher.published()).hasSize(1);
     assertThat(idempotencyStatus("idem-s5-photo-attach-db")).isEqualTo("COMPLETED");
+  }
+
+  private MarkerUpdateServiceRequest createUpdateRequest(MarkerRequestContext context) {
+    return MarkerUpdateServiceRequest.builder()
+        .markerId(MARKER_ID)
+        .version(1L)
+        .memo("updated durable marker")
+        .type("NOTE")
+        .context(context)
+        .build();
+  }
+
+  private MarkerDeleteServiceRequest createDeleteRequest(MarkerRequestContext context) {
+    return MarkerDeleteServiceRequest.builder()
+        .markerId(MARKER_ID)
+        .version(1L)
+        .reason("duplicate delete")
+        .context(context)
+        .build();
+  }
+
+  private void replaceStoredRequestHash(String idempotencyKey, String bodyHash) {
+    jdbcTemplate.update(
+        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ?",
+        bodyHash,
+        idempotencyKey);
   }
 
   private MarkerCreateServiceRequest markerRequest() {
@@ -290,6 +440,15 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   private String objectKey(UUID photoId) {
     return "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + photoId + ".jpg";
+  }
+
+  private String requestBodyHash(String idempotencyKey) {
+    return jdbcTemplate
+        .queryForObject(
+            "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ?",
+            String.class,
+            idempotencyKey)
+        .trim();
   }
 
   private String idempotencyStatus(String idempotencyKey) {
