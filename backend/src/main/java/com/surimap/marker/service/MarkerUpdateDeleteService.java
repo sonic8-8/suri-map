@@ -6,7 +6,6 @@ import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerMutationResponse;
-import com.surimap.marker.dto.MarkerMutationResult;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.dto.MarkerUpdateRequest;
@@ -27,7 +26,6 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,34 +92,25 @@ public class MarkerUpdateDeleteService {
   }
 
   @Transactional
-  public MarkerMutationResult update(
+  public MarkerMutationResponse update(
       UUID markerId, MarkerUpdateRequest request, MarkerRequestContext context) {
     requireMarkerId(markerId);
     requireRequestVersion(request == null ? null : request.version());
     requireWriteContext(context);
     if (idempotentResponseCache != null) {
-      AtomicReference<MarkerMutationResult> updatedResult = new AtomicReference<>();
-      MarkerMutationResponse response =
-          idempotentResponseCache.replayOrRun(
-              "PATCH /api/markers/" + markerId,
-              context.idempotencyKey(),
-              fingerprint("update:" + markerId, request),
-              200,
-              MarkerMutationResponse.class,
-              () -> {
-                MarkerMutationResult result = updateMarker(markerId, request, context);
-                updatedResult.set(result);
-                return result.response();
-              },
-              this::metadataFor);
-      return updatedResult.get() == null
-          ? new MarkerMutationResult(response, null)
-          : updatedResult.get();
+      return idempotentResponseCache.replayOrRun(
+          "PATCH /api/markers/" + markerId,
+          context.idempotencyKey(),
+          fingerprint("update:" + markerId, request),
+          200,
+          MarkerMutationResponse.class,
+          () -> updateMarker(markerId, request, context),
+          this::metadataFor);
     }
     return updateMarker(markerId, request, context);
   }
 
-  private MarkerMutationResult updateMarker(
+  private MarkerMutationResponse updateMarker(
       UUID markerId, MarkerUpdateRequest request, MarkerRequestContext context) {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireUpdateAccess(markerId, context);
@@ -157,40 +146,29 @@ public class MarkerUpdateDeleteService {
             location);
     markerEventPublisher.publish(publishRequest);
 
-    return new MarkerMutationResult(
-        new MarkerMutationResponse(markerId, MarkerStatus.UPDATED.name(), nextVersion),
-        publishRequest);
+    return new MarkerMutationResponse(markerId, MarkerStatus.UPDATED.name(), nextVersion);
   }
 
   @Transactional
-  public MarkerMutationResult delete(
+  public MarkerMutationResponse delete(
       UUID markerId, MarkerDeleteRequest request, MarkerRequestContext context) {
     requireMarkerId(markerId);
     requireRequestVersion(request == null ? null : request.version());
     requireWriteContext(context);
     if (idempotentResponseCache != null) {
-      AtomicReference<MarkerMutationResult> deletedResult = new AtomicReference<>();
-      MarkerMutationResponse response =
-          idempotentResponseCache.replayOrRun(
-              "DELETE /api/markers/" + markerId,
-              context.idempotencyKey(),
-              fingerprint("delete:" + markerId, request),
-              200,
-              MarkerMutationResponse.class,
-              () -> {
-                MarkerMutationResult result = deleteMarker(markerId, request, context);
-                deletedResult.set(result);
-                return result.response();
-              },
-              this::metadataFor);
-      return deletedResult.get() == null
-          ? new MarkerMutationResult(response, null)
-          : deletedResult.get();
+      return idempotentResponseCache.replayOrRun(
+          "DELETE /api/markers/" + markerId,
+          context.idempotencyKey(),
+          fingerprint("delete:" + markerId, request),
+          200,
+          MarkerMutationResponse.class,
+          () -> deleteMarker(markerId, request, context),
+          this::metadataFor);
     }
     return deleteMarker(markerId, request, context);
   }
 
-  private MarkerMutationResult deleteMarker(
+  private MarkerMutationResponse deleteMarker(
       UUID markerId, MarkerDeleteRequest request, MarkerRequestContext context) {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireDeleteAccess(markerId, context);
@@ -216,9 +194,7 @@ public class MarkerUpdateDeleteService {
             null);
     markerEventPublisher.publish(publishRequest);
 
-    return new MarkerMutationResult(
-        new MarkerMutationResponse(markerId, MarkerStatus.DELETED.name(), nextVersion),
-        publishRequest);
+    return new MarkerMutationResponse(markerId, MarkerStatus.DELETED.name(), nextVersion);
   }
 
   private MarkerRecord findOpenMarker(UUID markerId) {

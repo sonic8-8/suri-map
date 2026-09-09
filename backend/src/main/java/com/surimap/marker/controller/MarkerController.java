@@ -68,8 +68,7 @@ public class MarkerController {
     MarkerRequestContext context =
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(
-        markerUpdateDeleteService.update(markerId, request, context).response());
+    return ResponseEntity.ok(markerUpdateDeleteService.update(markerId, request, context));
   }
 
   @DeleteMapping("/{markerId}")
@@ -86,7 +85,6 @@ public class MarkerController {
     MarkerRequestContext context =
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(
-        markerUpdateDeleteService.delete(markerId, request, context).response());
+    return ResponseEntity.ok(markerUpdateDeleteService.delete(markerId, request, context));
   }
 }

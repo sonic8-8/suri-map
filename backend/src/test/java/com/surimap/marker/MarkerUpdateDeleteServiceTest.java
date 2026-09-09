@@ -11,7 +11,7 @@ import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerMutationResult;
+import com.surimap.marker.dto.MarkerMutationResponse;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerUpdateRequest;
 import com.surimap.marker.exception.MarkerApiException;
@@ -36,8 +36,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
-/** S14P31C106-71 L5-T02 marker update/delete service RED/GREEN tests. */
-@DisplayName("L5-T02 marker update/delete service")
 class MarkerUpdateDeleteServiceTest {
 
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550072");
@@ -89,23 +87,26 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Test
-  @DisplayName("WEB PATCH는 context와 row의 policePhoneId가 null이어도 허용하고 payload에 null을 보존한다")
+  @DisplayName("업무폰 정보가 없는 사전 등록 마커를 웹에서 수정하면, 수정 이벤트에도 업무폰 정보 없이 기록한다")
   void webUpdateAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+    // given: 업무폰 정보가 없는 사전 등록 마커와 웹 요청을 준비한다.
     insertMockSeedMarkerWithNullPolicePhone();
     guard.mutationPolicePhoneId = null;
     MarkerRequestContext webContext =
         new MarkerRequestContext(
             new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-update-null-phone-001");
 
-    MarkerMutationResult result =
+    // when: 메모와 마커 유형을 수정한다.
+    MarkerMutationResponse response =
         service.update(
             MOCK_SEED_MARKER_ID,
             new MarkerUpdateRequest(1L, null, "web corrected seed marker", "NOTE"),
             webContext);
 
-    assertThat(result.response().id()).isEqualTo(MOCK_SEED_MARKER_ID);
-    assertThat(result.response().status()).isEqualTo("UPDATED");
-    assertThat(result.response().version()).isEqualTo(2L);
+    // then: 수정 결과와 이벤트에 업무폰 정보가 추가되지 않는다.
+    assertThat(response.id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(response.status()).isEqualTo("UPDATED");
+    assertThat(response.version()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
     assertThat(row.getPolicePhoneId()).isNull();
@@ -121,21 +122,24 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Test
-  @DisplayName("WEB DELETE는 context와 row의 policePhoneId가 null이어도 허용하고 payload에 null을 보존한다")
+  @DisplayName("업무폰 정보가 없는 사전 등록 마커를 웹에서 삭제하면, 삭제 이벤트에도 업무폰 정보 없이 기록한다")
   void webDeleteAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+    // given: 업무폰 정보가 없는 사전 등록 마커와 웹 요청을 준비한다.
     insertMockSeedMarkerWithNullPolicePhone();
     guard.mutationPolicePhoneId = null;
     MarkerRequestContext webContext =
         new MarkerRequestContext(
             new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-delete-null-phone-001");
 
-    MarkerMutationResult result =
+    // when: 사전 등록 마커를 삭제한다.
+    MarkerMutationResponse response =
         service.delete(
             MOCK_SEED_MARKER_ID, new MarkerDeleteRequest(1L, "seed cleanup"), webContext);
 
-    assertThat(result.response().id()).isEqualTo(MOCK_SEED_MARKER_ID);
-    assertThat(result.response().status()).isEqualTo("DELETED");
-    assertThat(result.response().version()).isEqualTo(2L);
+    // then: 삭제 결과와 이벤트에 업무폰 정보가 추가되지 않는다.
+    assertThat(response.id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(response.status()).isEqualTo("DELETED");
+    assertThat(response.version()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
     assertThat(row.getPolicePhoneId()).isNull();
@@ -150,16 +154,19 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Test
-  @DisplayName("PATCH memo가 2000자를 넘으면 row/event를 변경하지 않고 거부한다")
+  @DisplayName("수정할 메모가 2,000자를 넘으면, 마커와 이벤트를 변경하지 않고 거부한다")
   void updateRejectsMemoLongerThanTwoThousandCharactersWithoutMutatingRowOrEvent() {
+    // given: 허용 길이를 넘는 메모를 준비한다.
     String tooLongMemo = "m".repeat(2001);
 
+    // when & then: 수정 요청을 거부한다.
     assertThatThrownBy(
             () ->
                 service.update(
                     MARKER_ID, new MarkerUpdateRequest(1L, null, tooLongMemo, null), appContext))
         .isInstanceOf(MarkerApiException.class);
 
+    // then: 기존 마커를 유지하고 이벤트를 발행하지 않는다.
     MarkerRecord row = markerRepository.records().get(0);
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
     assertThat(row.getVersion()).isEqualTo(1L);
@@ -168,8 +175,9 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Test
-  @DisplayName("PATCH는 UPDATED version+1 row와 MARKER_UPDATED publish request를 만든다")
+  @DisplayName("마커를 수정하면, 변경된 내용과 증가한 버전을 저장하고 수정 이벤트를 발행한다")
   void updatePersistsVersionedRowAndPublishesMarkerUpdated() {
+    // given: 현재 버전과 변경할 좌표·메모·유형을 준비한다.
     MarkerUpdateRequest request =
         new MarkerUpdateRequest(
             1L,
@@ -178,11 +186,13 @@ class MarkerUpdateDeleteServiceTest {
             "updated clue memo",
             "NOTE");
 
-    MarkerMutationResult result = service.update(MARKER_ID, request, appContext);
+    // when: 마커를 수정한다.
+    MarkerMutationResponse response = service.update(MARKER_ID, request, appContext);
 
-    assertThat(result.response().id()).isEqualTo(MARKER_ID);
-    assertThat(result.response().status()).isEqualTo("UPDATED");
-    assertThat(result.response().version()).isEqualTo(2L);
+    // then: 수정 결과와 이벤트에 같은 내용과 버전을 기록한다.
+    assertThat(response.id()).isEqualTo(MARKER_ID);
+    assertThat(response.status()).isEqualTo("UPDATED");
+    assertThat(response.version()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.records().get(0);
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.UPDATED.name());
@@ -208,14 +218,17 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Test
-  @DisplayName("DELETE는 DELETED version+1 row와 MARKER_DELETED publish request를 만든다")
+  @DisplayName("마커를 삭제하면, 삭제 상태와 증가한 버전을 저장하고 삭제 이벤트를 발행한다")
   void deletePersistsVersionedTombstoneAndPublishesMarkerDeleted() {
-    MarkerMutationResult result =
+    // given: 버전이 1인 앱 마커가 저장되어 있다.
+    // when: 현재 버전으로 마커 삭제를 요청한다.
+    MarkerMutationResponse response =
         service.delete(MARKER_ID, new MarkerDeleteRequest(1L, "wrong marker"), appContext);
 
-    assertThat(result.response().id()).isEqualTo(MARKER_ID);
-    assertThat(result.response().status()).isEqualTo("DELETED");
-    assertThat(result.response().version()).isEqualTo(2L);
+    // then: 행을 지우지 않고 삭제 상태와 새 버전을 기록한다.
+    assertThat(response.id()).isEqualTo(MARKER_ID);
+    assertThat(response.status()).isEqualTo("DELETED");
+    assertThat(response.version()).isEqualTo(2L);
 
     MarkerRecord row = markerRepository.records().get(0);
     assertThat(row.getStatus()).isEqualTo(MarkerStatus.DELETED.name());
@@ -232,12 +245,13 @@ class MarkerUpdateDeleteServiceTest {
   }
 
   @Nested
-  @DisplayName("guards")
   class Guards {
 
     @Test
-    @DisplayName("version이 맞지 않으면 write_conflict이고 row/event를 변경하지 않는다")
+    @DisplayName("요청 버전이 저장된 버전과 다르면, 마커와 이벤트를 변경하지 않고 write_conflict 오류로 거부한다")
     void versionConflictRejectedBeforeWrite() {
+      // given: 저장된 마커 버전은 1인데 요청 버전은 99이다.
+      // when & then: 버전이 다른 수정 요청을 거부한다.
       assertThatThrownBy(
               () ->
                   service.update(
@@ -248,6 +262,7 @@ class MarkerUpdateDeleteServiceTest {
           .extracting("error")
           .isEqualTo("write_conflict");
 
+      // then: 기존 마커와 이벤트를 유지한다.
       MarkerRecord row = markerRepository.records().get(0);
       assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
       assertThat(row.getVersion()).isEqualTo(1L);
@@ -256,10 +271,12 @@ class MarkerUpdateDeleteServiceTest {
     }
 
     @Test
-    @DisplayName("S5 marker policy가 role_denied를 반환하면 row/event를 변경하지 않는다")
+    @DisplayName("권한 검사에서 삭제를 거부하면, 마커와 이벤트를 변경하지 않고 role_denied 오류를 전달한다")
     void policyDenialRejectedBeforeWrite() {
+      // given: 권한 검사가 삭제를 거부하도록 준비한다.
       guard.error = new MarkerApiException("role_denied", HttpStatus.FORBIDDEN);
 
+      // when & then: 삭제 요청에 권한 오류를 전달한다.
       assertThatThrownBy(
               () ->
                   service.delete(
@@ -268,6 +285,7 @@ class MarkerUpdateDeleteServiceTest {
           .extracting("error")
           .isEqualTo("role_denied");
 
+      // then: 기존 마커를 유지하고 이벤트를 발행하지 않는다.
       MarkerRecord row = markerRepository.records().get(0);
       assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
       assertThat(row.getVersion()).isEqualTo(1L);
