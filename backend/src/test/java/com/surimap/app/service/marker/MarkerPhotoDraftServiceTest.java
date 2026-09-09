@@ -7,6 +7,7 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP2_ID;
 import static com.surimap.marker.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.domain.marker.MarkerMapper;
@@ -17,11 +18,14 @@ import com.surimap.marker.photo.dto.MarkerCreatePhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
+import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
@@ -31,6 +35,8 @@ class MarkerPhotoDraftServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550340");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("33333333-3333-3333-3333-333333330001");
   private static final String IDEMPOTENCY_KEY = "idem-marker-create-photo-upload-001";
+  private static final String LEGACY_REQUEST_HASH =
+      "7a799287a2b1a1bd573cdc694279050f4831113194d0449b609cadb9f5ab4769";
 
   @Autowired private MarkerPhotoDraftService markerPhotoDraftService;
   @Autowired private PhotoMapper photoMapper;
@@ -133,12 +139,20 @@ class MarkerPhotoDraftServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly("COMPLETED");
   }
 
-  @Test
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
   @DisplayName("마커 생성 전 같은 업로드 주소 요청을 재전송하면, 기존 응답을 반환하고 대기 사진을 추가하지 않는다")
-  void createUploadUrl_sameRequest_returnsStoredResponseWithoutAnotherPhoto() {
+  void createUploadUrl_sameRequest_returnsStoredResponseWithoutAnotherPhoto(
+      String storedHashFormat) {
     // given: 마커 생성 전에 사진 업로드 주소를 한 번 발급받았다.
     PhotoUploadUrlResponse first =
         markerPhotoDraftService.createUploadUrl(createRequest(), createContext());
+    assertThat(readRequestBodyHash())
+        .isEqualTo("a391ad0e4d94e24f997a29ef3881ba8303120950426bd1fd9acc8e5b5def41bc");
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(LEGACY_REQUEST_HASH);
+    }
+    String storedRequestHash = readRequestBodyHash();
 
     // when: 같은 요청 키와 본문으로 업로드 주소를 다시 요청한다.
     PhotoUploadUrlResponse repeated =
@@ -153,6 +167,62 @@ class MarkerPhotoDraftServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photoMapper.findById(first.photoId()).orElseThrow().getStatus())
         .isEqualTo(PhotoStatus.PENDING_UPLOAD);
     assertThat(markerMapper.findById(MARKER_ID)).isEmpty();
+    assertThat(readRequestBodyHash()).isEqualTo(storedRequestHash);
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("마커 생성 전 사용한 업로드 요청 키에 다른 파일 크기를 보내면, 거부하고 기존 대기 사진을 유지한다")
+  void createUploadUrl_sameKeyWithDifferentSize_rejectsWithoutChangingPhoto(
+      String storedHashFormat) {
+    // given: 마커 생성 전 발급한 주소와 현재 또는 과거 해시의 요청 기록이 있다.
+    PhotoUploadUrlResponse first =
+        markerPhotoDraftService.createUploadUrl(createRequest(), createContext());
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(LEGACY_REQUEST_HASH);
+    }
+    String storedRequestHash = readRequestBodyHash();
+
+    // when: 같은 키에 파일 크기만 다른 업로드 주소 요청을 보낸다.
+    MarkerCreatePhotoUploadUrlRequest changed =
+        new MarkerCreatePhotoUploadUrlRequest(
+            MARKER_ID, INCIDENT_ID, OP1_ID, "image/jpeg", 2048L, CHECKSUM_SHA256);
+    assertThatThrownBy(() -> markerPhotoDraftService.createUploadUrl(changed, createContext()))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 원래 대기 사진과 요청 기록을 유지하고 마커·이벤트는 만들지 않는다.
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
+        .containsExactly(first.photoId());
+    MarkerPhoto photo = photoMapper.findById(first.photoId()).orElseThrow();
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(photo.getVersion()).isEqualTo(1L);
+    assertThat(photo.getSizeBytes()).isEqualTo(1_048_576L);
+    assertThat(markerMapper.findById(MARKER_ID)).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE incident_id = ?",
+                String.class,
+                INCIDENT_ID))
+        .isEmpty();
+    assertThat(readRequestBodyHash()).isEqualTo(storedRequestHash);
+  }
+
+  private String readRequestBodyHash() {
+    return jdbcTemplate.queryForObject(
+        "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ?",
+        String.class,
+        IDEMPOTENCY_KEY);
+  }
+
+  private void replaceStoredRequestHash(String bodyHash) {
+    assertThat(
+            jdbcTemplate.update(
+                "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ?",
+                bodyHash,
+                IDEMPOTENCY_KEY))
+        .isEqualTo(1);
   }
 
   private MarkerCreatePhotoUploadUrlRequest createRequest() {

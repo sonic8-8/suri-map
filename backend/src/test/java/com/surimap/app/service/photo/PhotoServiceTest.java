@@ -30,7 +30,11 @@ import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
+import com.surimap.sync.idempotency.IdempotencyMismatchException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +42,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -58,6 +63,11 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
       UUID.fromString("00000000-0000-0000-0000-000000000301");
   private static final String IDEMPOTENCY_KEY = "idem-photo-upload-url";
   private static final String ATTACH_IDEMPOTENCY_KEY = "idem-photo-attach";
+  private static final String LEGACY_UPLOAD_REQUEST_HASH =
+      "755b32930089d3b6c2a682c246a29fdb06aff28ca7d523ffe1df4536bfbb44ed";
+  private static final String LEGACY_ATTACH_REQUEST_BODY =
+      "PhotoAttachRequest[sizeBytes=1024, contentType=image/jpeg, width=640, height=480, "
+          + "checksumSha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef]";
 
   @Autowired private PhotoService photoService;
   @Autowired private MarkerMapper markerMapper;
@@ -288,13 +298,21 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         .containsEntry("photo_version_type", "number");
   }
 
-  @Test
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
   @DisplayName("같은 업로드 주소 요청을 재전송하면, 저장된 응답을 반환하고 대기 사진을 추가하지 않는다")
-  void createUploadUrl_sameRequest_returnsStoredResponseWithoutAnotherPhoto() {
+  void createUploadUrl_sameRequest_returnsStoredResponseWithoutAnotherPhoto(
+      String storedHashFormat) {
     // given: 업로드 주소와 대기 사진이 이미 저장된 요청이다.
     PhotoRequestContext context = createContext(ASSIGNED_POLICE_PHONE_ID);
     PhotoUploadUrlResponse first =
         photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+    assertThat(readRequestBodyHash(IDEMPOTENCY_KEY))
+        .isEqualTo("889df90ae1c14800e18bc78211742114a3763c7237ee2c07139ef8358abf1d98");
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(IDEMPOTENCY_KEY, LEGACY_UPLOAD_REQUEST_HASH);
+    }
+    String storedRequestHash = readRequestBodyHash(IDEMPOTENCY_KEY);
 
     // when: 같은 키와 본문으로 업로드 주소를 다시 요청한다.
     PhotoUploadUrlResponse repeated =
@@ -316,11 +334,52 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 MARKER_ID))
         .isEmpty();
     assertCompletedRequest(IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash(IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
   }
 
-  @Test
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("처리한 업로드 주소 요청 키에 다른 파일 크기를 보내면, 거부하고 기존 대기 사진을 유지한다")
+  void createUploadUrl_sameKeyWithDifferentSize_rejectsWithoutChangingPhoto(
+      String storedHashFormat) {
+    // given: 현재 또는 과거 해시로 기록된 업로드 주소 요청과 대기 사진이 있다.
+    PhotoRequestContext context = createContext(ASSIGNED_POLICE_PHONE_ID);
+    PhotoUploadUrlResponse first =
+        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+    MarkerPhoto photo = photoMapper.findById(first.photoId()).orElseThrow();
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(IDEMPOTENCY_KEY, LEGACY_UPLOAD_REQUEST_HASH);
+    }
+    String storedRequestHash = readRequestBodyHash(IDEMPOTENCY_KEY);
+
+    // when: 같은 요청 키를 유지하고 파일 크기만 바꿔 보낸다.
+    PhotoUploadUrlRequest changed = new PhotoUploadUrlRequest("image/jpeg", 2048L, CHECKSUM_SHA256);
+    assertThatThrownBy(() -> photoService.createUploadUrl(MARKER_ID, changed, context))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 사진을 추가하거나 변경하지 않고 마커·이벤트·기존 요청 기록도 유지한다.
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
+        .containsExactly(first.photoId());
+    assertPhotoNotAttached(photo, PhotoStatus.PENDING_UPLOAD, 1L);
+    assertThat(photoMapper.findById(photo.getId()).orElseThrow().getSizeBytes()).isEqualTo(1024L);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .isEmpty();
+    assertCompletedRequest(IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash(IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
   @DisplayName("같은 사진 첨부 요청을 재전송하면, 기존 응답을 반환하고 사진·마커·이벤트를 중복 변경하지 않는다")
-  void attach_sameRequest_returnsStoredResponseWithoutDuplicateChanges() {
+  void attach_sameRequest_returnsStoredResponseWithoutDuplicateChanges(String storedHashFormat)
+      throws Exception {
     // given: 업로드된 사진의 첨부 요청을 한 번 처리했다.
     PhotoUploadUrlResponse upload =
         photoService.createUploadUrl(
@@ -334,6 +393,12 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoAttachRequest request =
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
     PhotoAttachResponse first = photoService.attach(MARKER_ID, photo.getId(), request, context);
+    assertThat(readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY))
+        .isEqualTo("9cf76d37f2037dc74968d16e919b179faea21c037cd429367200418468e28eb1");
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredAttachRequestHash(photo.getId(), LEGACY_ATTACH_REQUEST_BODY);
+    }
+    String storedRequestHash = readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY);
 
     // when: 같은 키와 본문으로 사진 첨부를 다시 요청한다.
     PhotoAttachResponse repeated = photoService.attach(MARKER_ID, photo.getId(), request, context);
@@ -353,6 +418,87 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 MARKER_ID))
         .containsExactly("MARKER_UPDATED");
     assertCompletedRequest(ATTACH_IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("처리한 사진 첨부 요청 키에 다른 가로 길이를 보내면, 거부하고 사진·마커·이벤트를 유지한다")
+  void attach_sameKeyWithDifferentWidth_rejectsWithoutChangingPhotoMarkerOrEvents(
+      String storedHashFormat) throws Exception {
+    // given: 사진 첨부가 완료되고 현재 또는 과거 해시와 응답이 저장되어 있다.
+    MarkerPhoto photo = createPendingPhoto();
+    objectStorage.simulateUpload(photo.getObjectKey());
+    PhotoRequestContext context = createAttachContext();
+    photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context);
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredAttachRequestHash(photo.getId(), LEGACY_ATTACH_REQUEST_BODY);
+    }
+    String storedRequestHash = readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY);
+
+    // when: 같은 요청 키에 가로 길이만 다른 첨부 요청을 보낸다.
+    PhotoAttachRequest changed =
+        new PhotoAttachRequest(1024L, "image/jpeg", 641, 480, CHECKSUM_SHA256);
+    assertThatThrownBy(() -> photoService.attach(MARKER_ID, photo.getId(), changed, context))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 최초 첨부 정보·버전·수정 이벤트와 요청 기록을 그대로 유지한다.
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
+    assertThat(savedPhoto.getWidth()).isEqualTo(640);
+    assertThat(savedPhoto.getHeight()).isEqualTo(480);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .containsExactly("MARKER_UPDATED");
+    assertCompletedRequest(ATTACH_IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
+  }
+
+  @Test
+  @DisplayName("가로·세로 길이와 체크섬이 없는 과거 첨부 요청을 재전송하면, 기존 응답을 반환하고 중복 처리하지 않는다")
+  void attach_legacyRequestWithoutOptionalMetadata_returnsStoredResponse() throws Exception {
+    // given: 선택 항목 없이 첨부한 사진과 과거 형식의 요청 해시가 남아 있다.
+    PhotoUploadUrlResponse upload =
+        photoService.createUploadUrl(
+            MARKER_ID,
+            new PhotoUploadUrlRequest("image/jpeg", 1024L, null),
+            createContext(ASSIGNED_POLICE_PHONE_ID));
+    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(photo.getObjectKey());
+    PhotoAttachRequest request = new PhotoAttachRequest(1024L, "image/jpeg", null, null, null);
+    PhotoAttachResponse first =
+        photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext());
+    replaceStoredAttachRequestHash(
+        photo.getId(),
+        "PhotoAttachRequest[sizeBytes=1024, contentType=image/jpeg, width=null, height=null, checksumSha256=null]");
+    String storedRequestHash = readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY);
+
+    // when: 선택 항목이 없는 같은 요청을 다시 보낸다.
+    PhotoAttachResponse repeated =
+        photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext());
+
+    // then: 기존 첨부 결과를 재사용하며 사진·마커 버전과 이벤트를 추가하지 않는다.
+    assertThat(repeated).isEqualTo(first);
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
+    assertThat(savedPhoto.getWidth()).isNull();
+    assertThat(savedPhoto.getHeight()).isNull();
+    assertThat(savedPhoto.getChecksumSha256()).isNull();
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .containsExactly("MARKER_UPDATED");
+    assertCompletedRequest(ATTACH_IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash(ATTACH_IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
   }
 
   @Test
@@ -1004,6 +1150,31 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 String.class,
                 idempotencyKey))
         .containsExactly("COMPLETED");
+  }
+
+  private String readRequestBodyHash(String idempotencyKey) {
+    return jdbcTemplate.queryForObject(
+        "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ?",
+        String.class,
+        idempotencyKey);
+  }
+
+  private void replaceStoredRequestHash(String idempotencyKey, String bodyHash) {
+    assertThat(
+            jdbcTemplate.update(
+                "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ?",
+                bodyHash,
+                idempotencyKey))
+        .isEqualTo(1);
+  }
+
+  private void replaceStoredAttachRequestHash(UUID photoId, String legacyRequestBody)
+      throws Exception {
+    // 서비스의 포맷 함수를 쓰지 않고, 이전 record DTO의 고정 문자열로 과거 기록을 준비한다.
+    String legacyBody = "attach:" + MARKER_ID + ":" + photoId + ":" + legacyRequestBody;
+    byte[] hash =
+        MessageDigest.getInstance("SHA-256").digest(legacyBody.getBytes(StandardCharsets.UTF_8));
+    replaceStoredRequestHash(ATTACH_IDEMPOTENCY_KEY, HexFormat.of().formatHex(hash));
   }
 
   private PhotoRequestContext createContext(UUID policePhoneId) {
