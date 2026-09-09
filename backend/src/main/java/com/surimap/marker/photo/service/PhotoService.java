@@ -1,5 +1,6 @@
 package com.surimap.marker.photo.service;
 
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
@@ -17,7 +18,6 @@ import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.repository.PhotoRepository;
-import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -31,8 +31,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +52,7 @@ public class PhotoService {
   private final PhotoRepository photoRepository;
   private final PhotoWriteGuardPort photoWriteGuardPort;
   private final PhotoEventPublisher photoEventPublisher;
-  private final MarkerRepository markerRepository;
+  private final MarkerMapper markerMapper;
   private final Clock clock;
   private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
   private final IdempotentResponseCache idempotentResponseCache;
@@ -63,18 +63,19 @@ public class PhotoService {
       PhotoRepository photoRepository,
       PhotoWriteGuardPort photoWriteGuardPort,
       PhotoEventPublisher photoEventPublisher,
-      MarkerRepository markerRepository,
+      MarkerMapper markerMapper,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         storagePort,
         photoRepository,
         photoWriteGuardPort,
         photoEventPublisher,
-        markerRepository,
+        markerMapper,
         Clock.systemUTC(),
         idempotentResponseCacheProvider.getIfAvailable());
   }
 
+  // ponytail: 기존 가짜 저장소 테스트용이다. 해당 검증을 실제 DB로 옮긴 뒤 제거한다.
   public PhotoService(
       ObjectStoragePort storagePort,
       PhotoRepository photoRepository,
@@ -84,35 +85,19 @@ public class PhotoService {
     this(storagePort, photoRepository, photoWriteGuardPort, photoEventPublisher, null, clock, null);
   }
 
-  public PhotoService(
-      ObjectStoragePort storagePort,
-      PhotoRepository photoRepository,
-      PhotoWriteGuardPort photoWriteGuardPort,
-      PhotoEventPublisher photoEventPublisher,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this(
-        storagePort,
-        photoRepository,
-        photoWriteGuardPort,
-        photoEventPublisher,
-        null,
-        Clock.systemUTC(),
-        idempotentResponseCacheProvider.getIfAvailable());
-  }
-
   private PhotoService(
       ObjectStoragePort storagePort,
       PhotoRepository photoRepository,
       PhotoWriteGuardPort photoWriteGuardPort,
       PhotoEventPublisher photoEventPublisher,
-      MarkerRepository markerRepository,
+      MarkerMapper markerMapper,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
     this.photoRepository = Objects.requireNonNull(photoRepository);
     this.photoWriteGuardPort = Objects.requireNonNull(photoWriteGuardPort);
     this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
-    this.markerRepository = markerRepository;
+    this.markerMapper = markerMapper;
     this.clock = Objects.requireNonNull(clock);
     this.idempotentResponseCache = idempotentResponseCache;
   }
@@ -336,12 +321,11 @@ public class PhotoService {
   }
 
   private void bumpParentMarkerVersion(UUID markerId, long expectedVersion, long markerVersion) {
-    if (markerRepository == null) {
+    if (markerMapper == null) {
       return;
     }
     int updated =
-        markerRepository.updateMarkerStatusVersion(
-            markerId, expectedVersion, "UPDATED", markerVersion);
+        markerMapper.updateMarkerStatusVersion(markerId, expectedVersion, "UPDATED", markerVersion);
     if (updated != 1) {
       throw conflict("write_conflict");
     }
@@ -353,12 +337,18 @@ public class PhotoService {
 
   private ResponseMetadata metadataForUpload(PhotoUploadUrlResponse response) {
     return new ResponseMetadata(
-        response.photoId().toString(), PhotoStatus.PENDING_UPLOAD.name(), response.version(), response.version());
+        response.photoId().toString(),
+        PhotoStatus.PENDING_UPLOAD.name(),
+        response.version(),
+        response.version());
   }
 
   private ResponseMetadata metadataForAttach(PhotoAttachResponse response) {
     return new ResponseMetadata(
-        response.photoId().toString(), response.status(), response.version(), response.markerVersion());
+        response.photoId().toString(),
+        response.status(),
+        response.version(),
+        response.markerVersion());
   }
 
   private String fingerprint(String operation, Object request) {

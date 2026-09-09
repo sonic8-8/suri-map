@@ -49,6 +49,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.test.context.TestPropertySource;
@@ -69,6 +71,11 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:05:00Z");
   private static final String IDEMPOTENCY_KEY = "idem-marker-create-001";
   private static final String MARKER_MEMO = "field clue";
+  // 이전 DTO 문자열 형식으로 계산해 둔 값이다. 운영 코드의 해시 함수를 기대값 생성에 사용하지 않는다.
+  private static final String LEGACY_UPDATE_REQUEST_HASH =
+      "5071d0522889dba1ae1cc2d04aaa4321bc3ec01a86b8cdc1b4eececcfb272a93";
+  private static final String LEGACY_DELETE_REQUEST_HASH =
+      "ceec70afabd12682afa1687e5c92946715fd369056003191189b1b2bcba3689a";
 
   @Autowired private AppMarkerService appMarkerService;
   @Autowired private MarkerRepository markerRepository;
@@ -552,6 +559,44 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
   }
 
+  @Test
+  @DisplayName("같은 단서 마커 생성 요청을 재전송하면, 기존 응답을 반환하고 마커·이벤트를 추가하지 않는다")
+  void createMarker_sameRequest_returnsStoredResponseWithoutDuplicates() {
+    // given: 마커 ID를 지정하지 않은 생성 요청을 한 번 처리했다.
+    MarkerCreateServiceResponse first = appMarkerService.create(createRequest("CLUE", null));
+
+    // when: 같은 키와 본문으로 마커 생성을 다시 요청한다.
+    MarkerCreateServiceResponse repeated = appMarkerService.create(createRequest("CLUE", null));
+
+    // then: 최초 응답과 마커 하나·생성 이벤트 하나만 유지한다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    assertThat(readMarkerIds()).containsExactly(first.getId());
+    assertThat(readEventTypes()).containsExactly("MARKER_CREATED");
+    assertCompletedRequest();
+  }
+
+  @Test
+  @DisplayName("처리한 생성 요청 키에 다른 본문을 보내면, 기존 마커와 이벤트를 유지하고 거부한다")
+  void createMarker_sameKeyWithDifferentBody_rejectsWithoutChangingMarkerOrEvents() {
+    // given: 단서 마커 생성에 사용한 키로 메모와 유형을 바꿔 보낸다.
+    MarkerCreateServiceResponse first = appMarkerService.create(createRequest("CLUE", null));
+    MarkerCreateServiceRequest changed =
+        createRequest("NOTE", null).toBuilder().memo("changed memo").build();
+
+    // when: 같은 키로 다른 본문의 생성을 요청한다.
+    assertThatThrownBy(() -> appMarkerService.create(changed))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 최초 마커의 내용과 버전, 생성 이벤트가 유지된다.
+    assertThat(readMarkerIds()).containsExactly(first.getId());
+    Marker saved = markerRepository.findById(first.getId()).orElseThrow();
+    assertThat(saved.getMarkerType()).isEqualTo("CLUE");
+    assertThat(saved.getMemo()).isEqualTo(MARKER_MEMO);
+    assertThat(saved.getVersion()).isEqualTo(1L);
+    assertThat(readEventTypes()).containsExactly("MARKER_CREATED");
+    assertCompletedRequest();
+  }
+
   private MarkerCreateServiceRequest prepareMarkerRequestWithUploadedPhoto() {
     String objectKey = "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + PHOTO_ID + ".jpg";
     objectStorage.generatePresignedUrl(
@@ -898,9 +943,11 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("같은 수정 요청을 재전송하면, 저장된 응답을 반환하고 중복 변경하지 않는다")
   void updateMarker_sameRequest_returnsStoredResponseWithoutDuplicates() {
-    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     // given: 수정이 한 번 완료된 요청이다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     MarkerMutationServiceResponse first = appMarkerService.update(updateRequest());
+    assertThat(readRequestBodyHash())
+        .isEqualTo("92b85e147eb6e41bcdd56e6332bb3c00423ffd391bf11a9f91eea2aa47749235");
 
     // when: 같은 키와 본문으로 다시 요청한다.
     MarkerMutationServiceResponse repeated = appMarkerService.update(updateRequest());
@@ -910,17 +957,85 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
         .isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertCompletedRequest();
+  }
+
+  @Test
+  @DisplayName("과거 방식으로 기록된 수정 요청을 재전송하면, 기존 응답을 반환하고 중복 수정하지 않는다")
+  void updateMarker_legacyRequestHash_returnsStoredResponseWithoutDuplicates() {
+    // given: 변경 전 서버가 수정 요청을 처리하고 저장한 해시와 응답이 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    MarkerMutationServiceResponse first = appMarkerService.update(updateRequest());
+    replaceStoredRequestHash(LEGACY_UPDATE_REQUEST_HASH);
+
+    // when: 같은 키와 본문을 재전송한다.
+    MarkerMutationServiceResponse repeated = appMarkerService.update(updateRequest());
+
+    // then: 저장된 응답을 반환하고 수정 내용·버전·이벤트를 그대로 유지한다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getMemo()).isEqualTo("updated clue memo");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertCompletedRequest();
+  }
+
+  @Test
+  @DisplayName("좌표가 포함된 과거 수정 요청을 재전송하면, 기존 응답을 반환하고 좌표·이벤트를 중복 변경하지 않는다")
+  void updateMarker_legacyRequestWithLocation_returnsStoredResponseWithoutDuplicates() {
+    // given: 좌표만 수정한 요청의 과거 해시와 응답이 남아 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder().location(createMarkerLocation()).memo(null).build();
+    MarkerMutationServiceResponse first = appMarkerService.update(request);
+    replaceStoredRequestHash("7e867860b0c2c34bd7ad90e263ecc88d13d92d1a60e1c42d9c032ab2f79a85d6");
+
+    // when: 같은 좌표가 담긴 요청을 다시 보낸다.
+    MarkerMutationServiceResponse repeated = appMarkerService.update(request);
+
+    // then: 과거 좌표 표현을 인식하고 마커·이벤트는 한 번만 변경된다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getLocation().getX()).isEqualTo(126.9134);
+    assertThat(saved.getLocation().getY()).isEqualTo(35.1631);
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertCompletedRequest();
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("처리한 수정 요청 키에 다른 메모를 보내면, 기존 마커와 이벤트를 유지하고 거부한다")
+  void updateMarker_sameKeyWithDifferentMemo_rejectsWithoutChangingMarkerOrEvents(
+      String storedHashFormat) {
+    // given: 현재 또는 과거 방식으로 처리된 수정 요청이 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    appMarkerService.update(updateRequest());
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(LEGACY_UPDATE_REQUEST_HASH);
+    }
+
+    // when: 같은 키에 다른 메모를 담아 보낸다.
     assertThatThrownBy(
-            () -> appMarkerService.update(updateRequest().toBuilder().memo("다른 메모").build()))
+            () -> appMarkerService.update(updateRequest().toBuilder().memo("changed memo").build()))
         .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 최초 수정 결과와 처리 기록이 유지된다.
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getMemo()).isEqualTo("updated clue memo");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertCompletedRequest();
   }
 
   @Test
   @DisplayName("같은 삭제 요청을 재전송하면, 삭제 상태여도 기존 응답을 반환하고 중복 처리하지 않는다")
   void deleteMarker_sameRequest_returnsStoredResponseWithoutDuplicates() {
-    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     // given: 삭제가 한 번 완료된 요청이다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     MarkerMutationServiceResponse first = appMarkerService.delete(deleteRequest());
+    assertThat(readRequestBodyHash())
+        .isEqualTo("16efc3f737390b1ec618b00b2c14abd9a6d8b07850127d7ff7c7fa53d04370ef");
 
     // when: 같은 키와 본문으로 다시 삭제를 요청한다.
     MarkerMutationServiceResponse repeated = appMarkerService.delete(deleteRequest());
@@ -930,6 +1045,54 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
         .isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
+    assertCompletedRequest();
+  }
+
+  @Test
+  @DisplayName("과거 방식으로 기록된 삭제 요청을 재전송하면, 기존 응답을 반환하고 중복 삭제하지 않는다")
+  void deleteMarker_legacyRequestHash_returnsStoredResponseWithoutDuplicates() {
+    // given: 이전 서버가 삭제를 처리한 해시와 응답이 남아 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    MarkerMutationServiceResponse first = appMarkerService.delete(deleteRequest());
+    replaceStoredRequestHash(LEGACY_DELETE_REQUEST_HASH);
+
+    // when: 같은 삭제 요청을 재전송한다.
+    MarkerMutationServiceResponse repeated = appMarkerService.delete(deleteRequest());
+
+    // then: 삭제 상태·버전·이벤트를 추가로 변경하지 않는다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getStatus()).isEqualTo("DELETED");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
+    assertCompletedRequest();
+  }
+
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("처리한 삭제 요청 키에 다른 사유를 보내면, 기존 마커와 이벤트를 유지하고 거부한다")
+  void deleteMarker_sameKeyWithDifferentReason_rejectsWithoutChangingMarkerOrEvents(
+      String storedHashFormat) {
+    // given: 현재 또는 과거 방식으로 처리된 삭제 요청이 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    appMarkerService.delete(deleteRequest());
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash(LEGACY_DELETE_REQUEST_HASH);
+    }
+
+    // when: 같은 키에 다른 삭제 사유를 담아 보낸다.
+    assertThatThrownBy(
+            () ->
+                appMarkerService.delete(
+                    deleteRequest().toBuilder().reason("changed reason").build()))
+        .isInstanceOf(IdempotencyMismatchException.class);
+
+    // then: 최초 삭제 결과와 처리 기록이 유지된다.
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getStatus()).isEqualTo("DELETED");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
+    assertCompletedRequest();
   }
 
   @Test
@@ -1005,6 +1168,31 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
         .isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+  }
+
+  private void replaceStoredRequestHash(String requestBodyHash) {
+    jdbcTemplate.update(
+        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ?",
+        requestBodyHash,
+        IDEMPOTENCY_KEY);
+  }
+
+  private String readRequestBodyHash() {
+    return jdbcTemplate
+        .queryForObject(
+            "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ?",
+            String.class,
+            IDEMPOTENCY_KEY)
+        .trim();
+  }
+
+  private void assertCompletedRequest() {
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .containsExactly("COMPLETED");
   }
 
   private MarkerRequestContext context(String channel, UUID policePhoneId) {

@@ -183,6 +183,75 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("같은 업로드 주소 요청을 재전송하면, 저장된 응답을 반환하고 대기 사진을 추가하지 않는다")
+  void createUploadUrl_sameRequest_returnsStoredResponseWithoutAnotherPhoto() {
+    // given: 업로드 주소와 대기 사진이 이미 저장된 요청이다.
+    PhotoRequestContext context = createContext(ASSIGNED_POLICE_PHONE_ID);
+    PhotoUploadUrlResponse first =
+        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+
+    // when: 같은 키와 본문으로 업로드 주소를 다시 요청한다.
+    PhotoUploadUrlResponse repeated =
+        photoService.createUploadUrl(MARKER_ID, createUploadRequest(), context);
+
+    // then: 주소·사진 ID·만료 시각을 재사용하고 DB에는 대기 사진 하나만 남는다.
+    assertThat(repeated).isEqualTo(first);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
+        .containsExactly(first.photoId());
+    assertThat(photoRepository.findById(first.photoId()).orElseThrow().status())
+        .isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .isEmpty();
+    assertCompletedRequest(IDEMPOTENCY_KEY);
+  }
+
+  @Test
+  @DisplayName("같은 사진 첨부 요청을 재전송하면, 기존 응답을 반환하고 사진·마커·이벤트를 중복 변경하지 않는다")
+  void attach_sameRequest_returnsStoredResponseWithoutDuplicateChanges() {
+    // given: 업로드된 사진의 첨부 요청을 한 번 처리했다.
+    PhotoUploadUrlResponse upload =
+        photoService.createUploadUrl(
+            MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
+    MarkerPhoto photo = photoRepository.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(photo.objectKey());
+    PhotoRequestContext context =
+        new PhotoRequestContext(
+            new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID),
+            ATTACH_IDEMPOTENCY_KEY);
+    PhotoAttachRequest request =
+        new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
+    PhotoAttachResult first = photoService.attach(MARKER_ID, photo.id(), request, context);
+
+    // when: 같은 키와 본문으로 사진 첨부를 다시 요청한다.
+    PhotoAttachResult repeated = photoService.attach(MARKER_ID, photo.id(), request, context);
+
+    // then: 기존 응답을 재사용하며 사진·마커 버전은 2, 수정 이벤트는 하나로 유지된다.
+    assertThat(repeated.response()).isEqualTo(first.response());
+    assertThat(first.publishRequest()).isNotNull();
+    assertThat(repeated.publishRequest()).isNull();
+    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
+    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.version()).isEqualTo(2L);
+    Marker savedMarker = markerMapper.findById(MARKER_ID).orElseThrow();
+    assertThat(savedMarker.getStatus()).isEqualTo("UPDATED");
+    assertThat(savedMarker.getVersion()).isEqualTo(2L);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE source_entity_id = ?",
+                String.class,
+                MARKER_ID))
+        .containsExactly("MARKER_UPDATED");
+    assertCompletedRequest(ATTACH_IDEMPOTENCY_KEY);
+  }
+
+  @Test
   @DisplayName("현재 수색 차수가 없으면, op_required 오류를 반환하고 사진을 저장하지 않는다")
   void createUploadUrl_noCurrentOp_rejectsWithoutSavingPhoto() {
     // given: 마커의 수색 차수가 종료되어 활성 수색 차수가 없다.
@@ -240,6 +309,15 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
 
   private PhotoUploadUrlRequest createUploadRequest() {
     return new PhotoUploadUrlRequest("image/jpeg", 1024L, CHECKSUM_SHA256);
+  }
+
+  private void assertCompletedRequest(String idempotencyKey) {
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                idempotencyKey))
+        .containsExactly("COMPLETED");
   }
 
   private PhotoRequestContext createContext(UUID policePhoneId) {
