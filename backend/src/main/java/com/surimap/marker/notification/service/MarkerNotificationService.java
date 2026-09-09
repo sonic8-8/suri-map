@@ -4,85 +4,57 @@ import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.dto.MarkerPublishRequest;
+import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
+import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import com.surimap.marker.notification.repository.MarkerNotificationRepository;
 import com.surimap.marker.port.MarkerEventPublisher;
+import com.surimap.policephone.query.FcmTokenQuery;
+import com.surimap.policephone.query.FcmTokenRow;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.ObjectProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class MarkerNotificationService {
 
+  private static final Logger log = LoggerFactory.getLogger(MarkerNotificationService.class);
   private static final long INITIAL_NOTIFICATION_VERSION = 1L;
 
   private final MarkerNotificationRepository markerNotificationRepository;
   private final NotificationRecipientResolver recipientResolver;
   private final NotificationPayloadFactory payloadFactory;
   private final MarkerEventPublisher markerEventPublisher;
-  private final MarkerNotificationFcmDispatchService fcmDispatchService;
-  private final Clock clock;
-  private final Function<MarkerNotificationContext, UUID> notificationIdFactory;
-
-  @Autowired
-  public MarkerNotificationService(
-      MarkerNotificationRepository markerNotificationRepository,
-      NotificationRecipientResolver recipientResolver,
-      NotificationPayloadFactory payloadFactory,
-      MarkerEventPublisher markerEventPublisher,
-      ObjectProvider<MarkerNotificationFcmDispatchService> fcmDispatchServiceProvider) {
-    this(
-        markerNotificationRepository,
-        recipientResolver,
-        payloadFactory,
-        markerEventPublisher,
-        Clock.systemUTC(),
-        context -> UUID.randomUUID(),
-        fcmDispatchServiceProvider.getIfAvailable());
-  }
+  private final FcmTokenQuery fcmTokenQuery;
+  private final FcmDispatcherPort fcmDispatcher;
+  private final Clock clock = Clock.systemUTC();
 
   public MarkerNotificationService(
       MarkerNotificationRepository markerNotificationRepository,
       NotificationRecipientResolver recipientResolver,
       NotificationPayloadFactory payloadFactory,
       MarkerEventPublisher markerEventPublisher,
-      Clock clock,
-      Function<MarkerNotificationContext, UUID> notificationIdFactory) {
-    this(
-        markerNotificationRepository,
-        recipientResolver,
-        payloadFactory,
-        markerEventPublisher,
-        clock,
-        notificationIdFactory,
-        null);
-  }
-
-  public MarkerNotificationService(
-      MarkerNotificationRepository markerNotificationRepository,
-      NotificationRecipientResolver recipientResolver,
-      NotificationPayloadFactory payloadFactory,
-      MarkerEventPublisher markerEventPublisher,
-      Clock clock,
-      Function<MarkerNotificationContext, UUID> notificationIdFactory,
-      MarkerNotificationFcmDispatchService fcmDispatchService) {
+      FcmTokenQuery fcmTokenQuery,
+      FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
     this.recipientResolver = Objects.requireNonNull(recipientResolver);
     this.payloadFactory = Objects.requireNonNull(payloadFactory);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
-    this.fcmDispatchService = fcmDispatchService;
-    this.clock = Objects.requireNonNull(clock);
-    this.notificationIdFactory = Objects.requireNonNull(notificationIdFactory);
+    this.fcmTokenQuery = Objects.requireNonNull(fcmTokenQuery);
+    this.fcmDispatcher = Objects.requireNonNull(fcmDispatcher);
   }
 
   public Optional<MarkerPublishRequest> publishIfNeeded(MarkerNotificationContext context) {
@@ -95,7 +67,7 @@ public class MarkerNotificationService {
       MarkerNotificationContext context, NotificationType notificationType) {
     NotificationRecipients recipients =
         recipientResolver.resolve(context.incidentId(), notificationType);
-    UUID notificationId = notificationIdFactory.apply(context);
+    UUID notificationId = UUID.randomUUID();
     Instant createdAt = clock.instant();
     MarkerNotificationPublishRequestPayload payload =
         payloadFactory.markerNotificationPayload(
@@ -124,10 +96,86 @@ public class MarkerNotificationService {
     MarkerPublishRequest publishRequest =
         new MarkerPublishRequest(notificationType.name(), payload);
     markerEventPublisher.publish(publishRequest);
-    if (fcmDispatchService != null) {
-      fcmDispatchService.dispatchAfterCommit(notificationType.name(), payload);
-    }
+    sendFcmAfterCommit(notificationType.name(), payload);
     return Optional.of(publishRequest);
+  }
+
+  private void sendFcmAfterCommit(
+      String eventType, MarkerNotificationPublishRequestPayload payload) {
+    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+      sendFcm(eventType, payload);
+      return;
+    }
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            sendFcm(eventType, payload);
+          }
+        });
+  }
+
+  private void sendFcm(String eventType, MarkerNotificationPublishRequestPayload payload) {
+    List<String> recipientTokens =
+        payload.recipientPolicePhoneIds().stream()
+            .map(MarkerNotificationService::parseUuid)
+            .filter(Objects::nonNull)
+            .flatMap(policePhoneId -> fcmTokenQuery.activeByPolicePhone(policePhoneId).stream())
+            .map(FcmTokenRow::tokenCiphertext)
+            .map(this::decryptToken)
+            .filter(token -> !token.isBlank())
+            .distinct()
+            .toList();
+    if (recipientTokens.isEmpty()) {
+      return;
+    }
+    String eventId = MarkerEventIds.eventId(eventType, payload.id(), payload.version()).toString();
+    try {
+      fcmDispatcher.send(recipientTokens, createFcmPayload(eventType, payload), eventId);
+    } catch (RuntimeException exception) {
+      log.warn("failed to dispatch marker notification FCM eventId={}", eventId, exception);
+    }
+  }
+
+  private static Map<String, Object> createFcmPayload(
+      String eventType, MarkerNotificationPublishRequestPayload payload) {
+    Map<String, Object> values = new LinkedHashMap<>();
+    values.put("type", eventType);
+    values.put("id", payload.id().toString());
+    values.put("markerId", payload.markerId().toString());
+    values.put("incidentId", payload.incidentId().toString());
+    values.put("opId", payload.opId().toString());
+    values.put("policePhoneId", payload.policePhoneId().toString());
+    values.put("status", payload.status());
+    values.put("version", payload.version());
+    values.put("recipientPolicy", payload.recipientPolicy());
+    values.put("recipientAccountIds", payload.recipientAccountIds());
+    values.put("recipientPolicePhoneIds", payload.recipientPolicePhoneIds());
+    values.put("markerType", payload.markerType());
+    if (payload.clientTs() != null) {
+      values.put("clientTs", payload.clientTs().toString());
+    }
+    if (payload.locationLabel() != null) {
+      values.put("locationLabel", payload.locationLabel());
+    }
+    return values;
+  }
+
+  private static UUID parseUuid(String value) {
+    try {
+      return UUID.fromString(value);
+    } catch (RuntimeException exception) {
+      return null;
+    }
+  }
+
+  private String decryptToken(String tokenCiphertext) {
+    if (tokenCiphertext == null) {
+      return "";
+    }
+    return tokenCiphertext.startsWith("cipher:")
+        ? tokenCiphertext.substring("cipher:".length())
+        : tokenCiphertext;
   }
 
   private Optional<NotificationType> notificationTypeFor(MarkerType markerType) {
