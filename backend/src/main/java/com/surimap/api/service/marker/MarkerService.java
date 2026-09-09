@@ -11,7 +11,6 @@ import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
@@ -36,7 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class MarkerService {
 
   private final MarkerMapper markerMapper;
-  private final MarkerLocationValidator markerLocationValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
   private final Clock clock;
@@ -47,14 +45,12 @@ public class MarkerService {
   public MarkerService(
       MarkerQuery markerQuery,
       MarkerMapper markerMapper,
-      MarkerLocationValidator markerLocationValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.markerQuery = markerQuery;
     this.markerMapper = markerMapper;
-    this.markerLocationValidator = markerLocationValidator;
     this.markerWriteGuardPort = markerWriteGuardPort;
     this.markerEventPublisher = markerEventPublisher;
     this.clock = clock;
@@ -93,8 +89,7 @@ public class MarkerService {
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
-    MarkerGeoJsonPoint location =
-        resolveUpdateLocation(mutationContext.incidentId(), current, request);
+    MarkerGeoJsonPoint location = resolveUpdateLocation(current, request);
     current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
     int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
@@ -187,13 +182,13 @@ public class MarkerService {
   }
 
   private MarkerGeoJsonPoint resolveUpdateLocation(
-      UUID incidentId, Marker current, MarkerUpdateServiceRequest request) {
+      Marker current, MarkerUpdateServiceRequest request) {
     if (request.getLocation() == null) {
       return MarkerGeoJsonPoint.from(current.getLocation());
     }
     MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
-    markerLocationValidator.validate(incidentId, location);
+    Marker.validateLocation(location);
     return canonicalLocation;
   }
 

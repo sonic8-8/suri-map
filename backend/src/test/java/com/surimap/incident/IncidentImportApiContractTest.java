@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,6 +26,8 @@ import com.surimap.external.ExternalIncident;
 import com.surimap.external.ExternalIncidentAdapter;
 import com.surimap.external.ExternalMissingPerson;
 import com.surimap.external.ExternalSeedMarker;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.incident.event.IncidentCreatedEvent;
 import com.surimap.incident.event.IncidentEventPublisher;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
@@ -39,8 +42,11 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -180,25 +186,29 @@ class IncidentImportApiContractTest {
     verifyNoInteractions(referenceMarkerSeed);
   }
 
-  @Test
+  @ParameterizedTest
+  @MethodSource("createSeedFailures")
   @WithMockAccount(
       accountType = AccountType.COMMAND,
       organizationType = OrganizationType.POLICE_SUBSTATION,
       channel = Channel.WEB,
       accountId = "11111111-1111-1111-1111-111111110001",
       roles = {Role.FIELD_COMMANDER})
-  @DisplayName("초기 기준 마커 생성 실패 시 import 트랜잭션 전체가 rollback된다")
-  void referenceMarkerSeedFailureRollsBackIncidentImportTransaction() throws Exception {
+  @DisplayName("초기 마커 생성에 실패하면, 사건 가져오기를 롤백하고 내부 원인을 노출하지 않는 HTTP 500을 반환한다")
+  void importIncident_seedCreationFails_rollsBackWithoutExposingCause(RuntimeException failure)
+      throws Exception {
+    // given: 외부 사건의 초기 마커 저장 중 시스템 오류나 좌표 오류가 발생한다.
     givenMock112Incident(SOURCE_INCIDENT_ID);
     givenOp1CreatorWritesOp1();
-    doThrow(new IllegalStateException("reference_marker_seed_failed"))
-        .when(referenceMarkerSeed)
-        .createForIncident(any(UUID.class), anyList());
+    doThrow(failure).when(referenceMarkerSeed).createForIncident(any(UUID.class), anyList());
 
+    // when: 초기 마커 생성이 필요한 사건을 가져온다.
     mockMvc
         .perform(importRequest(SOURCE_INCIDENT_ID, "idem-l1-t01-marker-failure"))
-        .andExpect(status().is5xxServerError());
+        .andExpect(status().isInternalServerError())
+        .andExpect(content().string(""));
 
+    // then: 내부 의존 작업의 실패로 처리하며 사건·수색 차수·이벤트를 일부만 남기지 않는다.
     assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
         .isZero();
     assertThat(count("missing_person", "1 = 1")).isZero();
@@ -206,6 +216,12 @@ class IncidentImportApiContractTest {
     assertThat(count("operational_period", "1 = 1")).isZero();
     assertThat(count("event_dispatch_job", "event_type = ?", "INCIDENT_CREATED")).isZero();
     verifyNoInteractions(incidentEventPublisher);
+  }
+
+  private static Stream<RuntimeException> createSeedFailures() {
+    return Stream.of(
+        new IllegalStateException("reference_marker_seed_failed"),
+        new BusinessException(ErrorCode.INVALID_GEOMETRY, "latitude out of range: 91.0"));
   }
 
   @Test

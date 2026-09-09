@@ -17,6 +17,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 
 @Getter
@@ -159,6 +160,28 @@ public class Marker {
       MarkerType.valueOf(requestedType);
     } catch (IllegalArgumentException exception) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  public static void validateLocation(Point location) {
+    // 수색구역 밖의 단서·발견도 기록할 수 있으므로 좌표 자체만 검사한다.
+    if (location == null || location.isEmpty()) {
+      throw new BusinessException(ErrorCode.INVALID_GEOMETRY, "location is null or empty");
+    }
+    if (location.getSRID() != 4326) {
+      throw new BusinessException(ErrorCode.INVALID_GEOMETRY, "location SRID must be 4326");
+    }
+    Coordinate coordinate = location.getCoordinate();
+    if (coordinate == null || !Double.isFinite(coordinate.x) || !Double.isFinite(coordinate.y)) {
+      throw new BusinessException(ErrorCode.INVALID_GEOMETRY, "coordinates must be finite numbers");
+    }
+    if (coordinate.x < -180.0 || coordinate.x > 180.0) {
+      throw new BusinessException(
+          ErrorCode.INVALID_GEOMETRY, "longitude out of range: " + coordinate.x);
+    }
+    if (coordinate.y < -90.0 || coordinate.y > 90.0) {
+      throw new BusinessException(
+          ErrorCode.INVALID_GEOMETRY, "latitude out of range: " + coordinate.y);
     }
   }
 }

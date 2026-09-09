@@ -1,6 +1,7 @@
 package com.surimap.marker.dto;
 
-import com.surimap.marker.domain.exception.InvalidGeometryException;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -18,12 +19,14 @@ public record MarkerGeoJsonPoint(String type, List<BigDecimal> coordinates) {
 
   public Point toPoint() {
     if (!"Point".equals(type) || coordinates == null || coordinates.size() != 2) {
-      throw new InvalidGeometryException("marker.location must be GeoJSON Point");
+      throw new BusinessException(
+          ErrorCode.INVALID_GEOMETRY, "marker.location must be GeoJSON Point");
     }
     BigDecimal lon = coordinates.get(0);
     BigDecimal lat = coordinates.get(1);
     if (lon == null || lat == null) {
-      throw new InvalidGeometryException("marker.location coordinates are required");
+      throw new BusinessException(
+          ErrorCode.INVALID_GEOMETRY, "marker.location coordinates are required");
     }
     Point point =
         GEOMETRY_FACTORY.createPoint(new Coordinate(lon.doubleValue(), lat.doubleValue()));
@@ -38,7 +41,7 @@ public record MarkerGeoJsonPoint(String type, List<BigDecimal> coordinates) {
 
   public static MarkerGeoJsonPoint from(Point point) {
     if (point == null || point.isEmpty()) {
-      throw new InvalidGeometryException("marker.location point is empty");
+      throw new BusinessException(ErrorCode.INVALID_GEOMETRY, "marker.location point is empty");
     }
     return new MarkerGeoJsonPoint(
         "Point", List.of(canonical(point.getX()), canonical(point.getY())));

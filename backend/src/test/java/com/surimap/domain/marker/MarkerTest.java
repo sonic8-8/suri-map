@@ -1,6 +1,7 @@
 package com.surimap.domain.marker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.global.error.BusinessException;
@@ -11,12 +12,70 @@ import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 
 class MarkerTest {
+
+  private static final GeometryFactory GEOMETRY_FACTORY =
+      new GeometryFactory(new PrecisionModel(), 4326);
+
+  @ParameterizedTest
+  @CsvSource({
+    "126.913400,35.163100", "126.904000,35.162000", "126.9134007,35.1631007",
+    "127.200000,35.163100", "-180,-90", "180,90"
+  })
+  @DisplayName("경위도와 좌표계가 유효하면, 수색구역·소수점 자릿수에 관계없이 좌표를 허용한다")
+  void validateLocation_validCoordinates_acceptsWithoutChangingPrecision(
+      double longitude, double latitude) {
+    // given: 유효한 좌표, 수색구역 밖 좌표, 소수점 7자리 및 경위도 극값을 준비한다.
+    Point location = GEOMETRY_FACTORY.createPoint(new Coordinate(longitude, latitude));
+
+    // when & then: 사건·구역 조회 없이 좌표 자체를 검사하며 반올림하지 않는다.
+    assertThatCode(() -> Marker.validateLocation(location)).doesNotThrowAnyException();
+    assertThat(location.getX()).isEqualTo(longitude);
+    assertThat(location.getY()).isEqualTo(latitude);
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("createInvalidLocations")
+  @DisplayName("좌표가 없거나 좌표계·경위도가 유효하지 않으면, 공통 invalid_geometry 오류로 거부한다")
+  void validateLocation_invalidCoordinates_usesCommonBusinessError(
+      String condition, Point location) {
+    // given: 누락·빈 좌표·좌표계 불일치·숫자 또는 범위 오류가 있는 좌표다.
+    // when & then: 좌표 오류는 공통 비즈니스 예외와 기존 오류 코드로 전달한다.
+    assertThatThrownBy(() -> Marker.validateLocation(location))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_GEOMETRY);
+  }
+
+  private static Stream<Arguments> createInvalidLocations() {
+    return Stream.of(
+        Arguments.of("좌표 누락", null),
+        Arguments.of("빈 Point", GEOMETRY_FACTORY.createPoint()),
+        Arguments.of("좌표계 불일치", MarkerGeometryFixtures.SRID_MISMATCH_POINT),
+        Arguments.of("NaN 좌표", MarkerGeometryFixtures.NAN_POINT),
+        Arguments.of(
+            "무한대 경도", GEOMETRY_FACTORY.createPoint(new Coordinate(Double.POSITIVE_INFINITY, 35))),
+        Arguments.of(
+            "무한대 위도", GEOMETRY_FACTORY.createPoint(new Coordinate(126, Double.NEGATIVE_INFINITY))),
+        Arguments.of("경위도 교환으로 위도 범위 초과", MarkerGeometryFixtures.LAT_LON_SWAPPED),
+        Arguments.of("경도 최솟값 미만", GEOMETRY_FACTORY.createPoint(new Coordinate(-181, 35))),
+        Arguments.of("경도 최댓값 초과", GEOMETRY_FACTORY.createPoint(new Coordinate(181, 35))),
+        Arguments.of("위도 최솟값 미만", GEOMETRY_FACTORY.createPoint(new Coordinate(126, -91))),
+        Arguments.of("위도 최댓값 초과", GEOMETRY_FACTORY.createPoint(new Coordinate(126, 91))));
+  }
 
   @Test
   @DisplayName("메모만 수정하면, 나머지 값은 유지하고 수정 상태와 다음 버전을 기록한다")

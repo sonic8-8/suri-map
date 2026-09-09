@@ -1,41 +1,55 @@
 package com.surimap.marker.seed;
 
 import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.INCIDENT_ID;
-import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.MARKER_ALIAS;
 import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.MARKER_ID;
 import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
+import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.exception.InvalidGeometryException;
+import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.query.MarkerView;
-import com.surimap.marker.seed.SeedMarker;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
-import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import java.util.List;
 import java.util.UUID;
-import org.locationtech.jts.geom.Point;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
-/** L5-T05B ReferenceMarkerSeed 구현 test. */
-@DisplayName("L5-T05B ReferenceMarkerSeed service")
-class ReferenceMarkerSeedServiceTest {
+class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
 
-  private final InMemoryMarkerRepository repository = new InMemoryMarkerRepository();
-  private final ReferenceMarkerSeed referenceMarkerSeed =
-      new ReferenceMarkerSeedService(repository);
+  @Autowired private ReferenceMarkerSeed referenceMarkerSeed;
+  @Autowired private MarkerMapper markerMapper;
+
+  @BeforeEach
+  void setUp() {
+    jdbcTemplate.update("DELETE FROM marker WHERE incident_id = ?", INCIDENT_ID);
+  }
 
   @Test
-  @DisplayName("incident import seed marker를 MOCK_SEED ACTIVE row로 저장한다")
-  void incident_import_seed_marker를_mock_seed_active_row로_저장한다() {
+  @DisplayName("초기 기준 마커를 등록하면, 수색구역이 없어도 활성 상태로 저장하고 조회 결과를 반환한다")
+  void createForIncident_withoutSearchArea_savesAndReturnsReferenceMarker() {
+    // given: 전체 수색구역이 없는 사건에 초기 기준 마커를 등록한다.
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM search_area WHERE operational_period_id = ?",
+                Integer.class,
+                OP1_ID))
+        .isZero();
+
+    // when: 실제 서비스와 MyBatis·PostGIS를 통해 기준 마커를 저장한다.
     ReferenceMarkerSeedResult result =
         referenceMarkerSeed.createForIncident(
             INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed()));
 
+    // then: 응답과 저장된 마커에 기존 식별자·유형·출처·상태·좌표를 유지한다.
     assertThat(result.incidentId()).isEqualTo(INCIDENT_ID);
     assertThat(result.markers()).hasSize(1);
     MarkerView marker = result.markers().get(0);
@@ -46,68 +60,78 @@ class ReferenceMarkerSeedServiceTest {
     assertThat(marker.source()).isEqualTo(MarkerSource.MOCK_SEED);
     assertThat(marker.status()).isEqualTo(MarkerStatus.ACTIVE);
     assertThat(marker.version()).isEqualTo(1L);
+    assertThat(marker.location().getSRID()).isEqualTo(4326);
     assertThat(marker.location().getX()).isEqualTo(126.913400);
     assertThat(marker.location().getY()).isEqualTo(35.163100);
     assertThat(marker.photoSummary()).isEmpty();
-    assertThat(repository.records()).hasSize(1);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getMarkerSource())
+        .isEqualTo("MOCK_SEED");
+    assertThat(countMarkers()).isEqualTo(1);
   }
 
   @Test
-  @DisplayName("fixture alias는 하네스 seed marker ID를 보존한다")
-  void fixture_alias는_하네스_seed_marker_id를_보존한다() {
-    assertThat(MarkerSeedFixtures.INCIDENT_ALIAS).isEqualTo("inc-precinct-first-001");
-    assertThat(MarkerSeedFixtures.OP1_ALIAS).isEqualTo("op-precinct-001-op1");
-    assertThat(MARKER_ALIAS).isEqualTo("mk-precinct-clue-001");
-  }
-
-  @Test
-  @DisplayName("동일 markerId seed 재호출은 중복 row를 만들지 않는다")
-  void 동일_markerId_seed_재호출은_중복_row를_만들지_않는다() {
-    referenceMarkerSeed.createForIncident(
-        INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed()));
-    ReferenceMarkerSeedResult second =
+  @DisplayName("같은 기준 마커를 다시 등록하면, 저장된 마커를 반환하고 중복 저장하지 않는다")
+  void createForIncident_sameMarker_returnsStoredMarkerWithoutDuplicates() {
+    // given: 같은 식별자의 기준 마커가 이미 저장되어 있다.
+    ReferenceMarkerSeedResult first =
         referenceMarkerSeed.createForIncident(
             INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed()));
 
-    assertThat(second.markers()).extracting(MarkerView::id).containsExactly(MARKER_ID);
-    assertThat(repository.records()).hasSize(1);
-  }
-
-  @Test
-  @DisplayName("초기 기준점 seed는 active overall_search_area 없이도 저장한다")
-  void 초기_기준점_seed는_active_overall_search_area_없이도_저장한다() {
-    ReferenceMarkerSeedResult result =
+    // when: 같은 기준 마커를 다시 등록한다.
+    ReferenceMarkerSeedResult repeated =
         referenceMarkerSeed.createForIncident(
-            UUID.randomUUID(), List.of(MarkerSeedFixtures.referenceClueSeed()));
+            INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed()));
 
-    assertThat(result.markers()).hasSize(1);
-    assertThat(repository.records()).hasSize(1);
+    // then: 저장된 결과를 반환하며 마커 수와 버전을 늘리지 않는다.
+    assertThat(repeated).isEqualTo(first);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
+    assertThat(countMarkers()).isEqualTo(1);
   }
 
   @Test
-  @DisplayName("초기 기준점 seed 좌표 자체가 유효하지 않으면 저장하지 않는다")
-  void 초기_기준점_seed_좌표_자체가_유효하지_않으면_저장하지_않는다() {
+  @DisplayName("초기 마커 묶음에 잘못된 좌표가 있으면, 앞의 정상 마커도 저장하지 않는다")
+  void createForIncident_invalidLocationInBatch_rejectsBeforeSavingAnyMarker() {
+    // given: 정상 마커 다음에 숫자로 표현할 수 없는 좌표의 마커가 있다.
+    SeedMarker invalid =
+        new SeedMarker(
+            UUID.fromString("55555555-5555-5555-5555-555555550072"),
+            OP1_ID,
+            null,
+            MarkerType.CLUE,
+            null,
+            MarkerGeometryFixtures.NAN_POINT,
+            MarkerSeedFixtures.MEMO,
+            MarkerSeedFixtures.OCCURRED_AT,
+            MarkerSeedFixtures.ACCOUNT_ID,
+            null);
+
+    // when & then: 모든 좌표를 먼저 검사해 일부 마커만 저장되는 것을 막는다.
     assertThatThrownBy(
             () ->
                 referenceMarkerSeed.createForIncident(
-                    INCIDENT_ID,
-                    List.of(seedWithLocation(com.surimap.marker.domain.fixture.MarkerGeometryFixtures.NAN_POINT))))
-        .isInstanceOf(InvalidGeometryException.class);
-
-    assertThat(repository.records()).isEmpty();
+                    INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed(), invalid)))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_GEOMETRY);
+    assertThat(countMarkers()).isZero();
   }
 
-  private static SeedMarker seedWithLocation(Point location) {
-    return new SeedMarker(
-        MARKER_ID,
-        OP1_ID,
-        null,
-        MarkerType.CLUE,
-        null,
-        location,
-        MarkerSeedFixtures.MEMO,
-        MarkerSeedFixtures.OCCURRED_AT,
-        MarkerSeedFixtures.ACCOUNT_ID,
-        null);
+  @Test
+  @DisplayName("등록할 초기 마커가 없으면, 마커를 저장하지 않고 빈 결과를 반환한다")
+  void createForIncident_emptyList_returnsEmptyWithoutSavingMarkers() {
+    // given: 사건에 등록할 기준 마커가 없다.
+    // when: 빈 목록으로 초기 마커 등록을 요청한다.
+    ReferenceMarkerSeedResult result =
+        referenceMarkerSeed.createForIncident(INCIDENT_ID, List.of());
+
+    // then: 사건 ID와 빈 목록을 반환하고 DB에도 마커를 남기지 않는다.
+    assertThat(result.incidentId()).isEqualTo(INCIDENT_ID);
+    assertThat(result.markers()).isEmpty();
+    assertThat(countMarkers()).isZero();
+  }
+
+  private int countMarkers() {
+    return jdbcTemplate.queryForObject(
+        "SELECT count(*) FROM marker WHERE incident_id = ?", Integer.class, INCIDENT_ID);
   }
 }

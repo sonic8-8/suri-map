@@ -15,7 +15,6 @@ import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
-import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -50,7 +49,6 @@ public class AppMarkerService {
   private static final long INITIAL_VERSION = 1L;
 
   private final MarkerRepository markerRepository;
-  private final MarkerLocationValidator markerLocationValidator;
   private final MarkerOpBindingValidator markerOpBindingValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
@@ -63,7 +61,6 @@ public class AppMarkerService {
   @Autowired
   public AppMarkerService(
       MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
@@ -72,7 +69,6 @@ public class AppMarkerService {
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         markerRepository,
-        markerLocationValidator,
         markerOpBindingValidator,
         markerWriteGuardPort,
         markerEventPublisher,
@@ -85,7 +81,6 @@ public class AppMarkerService {
 
   public AppMarkerService(
       MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
@@ -93,7 +88,6 @@ public class AppMarkerService {
       Supplier<UUID> markerIdSupplier) {
     this(
         markerRepository,
-        markerLocationValidator,
         markerOpBindingValidator,
         markerWriteGuardPort,
         markerEventPublisher,
@@ -106,7 +100,6 @@ public class AppMarkerService {
 
   public AppMarkerService(
       MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
@@ -114,7 +107,6 @@ public class AppMarkerService {
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         markerRepository,
-        markerLocationValidator,
         markerOpBindingValidator,
         markerWriteGuardPort,
         markerEventPublisher,
@@ -127,7 +119,6 @@ public class AppMarkerService {
 
   public AppMarkerService(
       MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
@@ -136,7 +127,6 @@ public class AppMarkerService {
       Supplier<UUID> markerIdSupplier) {
     this(
         markerRepository,
-        markerLocationValidator,
         markerOpBindingValidator,
         markerWriteGuardPort,
         markerEventPublisher,
@@ -149,7 +139,6 @@ public class AppMarkerService {
 
   private AppMarkerService(
       MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
@@ -159,7 +148,6 @@ public class AppMarkerService {
       Supplier<UUID> markerIdSupplier,
       IdempotentResponseCache idempotentResponseCache) {
     this.markerRepository = Objects.requireNonNull(markerRepository);
-    this.markerLocationValidator = Objects.requireNonNull(markerLocationValidator);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
@@ -198,7 +186,7 @@ public class AppMarkerService {
     UUID opId = validateOpBinding(request.getIncidentId(), request.getOpId());
     MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
-    markerLocationValidator.validate(request.getIncidentId(), location);
+    Marker.validateLocation(location);
 
     UUID markerId = request.getId() == null ? markerIdSupplier.get() : request.getId();
     Instant serverTs = clock.instant();
@@ -404,8 +392,7 @@ public class AppMarkerService {
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
-    MarkerGeoJsonPoint location =
-        resolveUpdateLocation(mutationContext.incidentId(), current, request);
+    MarkerGeoJsonPoint location = resolveUpdateLocation(current, request);
     current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
     int updated = markerRepository.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
@@ -489,13 +476,13 @@ public class AppMarkerService {
   }
 
   private MarkerGeoJsonPoint resolveUpdateLocation(
-      UUID incidentId, Marker current, MarkerUpdateServiceRequest request) {
+      Marker current, MarkerUpdateServiceRequest request) {
     if (request.getLocation() == null) {
       return MarkerGeoJsonPoint.from(current.getLocation());
     }
     MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
-    markerLocationValidator.validate(incidentId, location);
+    Marker.validateLocation(location);
     return canonicalLocation;
   }
 

@@ -13,7 +13,6 @@ import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -86,11 +85,9 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
     markerRepository = new InMemoryMarkerRepository();
     markerEventPublisher = new CapturingMarkerEventPublisher();
-    MarkerLocationValidator markerLocationValidator = (incidentId, location) -> {};
     appMarkerService =
         new AppMarkerService(
             markerRepository,
-            markerLocationValidator,
             new MarkerOpBindingValidator(incidentId -> Optional.of(OP_ID)),
             new AllowingMarkerWriteGuard(),
             markerEventPublisher,

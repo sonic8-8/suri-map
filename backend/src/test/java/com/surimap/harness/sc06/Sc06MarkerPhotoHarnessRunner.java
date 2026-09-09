@@ -9,9 +9,8 @@ import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
 import com.surimap.domain.marker.Marker;
-import com.surimap.marker.domain.exception.InvalidGeometryException;
+import com.surimap.global.error.BusinessException;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -239,9 +238,9 @@ public class Sc06MarkerPhotoHarnessRunner {
               .toBuilder()
               .context(harness.markerContext)
               .build());
-    } catch (InvalidGeometryException exception) {
-      error = exception.errorCode();
-      httpStatus = "400";
+    } catch (BusinessException exception) {
+      error = exception.getErrorCode().getError();
+      httpStatus = String.valueOf(exception.getErrorCode().getStatus().value());
     } catch (MarkerApiException exception) {
       error = exception.getError();
       httpStatus = String.valueOf(exception.getStatus().value());
@@ -315,7 +314,6 @@ public class Sc06MarkerPhotoHarnessRunner {
     private final AppMarkerService appMarkerService =
         new AppMarkerService(
             markerRepository,
-            new MarkerLocationValidatorImpl(),
             new MarkerOpBindingValidator(currentOp),
             markerGuard,
             markerEvents,
