@@ -1,6 +1,8 @@
-package com.surimap.marker.repository;
+package com.surimap.domain.marker;
 
 import com.surimap.marker.query.MarkerQueryFilters;
+import com.surimap.marker.repository.MarkerPhotoSummaryRow;
+import com.surimap.marker.repository.MarkerRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,19 +13,19 @@ import org.apache.ibatis.annotations.Param;
 public interface MarkerMapper extends MarkerRepository {
 
   @Override
-  void insertSeed(@Param("record") MarkerSeedRecord record);
+  void insertSeed(@Param("marker") Marker marker);
 
   @Override
-  void insertCreate(@Param("record") MarkerCreateRecord record);
+  void insertCreate(@Param("marker") Marker marker);
 
   @Override
-  Optional<MarkerRecord> findById(@Param("markerId") UUID markerId);
+  Optional<Marker> findById(@Param("markerId") UUID markerId);
 
   @Override
-  List<MarkerRecord> findByIds(@Param("markerIds") List<UUID> markerIds);
+  List<Marker> findByIds(@Param("markerIds") List<UUID> markerIds);
 
   @Override
-  int updateMarker(@Param("record") MarkerUpdateRecord record);
+  int updateMarker(@Param("marker") Marker marker, @Param("expectedVersion") long expectedVersion);
 
   @Override
   int updateMarkerStatusVersion(
@@ -33,9 +35,9 @@ public interface MarkerMapper extends MarkerRepository {
       @Param("version") long version);
 
   @Override
-  int deleteMarker(@Param("record") MarkerDeleteRecord record);
+  int deleteMarker(@Param("marker") Marker marker, @Param("expectedVersion") long expectedVersion);
 
-  List<MarkerRecord> findByIncident(
+  List<Marker> findByIncident(
       @Param("incidentId") UUID incidentId, @Param("filters") MarkerQueryFilters filters);
 
   List<MarkerPhotoSummaryRow> findAttachedPhotoSummariesByMarkerIds(

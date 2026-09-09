@@ -3,8 +3,8 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.surimap.marker.repository.MarkerMapper">
-    <resultMap id="markerRecordMap" type="com.surimap.marker.repository.MarkerRecord">
+<mapper namespace="com.surimap.domain.marker.MarkerMapper">
+    <resultMap id="markerMap" type="com.surimap.domain.marker.Marker">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="operationalPeriodId" column="operational_period_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -54,20 +54,20 @@
             updated_at
         )
         VALUES (
-            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.markerType},
-            #{record.supportRequestType},
-            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
-            #{record.memo},
-            #{record.occurredAt},
-            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.markerSource},
-            #{record.status},
-            #{record.version},
+            #{marker.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.markerType},
+            #{marker.supportRequestType},
+            ST_GeomFromEWKT(#{marker.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{marker.memo},
+            #{marker.occurredAt},
+            #{marker.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.markerSource},
+            #{marker.status},
+            #{marker.version},
             NOW(),
             NOW()
         )
@@ -94,26 +94,26 @@
             updated_at
         )
         VALUES (
-            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.markerType},
-            #{record.supportRequestType},
-            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
-            #{record.memo},
-            #{record.occurredAt},
-            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.markerSource},
-            #{record.status},
-            #{record.version},
+            #{marker.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.markerType},
+            #{marker.supportRequestType},
+            ST_GeomFromEWKT(#{marker.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{marker.memo},
+            #{marker.occurredAt},
+            #{marker.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{marker.markerSource},
+            #{marker.status},
+            #{marker.version},
             NOW(),
             NOW()
         )
     </insert>
 
-    <select id="findByIds" resultMap="markerRecordMap">
+    <select id="findByIds" resultMap="markerMap">
         SELECT
             id,
             incident_id,
@@ -136,7 +136,7 @@
         </foreach>
     </select>
 
-    <select id="findById" resultMap="markerRecordMap">
+    <select id="findById" resultMap="markerMap">
         SELECT
             id,
             incident_id,
@@ -156,7 +156,7 @@
         WHERE id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
-    <select id="findByIncident" resultMap="markerRecordMap">
+    <select id="findByIncident" resultMap="markerMap">
         SELECT
             id,
             incident_id,
@@ -213,14 +213,14 @@
     <update id="updateMarker">
         UPDATE marker
         SET
-            marker_type = #{record.markerType},
-            location = ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
-            memo = #{record.memo},
-            status = #{record.status},
-            version = #{record.version},
+            marker_type = #{marker.markerType},
+            location = ST_GeomFromEWKT(#{marker.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            memo = #{marker.memo},
+            status = #{marker.status},
+            version = #{marker.version},
             updated_at = NOW()
-        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND version = #{record.expectedVersion}
+        WHERE id = #{marker.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
           AND status &lt;&gt; 'DELETED'
     </update>
 
@@ -238,11 +238,11 @@
     <update id="deleteMarker">
         UPDATE marker
         SET
-            status = #{record.status},
-            version = #{record.version},
+            status = #{marker.status},
+            version = #{marker.version},
             updated_at = NOW()
-        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND version = #{record.expectedVersion}
+        WHERE id = #{marker.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
           AND status &lt;&gt; 'DELETED'
     </update>
 </mapper>

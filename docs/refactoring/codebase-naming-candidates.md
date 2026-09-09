@@ -71,7 +71,6 @@
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
 | [GeometrySpatialMapperIntegrationTest](../../backend/src/test/java/com/surimap/maparea/geometry/validation/GeometrySpatialMapperIntegrationTest.java) | `GeometrySpatialMapperTest` |
-| [MarkerMapperIntegrationTest](../../backend/src/test/java/com/surimap/marker/repository/MarkerMapperIntegrationTest.java) | `MarkerMapperTest` |
 | [MarkerQueryMapperIntegrationTest](../../backend/src/test/java/com/surimap/marker/repository/MarkerQueryMapperIntegrationTest.java) | `MarkerMapperTest`로 조회 검증 통합 검토 |
 | [OpComparisonAnalysisMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonAnalysisMapperIntegrationTest.java) | `OpComparisonAnalysisMapperTest` |
 | [OpComparisonRegionFactMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonRegionFactMapperIntegrationTest.java) | `OpComparisonRegionFactMapperTest` |

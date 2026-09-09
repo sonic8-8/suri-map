@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.domain.marker.Marker;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
@@ -26,7 +27,6 @@ import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -144,7 +144,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(response.getVersion()).isEqualTo(1L);
     assertThat(response.getPhotos()).isEmpty();
 
-    MarkerRecord marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
     assertThat(marker.getId()).isEqualTo(response.getId());
     assertThat(marker.getOperationalPeriodId()).isEqualTo(OP1_ID);
     assertThat(marker.getMarkerType()).isEqualTo("CLUE");
@@ -198,7 +198,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceResponse response = appMarkerService.create(request);
 
     // then: 저장된 좌표와 이벤트 좌표가 모두 소수점 아래 6자리로 반올림된다.
-    MarkerRecord marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
     assertThat(marker.getLocation().getX()).isEqualTo(126.913401);
     assertThat(marker.getLocation().getY()).isEqualTo(35.163101);
     JsonNode coordinates = readEventPayload("MARKER_CREATED").path("location").path("coordinates");
@@ -231,7 +231,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photo.version()).isEqualTo(2L);
     assertThat(photo.width()).isEqualTo(640);
     assertThat(photo.height()).isEqualTo(480);
-    MarkerRecord marker = markerRepository.findById(MARKER_ID).orElseThrow();
+    Marker marker = markerRepository.findById(MARKER_ID).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("UPDATED");
     assertThat(marker.getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
@@ -329,7 +329,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 구역 밖이라는 이유로 거부하지 않고 마커와 생성 이벤트를 저장한다.
     assertThat(response.getStatus()).isEqualTo("ACTIVE");
     assertThat(readMarkerIds()).containsExactly(response.getId());
-    MarkerRecord marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
     assertThat(marker.getLocation().getX()).isEqualTo(127.2);
     assertThat(marker.getLocation().getY()).isEqualTo(35.1631);
     assertThat(readEventTypes()).containsExactly("MARKER_CREATED");
@@ -350,7 +350,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     Instant completedAt = Instant.now();
 
     // then: 일반 대원은 제외하고 지휘 계정과 현장 지휘관의 계정·업무폰만 알림 대상으로 저장한다.
-    MarkerRecord marker = markerRepository.findById(response.getId()).orElseThrow();
+    Marker marker = markerRepository.findById(response.getId()).orElseThrow();
     assertThat(marker.getSupportRequestType()).isEqualTo("DRONE");
     assertNotificationStored(
         response,

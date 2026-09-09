@@ -1,11 +1,11 @@
 package com.surimap.marker.photo.adapter;
 
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.service.PhotoRequestContext;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import java.util.Objects;
 import java.util.UUID;
@@ -44,7 +44,7 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
 
   private PhotoMarkerContext requirePhotoAccess(UUID markerId, PhotoRequestContext context) {
     requireAppContext(context);
-    MarkerRecord marker = findActiveMarker(markerId);
+    Marker marker = findActiveMarker(markerId);
     UUID accountId = context.authentication().accountId();
     UUID policePhoneId = context.authentication().policePhoneId();
 
@@ -72,11 +72,11 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
     }
   }
 
-  private MarkerRecord findActiveMarker(UUID markerId) {
+  private Marker findActiveMarker(UUID markerId) {
     if (markerId == null) {
       throw conflict();
     }
-    MarkerRecord marker =
+    Marker marker =
         markerRepository.findById(markerId).orElseThrow(RuntimePhotoWriteGuardAdapter::conflict);
     if ("DELETED".equals(marker.getStatus())) {
       throw conflict();
@@ -107,7 +107,7 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
     }
   }
 
-  private void requireCurrentOp(MarkerRecord marker) {
+  private void requireCurrentOp(Marker marker) {
     UUID currentOpId =
         markerRuntimeGuardMapper
             .findCurrentOpId(marker.getIncidentId())
@@ -124,7 +124,7 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
             () -> new PhotoApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN));
   }
 
-  private void requireAppOwnFieldMarker(MarkerRecord marker, UUID accountId) {
+  private void requireAppOwnFieldMarker(Marker marker, UUID accountId) {
     if (!"APP".equals(marker.getMarkerSource())
         || !accountId.equals(marker.getCreatedByAccountId())) {
       throw denied();

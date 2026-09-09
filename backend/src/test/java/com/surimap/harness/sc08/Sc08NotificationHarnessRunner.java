@@ -13,6 +13,7 @@ import com.surimap.board.BoardRefetchResult;
 import com.surimap.board.BoardRefetchSignal;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -40,7 +41,6 @@ import com.surimap.marker.notification.service.SupportRequestNotificationDispatc
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -156,7 +156,7 @@ public class Sc08NotificationHarnessRunner {
             flow.markerRequest().toBuilder().context(harness.markerContext).build());
     harness.eventDispatch.commitAfterWrite();
 
-    MarkerRecord markerRow = onlyMarkerRow(harness.markerRepository);
+    Marker markerRow = onlyMarkerRow(harness.markerRepository);
     MarkerPublishRequest markerPublish = harness.markerEvents.markerPublish();
     MarkerPublishRequest notificationPublish = harness.markerEvents.notificationPublish();
     MarkerNotificationPublishRequestPayload notificationPayload =
@@ -264,8 +264,8 @@ public class Sc08NotificationHarnessRunner {
                 && toastRow.version() >= notificationPayload.version()));
   }
 
-  private static MarkerRecord onlyMarkerRow(InMemoryMarkerRepository repository) {
-    List<MarkerRecord> rows = repository.records();
+  private static Marker onlyMarkerRow(InMemoryMarkerRepository repository) {
+    List<Marker> rows = repository.records();
     if (rows.size() != 1) {
       throw new IllegalStateException("expected one marker row, got " + rows.size());
     }
@@ -815,7 +815,7 @@ public class Sc08NotificationHarnessRunner {
           latestBoard.boardResponseId());
     }
 
-    boolean markerSlotConverged(String markerId, MarkerRecord markerRow) {
+    boolean markerSlotConverged(String markerId, Marker markerRow) {
       BoardSlotRow row = latestBoard.slotRow("marker", markerId);
       return row.id().equals(markerId)
           && row.status().equals(markerRow.getStatus())

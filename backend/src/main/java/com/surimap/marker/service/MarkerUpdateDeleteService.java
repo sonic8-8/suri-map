@@ -1,7 +1,7 @@
 package com.surimap.marker.service;
 
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -9,10 +9,7 @@ import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerDeleteRecord;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
-import com.surimap.marker.repository.MarkerUpdateRecord;
 import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
 import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
 import com.surimap.marker.service.response.MarkerMutationServiceResponse;
@@ -31,8 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class MarkerUpdateDeleteService {
-
-  private static final int MAX_MEMO_LENGTH = 2000;
 
   private final MarkerRepository markerRepository;
   private final MarkerLocationValidator markerLocationValidator;
@@ -112,24 +107,13 @@ public class MarkerUpdateDeleteService {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
     requireMutationContext(markerId, mutationContext);
-    MarkerRecord current = findOpenMarker(markerId);
-    requireVersion(current, request.getVersion());
-
-    MarkerType markerType = nextMarkerType(current, request.getType());
+    Marker current = findMarker(markerId);
+    // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
+    current.requireVersion(request.getVersion());
+    Marker.validateType(request.getType());
     MarkerGeoJsonPoint location = nextLocation(mutationContext.incidentId(), current, request);
-    String memo = nextMemo(current, request.getMemo());
-    long nextVersion = current.getVersion() + 1L;
-
-    int updated =
-        markerRepository.updateMarker(
-            new MarkerUpdateRecord(
-                markerId,
-                current.getVersion(),
-                markerType,
-                location.toPoint(),
-                memo,
-                MarkerStatus.UPDATED,
-                nextVersion));
+    current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
+    int updated = markerRepository.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
     MarkerPublishRequest publishRequest =
@@ -138,15 +122,15 @@ public class MarkerUpdateDeleteService {
             mutationContext,
             current,
             MarkerStatus.UPDATED,
-            nextVersion,
-            markerType.name(),
+            current.getVersion(),
+            current.getMarkerType(),
             location);
     markerEventPublisher.publish(publishRequest);
 
     return MarkerMutationServiceResponse.builder()
         .id(markerId)
         .status(MarkerStatus.UPDATED.name())
-        .version(nextVersion)
+        .version(current.getVersion())
         .build();
   }
 
@@ -175,14 +159,9 @@ public class MarkerUpdateDeleteService {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
     requireMutationContext(markerId, mutationContext);
-    MarkerRecord current = findOpenMarker(markerId);
-    requireVersion(current, request.getVersion());
-    long nextVersion = current.getVersion() + 1L;
-
-    int updated =
-        markerRepository.deleteMarker(
-            new MarkerDeleteRecord(
-                markerId, current.getVersion(), MarkerStatus.DELETED, nextVersion));
+    Marker current = findMarker(markerId);
+    current.delete(request.getVersion());
+    int updated = markerRepository.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
     MarkerPublishRequest publishRequest =
@@ -191,7 +170,7 @@ public class MarkerUpdateDeleteService {
             mutationContext,
             current,
             MarkerStatus.DELETED,
-            nextVersion,
+            current.getVersion(),
             null,
             null);
     markerEventPublisher.publish(publishRequest);
@@ -199,17 +178,12 @@ public class MarkerUpdateDeleteService {
     return MarkerMutationServiceResponse.builder()
         .id(markerId)
         .status(MarkerStatus.DELETED.name())
-        .version(nextVersion)
+        .version(current.getVersion())
         .build();
   }
 
-  private MarkerRecord findOpenMarker(UUID markerId) {
-    MarkerRecord marker =
-        markerRepository.findById(markerId).orElseThrow(() -> conflict("write_conflict"));
-    if (MarkerStatus.DELETED.name().equals(marker.getStatus())) {
-      throw conflict("write_conflict");
-    }
-    return marker;
+  private Marker findMarker(UUID markerId) {
+    return markerRepository.findById(markerId).orElseThrow(() -> conflict("write_conflict"));
   }
 
   private void requireMarkerId(UUID markerId) {
@@ -220,12 +194,6 @@ public class MarkerUpdateDeleteService {
 
   private void requireRequestVersion(Long version) {
     if (version == null || version <= 0) {
-      throw conflict("write_conflict");
-    }
-  }
-
-  private void requireVersion(MarkerRecord current, long expectedVersion) {
-    if (current.getVersion() != expectedVersion) {
       throw conflict("write_conflict");
     }
   }
@@ -243,19 +211,8 @@ public class MarkerUpdateDeleteService {
     }
   }
 
-  private MarkerType nextMarkerType(MarkerRecord current, String requestedType) {
-    if (requestedType == null || requestedType.isBlank()) {
-      return MarkerType.valueOf(current.getMarkerType());
-    }
-    try {
-      return MarkerType.valueOf(requestedType);
-    } catch (IllegalArgumentException exception) {
-      throw conflict("write_conflict");
-    }
-  }
-
   private MarkerGeoJsonPoint nextLocation(
-      UUID incidentId, MarkerRecord current, MarkerUpdateServiceRequest request) {
+      UUID incidentId, Marker current, MarkerUpdateServiceRequest request) {
     if (request.getLocation() == null) {
       return MarkerGeoJsonPoint.from(current.getLocation());
     }
@@ -263,16 +220,6 @@ public class MarkerUpdateDeleteService {
     Point location = canonicalLocation.toPoint();
     markerLocationValidator.validate(incidentId, location);
     return canonicalLocation;
-  }
-
-  private String nextMemo(MarkerRecord current, String requestedMemo) {
-    if (requestedMemo == null) {
-      return current.getMemo();
-    }
-    if (requestedMemo.length() > MAX_MEMO_LENGTH) {
-      throw conflict("write_conflict");
-    }
-    return requestedMemo;
   }
 
   private void requireSingleRowUpdated(int updated) {
@@ -293,7 +240,7 @@ public class MarkerUpdateDeleteService {
   private MarkerPublishRequest publishRequest(
       String type,
       MarkerMutationContext mutationContext,
-      MarkerRecord marker,
+      Marker marker,
       MarkerStatus status,
       long version,
       String markerType,
@@ -313,7 +260,7 @@ public class MarkerUpdateDeleteService {
             serverTs()));
   }
 
-  private UUID eventPolicePhoneId(MarkerRecord marker, MarkerMutationContext mutationContext) {
+  private UUID eventPolicePhoneId(Marker marker, MarkerMutationContext mutationContext) {
     return mutationContext.policePhoneId() == null
         ? marker.getPolicePhoneId()
         : mutationContext.policePhoneId();

@@ -1,9 +1,9 @@
 package com.surimap.marker.query;
 
-import com.surimap.marker.repository.MarkerMapper;
-import com.surimap.marker.repository.MarkerPhotoSummaryRow;
-import com.surimap.marker.repository.MarkerRecord;
+import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.photo.port.ObjectStoragePort;
+import com.surimap.marker.repository.MarkerPhotoSummaryRow;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +19,8 @@ public class MyBatisMarkerQuery implements MarkerQuery {
   private final MarkerMapper markerMapper;
   private final ObjectProvider<ObjectStoragePort> objectStoragePort;
 
-  public MyBatisMarkerQuery(MarkerMapper markerMapper, ObjectProvider<ObjectStoragePort> objectStoragePort) {
+  public MyBatisMarkerQuery(
+      MarkerMapper markerMapper, ObjectProvider<ObjectStoragePort> objectStoragePort) {
     this.markerMapper = markerMapper;
     this.objectStoragePort = objectStoragePort;
   }
@@ -30,7 +31,7 @@ public class MyBatisMarkerQuery implements MarkerQuery {
     Objects.requireNonNull(incidentId, "incidentId must not be null");
     MarkerQueryFilters effectiveFilters = filters == null ? MarkerQueryFilters.empty() : filters;
 
-    List<MarkerRecord> markerRecords = markerMapper.findByIncident(incidentId, effectiveFilters);
+    List<Marker> markerRecords = markerMapper.findByIncident(incidentId, effectiveFilters);
     if (markerRecords.isEmpty()) {
       return new MarkerQueryResult(incidentId, List.of());
     }
@@ -47,8 +48,8 @@ public class MyBatisMarkerQuery implements MarkerQuery {
   }
 
   private Map<UUID, List<MarkerPhotoSummary>> attachedPhotoSummaryByMarkerId(
-      List<MarkerRecord> markerRecords) {
-    List<UUID> markerIds = markerRecords.stream().map(MarkerRecord::getId).toList();
+      List<Marker> markerRecords) {
+    List<UUID> markerIds = markerRecords.stream().map(Marker::getId).toList();
     List<MarkerPhotoSummaryRow> photoSummaries =
         markerMapper.findAttachedPhotoSummariesByMarkerIds(markerIds);
 
@@ -62,7 +63,8 @@ public class MyBatisMarkerQuery implements MarkerQuery {
   }
 
   private String viewUrl(MarkerPhotoSummaryRow row) {
-    ObjectStoragePort storagePort = objectStoragePort == null ? null : objectStoragePort.getIfAvailable();
+    ObjectStoragePort storagePort =
+        objectStoragePort == null ? null : objectStoragePort.getIfAvailable();
     if (storagePort == null) {
       return null;
     }
