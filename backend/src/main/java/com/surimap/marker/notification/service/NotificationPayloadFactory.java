@@ -78,7 +78,8 @@ public class NotificationPayloadFactory {
         recipients.policePhoneIds(),
         context.markerType().name(),
         locationLabel(context),
-        policePhoneName(context.policePhoneId()));
+        policePhoneName(context.policePhoneId()),
+        context.clientTs());
   }
 
   public String toJson(
@@ -100,6 +101,9 @@ public class NotificationPayloadFactory {
     fields.put("markerType", payload.markerType());
     fields.put("locationLabel", payload.locationLabel());
     fields.put("policePhoneName", payload.policePhoneName());
+    if (payload.clientTs() != null) {
+      fields.put("clientTs", payload.clientTs().toString());
+    }
     try {
       return objectMapper.writeValueAsString(fields);
     } catch (JsonProcessingException exception) {

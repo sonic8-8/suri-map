@@ -1572,6 +1572,11 @@
             },
             "locationLabel": {
               "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time",
+              "description": "업무폰에서 마커를 기록한 시각. 신규 알림은 마커 생성 요청의 clientTs를 그대로 전달한다. 기존 알림에 값이 없으면 기록 시각 확인 불가로 표시하며, SSE envelope.occurredAt이나 브라우저 수신 시각으로 대체하지 않는다."
             }
           },
           "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
@@ -1647,6 +1652,11 @@
             },
             "locationLabel": {
               "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time",
+              "description": "업무폰에서 마커를 기록한 시각. 신규 알림은 마커 생성 요청의 clientTs를 그대로 전달한다. 기존 알림에 값이 없으면 기록 시각 확인 불가로 표시하며, SSE envelope.occurredAt이나 브라우저 수신 시각으로 대체하지 않는다."
             }
           },
           "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."

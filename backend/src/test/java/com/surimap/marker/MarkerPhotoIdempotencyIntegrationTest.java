@@ -3,13 +3,14 @@ package com.surimap.marker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.marker.domain.MarkerType;
+import com.surimap.app.service.marker.AppMarkerService;
+import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
+import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerCreateRequest;
-import com.surimap.marker.dto.MarkerCreateResponse;
 import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerMutationResponse;
@@ -31,7 +32,6 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
-import com.surimap.marker.service.MarkerCreateService;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
@@ -72,7 +72,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   private InMemoryMarkerRepository markerRepository;
   private CapturingMarkerEventPublisher markerEventPublisher;
-  private MarkerCreateService markerCreateService;
+  private AppMarkerService appMarkerService;
   private MarkerUpdateDeleteService markerUpdateDeleteService;
   private InMemoryPhotoRepository photoRepository;
   private MockObjectStorageAdapter objectStorage;
@@ -88,8 +88,8 @@ class MarkerPhotoIdempotencyIntegrationTest {
     markerRepository = new InMemoryMarkerRepository();
     markerEventPublisher = new CapturingMarkerEventPublisher();
     MarkerLocationValidator markerLocationValidator = (incidentId, location) -> {};
-    markerCreateService =
-        new MarkerCreateService(
+    appMarkerService =
+        new AppMarkerService(
             markerRepository,
             markerLocationValidator,
             new MarkerOpBindingValidator(incidentId -> Optional.of(OP_ID)),
@@ -122,10 +122,12 @@ class MarkerPhotoIdempotencyIntegrationTest {
   void markerCreateReplayUsesDurableRecord() {
     MarkerRequestContext context = markerContext("idem-s5-marker-create-db");
 
-    MarkerCreateResponse created = markerCreateService.create(markerRequest(), context).response();
-    MarkerCreateResponse replayed = markerCreateService.create(markerRequest(), context).response();
+    MarkerCreateServiceResponse created =
+        appMarkerService.create(markerRequest().toBuilder().context(context).build());
+    MarkerCreateServiceResponse replayed =
+        appMarkerService.create(markerRequest().toBuilder().context(context).build());
 
-    assertThat(replayed).isEqualTo(created);
+    assertThat(replayed).usingRecursiveComparison().isEqualTo(created);
     assertThat(markerRepository.records()).hasSize(1);
     assertThat(markerEventPublisher.published()).hasSize(1);
     assertThat(idempotencyStatus("idem-s5-marker-create-db")).isEqualTo("COMPLETED");
@@ -135,21 +137,21 @@ class MarkerPhotoIdempotencyIntegrationTest {
   @DisplayName("same marker create key with different body is rejected")
   void markerCreateSameKeyDifferentBodyIsRejected() {
     MarkerRequestContext context = markerContext("idem-s5-marker-create-mismatch");
-    markerCreateService.create(markerRequest(), context);
+    appMarkerService.create(markerRequest().toBuilder().context(context).build());
 
     assertThatThrownBy(
             () ->
-                markerCreateService.create(
-                    new MarkerCreateRequest(
-                        INCIDENT_ID,
-                        OP_ID,
-                        MarkerType.NOTE.name(),
-                        point(),
-                        null,
-                        "changed memo",
-                        CLIENT_TS,
-                        0L),
-                    context))
+                appMarkerService.create(
+                    MarkerCreateServiceRequest.builder()
+                        .incidentId(INCIDENT_ID)
+                        .opId(OP_ID)
+                        .type(MarkerType.NOTE.name())
+                        .location(point())
+                        .memo("changed memo")
+                        .clientTs(CLIENT_TS)
+                        .clockOffsetMs(0L)
+                        .context(context)
+                        .build()))
         .isInstanceOf(IdempotencyMismatchException.class);
     assertThat(markerRepository.records()).hasSize(1);
   }
@@ -230,9 +232,16 @@ class MarkerPhotoIdempotencyIntegrationTest {
     assertThat(idempotencyStatus("idem-s5-photo-attach-db")).isEqualTo("COMPLETED");
   }
 
-  private MarkerCreateRequest markerRequest() {
-    return new MarkerCreateRequest(
-        INCIDENT_ID, OP_ID, MarkerType.CLUE.name(), point(), null, "durable marker create", CLIENT_TS, 0L);
+  private MarkerCreateServiceRequest markerRequest() {
+    return MarkerCreateServiceRequest.builder()
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .type(MarkerType.CLUE.name())
+        .location(point())
+        .memo("durable marker create")
+        .clientTs(CLIENT_TS)
+        .clockOffsetMs(0L)
+        .build();
   }
 
   private void seedMarker() {

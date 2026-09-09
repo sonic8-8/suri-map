@@ -1,5 +1,8 @@
 package com.surimap.harness.sc06;
 
+import com.surimap.app.service.marker.AppMarkerService;
+import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.board.BoardAssembler;
 import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
@@ -9,8 +12,6 @@ import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerCreateRequest;
-import com.surimap.marker.dto.MarkerCreateResult;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.exception.MarkerApiException;
@@ -35,7 +36,6 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
-import com.surimap.marker.service.MarkerCreateService;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.math.BigDecimal;
@@ -86,24 +86,25 @@ public class Sc06MarkerPhotoHarnessRunner {
         new MarkerGeoJsonPoint(
             "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")));
 
-    MarkerCreateResult markerCreate =
-        harness.markerCreateService.create(markerCreateRequest(point), harness.markerContext);
+    MarkerCreateServiceResponse markerCreateResponse =
+        harness.appMarkerService.create(
+            markerCreateRequest(point).toBuilder().context(harness.markerContext).build());
     harness.eventDispatch.commitAfterWrite();
     MarkerRecord markerRow = onlyMarkerRow(harness.markerRepository);
     MarkerPublishRequest markerPublish = harness.markerEvents.only();
 
     harness.photoGuard.allow(
         new PhotoMarkerContext(
-            markerCreate.response().incidentId(),
-            markerCreate.response().id(),
-            markerCreate.response().opId(),
-            markerCreate.response().policePhoneId(),
+            markerCreateResponse.getIncidentId(),
+            markerCreateResponse.getId(),
+            markerCreateResponse.getOpId(),
+            markerCreateResponse.getPolicePhoneId(),
             "UPDATED",
-            markerCreate.response().version()));
+            markerCreateResponse.getVersion()));
 
     PhotoUploadUrlResponse upload =
         harness.photoService.createUploadUrl(
-            markerCreate.response().id(),
+            markerCreateResponse.getId(),
             new PhotoUploadUrlRequest(
                 PhotoFixtures.JPEG_CONTENT_TYPE,
                 PhotoFixtures.FIXTURE_ONE_MB_BYTES,
@@ -114,7 +115,7 @@ public class Sc06MarkerPhotoHarnessRunner {
 
     PhotoAttachResult photoAttach =
         harness.photoService.attach(
-            markerCreate.response().id(),
+            markerCreateResponse.getId(),
             upload.photoId(),
             new PhotoAttachRequest(
                 PhotoFixtures.FIXTURE_ONE_MB_BYTES,
@@ -144,7 +145,7 @@ public class Sc06MarkerPhotoHarnessRunner {
                 .toList(),
             "EPSG:4326",
             markerRow.getLocation().getSRID() == 4326),
-        harness.currentOpEvidence(markerCreate.response().opId()),
+        harness.currentOpEvidence(markerCreateResponse.getOpId()),
         new StorageEvidence(
             PhotoFixtures.MOCK_OBJECT_STORAGE_URI,
             upload.uploadUrl(),
@@ -179,7 +180,7 @@ public class Sc06MarkerPhotoHarnessRunner {
             String.valueOf(photoAttach.response().version()),
             harness.photoEvents.published().size(),
             harness.photoRepository.countByMarkerIdAndStatusIn(
-                markerCreate.response().id(), PhotoStatus.countedStatuses())),
+                markerCreateResponse.getId(), PhotoStatus.countedStatuses())),
         new EventDispatchJobEvidence(
             photoJob.eventId(),
             MARKER_ID,
@@ -231,11 +232,13 @@ public class Sc06MarkerPhotoHarnessRunner {
     String error = "unexpected_acceptance";
     String httpStatus = "200";
     try {
-      harness.markerCreateService.create(
+      harness.appMarkerService.create(
           markerCreateRequest(
-              new MarkerGeoJsonPoint(
-                  "Point", List.of(new BigDecimal("35.163100"), new BigDecimal("126.913400")))),
-          harness.markerContext);
+                  new MarkerGeoJsonPoint(
+                      "Point", List.of(new BigDecimal("35.163100"), new BigDecimal("126.913400"))))
+              .toBuilder()
+              .context(harness.markerContext)
+              .build());
     } catch (InvalidGeometryException exception) {
       error = exception.errorCode();
       httpStatus = "400";
@@ -270,9 +273,16 @@ public class Sc06MarkerPhotoHarnessRunner {
             boardRowsAfter != boardRowsBefore));
   }
 
-  private static MarkerCreateRequest markerCreateRequest(MarkerGeoJsonPoint point) {
-    return new MarkerCreateRequest(
-        INCIDENT_UUID, OP_UUID, "CLUE", point, null, "SC-06 field clue", CLIENT_TS, 0L);
+  private static MarkerCreateServiceRequest markerCreateRequest(MarkerGeoJsonPoint point) {
+    return MarkerCreateServiceRequest.builder()
+        .incidentId(INCIDENT_UUID)
+        .opId(OP_UUID)
+        .type("CLUE")
+        .location(point)
+        .memo("SC-06 field clue")
+        .clientTs(CLIENT_TS)
+        .clockOffsetMs(0L)
+        .build();
   }
 
   private static MarkerRecord onlyMarkerRow(InMemoryMarkerRepository repository) {
@@ -302,8 +312,8 @@ public class Sc06MarkerPhotoHarnessRunner {
         new MarkerRequestContext(authentication(), "idem-sc06-marker-create-001");
     private final PhotoRequestContext photoContext =
         new PhotoRequestContext(authentication(), "idem-sc06-photo-attach-001");
-    private final MarkerCreateService markerCreateService =
-        new MarkerCreateService(
+    private final AppMarkerService appMarkerService =
+        new AppMarkerService(
             markerRepository,
             new MarkerLocationValidatorImpl(),
             new MarkerOpBindingValidator(currentOp),

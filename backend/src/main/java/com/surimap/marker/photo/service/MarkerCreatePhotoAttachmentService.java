@@ -68,13 +68,15 @@ public class MarkerCreatePhotoAttachmentService {
     List<MarkerCreatePhotoResponse> responses = new ArrayList<>();
     for (MarkerCreatePhotoRequest request : photos) {
       MarkerPhoto photo =
-          photoRepository.findById(request.photoId()).orElseThrow(() -> conflict("write_conflict"));
+          photoRepository
+              .findById(request.getPhotoId())
+              .orElseThrow(() -> conflict("write_conflict"));
       requireAttachableMarker(markerId, photo);
       requireOpenUploadUrl(photo);
       ObjectStoragePort.ObjectMetadata objectMetadata = requireUploadedObject(photo);
       requireMatchingMetadata(photo, request, objectMetadata);
 
-      photo.attach(clock.instant(), request.width(), request.height());
+      photo.attach(clock.instant(), request.getWidth(), request.getHeight());
       photoRepository.save(photo);
       long nextMarkerVersion = currentMarkerVersion + 1L;
       bumpParentMarkerVersion(markerId, currentMarkerVersion, nextMarkerVersion);
@@ -82,8 +84,13 @@ public class MarkerCreatePhotoAttachmentService {
           publishRequest(incidentId, opId, markerId, policePhoneId, nextMarkerVersion, photo);
       photoEventPublisher.publish(publishRequest);
       responses.add(
-          new MarkerCreatePhotoResponse(
-              photo.id(), photo.status().name(), photo.version(), markerId, nextMarkerVersion));
+          MarkerCreatePhotoResponse.builder()
+              .photoId(photo.id())
+              .status(photo.status().name())
+              .version(photo.version())
+              .markerId(markerId)
+              .markerVersion(nextMarkerVersion)
+              .build());
       currentMarkerVersion = nextMarkerVersion;
     }
     return new AttachmentResult("UPDATED", currentMarkerVersion, responses);
@@ -96,16 +103,16 @@ public class MarkerCreatePhotoAttachmentService {
     var photoIds = new HashSet<UUID>();
     for (MarkerCreatePhotoRequest photo : photos) {
       if (photo == null
-          || photo.photoId() == null
-          || !photoIds.add(photo.photoId())
-          || !PhotoService.ALLOWED_CONTENT_TYPES.contains(photo.contentType())) {
+          || photo.getPhotoId() == null
+          || !photoIds.add(photo.getPhotoId())
+          || !PhotoService.ALLOWED_CONTENT_TYPES.contains(photo.getContentType())) {
         throw conflict("write_conflict");
       }
-      if (photo.sizeBytes() <= 0 || photo.sizeBytes() > PhotoService.MAX_SIZE_BYTES) {
+      if (photo.getSizeBytes() <= 0 || photo.getSizeBytes() > PhotoService.MAX_SIZE_BYTES) {
         throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
       }
-      if ((photo.width() != null && photo.width() <= 0)
-          || (photo.height() != null && photo.height() <= 0)) {
+      if ((photo.getWidth() != null && photo.getWidth() <= 0)
+          || (photo.getHeight() != null && photo.getHeight() <= 0)) {
         throw conflict("write_conflict");
       }
     }
@@ -133,13 +140,13 @@ public class MarkerCreatePhotoAttachmentService {
       MarkerPhoto photo,
       MarkerCreatePhotoRequest request,
       ObjectStoragePort.ObjectMetadata objectMetadata) {
-    if (photo.sizeBytes() != request.sizeBytes()
-        || !photo.contentType().equals(request.contentType())
+    if (photo.sizeBytes() != request.getSizeBytes()
+        || !photo.contentType().equals(request.getContentType())
         || !photo.objectKey().equals(objectMetadata.objectKey())
         || !photo.contentType().equals(objectMetadata.contentType())
         || photo.sizeBytes() != objectMetadata.sizeBytes()
         || !checksumMatches(
-            photo.checksumSha256(), request.checksumSha256(), objectMetadata.checksumSha256())) {
+            photo.checksumSha256(), request.getChecksumSha256(), objectMetadata.checksumSha256())) {
       photo.fail();
       photoRepository.save(photo);
       throw conflict("write_conflict");
@@ -159,14 +166,20 @@ public class MarkerCreatePhotoAttachmentService {
 
   private void bumpParentMarkerVersion(UUID markerId, long expectedVersion, long nextVersion) {
     int updated =
-        markerRepository.updateMarkerStatusVersion(markerId, expectedVersion, "UPDATED", nextVersion);
+        markerRepository.updateMarkerStatusVersion(
+            markerId, expectedVersion, "UPDATED", nextVersion);
     if (updated != 1) {
       throw conflict("write_conflict");
     }
   }
 
   private PublishRequest publishRequest(
-      UUID incidentId, UUID opId, UUID markerId, UUID policePhoneId, long markerVersion, MarkerPhoto photo) {
+      UUID incidentId,
+      UUID opId,
+      UUID markerId,
+      UUID policePhoneId,
+      long markerVersion,
+      MarkerPhoto photo) {
     return new PublishRequest(
         "MARKER_UPDATED",
         new PublishRequestPayload(

@@ -10,6 +10,7 @@ import com.surimap.marker.notification.service.MarkerNotificationFcmDispatchServ
 import com.surimap.policephone.FcmTokenStatus;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -47,7 +48,9 @@ class MarkerNotificationFcmDispatchServiceTest {
             List.of("11111111-1111-1111-1111-111111110001"),
             List.of(RECIPIENT_PHONE_ID.toString()),
             "PERSON_FOUND",
-            "126.913400,35.163100");
+            "126.913400,35.163100",
+            null,
+            Instant.parse("2026-04-28T00:10:00Z"));
 
     service.dispatchAfterCommit("PERSON_FOUND", payload);
 
@@ -60,6 +63,7 @@ class MarkerNotificationFcmDispatchServiceTest {
     assertThat(captured.getPayloadField("incidentId")).isEqualTo(INCIDENT_ID.toString());
     assertThat(captured.getPayloadField("status")).isEqualTo("SNAPSHOT_CREATED");
     assertThat(captured.getPayloadField("version")).isEqualTo(1L);
+    assertThat(captured.getPayloadField("clientTs")).isEqualTo("2026-04-28T00:10:00Z");
     assertThat(captured.recipientPolicePhoneIds()).containsExactly(RECIPIENT_PHONE_ID.toString());
   }
 
@@ -91,6 +95,7 @@ class MarkerNotificationFcmDispatchServiceTest {
     var captured = dispatcher.findByEventId(eventId).orElseThrow();
     assertThat(captured.recipients()).containsExactly("token-recipient-phone");
     assertThat(captured.payload()).doesNotContainKey("locationLabel");
+    assertThat(captured.payload()).doesNotContainKey("clientTs");
   }
 
   private static final class FixtureFcmTokenQuery implements FcmTokenQuery {

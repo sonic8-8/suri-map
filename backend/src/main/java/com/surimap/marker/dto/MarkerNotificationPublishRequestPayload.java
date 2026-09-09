@@ -1,5 +1,6 @@
 package com.surimap.marker.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +18,8 @@ public record MarkerNotificationPublishRequestPayload(
     List<String> recipientPolicePhoneIds,
     String markerType,
     String locationLabel,
-    String policePhoneName)
+    String policePhoneName,
+    Instant clientTs)
     implements MarkerPublishPayload {
 
   public MarkerNotificationPublishRequestPayload {
@@ -55,6 +57,7 @@ public record MarkerNotificationPublishRequestPayload(
         recipientPolicePhoneIds,
         markerType,
         locationLabel,
+        null,
         null);
   }
 }

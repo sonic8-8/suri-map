@@ -14,7 +14,7 @@ import com.surimap.common.auth.Role;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerListResponse;
-import com.surimap.marker.service.MarkerCreateService;
+import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
 import com.surimap.retention.purge.LocationAccessRecorder;
@@ -49,7 +49,7 @@ class MarkerReadApiContractTest {
 
   @MockitoBean private IncidentAccessPort incidentAccessPort;
   @MockitoBean private LocationAccessRecorder locationAccessRecorder;
-  @MockitoBean private MarkerCreateService markerCreateService;
+  @MockitoBean private AppMarkerService appMarkerService;
   @MockitoBean private MarkerUpdateDeleteService markerUpdateDeleteService;
   @MockitoBean private MarkerReadService markerReadService;
 

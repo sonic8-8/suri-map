@@ -7,12 +7,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.app.service.marker.AppMarkerService;
+import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerCreateRequest;
 import com.surimap.marker.dto.MarkerDeleteRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -45,7 +46,6 @@ import com.surimap.marker.purge.MarkerPhotoPurgeHookAdapter;
 import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
-import com.surimap.marker.service.MarkerCreateService;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
@@ -108,8 +108,8 @@ class ClosedIncidentMarkerPhotoGuardTest {
     @Test
     @DisplayName("POST /markers는 incident_closed이고 marker row와 PublishRequest를 만들지 않는다")
     void createClosedIncidentRejectedWithoutMarkerRowOrPublishRequest() {
-      MarkerCreateService service =
-          new MarkerCreateService(
+      AppMarkerService service =
+          new AppMarkerService(
               markerRepository,
               new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
@@ -119,7 +119,8 @@ class ClosedIncidentMarkerPhotoGuardTest {
               () -> MARKER_ID);
 
       assertIncidentClosed(
-          () -> service.create(defaultCreateRequest(), markerContext), MarkerApiException.class);
+          () -> service.create(defaultCreateRequest().toBuilder().context(markerContext).build()),
+          MarkerApiException.class);
       assertThat(markerRepository.records()).isEmpty();
       assertThat(markerEventPublisher.published()).isEmpty();
     }
@@ -137,8 +138,8 @@ class ClosedIncidentMarkerPhotoGuardTest {
               markerEventPublisher,
               Clock.fixed(SERVER_TS, ZoneOffset.UTC),
               context -> UUID.fromString("66666666-6666-6666-6666-666666661148"));
-      MarkerCreateService service =
-          new MarkerCreateService(
+      AppMarkerService service =
+          new AppMarkerService(
               markerRepository,
               new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
@@ -149,7 +150,9 @@ class ClosedIncidentMarkerPhotoGuardTest {
               () -> MARKER_ID);
 
       assertIncidentClosed(
-          () -> service.create(supportRequestCreateRequest(), markerContext),
+          () ->
+              service.create(
+                  supportRequestCreateRequest().toBuilder().context(markerContext).build()),
           MarkerApiException.class);
 
       assertThat(markerRepository.records()).isEmpty();
@@ -349,30 +352,33 @@ class ClosedIncidentMarkerPhotoGuardTest {
             1L));
   }
 
-  private static MarkerCreateRequest defaultCreateRequest() {
-    return new MarkerCreateRequest(
-        INCIDENT_ID,
-        OP1_ID,
-        "CLUE",
-        new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
-        null,
-        "post-close marker",
-        CLIENT_TS,
-        0L);
+  private static MarkerCreateServiceRequest defaultCreateRequest() {
+    return MarkerCreateServiceRequest.builder()
+        .incidentId(INCIDENT_ID)
+        .opId(OP1_ID)
+        .type("CLUE")
+        .location(
+            new MarkerGeoJsonPoint(
+                "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))))
+        .memo("post-close marker")
+        .clientTs(CLIENT_TS)
+        .clockOffsetMs(0L)
+        .build();
   }
 
-  private static MarkerCreateRequest supportRequestCreateRequest() {
-    return new MarkerCreateRequest(
-        INCIDENT_ID,
-        OP1_ID,
-        "SUPPORT_REQUEST",
-        new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
-        "DRONE",
-        "post-close support request",
-        CLIENT_TS,
-        0L);
+  private static MarkerCreateServiceRequest supportRequestCreateRequest() {
+    return MarkerCreateServiceRequest.builder()
+        .incidentId(INCIDENT_ID)
+        .opId(OP1_ID)
+        .type("SUPPORT_REQUEST")
+        .location(
+            new MarkerGeoJsonPoint(
+                "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))))
+        .supportRequestType("DRONE")
+        .memo("post-close support request")
+        .clientTs(CLIENT_TS)
+        .clockOffsetMs(0L)
+        .build();
   }
 
   private static Class<?> markerPhotoPurgeHookType() {

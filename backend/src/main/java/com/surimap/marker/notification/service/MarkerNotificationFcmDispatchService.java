@@ -86,6 +86,9 @@ public class MarkerNotificationFcmDispatchService {
     values.put("recipientAccountIds", payload.recipientAccountIds());
     values.put("recipientPolicePhoneIds", payload.recipientPolicePhoneIds());
     values.put("markerType", payload.markerType());
+    if (payload.clientTs() != null) {
+      values.put("clientTs", payload.clientTs().toString());
+    }
     putIfPresent(values, "locationLabel", payload.locationLabel());
     return values;
   }
