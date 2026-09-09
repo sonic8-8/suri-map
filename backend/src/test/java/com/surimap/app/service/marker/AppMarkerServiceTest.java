@@ -22,6 +22,8 @@ import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
+import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
@@ -40,8 +42,6 @@ import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
-import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
@@ -112,10 +112,12 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // Testcontainers의 테스트 DB에서 이 사건과 요청 키로 만든 데이터만 정리한다.
     jdbcTemplate.update("DELETE FROM event_dispatch_job WHERE incident_id = ?", INCIDENT_ID);
     jdbcTemplate.update(
-        "DELETE FROM marker_notification WHERE marker_id IN (SELECT id FROM marker WHERE incident_id = ?)",
+        "DELETE FROM marker_notification WHERE marker_id IN (SELECT id FROM marker WHERE"
+            + " incident_id = ?)",
         INCIDENT_ID);
     jdbcTemplate.update(
-        "DELETE FROM photo WHERE id = ? OR marker_id IN (SELECT id FROM marker WHERE incident_id = ?)",
+        "DELETE FROM photo WHERE id = ? OR marker_id IN (SELECT id FROM marker WHERE incident_id ="
+            + " ?)",
         PHOTO_ID,
         INCIDENT_ID);
     jdbcTemplate.update("DELETE FROM marker WHERE incident_id = ?", INCIDENT_ID);
@@ -338,33 +340,38 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // given: 실제 앱 서비스로 마커를 생성하고, 발급받은 주소로 사진 업로드를 완료한다.
     MarkerCreateServiceResponse created = appMarkerService.create(createRequest("CLUE", null));
     UUID markerId = created.getId();
-    PhotoUploadUrlResponse upload =
+    PhotoUploadUrlServiceResponse upload =
         photoService.createUploadUrl(
-            markerId,
-            new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, CHECKSUM_SHA256),
-            new PhotoRequestContext(context.authentication(), PHOTO_UPLOAD_IDEMPOTENCY_KEY));
-    MarkerPhoto pendingPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
+            PhotoUploadUrlServiceRequest.builder()
+                .markerId(markerId)
+                .contentType("image/jpeg")
+                .sizeBytes(1_048_576L)
+                .checksumSha256(CHECKSUM_SHA256)
+                .context(
+                    new PhotoRequestContext(context.authentication(), PHOTO_UPLOAD_IDEMPOTENCY_KEY))
+                .build());
+    MarkerPhoto pendingPhoto = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     assertThat(created.getStatus()).isEqualTo("ACTIVE");
     assertThat(created.getVersion()).isEqualTo(1L);
     assertThat(pendingPhoto.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
-    assertThat(upload.uploadUrl()).endsWith(pendingPhoto.getObjectKey());
+    assertThat(upload.getUploadUrl()).endsWith(pendingPhoto.getObjectKey());
     objectStorage.simulateUpload(pendingPhoto.getObjectKey());
 
     // when: 생성 요청과 별개의 사진 첨부 요청을 실제 사진 서비스로 처리한다.
     PhotoAttachResponse attached =
         photoService.attach(
             markerId,
-            upload.photoId(),
+            upload.getPhotoId(),
             new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, CHECKSUM_SHA256),
             new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY));
 
     // then: 사진과 부모 마커의 상태·버전이 바뀌고, DB에 생성·수정 이벤트가 하나씩 남는다.
-    assertThat(attached.photoId()).isEqualTo(upload.photoId());
+    assertThat(attached.photoId()).isEqualTo(upload.getPhotoId());
     assertThat(attached.status()).isEqualTo("ATTACHED");
     assertThat(attached.version()).isEqualTo(2L);
     assertThat(attached.markerId()).isEqualTo(markerId);
     assertThat(attached.markerVersion()).isEqualTo(2L);
-    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    MarkerPhoto photo = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     assertThat(photo.getMarkerId()).isEqualTo(markerId);
     assertThat(photo.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
     assertThat(photo.getVersion()).isEqualTo(2L);
@@ -378,7 +385,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT id FROM photo WHERE marker_id = ?", UUID.class, markerId))
-        .containsExactly(upload.photoId());
+        .containsExactly(upload.getPhotoId());
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
     JsonNode createdEvent = readEventPayload("MARKER_CREATED");
     assertThat(createdEvent.path("id").asText()).isEqualTo(markerId.toString());
@@ -393,7 +400,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(updatedEvent.path("status").asText()).isEqualTo("UPDATED");
     assertThat(updatedEvent.path("version").asLong()).isEqualTo(2L);
     JsonNode photoDelta = updatedEvent.path("photoDelta");
-    assertThat(photoDelta.path("photoId").asText()).isEqualTo(upload.photoId().toString());
+    assertThat(photoDelta.path("photoId").asText()).isEqualTo(upload.getPhotoId().toString());
     assertThat(photoDelta.path("status").asText()).isEqualTo("ATTACHED");
     assertThat(photoDelta.path("version").asLong()).isEqualTo(2L);
   }
@@ -497,7 +504,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         PRECINCT_TEAM_ID);
     assertThat(
             jdbcTemplate.queryForObject(
-                "SELECT ST_Covers(geometry, ST_SetSRID(ST_MakePoint(127.2, 35.1631), 4326)) FROM search_area WHERE id = ?",
+                "SELECT ST_Covers(geometry, ST_SetSRID(ST_MakePoint(127.2, 35.1631), 4326)) FROM"
+                    + " search_area WHERE id = ?",
                 Boolean.class,
                 OVERALL_AREA_ID))
         .isFalse();
@@ -723,7 +731,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate
                 .queryForObject(
-                    "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ? AND request_path = '/api/markers' AND request_method = 'POST'",
+                    "SELECT request_body_hash FROM idempotency_record WHERE idempotency_key = ? AND"
+                        + " request_path = '/api/markers' AND request_method = 'POST'",
                     String.class,
                     IDEMPOTENCY_KEY)
                 .trim())
@@ -746,7 +755,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceResponse firstResponse =
         appMarkerService.create(createRequest("SUPPORT_REQUEST", "DRONE"));
     jdbcTemplate.update(
-        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND request_path = '/api/markers' AND request_method = 'POST'",
+        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND"
+            + " request_path = '/api/markers' AND request_method = 'POST'",
         "05ce05736900922dd9ab918703177999876d4489f6ccc9c682531b54246864a2",
         IDEMPOTENCY_KEY);
 
@@ -766,7 +776,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceResponse firstResponse =
         appMarkerService.create(createRequest("SUPPORT_REQUEST", "DRONE"));
     jdbcTemplate.update(
-        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND request_path = '/api/markers' AND request_method = 'POST'",
+        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND"
+            + " request_path = '/api/markers' AND request_method = 'POST'",
         "05ce05736900922dd9ab918703177999876d4489f6ccc9c682531b54246864a2",
         IDEMPOTENCY_KEY);
     MarkerCreateServiceRequest changedRequest =
@@ -813,7 +824,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceRequest request = prepareMarkerRequestWithUploadedPhoto();
     MarkerCreateServiceResponse firstResponse = appMarkerService.create(request);
     jdbcTemplate.update(
-        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND request_path = '/api/markers' AND request_method = 'POST'",
+        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND"
+            + " request_path = '/api/markers' AND request_method = 'POST'",
         "d11455f257e00d3b325694535c9593ff511458fe5f506c911d287fe76ba4f55d",
         IDEMPOTENCY_KEY);
 
@@ -1063,7 +1075,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(readMarkerIds()).containsExactly(markerId);
     assertThat(
             jdbcTemplate.queryForList(
-                "SELECT n.marker_id FROM marker_notification n JOIN marker m ON m.id = n.marker_id WHERE m.incident_id = ?",
+                "SELECT n.marker_id FROM marker_notification n JOIN marker m ON m.id = n.marker_id"
+                    + " WHERE m.incident_id = ?",
                 UUID.class,
                 INCIDENT_ID))
         .containsExactly(markerId);
@@ -1081,7 +1094,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     JsonNode storedResponse =
         objectMapper.readTree(
             jdbcTemplate.queryForObject(
-                "SELECT to_jsonb(r)::text FROM idempotency_record r WHERE idempotency_key = ? AND request_path = '/api/markers' AND request_method = 'POST'",
+                "SELECT to_jsonb(r)::text FROM idempotency_record r WHERE idempotency_key = ? AND"
+                    + " request_path = '/api/markers' AND request_method = 'POST'",
                 String.class,
                 IDEMPOTENCY_KEY));
     assertThat(storedResponse.path("idempotency_status").asText()).isEqualTo("COMPLETED");

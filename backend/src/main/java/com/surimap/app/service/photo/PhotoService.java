@@ -1,5 +1,7 @@
 package com.surimap.app.service.photo;
 
+import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
@@ -12,8 +14,6 @@ import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
-import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -74,8 +74,12 @@ public class PhotoService {
   }
 
   @Transactional
-  public PhotoUploadUrlResponse createUploadUrl(
-      UUID markerId, PhotoUploadUrlRequest request, PhotoRequestContext context) {
+  public PhotoUploadUrlServiceResponse createUploadUrl(PhotoUploadUrlServiceRequest request) {
+    if (request == null) {
+      throw conflict("write_conflict");
+    }
+    UUID markerId = request.getMarkerId();
+    PhotoRequestContext context = request.getContext();
     requireMarkerId(markerId);
     requireWriteContext(context);
     validateUploadRequest(request);
@@ -85,28 +89,28 @@ public class PhotoService {
         request,
         () -> formatLegacyUploadRequestBody(markerId, request),
         201,
-        PhotoUploadUrlResponse.class,
-        () -> createNewUploadUrl(markerId, request, context),
+        PhotoUploadUrlServiceResponse.class,
+        () -> createNewUploadUrl(request),
         this::metadataForUpload);
   }
 
-  private PhotoUploadUrlResponse createNewUploadUrl(
-      UUID markerId, PhotoUploadUrlRequest request, PhotoRequestContext context) {
-    Marker marker = requirePhotoAccess(markerId, context);
+  private PhotoUploadUrlServiceResponse createNewUploadUrl(PhotoUploadUrlServiceRequest request) {
+    UUID markerId = request.getMarkerId();
+    Marker marker = requirePhotoAccess(markerId, request.getContext());
     requirePhotoSlot(markerId);
 
     UUID photoId = UUID.randomUUID();
     Instant expiresAt = clock.instant().plus(UPLOAD_URL_TTL);
     String objectKey =
         objectKeyGenerator.generate(
-            marker.getIncidentId(), markerId, photoId, request.contentType());
+            marker.getIncidentId(), markerId, photoId, request.getContentType());
     String uploadUrl =
         storagePort
             .generatePresignedUrl(
                 objectKey,
-                request.contentType(),
-                request.sizeBytes(),
-                request.checksumSha256(),
+                request.getContentType(),
+                request.getSizeBytes(),
+                request.getChecksumSha256(),
                 UPLOAD_URL_TTL)
             .uploadUrl();
     MarkerPhoto photo =
@@ -114,15 +118,14 @@ public class PhotoService {
             .id(photoId)
             .markerId(markerId)
             .objectKey(objectKey)
-            .contentType(request.contentType())
-            .sizeBytes(request.sizeBytes())
-            .checksumSha256(request.checksumSha256())
+            .contentType(request.getContentType())
+            .sizeBytes(request.getSizeBytes())
+            .checksumSha256(request.getChecksumSha256())
             .uploadUrlExpiresAt(expiresAt)
             .build();
     photoMapper.upsert(photo);
 
-    return new PhotoUploadUrlResponse(
-        photo.getId(), uploadUrl, expiresAt, MAX_SIZE_BYTES, photo.getVersion());
+    return PhotoUploadUrlServiceResponse.from(photo, uploadUrl, MAX_SIZE_BYTES);
   }
 
   @Transactional
@@ -177,11 +180,11 @@ public class PhotoService {
     return response;
   }
 
-  private void validateUploadRequest(PhotoUploadUrlRequest request) {
-    if (request == null || !ALLOWED_CONTENT_TYPES.contains(request.contentType())) {
+  private void validateUploadRequest(PhotoUploadUrlServiceRequest request) {
+    if (request == null || !ALLOWED_CONTENT_TYPES.contains(request.getContentType())) {
       throw conflict("write_conflict");
     }
-    if (request.sizeBytes() <= 0 || request.sizeBytes() > MAX_SIZE_BYTES) {
+    if (request.getSizeBytes() <= 0 || request.getSizeBytes() > MAX_SIZE_BYTES) {
       throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
     }
   }
@@ -404,12 +407,12 @@ public class PhotoService {
     return new PhotoApiException(error, HttpStatus.CONFLICT);
   }
 
-  private ResponseMetadata metadataForUpload(PhotoUploadUrlResponse response) {
+  private ResponseMetadata metadataForUpload(PhotoUploadUrlServiceResponse response) {
     return new ResponseMetadata(
-        response.photoId().toString(),
+        response.getPhotoId().toString(),
         PhotoStatus.PENDING_UPLOAD.name(),
-        response.version(),
-        response.version());
+        response.getVersion(),
+        response.getVersion());
   }
 
   private ResponseMetadata metadataForAttach(PhotoAttachResponse response) {
@@ -421,9 +424,14 @@ public class PhotoService {
   }
 
   // ponytail: 과거 업로드 요청 해시 비교 전용이다. 해당 처리 기록이 없음을 확인한 뒤 제거한다.
-  private String formatLegacyUploadRequestBody(UUID markerId, PhotoUploadUrlRequest request) {
+  private String formatLegacyUploadRequestBody(
+      UUID markerId, PhotoUploadUrlServiceRequest request) {
     return "upload-url:%s:PhotoUploadUrlRequest[contentType=%s, sizeBytes=%s, checksumSha256=%s]"
-        .formatted(markerId, request.contentType(), request.sizeBytes(), request.checksumSha256());
+        .formatted(
+            markerId,
+            request.getContentType(),
+            request.getSizeBytes(),
+            request.getChecksumSha256());
   }
 
   // ponytail: 과거 첨부 요청 해시 비교 전용이다. 해당 처리 기록이 없음을 확인한 뒤 제거한다.
