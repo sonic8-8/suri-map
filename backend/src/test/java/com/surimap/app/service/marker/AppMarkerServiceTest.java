@@ -16,9 +16,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import com.surimap.marker.domain.MarkerSource;
+import com.surimap.marker.domain.MarkerStatus;
+import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
@@ -41,11 +50,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {"surimap.object-storage.provider=mock", "fcm.provider=mock"})
 class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
+  private static final UUID MUTATION_MARKER_ID =
+      UUID.fromString("55555555-5555-5555-5555-555555550072");
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550071");
   private static final UUID PHOTO_ID = UUID.fromString("55555555-5555-5555-5555-555555550172");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("33333333-3333-3333-3333-333333330071");
@@ -698,5 +710,354 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                 MarkerCreateServiceResponse.class))
         .usingRecursiveComparison()
         .isEqualTo(firstResponse);
+  }
+
+  @Test
+  @DisplayName("마커를 수정하면, 변경된 내용과 증가한 버전 및 수정 이벤트를 함께 저장한다")
+  void updateMarker_currentVersion_savesChangesAndUpdatedEvent() throws Exception {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 현재 버전과 변경할 좌표·메모·유형을 준비한다.
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder()
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.9137007"), new BigDecimal("35.1634007"))))
+            .memo("updated clue memo")
+            .type("NOTE")
+            .build();
+    Instant startedAt = Instant.now();
+
+    // when: 실제 권한 검사, 도메인 변경, SQL과 이벤트 저장을 실행한다.
+    MarkerMutationServiceResponse response = appMarkerService.update(request);
+    Instant completedAt = Instant.now();
+
+    // then: 응답·마커·이벤트에 같은 수정 내용과 버전이 남는다.
+    assertResponse(response, "UPDATED");
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getMarkerType()).isEqualTo("NOTE");
+    assertThat(saved.getMemo()).isEqualTo("updated clue memo");
+    assertThat(saved.getLocation().getSRID()).isEqualTo(4326);
+    assertThat(saved.getLocation().getX()).isEqualTo(126.913701);
+    assertThat(saved.getLocation().getY()).isEqualTo(35.163401);
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(saved.getStatus()).isEqualTo("UPDATED");
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    JsonNode event = readMutationEventPayload();
+    assertEvent(event, "UPDATED", ASSIGNED_POLICE_PHONE_ID);
+    assertThat(event.path("type").asText()).isEqualTo("NOTE");
+    assertThat(event.path("location").path("coordinates").get(0).decimalValue())
+        .isEqualByComparingTo("126.913701");
+    assertThat(event.path("location").path("coordinates").get(1).decimalValue())
+        .isEqualByComparingTo("35.163401");
+    assertThat(Instant.parse(event.path("serverTs").asText())).isBetween(startedAt, completedAt);
+  }
+
+  @Test
+  @DisplayName("현장 마커를 삭제하면, 행은 남기고 삭제 상태·다음 버전·삭제 이벤트를 저장한다")
+  void deleteMarker_currentVersion_savesDeletedStatusAndEvent() throws Exception {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 버전이 1인 현장 마커와 작성 계정의 요청이다.
+    // when: 현재 버전으로 삭제한다.
+    MarkerMutationServiceResponse response = appMarkerService.delete(deleteRequest());
+
+    // then: 기존 내용은 남기고 삭제 결과를 응답과 이벤트에 기록한다.
+    assertResponse(response, "DELETED");
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getMemo()).isEqualTo("initial clue");
+    assertThat(saved.getStatus()).isEqualTo("DELETED");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
+    JsonNode event = readMutationEventPayload();
+    assertEvent(event, "DELETED", ASSIGNED_POLICE_PHONE_ID);
+    assertThat(event.has("type")).isFalse();
+    assertThat(event.has("location")).isFalse();
+  }
+
+  @Test
+  @DisplayName("수정할 메모가 2,000자를 넘으면, 마커와 이벤트를 변경하지 않는다")
+  void updateMarker_memoTooLong_preservesMarkerAndEvents() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 유형 변경과 허용 길이를 넘는 메모를 요청한다.
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder().type("NOTE").memo("m".repeat(2001)).build();
+
+    // when & then: 검증 오류로 전체 요청을 거부한다.
+    assertThatThrownBy(() -> appMarkerService.update(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.WRITE_CONFLICT);
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("요청 버전이 저장된 버전과 다르면, 마커와 이벤트를 변경하지 않는다")
+  void updateMarker_versionMismatch_preservesMarkerAndEvents() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 저장된 버전은 1인데 요청 버전은 99이다.
+    MarkerUpdateServiceRequest request = updateRequest().toBuilder().version(99L).build();
+
+    // when & then: 다른 버전의 수정 요청을 거부한다.
+    assertThatThrownBy(() -> appMarkerService.update(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.WRITE_CONFLICT);
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("채널에서 변경할 수 없는 마커이면, 수정과 삭제를 모두 거부한다")
+  void changeMarker_disallowedSource_preservesMarkerAndEvents() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 앱에서 기준 마커를 변경하도록 요청한다.
+    jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
+    insertMarker(MarkerSource.MOCK_SEED, ASSIGNED_POLICE_PHONE_ID);
+    MarkerRequestContext requestContext = context("APP", ASSIGNED_POLICE_PHONE_ID);
+
+    // when & then: 실제 DB의 마커 출처로 수정·삭제 권한을 판단한다.
+    assertThatThrownBy(
+            () ->
+                appMarkerService.update(
+                    updateRequest().toBuilder().context(requestContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_access_denied");
+    assertThatThrownBy(
+            () ->
+                appMarkerService.delete(
+                    deleteRequest().toBuilder().context(requestContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_access_denied");
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("다른 계정이 기록한 현장 마커이면, 앱에서 수정과 삭제를 거부한다")
+  void changeMarker_differentAuthor_preservesMarkerAndEvents() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 요청 계정과 다른 계정이 마커를 기록했다.
+    jdbcTemplate.update(
+        "UPDATE marker SET created_by_account_id = ? WHERE id = ?",
+        com.surimap.account.AccountIdentityCatalog.PRECINCT_COMMANDER_ID,
+        MUTATION_MARKER_ID);
+
+    // when & then: 같은 사건에 배정되어 있어도 작성자가 아니면 거부한다.
+    assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_access_denied");
+    assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_access_denied");
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("사건이 종료되었으면, 마커 수정과 삭제를 거부한다")
+  void changeMarker_closedIncident_preservesMarkerAndEvents() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 마커가 속한 사건이 종료되어 있다.
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+
+    // when & then: 수정·삭제 모두 사건 종료 오류를 반환한다.
+    assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_closed");
+    assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("incident_closed");
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("같은 수정 요청을 재전송하면, 저장된 응답을 반환하고 중복 변경하지 않는다")
+  void updateMarker_sameRequest_returnsStoredResponseWithoutDuplicates() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 수정이 한 번 완료된 요청이다.
+    MarkerMutationServiceResponse first = appMarkerService.update(updateRequest());
+
+    // when: 같은 키와 본문으로 다시 요청한다.
+    MarkerMutationServiceResponse repeated = appMarkerService.update(updateRequest());
+
+    // then: DB 버전과 이벤트는 한 번만 증가한다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
+        .isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertThatThrownBy(
+            () -> appMarkerService.update(updateRequest().toBuilder().memo("다른 메모").build()))
+        .isInstanceOf(IdempotencyMismatchException.class);
+  }
+
+  @Test
+  @DisplayName("같은 삭제 요청을 재전송하면, 삭제 상태여도 기존 응답을 반환하고 중복 처리하지 않는다")
+  void deleteMarker_sameRequest_returnsStoredResponseWithoutDuplicates() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 삭제가 한 번 완료된 요청이다.
+    MarkerMutationServiceResponse first = appMarkerService.delete(deleteRequest());
+
+    // when: 같은 키와 본문으로 다시 삭제를 요청한다.
+    MarkerMutationServiceResponse repeated = appMarkerService.delete(deleteRequest());
+
+    // then: 저장된 응답을 반환하고 삭제 이벤트는 하나만 남는다.
+    assertThat(repeated).usingRecursiveComparison().isEqualTo(first);
+    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
+        .isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
+  }
+
+  @Test
+  @DisplayName("이벤트 저장에 실패하면, 마커 수정과 요청 처리 기록도 함께 롤백한다")
+  void updateMarker_eventStorageFails_rollsBackMarkerAndRequestRecord() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 테스트 DB에서 이 마커의 수정 이벤트만 저장할 수 없게 한다.
+    jdbcTemplate.execute(
+        """
+        ALTER TABLE event_dispatch_job ADD CONSTRAINT test_marker_update_event_failure
+        CHECK (source_entity_id <> '55555555-5555-5555-5555-555555550072'::uuid
+               OR event_type <> 'MARKER_UPDATED') NOT VALID
+        """);
+    try {
+      // when & then: 마커 SQL 다음의 이벤트 SQL이 실패해도 일부 변경만 남지 않는다.
+      assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
+          .isInstanceOf(DataAccessException.class);
+      assertUnchangedMarker();
+      assertThat(
+              jdbcTemplate.queryForObject(
+                  "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                  Integer.class,
+                  IDEMPOTENCY_KEY))
+          .isZero();
+    } finally {
+      jdbcTemplate.execute(
+          "ALTER TABLE event_dispatch_job DROP CONSTRAINT test_marker_update_event_failure");
+    }
+    // then: 실패 원인이 사라지면 같은 키로 정상 처리할 수 있다.
+    assertResponse(appMarkerService.update(updateRequest()), "UPDATED");
+  }
+
+  @Test
+  @DisplayName("유형과 좌표가 모두 잘못되었으면, 기존과 같이 유형 오류를 먼저 반환한다")
+  void updateMarker_invalidTypeAndLocation_rejectsTypeBeforeGeometry() {
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    // given: 존재하지 않는 유형과 Point가 아닌 좌표를 함께 보낸다.
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder()
+            .type("UNKNOWN")
+            .location(
+                new MarkerGeoJsonPoint(
+                    "LineString", List.of(new BigDecimal("126.9"), new BigDecimal("35.1"))))
+            .build();
+
+    // when & then: 좌표 오류보다 앞서 유형의 write_conflict 오류를 반환한다.
+    assertThatThrownBy(() -> appMarkerService.update(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.WRITE_CONFLICT);
+    assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("앱 서비스에 웹 인증으로 수정·삭제를 요청하면, 저장된 응답이 있어도 거부한다")
+  void changeMarker_webContext_rejectsBeforeReusingStoredResponse() {
+    // given: 앱에서 처리한 수정 응답이 있고, 같은 요청 키를 가진 웹 인증이 있다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    appMarkerService.update(updateRequest());
+    MarkerRequestContext webContext = context("WEB", null);
+
+    // when & then: 저장된 응답을 반환하기 전에 서비스의 채널 경계를 검사한다.
+    assertThatThrownBy(
+            () -> appMarkerService.update(updateRequest().toBuilder().context(webContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("channel_not_allowed");
+    assertThatThrownBy(
+            () -> appMarkerService.delete(deleteRequest().toBuilder().context(webContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error")
+        .isEqualTo("channel_not_allowed");
+    assertThat(markerRepository.findById(MUTATION_MARKER_ID).orElseThrow().getVersion())
+        .isEqualTo(2L);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+  }
+
+  private MarkerRequestContext context(String channel, UUID policePhoneId) {
+    return new MarkerRequestContext(
+        new SuriMapAuthentication(PRECINCT_TEAM_ID, channel, policePhoneId), IDEMPOTENCY_KEY);
+  }
+
+  private MarkerUpdateServiceRequest updateRequest() {
+    return MarkerUpdateServiceRequest.builder()
+        .markerId(MUTATION_MARKER_ID)
+        .version(1L)
+        .memo("updated clue memo")
+        .context(context)
+        .build();
+  }
+
+  private MarkerDeleteServiceRequest deleteRequest() {
+    return MarkerDeleteServiceRequest.builder()
+        .markerId(MUTATION_MARKER_ID)
+        .version(1L)
+        .reason("wrong marker")
+        .context(context)
+        .build();
+  }
+
+  private void insertMarker(MarkerSource source, UUID policePhoneId) {
+    markerRepository.insertSeed(
+        Marker.builder()
+            .id(MUTATION_MARKER_ID)
+            .incidentId(INCIDENT_ID)
+            .operationalPeriodId(OP1_ID)
+            .markerType(MarkerType.CLUE)
+            .location(MarkerGeometryFixtures.VALID_MARKER_POINT)
+            .memo("initial clue")
+            .occurredAt(CLIENT_TS)
+            .createdByAccountId(PRECINCT_TEAM_ID)
+            .policePhoneId(policePhoneId)
+            .markerSource(source)
+            .status(MarkerStatus.ACTIVE)
+            .version(1L)
+            .build());
+  }
+
+  private void assertResponse(MarkerMutationServiceResponse response, String status) {
+    assertThat(response.getId()).isEqualTo(MUTATION_MARKER_ID);
+    assertThat(response.getStatus()).isEqualTo(status);
+    assertThat(response.getVersion()).isEqualTo(2L);
+  }
+
+  private void assertUnchangedMarker() {
+    Marker saved = markerRepository.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getStatus()).isEqualTo("ACTIVE");
+    assertThat(saved.getVersion()).isEqualTo(1L);
+    assertThat(saved.getMemo()).isEqualTo("initial clue");
+    assertThat(readEventTypes()).isEmpty();
+  }
+
+  private void assertEvent(JsonNode event, String status, UUID policePhoneId) {
+    assertThat(event.path("id").asText()).isEqualTo(MUTATION_MARKER_ID.toString());
+    assertThat(event.path("incidentId").asText()).isEqualTo(INCIDENT_ID.toString());
+    assertThat(event.path("opId").asText()).isEqualTo(OP1_ID.toString());
+    assertThat(event.path("version").asLong()).isEqualTo(2L);
+    assertThat(event.path("status").asText()).isEqualTo(status);
+    if (policePhoneId == null) {
+      assertThat(event.path("policePhoneId").isNull()).isTrue();
+    } else {
+      assertThat(event.path("policePhoneId").asText()).isEqualTo(policePhoneId.toString());
+    }
+  }
+
+  private JsonNode readMutationEventPayload() throws Exception {
+    return objectMapper.readTree(
+        jdbcTemplate.queryForObject(
+            "SELECT payload::text FROM event_dispatch_job WHERE incident_id = ?",
+            String.class,
+            INCIDENT_ID));
   }
 }

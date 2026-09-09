@@ -1,8 +1,14 @@
 package com.surimap.app.service.marker;
 
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
@@ -22,6 +28,7 @@ import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService.Attac
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerRepository;
+import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -360,5 +367,187 @@ public class AppMarkerService {
     } catch (IllegalArgumentException exception) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
+  }
+
+  @Transactional
+  public MarkerMutationServiceResponse update(MarkerUpdateServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    MarkerRequestContext context = request.getContext();
+    requireAppContext(context);
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "PATCH /api/markers/" + request.getMarkerId(),
+          context.idempotencyKey(),
+          request,
+          () ->
+              MarkerMutationLegacyRequestBody.formatUpdate(
+                  request.getMarkerId(),
+                  request.getVersion(),
+                  request.getLocation(),
+                  request.getMemo(),
+                  request.getType()),
+          200,
+          MarkerMutationServiceResponse.class,
+          () -> updateMarker(request),
+          this::metadataFor);
+    }
+    return updateMarker(request);
+  }
+
+  private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
+    UUID markerId = request.getMarkerId();
+    MarkerMutationContext mutationContext =
+        markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
+    requireMutationContext(markerId, mutationContext);
+    Marker current = findMarker(markerId);
+    // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
+    current.requireVersion(request.getVersion());
+    Marker.validateType(request.getType());
+    MarkerGeoJsonPoint location =
+        resolveUpdateLocation(mutationContext.incidentId(), current, request);
+    current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
+    int updated = markerRepository.updateMarker(current, request.getVersion());
+    requireSingleRowUpdated(updated);
+
+    MarkerPublishRequest publishRequest =
+        createPublishRequest(
+            "MARKER_UPDATED",
+            mutationContext,
+            current,
+            MarkerStatus.UPDATED,
+            current.getVersion(),
+            current.getMarkerType(),
+            location);
+    markerEventPublisher.publish(publishRequest);
+
+    return MarkerMutationServiceResponse.from(current);
+  }
+
+  @Transactional
+  public MarkerMutationServiceResponse delete(MarkerDeleteServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    MarkerRequestContext context = request.getContext();
+    requireAppContext(context);
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "DELETE /api/markers/" + request.getMarkerId(),
+          context.idempotencyKey(),
+          request,
+          () ->
+              MarkerMutationLegacyRequestBody.formatDelete(
+                  request.getMarkerId(), request.getVersion(), request.getReason()),
+          200,
+          MarkerMutationServiceResponse.class,
+          () -> deleteMarker(request),
+          this::metadataFor);
+    }
+    return deleteMarker(request);
+  }
+
+  private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
+    UUID markerId = request.getMarkerId();
+    MarkerMutationContext mutationContext =
+        markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
+    requireMutationContext(markerId, mutationContext);
+    Marker current = findMarker(markerId);
+    current.delete(request.getVersion());
+    int updated = markerRepository.deleteMarker(current, request.getVersion());
+    requireSingleRowUpdated(updated);
+
+    MarkerPublishRequest publishRequest =
+        createPublishRequest(
+            "MARKER_DELETED",
+            mutationContext,
+            current,
+            MarkerStatus.DELETED,
+            current.getVersion(),
+            null,
+            null);
+    markerEventPublisher.publish(publishRequest);
+
+    return MarkerMutationServiceResponse.from(current);
+  }
+
+  private Marker findMarker(UUID markerId) {
+    return markerRepository
+        .findById(markerId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT));
+  }
+
+  private void requireMarkerId(UUID markerId) {
+    if (markerId == null) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private void requireRequestVersion(Long version) {
+    if (version == null || version <= 0) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private MarkerGeoJsonPoint resolveUpdateLocation(
+      UUID incidentId, Marker current, MarkerUpdateServiceRequest request) {
+    if (request.getLocation() == null) {
+      return MarkerGeoJsonPoint.from(current.getLocation());
+    }
+    MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
+    Point location = canonicalLocation.toPoint();
+    markerLocationValidator.validate(incidentId, location);
+    return canonicalLocation;
+  }
+
+  private void requireSingleRowUpdated(int updated) {
+    if (updated != 1) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private void requireMutationContext(UUID markerId, MarkerMutationContext mutationContext) {
+    if (mutationContext == null
+        || mutationContext.incidentId() == null
+        || mutationContext.opId() == null
+        || !markerId.equals(mutationContext.markerId())) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private MarkerPublishRequest createPublishRequest(
+      String type,
+      MarkerMutationContext mutationContext,
+      Marker marker,
+      MarkerStatus status,
+      long version,
+      String markerType,
+      MarkerGeoJsonPoint location) {
+    return new MarkerPublishRequest(
+        type,
+        new MarkerPublishRequestPayload(
+            marker.getId(),
+            mutationContext.incidentId(),
+            marker.getOperationalPeriodId(),
+            resolveEventPolicePhoneId(marker, mutationContext),
+            status.name(),
+            version,
+            markerType,
+            location,
+            null,
+            clock.instant()));
+  }
+
+  private UUID resolveEventPolicePhoneId(Marker marker, MarkerMutationContext mutationContext) {
+    return mutationContext.policePhoneId() == null
+        ? marker.getPolicePhoneId()
+        : mutationContext.policePhoneId();
+  }
+
+  private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus(),
+        response.getVersion(),
+        response.getVersion());
   }
 }

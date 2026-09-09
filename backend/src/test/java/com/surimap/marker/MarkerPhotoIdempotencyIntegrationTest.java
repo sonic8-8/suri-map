@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
@@ -31,10 +34,6 @@ import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
-import com.surimap.marker.service.MarkerUpdateDeleteService;
-import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
-import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
-import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.math.BigDecimal;
@@ -74,7 +73,6 @@ class MarkerPhotoIdempotencyIntegrationTest {
   private InMemoryMarkerRepository markerRepository;
   private CapturingMarkerEventPublisher markerEventPublisher;
   private AppMarkerService appMarkerService;
-  private MarkerUpdateDeleteService markerUpdateDeleteService;
   private InMemoryPhotoRepository photoRepository;
   private MockObjectStorageAdapter objectStorage;
   private CapturingPhotoEventPublisher photoEventPublisher;
@@ -97,13 +95,6 @@ class MarkerPhotoIdempotencyIntegrationTest {
             new AllowingMarkerWriteGuard(),
             markerEventPublisher,
             null,
-            cacheProvider);
-    markerUpdateDeleteService =
-        new MarkerUpdateDeleteService(
-            markerRepository,
-            markerLocationValidator,
-            new AllowingMarkerWriteGuard(),
-            markerEventPublisher,
             cacheProvider);
 
     photoRepository = new InMemoryPhotoRepository();
@@ -166,10 +157,10 @@ class MarkerPhotoIdempotencyIntegrationTest {
     MarkerUpdateServiceRequest request = createUpdateRequest(context);
 
     // when: 같은 키와 본문으로 두 번 수정한다.
-    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse updated = appMarkerService.update(request);
     assertThat(requestBodyHash("idem-s5-marker-update-db"))
         .isEqualTo("ee82990a08aec3357c7e06eb1743929cf95f1138d4b556044daa02e5815c903d");
-    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse replayed = appMarkerService.update(request);
 
     // then: 첫 응답을 재사용하고 수정·이벤트 발행은 한 번만 한다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
@@ -187,13 +178,13 @@ class MarkerPhotoIdempotencyIntegrationTest {
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
     MarkerUpdateServiceRequest request = createUpdateRequest(context);
-    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse updated = appMarkerService.update(request);
     replaceStoredRequestHash(
         context.idempotencyKey(),
         "0f9374acb0c8578e46c7b9e1c3959a494316a8651d5e889f644fcbf5b97ab84a");
 
     // when: 같은 키와 본문을 재전송한다.
-    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse replayed = appMarkerService.update(request);
 
     // then: 저장된 응답을 반환하고 수정과 이벤트 발행은 한 번만 한다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
@@ -209,13 +200,13 @@ class MarkerPhotoIdempotencyIntegrationTest {
     MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
     MarkerUpdateServiceRequest request =
         createUpdateRequest(context).toBuilder().location(point()).memo(null).type(null).build();
-    MarkerMutationServiceResponse updated = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse updated = appMarkerService.update(request);
     replaceStoredRequestHash(
         context.idempotencyKey(),
         "f5c8248db29432930ec45ab14b1c3787da80b5f8806c0fd15afc890f181ad748");
 
     // when: 같은 좌표를 포함한 요청을 재전송한다.
-    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.update(request);
+    MarkerMutationServiceResponse replayed = appMarkerService.update(request);
 
     // then: 과거 좌표 표현을 동일하게 비교하고 마커·이벤트를 추가로 변경하지 않는다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(updated);
@@ -232,7 +223,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-update-db");
     MarkerUpdateServiceRequest request = createUpdateRequest(context);
-    markerUpdateDeleteService.update(request);
+    appMarkerService.update(request);
     if ("LEGACY".equals(storedHashFormat)) {
       replaceStoredRequestHash(
           context.idempotencyKey(),
@@ -241,8 +232,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
     // when & then: 같은 키에 다른 메모를 담아 보내면 본문 불일치로 거부한다.
     assertThatThrownBy(
-            () ->
-                markerUpdateDeleteService.update(request.toBuilder().memo("changed memo").build()))
+            () -> appMarkerService.update(request.toBuilder().memo("changed memo").build()))
         .isInstanceOf(IdempotencyMismatchException.class);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getMemo())
         .isEqualTo("updated durable marker");
@@ -259,10 +249,10 @@ class MarkerPhotoIdempotencyIntegrationTest {
     MarkerDeleteServiceRequest request = createDeleteRequest(context);
 
     // when: 같은 키와 본문으로 두 번 삭제한다.
-    MarkerMutationServiceResponse deleted = markerUpdateDeleteService.delete(request);
+    MarkerMutationServiceResponse deleted = appMarkerService.delete(request);
     assertThat(requestBodyHash("idem-s5-marker-delete-db"))
         .isEqualTo("45e854b54a52a25efec7e881c38e87e42f91fc6d8548bbb315daad75bc7e0509");
-    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.delete(request);
+    MarkerMutationServiceResponse replayed = appMarkerService.delete(request);
 
     // then: 첫 응답을 재사용하고 삭제·이벤트 발행은 한 번만 한다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(deleted);
@@ -280,13 +270,13 @@ class MarkerPhotoIdempotencyIntegrationTest {
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
     MarkerDeleteServiceRequest request = createDeleteRequest(context);
-    MarkerMutationServiceResponse deleted = markerUpdateDeleteService.delete(request);
+    MarkerMutationServiceResponse deleted = appMarkerService.delete(request);
     replaceStoredRequestHash(
         context.idempotencyKey(),
         "9a48917e665529861efdd50c08e262a63ad8bf6573651f4897808d9cd3797c1f");
 
     // when: 같은 삭제 요청을 재전송한다.
-    MarkerMutationServiceResponse replayed = markerUpdateDeleteService.delete(request);
+    MarkerMutationServiceResponse replayed = appMarkerService.delete(request);
 
     // then: 삭제 결과를 재사용하고 버전과 이벤트를 추가로 변경하지 않는다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(deleted);
@@ -304,7 +294,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
     seedMarker();
     MarkerRequestContext context = markerContext("idem-s5-marker-delete-db");
     MarkerDeleteServiceRequest request = createDeleteRequest(context);
-    markerUpdateDeleteService.delete(request);
+    appMarkerService.delete(request);
     if ("LEGACY".equals(storedHashFormat)) {
       replaceStoredRequestHash(
           context.idempotencyKey(),
@@ -313,9 +303,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
     // when & then: 같은 키에 다른 삭제 사유를 보내면 본문 불일치로 거부한다.
     assertThatThrownBy(
-            () ->
-                markerUpdateDeleteService.delete(
-                    request.toBuilder().reason("changed reason").build()))
+            () -> appMarkerService.delete(request.toBuilder().reason("changed reason").build()))
         .isInstanceOf(IdempotencyMismatchException.class);
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getStatus()).isEqualTo("DELETED");
     assertThat(markerRepository.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);

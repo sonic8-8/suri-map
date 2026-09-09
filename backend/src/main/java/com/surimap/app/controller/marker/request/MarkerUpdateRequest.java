@@ -1,6 +1,6 @@
-package com.surimap.api.controller.marker.request;
+package com.surimap.app.controller.marker.request;
 
-import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.constraints.NotNull;

@@ -1,6 +1,6 @@
-package com.surimap.api.controller.marker.request;
+package com.surimap.app.controller.marker.request;
 
-import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

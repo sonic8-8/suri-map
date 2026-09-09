@@ -5,6 +5,7 @@ import com.surimap.api.controller.marker.request.MarkerUpdateRequest;
 import com.surimap.api.controller.marker.response.MarkerListResponse;
 import com.surimap.api.controller.marker.response.MarkerMutationResponse;
 import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
@@ -13,8 +14,6 @@ import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
-import com.surimap.marker.service.MarkerUpdateDeleteService;
-import com.surimap.marker.service.response.MarkerMutationServiceResponse;
 import com.surimap.retention.purge.RecordLocationAccess;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -35,15 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/markers")
 public class MarkerController {
 
-  private final MarkerUpdateDeleteService markerUpdateDeleteService;
   private final MarkerService markerService;
   private final MarkerRequestContextResolver contextResolver;
 
   public MarkerController(
-      MarkerUpdateDeleteService markerUpdateDeleteService,
-      MarkerService markerService,
-      MarkerRequestContextResolver contextResolver) {
-    this.markerUpdateDeleteService = markerUpdateDeleteService;
+      MarkerService markerService, MarkerRequestContextResolver contextResolver) {
     this.markerService = markerService;
     this.contextResolver = contextResolver;
   }
@@ -61,7 +56,8 @@ public class MarkerController {
         MarkerListResponse.from(markerService.list(incidentId, opId, type, status)));
   }
 
-  @PatchMapping("/{markerId}")
+  // APP는 AppMarkerController로 보낸다. 헤더 누락·오류는 기존 guard와 resolver에서 거부한다.
+  @PatchMapping(value = "/{markerId}", headers = "X-Client-Channel!=APP")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
@@ -80,11 +76,11 @@ public class MarkerController {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
     MarkerMutationServiceResponse response =
-        markerUpdateDeleteService.update(request.toServiceRequest(markerId, context));
+        markerService.update(request.toServiceRequest(markerId, context));
     return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 
-  @DeleteMapping("/{markerId}")
+  @DeleteMapping(value = "/{markerId}", headers = "X-Client-Channel!=APP")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
@@ -103,7 +99,7 @@ public class MarkerController {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
     MarkerMutationServiceResponse response =
-        markerUpdateDeleteService.delete(request.toServiceRequest(markerId, context));
+        markerService.delete(request.toServiceRequest(markerId, context));
     return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 }
