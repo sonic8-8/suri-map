@@ -8,6 +8,7 @@ import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -34,7 +35,6 @@ import com.surimap.marker.photo.service.PhotoService;
 import com.surimap.marker.photo.support.InMemoryPhotoRepository;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -90,7 +90,7 @@ public class Sc06MarkerPhotoHarnessRunner {
         harness.appMarkerService.create(
             markerCreateRequest(point).toBuilder().context(harness.markerContext).build());
     harness.eventDispatch.commitAfterWrite();
-    MarkerRecord markerRow = onlyMarkerRow(harness.markerRepository);
+    Marker markerRow = onlyMarkerRow(harness.markerRepository);
     MarkerPublishRequest markerPublish = harness.markerEvents.only();
 
     harness.photoGuard.allow(
@@ -285,8 +285,8 @@ public class Sc06MarkerPhotoHarnessRunner {
         .build();
   }
 
-  private static MarkerRecord onlyMarkerRow(InMemoryMarkerRepository repository) {
-    List<MarkerRecord> records = repository.records();
+  private static Marker onlyMarkerRow(InMemoryMarkerRepository repository) {
+    List<Marker> records = repository.records();
     if (records.size() != 1) {
       throw new IllegalStateException("expected exactly one marker row, got " + records.size());
     }

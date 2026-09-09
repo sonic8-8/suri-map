@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.fail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
@@ -41,8 +42,6 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.purge.MarkerPhotoPurgeHook;
 import com.surimap.marker.purge.MarkerPhotoPurgeHookAdapter;
-import com.surimap.marker.repository.MarkerCreateRecord;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -78,8 +77,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111111148");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222221148");
-  private static final UUID PURGE_RUN_ID =
-      UUID.fromString("33333333-3333-3333-3333-333333331148");
+  private static final UUID PURGE_RUN_ID = UUID.fromString("33333333-3333-3333-3333-333333331148");
   private static final Instant CLIENT_TS = Instant.parse("2026-05-08T01:00:00Z");
   private static final Instant SERVER_TS = Instant.parse("2026-05-08T01:00:03Z");
   private static final Instant CLOSED_AT = Instant.parse("2026-05-08T01:05:00Z");
@@ -126,7 +124,8 @@ class ClosedIncidentMarkerPhotoGuardTest {
     }
 
     @Test
-    @DisplayName("SUPPORT_REQUEST 생성도 incident_closed이고 marker_notification과 PublishRequest를 만들지 않는다")
+    @DisplayName(
+        "SUPPORT_REQUEST 생성도 incident_closed이고 marker_notification과 PublishRequest를 만들지 않는다")
     void supportRequestClosedIncidentRejectedBeforeMarkerNotificationSideEffect() {
       CapturingMarkerNotificationRepository markerNotificationRepository =
           new CapturingMarkerNotificationRepository();
@@ -178,7 +177,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
                       .build()),
           MarkerApiException.class);
 
-      MarkerRecord row = markerRepository.findById(MARKER_ID).orElseThrow();
+      Marker row = markerRepository.findById(MARKER_ID).orElseThrow();
       assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
       assertThat(row.getVersion()).isEqualTo(1L);
       assertThat(row.getMemo()).isEqualTo("pre-close marker");
@@ -202,7 +201,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
                       .build()),
           MarkerApiException.class);
 
-      MarkerRecord row = markerRepository.findById(MARKER_ID).orElseThrow();
+      Marker row = markerRepository.findById(MARKER_ID).orElseThrow();
       assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
       assertThat(row.getVersion()).isEqualTo(1L);
       assertThat(markerEventPublisher.published()).isEmpty();
@@ -249,10 +248,13 @@ class ClosedIncidentMarkerPhotoGuardTest {
       assertIncidentClosed(
           () ->
               photoService.createUploadUrl(
-                  MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), photoContext),
+                  MARKER_ID,
+                  new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
+                  photoContext),
           PhotoApiException.class);
 
-      assertThat(photoRepository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
+      assertThat(
+              photoRepository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
           .isZero();
       assertThat(photoEventPublisher.published()).isEmpty();
     }
@@ -344,23 +346,25 @@ class ClosedIncidentMarkerPhotoGuardTest {
 
   private void seedActiveMarker() {
     markerRepository.insertCreate(
-        new MarkerCreateRecord(
-            INCIDENT_ID,
-            MARKER_ID,
-            OP1_ID,
-            null,
-            MarkerType.CLUE,
-            null,
-            new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
-                .toPoint(),
-            "pre-close marker",
-            CLIENT_TS,
-            ACCOUNT_ID,
-            POLICE_PHONE_ID,
-            MarkerSource.APP,
-            MarkerStatus.ACTIVE,
-            1L));
+        Marker.builder()
+            .incidentId(INCIDENT_ID)
+            .id(MARKER_ID)
+            .operationalPeriodId(OP1_ID)
+            .dutyShiftId(null)
+            .markerType(MarkerType.CLUE)
+            .supportRequestType(null)
+            .location(
+                new MarkerGeoJsonPoint(
+                        "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
+                    .toPoint())
+            .memo("pre-close marker")
+            .occurredAt(CLIENT_TS)
+            .createdByAccountId(ACCOUNT_ID)
+            .policePhoneId(POLICE_PHONE_ID)
+            .markerSource(MarkerSource.APP)
+            .status(MarkerStatus.ACTIVE)
+            .version(1L)
+            .build());
   }
 
   private static MarkerCreateServiceRequest defaultCreateRequest() {

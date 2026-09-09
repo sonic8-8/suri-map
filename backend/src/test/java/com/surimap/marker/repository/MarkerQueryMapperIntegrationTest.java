@@ -2,6 +2,8 @@ package com.surimap.marker.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
@@ -70,7 +72,7 @@ class MarkerQueryMapperIntegrationTest extends PostGisIntegrationTestSupport {
 
     List<UUID> ids =
         markerMapper.findByIncident(INCIDENT_A, MarkerQueryFilters.empty()).stream()
-            .map(MarkerRecord::getId)
+            .map(Marker::getId)
             .toList();
 
     assertThat(ids).containsExactly(ACTIVE_MARKER_ID, UPDATED_MARKER_ID);
@@ -89,7 +91,7 @@ class MarkerQueryMapperIntegrationTest extends PostGisIntegrationTestSupport {
                 INCIDENT_A,
                 new MarkerQueryFilters(OP_A, MarkerType.FIELD_CONDITION, MarkerStatus.UPDATED))
             .stream()
-            .map(MarkerRecord::getId)
+            .map(Marker::getId)
             .toList();
 
     assertThat(ids).containsExactly(UPDATED_MARKER_ID);

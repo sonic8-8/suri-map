@@ -1,22 +1,23 @@
 package com.surimap.marker.repository;
 
+import com.surimap.domain.marker.Marker;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface MarkerRepository {
 
-  void insertSeed(MarkerSeedRecord record);
+  void insertSeed(Marker marker);
 
-  void insertCreate(MarkerCreateRecord record);
+  void insertCreate(Marker marker);
 
-  Optional<MarkerRecord> findById(UUID markerId);
+  Optional<Marker> findById(UUID markerId);
 
-  List<MarkerRecord> findByIds(List<UUID> markerIds);
+  List<Marker> findByIds(List<UUID> markerIds);
 
-  int updateMarker(MarkerUpdateRecord record);
+  int updateMarker(Marker marker, long expectedVersion);
 
   int updateMarkerStatusVersion(UUID markerId, long expectedVersion, String status, long version);
 
-  int deleteMarker(MarkerDeleteRecord record);
+  int deleteMarker(Marker marker, long expectedVersion);
 }

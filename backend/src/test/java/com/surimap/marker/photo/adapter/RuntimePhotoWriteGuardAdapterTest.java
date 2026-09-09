@@ -3,17 +3,18 @@ package com.surimap.marker.photo.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
+import com.surimap.marker.domain.MarkerSource;
+import com.surimap.marker.domain.MarkerStatus;
+import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.service.PhotoRequestContext;
-import com.surimap.marker.repository.MarkerCreateRecord;
-import com.surimap.marker.repository.MarkerDeleteRecord;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
-import com.surimap.marker.repository.MarkerSeedRecord;
-import com.surimap.marker.repository.MarkerUpdateRecord;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -94,9 +95,7 @@ class RuntimePhotoWriteGuardAdapterTest {
   @Test
   @DisplayName("APP photo write는 자신이 생성한 현장 마커에만 허용한다")
   void uploadUrlRejectsOtherAccountMarker() {
-    markerRepository.marker = activeMarker();
-    markerRepository.marker.setCreatedByAccountId(
-        UUID.fromString("11111111-1111-1111-1111-111111119999"));
+    markerRepository.marker = activeMarker(UUID.fromString("11111111-1111-1111-1111-111111119999"));
     guardMapper.currentOpId = OP_ID;
 
     assertThatThrownBy(() -> adapter.requireUploadUrlAccess(MARKER_ID, requestContext()))
@@ -114,42 +113,49 @@ class RuntimePhotoWriteGuardAdapterTest {
         new SuriMapAuthentication(ACCOUNT_ID, "APP", policePhoneId), "idem-photo-upload-url");
   }
 
-  private static MarkerRecord activeMarker() {
-    MarkerRecord marker = new MarkerRecord();
-    marker.setId(MARKER_ID);
-    marker.setIncidentId(INCIDENT_ID);
-    marker.setOperationalPeriodId(OP_ID);
-    marker.setDutyShiftId(DUTY_SHIFT_ID);
-    marker.setCreatedByAccountId(ACCOUNT_ID);
-    marker.setPolicePhoneId(POLICE_PHONE_ID);
-    marker.setMarkerSource("APP");
-    marker.setStatus("ACTIVE");
-    marker.setVersion(1L);
-    return marker;
+  private static Marker activeMarker() {
+    return activeMarker(ACCOUNT_ID);
+  }
+
+  private static Marker activeMarker(UUID accountId) {
+    return Marker.builder()
+        .id(MARKER_ID)
+        .incidentId(INCIDENT_ID)
+        .operationalPeriodId(OP_ID)
+        .dutyShiftId(DUTY_SHIFT_ID)
+        .createdByAccountId(accountId)
+        .policePhoneId(POLICE_PHONE_ID)
+        .markerType(MarkerType.CLUE)
+        .location(MarkerGeometryFixtures.VALID_MARKER_POINT)
+        .occurredAt(Instant.parse("2026-04-28T00:05:00Z"))
+        .markerSource(MarkerSource.APP)
+        .status(MarkerStatus.ACTIVE)
+        .version(1L)
+        .build();
   }
 
   private static final class FakeMarkerRepository implements MarkerRepository {
 
-    private MarkerRecord marker;
+    private Marker marker;
 
     @Override
-    public void insertSeed(MarkerSeedRecord record) {}
+    public void insertSeed(Marker record) {}
 
     @Override
-    public void insertCreate(MarkerCreateRecord record) {}
+    public void insertCreate(Marker record) {}
 
     @Override
-    public Optional<MarkerRecord> findById(UUID markerId) {
+    public Optional<Marker> findById(UUID markerId) {
       return Optional.ofNullable(marker).filter(record -> record.getId().equals(markerId));
     }
 
     @Override
-    public List<MarkerRecord> findByIds(List<UUID> markerIds) {
+    public List<Marker> findByIds(List<UUID> markerIds) {
       return marker == null ? List.of() : List.of(marker);
     }
 
     @Override
-    public int updateMarker(MarkerUpdateRecord record) {
+    public int updateMarker(Marker record, long expectedVersion) {
       return 0;
     }
 
@@ -160,7 +166,7 @@ class RuntimePhotoWriteGuardAdapterTest {
     }
 
     @Override
-    public int deleteMarker(MarkerDeleteRecord record) {
+    public int deleteMarker(Marker record, long expectedVersion) {
       return 0;
     }
   }

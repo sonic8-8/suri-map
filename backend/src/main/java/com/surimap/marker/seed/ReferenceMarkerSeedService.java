@@ -1,10 +1,9 @@
 package com.surimap.marker.seed;
 
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.query.MarkerView;
-import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
-import com.surimap.marker.repository.MarkerSeedRecord;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,10 +29,10 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
     Objects.requireNonNull(incidentId, "incidentId");
     Objects.requireNonNull(seedMarkers, "seedMarkers");
 
-    List<MarkerSeedRecord> records =
+    List<Marker> records =
         seedMarkers.stream()
             .peek(seed -> validateSeedLocation(seed.location()))
-            .map(seed -> MarkerSeedRecord.from(incidentId, seed))
+            .map(seed -> Marker.fromSeed(incidentId, seed))
             .toList();
     if (records.isEmpty()) {
       return new ReferenceMarkerSeedResult(incidentId, List.of());
@@ -41,15 +40,15 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
 
     records.forEach(markerRepository::insertSeed);
 
-    List<UUID> markerIds = records.stream().map(MarkerSeedRecord::id).toList();
-    Map<UUID, MarkerRecord> persisted =
+    List<UUID> markerIds = records.stream().map(Marker::getId).toList();
+    Map<UUID, Marker> persisted =
         markerRepository.findByIds(markerIds).stream()
-            .collect(Collectors.toMap(MarkerRecord::getId, Function.identity()));
+            .collect(Collectors.toMap(Marker::getId, Function.identity()));
     List<MarkerView> markers =
         markerIds.stream()
             .map(persisted::get)
             .filter(Objects::nonNull)
-            .map(record -> record.toView(incidentId))
+            .map(marker -> marker.toView(List.of()))
             .toList();
     return new ReferenceMarkerSeedResult(incidentId, markers);
   }

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
@@ -27,7 +28,6 @@ import com.surimap.marker.photo.service.PhotoService;
 import com.surimap.marker.photo.support.InMemoryPhotoRepository;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -333,7 +333,9 @@ class MarkerPhotoIdempotencyIntegrationTest {
         photoService.createUploadUrl(MARKER_ID, uploadRequest(), context);
 
     assertThat(replayed).isEqualTo(created);
-    assertThat(photoRepository.countByMarkerIdAndStatusIn(MARKER_ID, com.surimap.marker.photo.domain.PhotoStatus.countedStatuses()))
+    assertThat(
+            photoRepository.countByMarkerIdAndStatusIn(
+                MARKER_ID, com.surimap.marker.photo.domain.PhotoStatus.countedStatuses()))
         .isEqualTo(1L);
     assertThat(idempotencyStatus("idem-s5-photo-upload-db")).isEqualTo("COMPLETED");
   }
@@ -398,21 +400,22 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   private void seedMarker() {
     markerRepository.insertCreate(
-        new MarkerCreateRecord(
-            INCIDENT_ID,
-            MARKER_ID,
-            OP_ID,
-            null,
-            MarkerType.CLUE,
-            null,
-            point().toPoint(),
-            "durable marker",
-            CLIENT_TS,
-            ACCOUNT_ID,
-            POLICE_PHONE_ID,
-            MarkerSource.APP,
-            MarkerStatus.ACTIVE,
-            1L));
+        Marker.builder()
+            .incidentId(INCIDENT_ID)
+            .id(MARKER_ID)
+            .operationalPeriodId(OP_ID)
+            .dutyShiftId(null)
+            .markerType(MarkerType.CLUE)
+            .supportRequestType(null)
+            .location(point().toPoint())
+            .memo("durable marker")
+            .occurredAt(CLIENT_TS)
+            .createdByAccountId(ACCOUNT_ID)
+            .policePhoneId(POLICE_PHONE_ID)
+            .markerSource(MarkerSource.APP)
+            .status(MarkerStatus.ACTIVE)
+            .version(1L)
+            .build());
   }
 
   private PhotoUploadUrlRequest uploadRequest() {
@@ -518,8 +521,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   private static final class AllowingPhotoWriteGuard implements PhotoWriteGuardPort {
     @Override
-    public PhotoMarkerContext requireUploadUrlAccess(
-        UUID markerId, PhotoRequestContext context) {
+    public PhotoMarkerContext requireUploadUrlAccess(UUID markerId, PhotoRequestContext context) {
       return photoContext();
     }
 
@@ -530,8 +532,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
     }
 
     private static PhotoMarkerContext photoContext() {
-      return new PhotoMarkerContext(
-          INCIDENT_ID, MARKER_ID, OP_ID, POLICE_PHONE_ID, "UPDATED", 1L);
+      return new PhotoMarkerContext(INCIDENT_ID, MARKER_ID, OP_ID, POLICE_PHONE_ID, "UPDATED", 1L);
     }
   }
 

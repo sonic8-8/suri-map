@@ -26,6 +26,8 @@ import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.ClockConfig;
 import com.surimap.config.GuardConfig;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
@@ -112,6 +114,34 @@ class MarkerControllerTest {
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID));
     when(authenticationResolver.resolve(AUTHORIZATION, "WEB"))
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "WEB", null));
+  }
+
+  @Test
+  @DisplayName("도메인에서 수정·삭제 충돌이 발생하면, 기존 409 상태와 write_conflict 응답을 반환한다")
+  void changeMarker_domainConflict_returnsConflictError() throws Exception {
+    // given: 도메인의 버전·상태 검증에서 비즈니스 오류가 발생한다.
+    when(markerUpdateDeleteService.update(any(MarkerUpdateServiceRequest.class)))
+        .thenThrow(new BusinessException(ErrorCode.WRITE_CONFLICT));
+    when(markerUpdateDeleteService.delete(any(MarkerDeleteServiceRequest.class)))
+        .thenThrow(new BusinessException(ErrorCode.WRITE_CONFLICT));
+
+    // when & then: 공통 예외 처리 후에도 수정·삭제의 HTTP 응답 형식은 유지된다.
+    for (MockHttpServletRequestBuilder request :
+        List.of(
+            patch("/api/markers/{markerId}", MARKER_ID),
+            delete("/api/markers/{markerId}", MARKER_ID))) {
+      mockMvc
+          .perform(
+              request
+                  .header("Authorization", AUTHORIZATION)
+                  .header("X-Client-Channel", "APP")
+                  .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                  .header("Idempotency-Key", "idem-marker-conflict")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"version\":1}"))
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.error", is("write_conflict")));
+    }
   }
 
   @Test

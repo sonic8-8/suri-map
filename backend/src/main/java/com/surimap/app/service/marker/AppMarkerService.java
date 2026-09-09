@@ -2,6 +2,7 @@ package com.surimap.app.service.marker;
 
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
@@ -20,7 +21,6 @@ import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService;
 import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService.AttachmentResult;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -199,23 +199,24 @@ public class AppMarkerService {
     MarkerSupportRequestType supportRequestType =
         supportRequestType(request.getSupportRequestType());
 
-    MarkerCreateRecord record =
-        new MarkerCreateRecord(
-            request.getIncidentId(),
-            markerId,
-            opId,
-            dutyShiftId,
-            markerType,
-            supportRequestType,
-            location,
-            request.getMemo(),
-            request.getClientTs(),
-            context.authentication().accountId(),
-            context.authentication().policePhoneId(),
-            MarkerSource.APP,
-            MarkerStatus.ACTIVE,
-            INITIAL_VERSION);
-    markerRepository.insertCreate(record);
+    Marker marker =
+        Marker.builder()
+            .incidentId(request.getIncidentId())
+            .id(markerId)
+            .operationalPeriodId(opId)
+            .dutyShiftId(dutyShiftId)
+            .markerType(markerType)
+            .supportRequestType(supportRequestType)
+            .location(location)
+            .memo(request.getMemo())
+            .occurredAt(request.getClientTs())
+            .createdByAccountId(context.authentication().accountId())
+            .policePhoneId(context.authentication().policePhoneId())
+            .markerSource(MarkerSource.APP)
+            .status(MarkerStatus.ACTIVE)
+            .version(INITIAL_VERSION)
+            .build();
+    markerRepository.insertCreate(marker);
 
     MarkerPublishRequest publishRequest =
         new MarkerPublishRequest(
