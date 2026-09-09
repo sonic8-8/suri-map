@@ -4,6 +4,7 @@ import static com.surimap.account.AccountIdentityCatalog.PRECINCT_TEAM_ID;
 import static com.surimap.account.AccountIdentityCatalog.SUPPORT_TEAM_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP2_ID;
 import static com.surimap.marker.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,11 +58,17 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MARKER_ID);
     jdbcTemplate.update("DELETE FROM event_dispatch_job WHERE incident_id = ?", INCIDENT_ID);
     jdbcTemplate.update(
-        "DELETE FROM idempotency_record WHERE idempotency_key IN (?, ?)",
+        """
+        DELETE FROM idempotency_record
+        WHERE idempotency_key IN (?, ?) OR idempotency_key LIKE ?
+        """,
         IDEMPOTENCY_KEY,
-        ATTACH_IDEMPOTENCY_KEY);
+        ATTACH_IDEMPOTENCY_KEY,
+        IDEMPOTENCY_KEY + "-%");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE operational_period_id = ?", OP1_ID);
     jdbcTemplate.update("DELETE FROM incident_assignment WHERE incident_id = ?", INCIDENT_ID);
+    jdbcTemplate.update(
+        "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE id = ?", OP2_ID);
     objectStorage.clear();
     jdbcTemplate.update(
         """
@@ -123,6 +130,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("현재 수색 차수에서 근무 중인 작성자가 요청하면, 사진 업로드 주소와 대기 중인 사진을 생성한다")
   void createUploadUrl_assignedAuthor_savesPendingPhoto() {
     // given: 배정된 계정의 활성 근무교대와 같은 계정이 만든 현장 마커가 있다.
+    Instant requestedAt = Instant.now();
+
     // when: 실제 사진 서비스에서 업로드 주소를 발급한다.
     PhotoUploadUrlResponse response =
         photoService.createUploadUrl(
@@ -135,9 +144,57 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photo.contentType()).isEqualTo("image/jpeg");
     assertThat(photo.sizeBytes()).isEqualTo(1024L);
     assertThat(photo.checksumSha256()).isEqualTo(CHECKSUM_SHA256);
-    assertThat(response.uploadUrl()).endsWith(photo.objectKey());
+    String expectedObjectKey =
+        "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId() + ".jpg";
+    assertThat(photo.objectKey()).isEqualTo(expectedObjectKey);
+    assertThat(response.uploadUrl())
+        .isEqualTo("http://127.0.0.1:18080/mock-upload/" + expectedObjectKey);
+    assertThat(response.expiresAt())
+        .isBetween(requestedAt.plusSeconds(15 * 60), Instant.now().plusSeconds(15 * 60));
+    assertThat(response.maxSizeBytes()).isEqualTo(10_485_760L);
     assertThat(response.version()).isEqualTo(1L);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
+  }
+
+  @Test
+  @DisplayName("마커에 업로드 대기 사진이 10개 있으면, 11번째 사진의 업로드 주소 발급을 거부한다")
+  void createUploadUrl_tenPendingPhotos_rejectsWithoutAddingPhoto() {
+    // given: 서로 다른 요청 키로 사진 10개의 업로드 주소를 발급했다.
+    SuriMapAuthentication authentication = createContext(ASSIGNED_POLICE_PHONE_ID).authentication();
+    for (int index = 0; index < 10; index++) {
+      photoService.createUploadUrl(
+          MARKER_ID,
+          createUploadRequest(),
+          new PhotoRequestContext(authentication, IDEMPOTENCY_KEY + "-" + index));
+    }
+
+    // when: 11번째 사진의 업로드 주소를 새 요청 키로 발급하려 한다.
+    assertThatThrownBy(
+            () ->
+                photoService.createUploadUrl(
+                    MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
+        .isInstanceOf(PhotoApiException.class)
+        .extracting("error", "status")
+        .containsExactly("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
+
+    // then: 기존 대기 사진 10개만 남고 마커 버전은 바뀌지 않는다.
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT status FROM photo WHERE marker_id = ?", String.class, MARKER_ID))
+        .hasSize(10)
+        .containsOnly("PENDING_UPLOAD");
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
+  }
+
+  @Test
+  @DisplayName("사진이 허용 크기 10,485,760바이트를 넘으면, 업로드 주소를 발급하거나 사진을 저장하지 않는다")
+  void createUploadUrl_oversizedPhoto_rejectsWithoutSavingPhoto() {
+    // given: 파일 크기가 허용값보다 1바이트 큰 사진이다.
+    PhotoUploadUrlRequest request =
+        new PhotoUploadUrlRequest("image/jpeg", 10_485_761L, CHECKSUM_SHA256);
+
+    // when & then: 크기 초과 요청을 거부하고 사진·마커·이벤트를 변경하지 않는다.
+    assertUploadRejected(request, "photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
   }
 
   @Test
@@ -329,6 +386,55 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("이전 수색 차수의 마커에 요청하면, op_mismatch 오류를 반환하고 사진을 저장하지 않는다")
+  void createUploadUrl_markerFromPreviousOp_rejectsWithoutSavingPhoto() {
+    // given: 마커가 속한 OP1은 종료되었고 현재 수색 차수는 OP2다.
+    jdbcTemplate.update(
+        "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE id = ?", OP1_ID);
+    jdbcTemplate.update(
+        """
+        INSERT INTO operational_period (id, incident_id, sequence_number, status, reason,
+            started_by_account_id, started_at, version, created_at, updated_at)
+        VALUES (?, ?, 2, 'ACTIVE', 'INITIAL', ?, NOW(), 1, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE', ended_at = NULL
+        """,
+        OP2_ID,
+        INCIDENT_ID,
+        PRECINCT_TEAM_ID);
+
+    // when & then: 실제 마커와 현재 수색 차수를 비교해 요청을 거부한다.
+    assertUploadRejected("op_mismatch", HttpStatus.CONFLICT);
+  }
+
+  @Test
+  @DisplayName("마커가 존재하지 않으면, write_conflict 오류를 반환하고 사진을 저장하지 않는다")
+  void createUploadUrl_missingMarker_rejectsWithoutSavingPhoto() {
+    // given: 업로드 주소를 요청할 마커가 DB에 없다.
+    jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MARKER_ID);
+
+    // when: 존재하지 않는 마커의 업로드 주소를 요청한다.
+    assertThatThrownBy(
+            () ->
+                photoService.createUploadUrl(
+                    MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
+        .isInstanceOf(PhotoApiException.class)
+        .extracting("error", "status")
+        .containsExactly("write_conflict", HttpStatus.CONFLICT);
+
+    // then: 사진과 마커 수정 이벤트를 만들지 않는다.
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM photo WHERE marker_id = ?", Integer.class, MARKER_ID))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM event_dispatch_job WHERE incident_id = ?",
+                Integer.class,
+                INCIDENT_ID))
+        .isZero();
+  }
+
+  @Test
   @DisplayName("작성자의 활성 근무교대가 없으면, police_phone_not_assigned 오류를 반환하고 사진을 저장하지 않는다")
   void createUploadUrl_noActiveDutyShift_rejectsWithoutSavingPhoto() {
     // given: 사건 배정은 유지하지만 현재 계정의 근무교대가 종료되었다.
@@ -351,10 +457,15 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private void assertUploadRejected(String error, HttpStatus status) {
+    assertUploadRejected(createUploadRequest(), error, status);
+  }
+
+  private void assertUploadRejected(
+      PhotoUploadUrlRequest request, String error, HttpStatus status) {
     assertThatThrownBy(
             () ->
                 photoService.createUploadUrl(
-                    MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID)))
+                    MARKER_ID, request, createContext(ASSIGNED_POLICE_PHONE_ID)))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly(error, status);
