@@ -14,6 +14,8 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
+import com.surimap.marker.query.MarkerQuery;
+import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import java.util.List;
@@ -27,6 +29,7 @@ class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
 
   @Autowired private ReferenceMarkerSeed referenceMarkerSeed;
   @Autowired private MarkerMapper markerMapper;
+  @Autowired private MarkerQuery markerQuery;
 
   @BeforeEach
   void setUp() {
@@ -67,6 +70,10 @@ class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getMarkerSource())
         .isEqualTo("MOCK_SEED");
     assertThat(countMarkers()).isEqualTo(1);
+    // then: 오프라인 패키지에서 사용하는 실제 마커 조회로도 저장한 기준 마커를 읽는다.
+    assertThat(markerQuery.byIncident(INCIDENT_ID, MarkerQueryFilters.empty()).markers())
+        .extracting(MarkerView::id)
+        .containsExactly(MARKER_ID);
   }
 
   @Test

@@ -1,21 +1,23 @@
 package com.surimap.marker.seed;
 
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.query.MarkerView;
-import com.surimap.marker.repository.MarkerRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
+@Service
 public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
 
-  private final MarkerRepository markerRepository;
+  private final MarkerMapper markerMapper;
 
-  public ReferenceMarkerSeedService(MarkerRepository markerRepository) {
-    this.markerRepository = Objects.requireNonNull(markerRepository, "markerRepository");
+  public ReferenceMarkerSeedService(MarkerMapper markerMapper) {
+    this.markerMapper = Objects.requireNonNull(markerMapper, "markerMapper");
   }
 
   @Override
@@ -33,11 +35,11 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
       return new ReferenceMarkerSeedResult(incidentId, List.of());
     }
 
-    records.forEach(markerRepository::insertSeed);
+    records.forEach(markerMapper::insertSeed);
 
     List<UUID> markerIds = records.stream().map(Marker::getId).toList();
     Map<UUID, Marker> persisted =
-        markerRepository.findByIds(markerIds).stream()
+        markerMapper.findByIds(markerIds).stream()
             .collect(Collectors.toMap(Marker::getId, Function.identity()));
     List<MarkerView> markers =
         markerIds.stream()
