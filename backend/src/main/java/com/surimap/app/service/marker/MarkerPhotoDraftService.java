@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.service;
+package com.surimap.app.service.marker;
 
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
@@ -12,7 +12,7 @@ import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.MarkerCreatePhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.repository.PhotoRepository;
+import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -26,8 +26,6 @@ import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,46 +37,24 @@ public class MarkerPhotoDraftService {
       Set.of(PhotoStatus.PENDING_UPLOAD, PhotoStatus.ATTACHED);
 
   private final ObjectStoragePort storagePort;
-  private final PhotoRepository photoRepository;
+  private final PhotoMapper photoMapper;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerOpBindingValidator markerOpBindingValidator;
-  private final Clock clock;
-  private final java.util.function.Supplier<UUID> photoIdSupplier;
+  private final Clock clock = Clock.systemUTC();
   private final IdempotentResponseCache idempotentResponseCache;
   private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
 
-  @Autowired
   public MarkerPhotoDraftService(
       ObjectStoragePort storagePort,
-      PhotoRepository photoRepository,
+      PhotoMapper photoMapper,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerOpBindingValidator markerOpBindingValidator,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this(
-        storagePort,
-        photoRepository,
-        markerWriteGuardPort,
-        markerOpBindingValidator,
-        Clock.systemUTC(),
-        UUID::randomUUID,
-        idempotentResponseCacheProvider.getIfAvailable());
-  }
-
-  public MarkerPhotoDraftService(
-      ObjectStoragePort storagePort,
-      PhotoRepository photoRepository,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      Clock clock,
-      java.util.function.Supplier<UUID> photoIdSupplier,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
-    this.photoRepository = Objects.requireNonNull(photoRepository);
+    this.photoMapper = Objects.requireNonNull(photoMapper);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
-    this.clock = Objects.requireNonNull(clock);
-    this.photoIdSupplier = Objects.requireNonNull(photoIdSupplier);
-    this.idempotentResponseCache = idempotentResponseCache;
+    this.idempotentResponseCache = Objects.requireNonNull(idempotentResponseCache);
   }
 
   @Transactional
@@ -86,17 +62,14 @@ public class MarkerPhotoDraftService {
       MarkerCreatePhotoUploadUrlRequest request, PhotoRequestContext context) {
     requireRequest(request);
     requireWriteContext(context);
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "POST /api/markers/photos/upload-url",
-          context.getIdempotencyKey(),
-          fingerprint("marker-create-photo-upload-url", request),
-          201,
-          PhotoUploadUrlResponse.class,
-          () -> createNewUploadUrl(request, context),
-          this::metadataForUpload);
-    }
-    return createNewUploadUrl(request, context);
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/markers/photos/upload-url",
+        context.getIdempotencyKey(),
+        fingerprint("marker-create-photo-upload-url", request),
+        201,
+        PhotoUploadUrlResponse.class,
+        () -> createNewUploadUrl(request, context),
+        this::metadataForUpload);
   }
 
   private PhotoUploadUrlResponse createNewUploadUrl(
@@ -107,7 +80,7 @@ public class MarkerPhotoDraftService {
         new MarkerRequestContext(context.getAuthentication(), context.getIdempotencyKey()));
     requirePhotoSlot(request.markerId());
 
-    UUID photoId = photoIdSupplier.get();
+    UUID photoId = UUID.randomUUID();
     Instant expiresAt = clock.instant().plus(PhotoService.UPLOAD_URL_TTL);
     String objectKey =
         objectKeyGenerator.generate(
@@ -122,17 +95,18 @@ public class MarkerPhotoDraftService {
                 PhotoService.UPLOAD_URL_TTL)
             .uploadUrl();
     MarkerPhoto photo =
-        new MarkerPhoto(
-            photoId,
-            request.markerId(),
-            objectKey,
-            request.contentType(),
-            request.sizeBytes(),
-            request.checksumSha256(),
-            expiresAt);
-    photoRepository.save(photo);
+        MarkerPhoto.builder()
+            .id(photoId)
+            .markerId(request.markerId())
+            .objectKey(objectKey)
+            .contentType(request.contentType())
+            .sizeBytes(request.sizeBytes())
+            .checksumSha256(request.checksumSha256())
+            .uploadUrlExpiresAt(expiresAt)
+            .build();
+    photoMapper.upsert(photo);
     return new PhotoUploadUrlResponse(
-        photo.id(), uploadUrl, expiresAt, PhotoService.MAX_SIZE_BYTES, photo.version());
+        photo.getId(), uploadUrl, expiresAt, PhotoService.MAX_SIZE_BYTES, photo.getVersion());
   }
 
   private void requireRequest(MarkerCreatePhotoUploadUrlRequest request) {
@@ -161,7 +135,7 @@ public class MarkerPhotoDraftService {
   }
 
   private void requirePhotoSlot(UUID markerId) {
-    long count = photoRepository.countByMarkerIdAndStatusIn(markerId, COUNTED_STATUSES);
+    long count = photoMapper.countByMarkerIdAndStatusIn(markerId, COUNTED_STATUSES);
     if (count >= PhotoService.MAX_PHOTOS_PER_MARKER) {
       throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
     }

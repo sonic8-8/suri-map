@@ -99,7 +99,8 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - 이유: PostGIS geometry, outbox/idempotency, board query, event staging은 명시적 SQL과 mapper 경계가 더 적합하다.
 - 예외가 필요하면 새 ADR을 작성하고 팀 합의를 받은 뒤 반영한다.
 - Mapper interface + XML mapper를 기본으로 한다.
-- Transaction boundary는 Service layer `@Transactional`에 둔다.
+- Transaction boundary는 기본적으로 Service layer `@Transactional`에 둔다.
+- 사진 첨부 거부 후에도 실패 상태를 남기는 `PhotoService.failPendingPhoto()`는 예외적으로 `TransactionTemplate`과 `REQUIRES_NEW`를 사용한다. 같은 클래스 내부 호출에서도 실패 상태만 독립 저장하고, 마커·이벤트·요청 처리 기록은 기존 트랜잭션에서 롤백한다.
 - PostGIS 컬럼은 SRID 4326을 명시한다. 예: `geometry(Point,4326)`, `geometry(Polygon,4326)`.
 - geometry 컬럼에는 GIST index를 둔다.
 - Geometry 변환은 공용 MyBatis TypeHandler 또는 명시적 mapper DTO 변환으로 처리한다.

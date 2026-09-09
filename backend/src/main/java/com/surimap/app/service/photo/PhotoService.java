@@ -18,7 +18,6 @@ import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.repository.PhotoMapper;
-import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +50,6 @@ public class PhotoService {
       Set.of(PhotoStatus.PENDING_UPLOAD, PhotoStatus.ATTACHED);
 
   private final ObjectStoragePort storagePort;
-  private final PhotoRepository photoRepository;
   private final PhotoWriteGuardPort photoWriteGuardPort;
   private final PhotoEventPublisher photoEventPublisher;
   private final MarkerMapper markerMapper;
@@ -63,7 +61,6 @@ public class PhotoService {
 
   public PhotoService(
       ObjectStoragePort storagePort,
-      PhotoRepository photoRepository,
       PhotoWriteGuardPort photoWriteGuardPort,
       PhotoEventPublisher photoEventPublisher,
       MarkerMapper markerMapper,
@@ -71,7 +68,6 @@ public class PhotoService {
       PhotoMapper photoMapper,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
-    this.photoRepository = Objects.requireNonNull(photoRepository);
     this.photoWriteGuardPort = Objects.requireNonNull(photoWriteGuardPort);
     this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
     this.markerMapper = Objects.requireNonNull(markerMapper);
@@ -118,18 +114,19 @@ public class PhotoService {
                 UPLOAD_URL_TTL)
             .uploadUrl();
     MarkerPhoto photo =
-        new MarkerPhoto(
-            photoId,
-            markerId,
-            objectKey,
-            request.contentType(),
-            request.sizeBytes(),
-            request.checksumSha256(),
-            expiresAt);
-    photoRepository.save(photo);
+        MarkerPhoto.builder()
+            .id(photoId)
+            .markerId(markerId)
+            .objectKey(objectKey)
+            .contentType(request.contentType())
+            .sizeBytes(request.sizeBytes())
+            .checksumSha256(request.checksumSha256())
+            .uploadUrlExpiresAt(expiresAt)
+            .build();
+    photoMapper.upsert(photo);
 
     return new PhotoUploadUrlResponse(
-        photo.id(), uploadUrl, expiresAt, MAX_SIZE_BYTES, photo.version());
+        photo.getId(), uploadUrl, expiresAt, MAX_SIZE_BYTES, photo.getVersion());
   }
 
   @Transactional
@@ -162,14 +159,13 @@ public class PhotoService {
       UUID markerId, UUID photoId, PhotoAttachRequest request, PhotoRequestContext context) {
     Marker marker = photoWriteGuardPort.requireAttachAccess(markerId, photoId, context);
 
-    MarkerPhoto photo =
-        photoRepository.findById(photoId).orElseThrow(() -> conflict("write_conflict"));
+    MarkerPhoto photo = photoMapper.findById(photoId).orElseThrow(() -> conflict("write_conflict"));
     requireAttachableMarker(markerId, photo);
     requireOpenUploadUrl(photo);
     ObjectStoragePort.ObjectMetadata objectMetadata = requireUploadedObject(photo);
     requireMatchingMetadata(photo, request, objectMetadata);
 
-    long expectedPhotoVersion = photo.version();
+    long expectedPhotoVersion = photo.getVersion();
     photo.attach(clock.instant(), request.width(), request.height());
     if (photoMapper.attachPendingPhoto(photo, expectedPhotoVersion) != 1) {
       throw conflict("write_conflict");
@@ -184,7 +180,11 @@ public class PhotoService {
     }
     var response =
         new PhotoAttachResponse(
-            photo.id(), photo.status().name(), photo.version(), markerId, marker.getVersion());
+            photo.getId(),
+            photo.getStatus().name(),
+            photo.getVersion(),
+            markerId,
+            marker.getVersion());
     PublishRequest publishRequest =
         publishRequest(marker, context.getAuthentication().policePhoneId(), photo);
     photoEventPublisher.publish(publishRequest);
@@ -231,21 +231,21 @@ public class PhotoService {
   }
 
   private void requirePhotoSlot(UUID markerId) {
-    long count = photoRepository.countByMarkerIdAndStatusIn(markerId, COUNTED_STATUSES);
+    long count = photoMapper.countByMarkerIdAndStatusIn(markerId, COUNTED_STATUSES);
     if (count >= MAX_PHOTOS_PER_MARKER) {
       throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
     }
   }
 
   private void requireAttachableMarker(UUID markerId, MarkerPhoto photo) {
-    if (!photo.markerId().equals(markerId) || !photo.isOpenForAttach()) {
+    if (!photo.getMarkerId().equals(markerId) || !photo.isOpenForAttach()) {
       throw conflict("write_conflict");
     }
   }
 
   private void requireOpenUploadUrl(MarkerPhoto photo) {
-    if (!photo.uploadUrlExpiresAt().isAfter(clock.instant())) {
-      failPendingPhoto(photo.id(), photo.version());
+    if (!photo.getUploadUrlExpiresAt().isAfter(clock.instant())) {
+      failPendingPhoto(photo.getId(), photo.getVersion());
       throw conflict("write_conflict");
     }
   }
@@ -254,21 +254,21 @@ public class PhotoService {
       MarkerPhoto photo,
       PhotoAttachRequest request,
       ObjectStoragePort.ObjectMetadata objectMetadata) {
-    if (photo.sizeBytes() != request.sizeBytes()
-        || !photo.contentType().equals(request.contentType())
+    if (photo.getSizeBytes() != request.sizeBytes()
+        || !photo.getContentType().equals(request.contentType())
         || !checksumMatches(
-            photo.checksumSha256(), request.checksumSha256(), objectMetadata.checksumSha256())
+            photo.getChecksumSha256(), request.checksumSha256(), objectMetadata.checksumSha256())
         || !metadataMatches(photo, objectMetadata)) {
-      failPendingPhoto(photo.id(), photo.version());
+      failPendingPhoto(photo.getId(), photo.getVersion());
       throw conflict("write_conflict");
     }
   }
 
   private boolean metadataMatches(
       MarkerPhoto photo, ObjectStoragePort.ObjectMetadata objectMetadata) {
-    return photo.objectKey().equals(objectMetadata.objectKey())
-        && photo.contentType().equals(objectMetadata.contentType())
-        && photo.sizeBytes() == objectMetadata.sizeBytes();
+    return photo.getObjectKey().equals(objectMetadata.objectKey())
+        && photo.getContentType().equals(objectMetadata.contentType())
+        && photo.getSizeBytes() == objectMetadata.sizeBytes();
   }
 
   public void failPendingPhoto(UUID photoId, long expectedVersion) {
@@ -289,7 +289,9 @@ public class PhotoService {
   }
 
   private ObjectStoragePort.ObjectMetadata requireUploadedObject(MarkerPhoto photo) {
-    return storagePort.headObject(photo.objectKey()).orElseThrow(() -> conflict("write_conflict"));
+    return storagePort
+        .headObject(photo.getObjectKey())
+        .orElseThrow(() -> conflict("write_conflict"));
   }
 
   private PublishRequest publishRequest(Marker marker, UUID policePhoneId, MarkerPhoto photo) {
@@ -302,7 +304,7 @@ public class PhotoService {
             policePhoneId,
             marker.getStatus(),
             marker.getVersion(),
-            new PhotoDelta(photo.id(), photo.status().name(), photo.version())));
+            new PhotoDelta(photo.getId(), photo.getStatus().name(), photo.getVersion())));
   }
 
   private PhotoApiException conflict(String error) {

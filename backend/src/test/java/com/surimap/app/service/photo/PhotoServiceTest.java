@@ -28,7 +28,7 @@ import com.surimap.marker.photo.dto.PhotoAttachResult;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.repository.PhotoRepository;
+import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import java.time.Instant;
 import java.util.Optional;
@@ -61,7 +61,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
 
   @Autowired private PhotoService photoService;
   @Autowired private MarkerMapper markerMapper;
-  @Autowired private PhotoRepository photoRepository;
+  @Autowired private PhotoMapper photoMapper;
   @MockitoSpyBean private MockObjectStorageAdapter objectStorage;
   @Autowired private PlatformTransactionManager transactionManager;
 
@@ -157,15 +157,15 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
 
     // then: 업로드 대기 사진을 저장하고 마커 자체는 아직 변경하지 않는다.
-    MarkerPhoto photo = photoRepository.findById(response.photoId()).orElseThrow();
-    assertThat(photo.markerId()).isEqualTo(MARKER_ID);
-    assertThat(photo.status()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
-    assertThat(photo.contentType()).isEqualTo("image/jpeg");
-    assertThat(photo.sizeBytes()).isEqualTo(1024L);
-    assertThat(photo.checksumSha256()).isEqualTo(CHECKSUM_SHA256);
+    MarkerPhoto photo = photoMapper.findById(response.photoId()).orElseThrow();
+    assertThat(photo.getMarkerId()).isEqualTo(MARKER_ID);
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(photo.getContentType()).isEqualTo("image/jpeg");
+    assertThat(photo.getSizeBytes()).isEqualTo(1024L);
+    assertThat(photo.getChecksumSha256()).isEqualTo(CHECKSUM_SHA256);
     String expectedObjectKey =
         "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId() + ".jpg";
-    assertThat(photo.objectKey()).isEqualTo(expectedObjectKey);
+    assertThat(photo.getObjectKey()).isEqualTo(expectedObjectKey);
     assertThat(response.uploadUrl())
         .isEqualTo("http://127.0.0.1:18080/mock-upload/" + expectedObjectKey);
     assertThat(response.expiresAt())
@@ -224,8 +224,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoUploadUrlResponse response =
         photoService.createUploadUrl(
             MARKER_ID, createUploadRequest(), createContext(OTHER_REGISTERED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoRepository.findById(response.photoId()).orElseThrow();
-    objectStorage.simulateUpload(photo.objectKey());
+    MarkerPhoto photo = photoMapper.findById(response.photoId()).orElseThrow();
+    objectStorage.simulateUpload(photo.getObjectKey());
     PhotoRequestContext attachContext =
         new PhotoRequestContext(
             new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", OTHER_REGISTERED_POLICE_PHONE_ID),
@@ -235,23 +235,23 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoAttachResult attached =
         photoService.attach(
             MARKER_ID,
-            photo.id(),
+            photo.getId(),
             new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256),
             attachContext);
 
     // then: 사진·부모 마커를 함께 변경하고 이번 요청의 업무폰을 이벤트에 기록한다.
     assertThat(attached.response().status()).isEqualTo("ATTACHED");
-    assertThat(attached.response().photoId()).isEqualTo(photo.id());
+    assertThat(attached.response().photoId()).isEqualTo(photo.getId());
     assertThat(attached.response().version()).isEqualTo(2L);
     assertThat(attached.response().markerId()).isEqualTo(MARKER_ID);
     assertThat(attached.response().markerVersion()).isEqualTo(2L);
-    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(savedPhoto.version()).isEqualTo(2L);
-    assertThat(savedPhoto.objectKey()).isEqualTo(photo.objectKey());
-    assertThat(savedPhoto.width()).isEqualTo(640);
-    assertThat(savedPhoto.height()).isEqualTo(480);
-    assertThat(savedPhoto.attachedAt()).isNotNull();
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
+    assertThat(savedPhoto.getObjectKey()).isEqualTo(photo.getObjectKey());
+    assertThat(savedPhoto.getWidth()).isEqualTo(640);
+    assertThat(savedPhoto.getHeight()).isEqualTo(480);
+    assertThat(savedPhoto.getAttachedAt()).isNotNull();
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(
             jdbcTemplate.queryForMap(
@@ -272,7 +272,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         .containsEntry("police_phone_id", OTHER_REGISTERED_POLICE_PHONE_ID.toString())
         .containsEntry("marker_status", "UPDATED")
         .containsEntry("marker_version", "2")
-        .containsEntry("photo_id", photo.id().toString())
+        .containsEntry("photo_id", photo.getId().toString())
         .containsEntry("photo_status", "ATTACHED")
         .containsEntry("photo_version", "2");
   }
@@ -295,7 +295,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             jdbcTemplate.queryForList(
                 "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
         .containsExactly(first.photoId());
-    assertThat(photoRepository.findById(first.photoId()).orElseThrow().status())
+    assertThat(photoMapper.findById(first.photoId()).orElseThrow().getStatus())
         .isEqualTo(PhotoStatus.PENDING_UPLOAD);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
     assertThat(
@@ -314,26 +314,26 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoUploadUrlResponse upload =
         photoService.createUploadUrl(
             MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoRepository.findById(upload.photoId()).orElseThrow();
-    objectStorage.simulateUpload(photo.objectKey());
+    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(photo.getObjectKey());
     PhotoRequestContext context =
         new PhotoRequestContext(
             new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID),
             ATTACH_IDEMPOTENCY_KEY);
     PhotoAttachRequest request =
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
-    PhotoAttachResult first = photoService.attach(MARKER_ID, photo.id(), request, context);
+    PhotoAttachResult first = photoService.attach(MARKER_ID, photo.getId(), request, context);
 
     // when: 같은 키와 본문으로 사진 첨부를 다시 요청한다.
-    PhotoAttachResult repeated = photoService.attach(MARKER_ID, photo.id(), request, context);
+    PhotoAttachResult repeated = photoService.attach(MARKER_ID, photo.getId(), request, context);
 
     // then: 기존 응답을 재사용하며 사진·마커 버전은 2, 수정 이벤트는 하나로 유지된다.
     assertThat(repeated.response()).isEqualTo(first.response());
     assertThat(first.publishRequest()).isNotNull();
     assertThat(repeated.publishRequest()).isNull();
-    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(savedPhoto.version()).isEqualTo(2L);
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
     Marker savedMarker = markerMapper.findById(MARKER_ID).orElseThrow();
     assertThat(savedMarker.getStatus()).isEqualTo("UPDATED");
     assertThat(savedMarker.getVersion()).isEqualTo(2L);
@@ -370,11 +370,11 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoUploadUrlResponse upload =
         photoService.createUploadUrl(
             MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto photo = photoRepository.findById(upload.photoId()).orElseThrow();
-    objectStorage.simulateUpload(photo.objectKey());
+    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(photo.getObjectKey());
     jdbcTemplate.update(
         "UPDATE photo SET upload_url_expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?",
-        photo.id());
+        photo.getId());
     PhotoRequestContext context =
         new PhotoRequestContext(
             new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID),
@@ -385,7 +385,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             () ->
                 photoService.attach(
                     MARKER_ID,
-                    photo.id(),
+                    photo.getId(),
                     new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256),
                     context))
         .isInstanceOf(PhotoApiException.class)
@@ -415,7 +415,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 사진 행을 새로 만들거나 마커·이벤트·요청 처리 기록을 변경하지 않는다.
-    assertThat(photoRepository.findById(photoId)).isEmpty();
+    assertThat(photoMapper.findById(photoId)).isEmpty();
     assertUnchangedMarkerAndNoAttachRecord();
   }
 
@@ -425,13 +425,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     // given: 같은 작성자의 마커가 둘 있고 사진은 첫 번째 마커에 발급되었다.
     insertMarker(OTHER_MARKER_ID);
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
 
     // when: 두 번째 마커에 첫 번째 마커의 사진을 첨부하려 한다.
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    OTHER_MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    OTHER_MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -449,7 +449,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_noCurrentOp_rejectsWithoutChangingPhoto() {
     // given: 사진 업로드는 완료됐지만 현재 수색 차수가 종료되었다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     jdbcTemplate.update(
         "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE id = ?", OP1_ID);
 
@@ -457,7 +457,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("op_required", HttpStatus.CONFLICT);
@@ -472,24 +472,24 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_alreadyAttachedPhotoWithNewKey_rejectsWithoutDuplicateChanges() {
     // given: 사진 첨부가 이미 완료되었다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
-    photoService.attach(MARKER_ID, photo.id(), createAttachRequest(), createAttachContext());
+    objectStorage.simulateUpload(photo.getObjectKey());
+    photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext());
     PhotoRequestContext newContext =
         new PhotoRequestContext(
             createAttachContext().getAuthentication(), ATTACH_IDEMPOTENCY_KEY + "-new");
 
     // when: 응답 재전송이 아닌 새 요청 키로 같은 사진을 다시 첨부하려 한다.
     assertThatThrownBy(
-            () -> photoService.attach(MARKER_ID, photo.id(), createAttachRequest(), newContext))
+            () -> photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), newContext))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 첨부 상태·사진 버전·마커 버전은 유지하고 수정 이벤트를 추가하지 않는다.
-    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(savedPhoto.version()).isEqualTo(2L);
-    assertThat(savedPhoto.objectKey()).isEqualTo(photo.objectKey());
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
+    assertThat(savedPhoto.getObjectKey()).isEqualTo(photo.getObjectKey());
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(
             jdbcTemplate.queryForList(
@@ -510,13 +510,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_requestChecksumMismatch_savesFailedPhoto() {
     // given: 업로드 파일은 정상이지만 첨부 요청의 체크섬만 다르다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     PhotoAttachRequest request =
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_MISMATCH_SHA256);
 
     // when: 발급 정보와 다른 체크섬으로 사진을 첨부하려 한다.
     assertThatThrownBy(
-            () -> photoService.attach(MARKER_ID, photo.id(), request, createAttachContext()))
+            () -> photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -532,13 +532,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_uploadedMetadataMismatch_savesFailedPhoto(String contentType, long sizeBytes) {
     // given: 요청과 발급 정보는 같지만 실제 파일의 형식 또는 크기가 다르다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey(), contentType, sizeBytes);
+    objectStorage.simulateUpload(photo.getObjectKey(), contentType, sizeBytes);
 
     // when: 업로드된 파일을 확인하며 사진을 첨부하려 한다.
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -553,14 +553,14 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_noIssuedChecksumAndRequestDiffersFromObject_savesFailedPhoto() {
     // given: 발급 체크섬은 없지만 저장소에는 파일의 체크섬이 있고, 요청 값과 다르다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
-    jdbcTemplate.update("UPDATE photo SET checksum_sha256 = NULL WHERE id = ?", photo.id());
+    objectStorage.simulateUpload(photo.getObjectKey());
+    jdbcTemplate.update("UPDATE photo SET checksum_sha256 = NULL WHERE id = ?", photo.getId());
     PhotoAttachRequest request =
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_MISMATCH_SHA256);
 
     // when: 업로드 파일과 다른 체크섬으로 첨부를 요청한다.
     assertThatThrownBy(
-            () -> photoService.attach(MARKER_ID, photo.id(), request, createAttachContext()))
+            () -> photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -575,13 +575,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_oversizedRequest_rejectsWithoutChangingPhoto() {
     // given: 정상 파일을 업로드했지만 요청 크기는 허용값보다 1바이트 크다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     PhotoAttachRequest request =
         new PhotoAttachRequest(10_485_761L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
 
     // when: 사진 크기가 허용값을 넘는 요청을 보낸다.
     assertThatThrownBy(
-            () -> photoService.attach(MARKER_ID, photo.id(), request, createAttachContext()))
+            () -> photoService.attach(MARKER_ID, photo.getId(), request, createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
@@ -600,7 +600,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 파일이 없는 상태에서 첨부를 요청한다.
     assertThatThrownBy(
-            () -> photoService.attach(MARKER_ID, photo.id(), createAttachRequest(), context))
+            () -> photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -610,22 +610,22 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertUnchangedMarkerAndNoAttachRecord();
 
     // when: 파일 업로드를 완료한 뒤 같은 요청 키로 다시 첨부하고 응답도 재요청한다.
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     PhotoAttachResult attached =
-        photoService.attach(MARKER_ID, photo.id(), createAttachRequest(), context);
+        photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context);
     PhotoAttachResult repeated =
-        photoService.attach(MARKER_ID, photo.id(), createAttachRequest(), context);
+        photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context);
 
     // then: 같은 사진과 파일 키를 사용하며 첨부와 수정 이벤트는 한 번만 반영한다.
     assertThat(repeated.response()).isEqualTo(attached.response());
-    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(savedPhoto.version()).isEqualTo(2L);
-    assertThat(savedPhoto.objectKey()).isEqualTo(photo.objectKey());
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(savedPhoto.getVersion()).isEqualTo(2L);
+    assertThat(savedPhoto.getObjectKey()).isEqualTo(photo.getObjectKey());
     assertThat(
             jdbcTemplate.queryForList(
                 "SELECT id FROM photo WHERE marker_id = ?", UUID.class, MARKER_ID))
-        .containsExactly(photo.id());
+        .containsExactly(photo.getId());
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(
             jdbcTemplate.queryForList(
@@ -641,7 +641,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_photoFailedByConcurrentRequest_rejectsWithoutOverwritingFailure() {
     // given: 파일 확인 시점에 다른 트랜잭션이 먼저 이 사진의 실패 상태를 확정한다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     doAnswer(
             invocation -> {
               TransactionTemplate concurrentTransaction =
@@ -652,17 +652,17 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                   transaction ->
                       jdbcTemplate.update(
                           "UPDATE photo SET status = 'FAILED', version = 2, updated_at = NOW() WHERE id = ?",
-                          photo.id()));
+                          photo.getId()));
               return invocation.callRealMethod();
             })
         .when(objectStorage)
-        .headObject(photo.objectKey());
+        .headObject(photo.getObjectKey());
 
     // when: 이전 대기 상태를 읽었던 요청이 뒤늦게 사진 첨부를 시도한다.
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
@@ -679,7 +679,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     MarkerPhoto photo = createPendingPhoto();
     jdbcTemplate.update(
         "UPDATE photo SET upload_url_expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?",
-        photo.id());
+        photo.getId());
     jdbcTemplate.update(
         "UPDATE marker SET created_by_account_id = ? WHERE id = ?", SUPPORT_TEAM_ID, MARKER_ID);
 
@@ -687,7 +687,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
@@ -721,26 +721,26 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                           status,
                           version,
                           status,
-                          photo.id()));
+                          photo.getId()));
               return Optional.of(
-                  new ObjectMetadata(photo.objectKey(), "image/png", 1024L, CHECKSUM_SHA256));
+                  new ObjectMetadata(photo.getObjectKey(), "image/png", 1024L, CHECKSUM_SHA256));
             })
         .when(objectStorage)
-        .headObject(photo.objectKey());
+        .headObject(photo.getObjectKey());
 
     // when: 이전 대기 상태를 읽었던 요청이 파일 정보 불일치로 첨부를 거부한다.
     assertThatThrownBy(
             () ->
                 photoService.attach(
-                    MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                    MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error", "status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 이번 요청은 다른 트랜잭션에서 저장한 상태·버전을 변경하지 않는다.
-    MarkerPhoto savedPhoto = photoRepository.findById(photo.id()).orElseThrow();
-    assertThat(savedPhoto.status().name()).isEqualTo(status);
-    assertThat(savedPhoto.version()).isEqualTo(version);
+    MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus().name()).isEqualTo(status);
+    assertThat(savedPhoto.getVersion()).isEqualTo(version);
     assertUnchangedMarkerAndNoAttachRecord();
   }
 
@@ -749,7 +749,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   void attach_eventStorageFails_rollsBackPhotoMarkerAndRequestRecord() {
     // given: 정상 사진을 업로드했지만 이 마커의 수정 이벤트만 DB에서 거부한다.
     MarkerPhoto photo = createPendingPhoto();
-    objectStorage.simulateUpload(photo.objectKey());
+    objectStorage.simulateUpload(photo.getObjectKey());
     jdbcTemplate.execute(
         """
         ALTER TABLE event_dispatch_job ADD CONSTRAINT test_photo_attach_event_failure
@@ -761,7 +761,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
       assertThatThrownBy(
               () ->
                   photoService.attach(
-                      MARKER_ID, photo.id(), createAttachRequest(), createAttachContext()))
+                      MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext()))
           .isInstanceOf(DataAccessException.class);
 
       // then: 일부 변경만 남지 않으며, 정상 파일을 실패 상태로 바꾸지도 않는다.
@@ -775,7 +775,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     // when & then: 이벤트 저장이 복구되면 같은 요청 키로 첨부할 수 있다.
     assertThat(
             photoService
-                .attach(MARKER_ID, photo.id(), createAttachRequest(), createAttachContext())
+                .attach(MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext())
                 .response()
                 .status())
         .isEqualTo("ATTACHED");
@@ -789,8 +789,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoUploadUrlResponse upload =
         photoService.createUploadUrl(
             MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    MarkerPhoto uploadedPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
-    objectStorage.simulateUpload(uploadedPhoto.objectKey());
+    MarkerPhoto uploadedPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
+    objectStorage.simulateUpload(uploadedPhoto.getObjectKey());
     jdbcTemplate.update(
         "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
     PhotoRequestContext context =
@@ -807,12 +807,12 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly("incident_closed", HttpStatus.CONFLICT);
 
     // then: 사진은 대기 상태·버전 1로 남고 마커와 수정 이벤트도 변경되지 않는다.
-    MarkerPhoto savedPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
-    assertThat(savedPhoto.version()).isEqualTo(1L);
-    assertThat(savedPhoto.attachedAt()).isNull();
-    assertThat(savedPhoto.width()).isNull();
-    assertThat(savedPhoto.height()).isNull();
+    MarkerPhoto savedPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(savedPhoto.getVersion()).isEqualTo(1L);
+    assertThat(savedPhoto.getAttachedAt()).isNull();
+    assertThat(savedPhoto.getWidth()).isNull();
+    assertThat(savedPhoto.getHeight()).isNull();
     Marker marker = markerMapper.findById(MARKER_ID).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("ACTIVE");
     assertThat(marker.getVersion()).isEqualTo(1L);
@@ -948,7 +948,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     PhotoUploadUrlResponse upload =
         photoService.createUploadUrl(
             MARKER_ID, createUploadRequest(), createContext(ASSIGNED_POLICE_PHONE_ID));
-    return photoRepository.findById(upload.photoId()).orElseThrow();
+    return photoMapper.findById(upload.photoId()).orElseThrow();
   }
 
   private PhotoAttachRequest createAttachRequest() {
@@ -961,14 +961,14 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   private void assertPhotoNotAttached(MarkerPhoto originalPhoto, PhotoStatus status, long version) {
-    MarkerPhoto savedPhoto = photoRepository.findById(originalPhoto.id()).orElseThrow();
-    assertThat(savedPhoto.status()).isEqualTo(status);
-    assertThat(savedPhoto.version()).isEqualTo(version);
-    assertThat(savedPhoto.markerId()).isEqualTo(originalPhoto.markerId());
-    assertThat(savedPhoto.objectKey()).isEqualTo(originalPhoto.objectKey());
-    assertThat(savedPhoto.attachedAt()).isNull();
-    assertThat(savedPhoto.width()).isNull();
-    assertThat(savedPhoto.height()).isNull();
+    MarkerPhoto savedPhoto = photoMapper.findById(originalPhoto.getId()).orElseThrow();
+    assertThat(savedPhoto.getStatus()).isEqualTo(status);
+    assertThat(savedPhoto.getVersion()).isEqualTo(version);
+    assertThat(savedPhoto.getMarkerId()).isEqualTo(originalPhoto.getMarkerId());
+    assertThat(savedPhoto.getObjectKey()).isEqualTo(originalPhoto.getObjectKey());
+    assertThat(savedPhoto.getAttachedAt()).isNull();
+    assertThat(savedPhoto.getWidth()).isNull();
+    assertThat(savedPhoto.getHeight()).isNull();
   }
 
   private void assertUnchangedMarkerAndNoAttachRecord() {
