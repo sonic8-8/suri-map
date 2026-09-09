@@ -1,5 +1,6 @@
 package com.surimap.marker.photo.service;
 
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerCreatePhotoResponse;
 import com.surimap.marker.photo.domain.MarkerPhoto;
@@ -10,7 +11,6 @@ import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.repository.PhotoRepository;
-import com.surimap.marker.repository.MarkerRepository;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -26,7 +26,7 @@ public class MarkerCreatePhotoAttachmentService {
 
   private final PhotoRepository photoRepository;
   private final ObjectStoragePort storagePort;
-  private final MarkerRepository markerRepository;
+  private final MarkerMapper markerMapper;
   private final PhotoEventPublisher photoEventPublisher;
   private final Clock clock;
 
@@ -34,20 +34,20 @@ public class MarkerCreatePhotoAttachmentService {
   public MarkerCreatePhotoAttachmentService(
       PhotoRepository photoRepository,
       ObjectStoragePort storagePort,
-      MarkerRepository markerRepository,
+      MarkerMapper markerMapper,
       PhotoEventPublisher photoEventPublisher) {
-    this(photoRepository, storagePort, markerRepository, photoEventPublisher, Clock.systemUTC());
+    this(photoRepository, storagePort, markerMapper, photoEventPublisher, Clock.systemUTC());
   }
 
   public MarkerCreatePhotoAttachmentService(
       PhotoRepository photoRepository,
       ObjectStoragePort storagePort,
-      MarkerRepository markerRepository,
+      MarkerMapper markerMapper,
       PhotoEventPublisher photoEventPublisher,
       Clock clock) {
     this.photoRepository = Objects.requireNonNull(photoRepository);
     this.storagePort = Objects.requireNonNull(storagePort);
-    this.markerRepository = Objects.requireNonNull(markerRepository);
+    this.markerMapper = Objects.requireNonNull(markerMapper);
     this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
     this.clock = Objects.requireNonNull(clock);
   }
@@ -166,8 +166,7 @@ public class MarkerCreatePhotoAttachmentService {
 
   private void bumpParentMarkerVersion(UUID markerId, long expectedVersion, long nextVersion) {
     int updated =
-        markerRepository.updateMarkerStatusVersion(
-            markerId, expectedVersion, "UPDATED", nextVersion);
+        markerMapper.updateMarkerStatusVersion(markerId, expectedVersion, "UPDATED", nextVersion);
     if (updated != 1) {
       throw conflict("write_conflict");
     }

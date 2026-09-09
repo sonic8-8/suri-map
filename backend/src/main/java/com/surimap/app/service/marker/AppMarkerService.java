@@ -104,25 +104,6 @@ public class AppMarkerService {
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
       MarkerNotificationService markerNotificationService,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this(
-        markerRepository,
-        markerOpBindingValidator,
-        markerWriteGuardPort,
-        markerEventPublisher,
-        null,
-        markerNotificationService,
-        Clock.systemUTC(),
-        UUID::randomUUID,
-        idempotentResponseCacheProvider.getIfAvailable());
-  }
-
-  public AppMarkerService(
-      MarkerRepository markerRepository,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher,
-      MarkerNotificationService markerNotificationService,
       Clock clock,
       Supplier<UUID> markerIdSupplier) {
     this(
