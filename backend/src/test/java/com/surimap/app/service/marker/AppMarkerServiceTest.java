@@ -43,7 +43,7 @@ import com.surimap.marker.photo.dto.PhotoAttachResult;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.repository.PhotoRepository;
+import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.policephone.PolicePhonePersistenceService;
@@ -98,7 +98,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private AppMarkerService appMarkerService;
   @Autowired private PhotoService photoService;
   @Autowired private MarkerMapper markerMapper;
-  @Autowired private PhotoRepository photoRepository;
+  @Autowired private PhotoMapper photoMapper;
   @Autowired private MockObjectStorageAdapter objectStorage;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private MockFcmDispatcher fcmDispatcher;
@@ -288,11 +288,11 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
               assertThat(photo.getPhotoId()).isEqualTo(PHOTO_ID);
               assertThat(photo.getStatus()).isEqualTo("ATTACHED");
             });
-    MarkerPhoto photo = photoRepository.findById(PHOTO_ID).orElseThrow();
-    assertThat(photo.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(photo.version()).isEqualTo(2L);
-    assertThat(photo.width()).isEqualTo(640);
-    assertThat(photo.height()).isEqualTo(480);
+    MarkerPhoto photo = photoMapper.findById(PHOTO_ID).orElseThrow();
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(photo.getVersion()).isEqualTo(2L);
+    assertThat(photo.getWidth()).isEqualTo(640);
+    assertThat(photo.getHeight()).isEqualTo(480);
     Marker marker = markerMapper.findById(MARKER_ID).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("UPDATED");
     assertThat(marker.getVersion()).isEqualTo(2L);
@@ -319,9 +319,9 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 사용할 수 없는 사진만 실패 상태로 남고 마커·이벤트·요청 처리 기록은 롤백된다.
-    MarkerPhoto photo = photoRepository.findById(PHOTO_ID).orElseThrow();
-    assertThat(photo.status()).isEqualTo(PhotoStatus.FAILED);
-    assertThat(photo.version()).isEqualTo(2L);
+    MarkerPhoto photo = photoMapper.findById(PHOTO_ID).orElseThrow();
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.FAILED);
+    assertThat(photo.getVersion()).isEqualTo(2L);
     assertThat(readMarkerIds()).isEmpty();
     assertThat(readEventTypes()).isEmpty();
     assertThat(
@@ -343,12 +343,12 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             markerId,
             new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, CHECKSUM_SHA256),
             new PhotoRequestContext(context.authentication(), PHOTO_UPLOAD_IDEMPOTENCY_KEY));
-    MarkerPhoto pendingPhoto = photoRepository.findById(upload.photoId()).orElseThrow();
+    MarkerPhoto pendingPhoto = photoMapper.findById(upload.photoId()).orElseThrow();
     assertThat(created.getStatus()).isEqualTo("ACTIVE");
     assertThat(created.getVersion()).isEqualTo(1L);
-    assertThat(pendingPhoto.status()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
-    assertThat(upload.uploadUrl()).endsWith(pendingPhoto.objectKey());
-    objectStorage.simulateUpload(pendingPhoto.objectKey());
+    assertThat(pendingPhoto.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(upload.uploadUrl()).endsWith(pendingPhoto.getObjectKey());
+    objectStorage.simulateUpload(pendingPhoto.getObjectKey());
 
     // when: 생성 요청과 별개의 사진 첨부 요청을 실제 사진 서비스로 처리한다.
     PhotoAttachResult attached =
@@ -364,13 +364,13 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(attached.response().version()).isEqualTo(2L);
     assertThat(attached.response().markerId()).isEqualTo(markerId);
     assertThat(attached.response().markerVersion()).isEqualTo(2L);
-    MarkerPhoto photo = photoRepository.findById(upload.photoId()).orElseThrow();
-    assertThat(photo.markerId()).isEqualTo(markerId);
-    assertThat(photo.status()).isEqualTo(PhotoStatus.ATTACHED);
-    assertThat(photo.version()).isEqualTo(2L);
-    assertThat(photo.width()).isEqualTo(640);
-    assertThat(photo.height()).isEqualTo(480);
-    assertThat(photo.attachedAt()).isNotNull();
+    MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
+    assertThat(photo.getMarkerId()).isEqualTo(markerId);
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
+    assertThat(photo.getVersion()).isEqualTo(2L);
+    assertThat(photo.getWidth()).isEqualTo(640);
+    assertThat(photo.getHeight()).isEqualTo(480);
+    assertThat(photo.getAttachedAt()).isNotNull();
     Marker marker = markerMapper.findById(markerId).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("UPDATED");
     assertThat(marker.getVersion()).isEqualTo(2L);
@@ -824,7 +824,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 사진·마커 버전과 생성·첨부 이벤트 수를 그대로 유지한다.
     assertThat(repeatedResponse).usingRecursiveComparison().isEqualTo(firstResponse);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
-    assertThat(photoRepository.findById(PHOTO_ID).orElseThrow().version()).isEqualTo(2L);
+    assertThat(photoMapper.findById(PHOTO_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED");
   }
 
@@ -871,15 +871,16 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     objectStorage.generatePresignedUrl(
         objectKey, "image/jpeg", 1_048_576L, CHECKSUM_SHA256, Duration.ofMinutes(15));
     objectStorage.simulateUpload(objectKey);
-    photoRepository.save(
-        new MarkerPhoto(
-            PHOTO_ID,
-            MARKER_ID,
-            objectKey,
-            "image/jpeg",
-            1_048_576L,
-            CHECKSUM_SHA256,
-            Instant.now().plus(Duration.ofMinutes(15))));
+    photoMapper.upsert(
+        MarkerPhoto.builder()
+            .id(PHOTO_ID)
+            .markerId(MARKER_ID)
+            .objectKey(objectKey)
+            .contentType("image/jpeg")
+            .sizeBytes(1_048_576L)
+            .checksumSha256(CHECKSUM_SHA256)
+            .uploadUrlExpiresAt(Instant.now().plus(Duration.ofMinutes(15)))
+            .build());
     return MarkerCreateServiceRequest.builder()
         .id(MARKER_ID)
         .incidentId(INCIDENT_ID)

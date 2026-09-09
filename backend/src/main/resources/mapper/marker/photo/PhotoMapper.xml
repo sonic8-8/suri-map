@@ -4,7 +4,7 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.surimap.marker.photo.repository.PhotoMapper">
-    <resultMap id="photoRecordMap" type="com.surimap.marker.photo.repository.PhotoRecord">
+    <resultMap id="photoMap" type="com.surimap.marker.photo.domain.MarkerPhoto">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="markerId" column="marker_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="objectKey" column="object_key"/>
@@ -37,18 +37,18 @@
             updated_at
         )
         VALUES (
-            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{objectKey},
-            #{status},
-            #{attachedAt},
-            #{contentType},
-            #{sizeBytes},
-            #{width},
-            #{height},
-            #{checksumSha256},
-            #{uploadUrlExpiresAt},
-            #{version},
+            #{photo.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{photo.markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{photo.objectKey},
+            #{photo.status},
+            #{photo.attachedAt},
+            #{photo.contentType},
+            #{photo.sizeBytes},
+            #{photo.width},
+            #{photo.height},
+            #{photo.checksumSha256},
+            #{photo.uploadUrlExpiresAt},
+            #{photo.version},
             NOW(),
             NOW()
         )
@@ -79,7 +79,7 @@
           AND version = #{expectedVersion}
     </update>
 
-    <select id="findById" resultMap="photoRecordMap">
+    <select id="findById" resultMap="photoMap">
         SELECT
             id,
             marker_id,

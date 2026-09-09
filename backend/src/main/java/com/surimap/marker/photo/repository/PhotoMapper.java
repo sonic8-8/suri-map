@@ -1,7 +1,7 @@
 package com.surimap.marker.photo.repository;
 
 import com.surimap.marker.photo.domain.MarkerPhoto;
-import java.time.Instant;
+import com.surimap.marker.photo.domain.PhotoStatus;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -11,21 +11,9 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface PhotoMapper {
 
-  void upsert(
-      @Param("id") UUID id,
-      @Param("markerId") UUID markerId,
-      @Param("objectKey") String objectKey,
-      @Param("status") String status,
-      @Param("attachedAt") Instant attachedAt,
-      @Param("contentType") String contentType,
-      @Param("sizeBytes") long sizeBytes,
-      @Param("width") Integer width,
-      @Param("height") Integer height,
-      @Param("checksumSha256") String checksumSha256,
-      @Param("uploadUrlExpiresAt") Instant uploadUrlExpiresAt,
-      @Param("version") long version);
+  void upsert(@Param("photo") MarkerPhoto photo);
 
-  Optional<PhotoRecord> findById(@Param("photoId") UUID photoId);
+  Optional<MarkerPhoto> findById(@Param("photoId") UUID photoId);
 
   int failPendingPhoto(
       @Param("photoId") UUID photoId, @Param("expectedVersion") long expectedVersion);
@@ -34,5 +22,5 @@ public interface PhotoMapper {
       @Param("photo") MarkerPhoto photo, @Param("expectedVersion") long expectedVersion);
 
   long countByMarkerIdAndStatusIn(
-      @Param("markerId") UUID markerId, @Param("statuses") Set<String> statuses);
+      @Param("markerId") UUID markerId, @Param("statuses") Set<PhotoStatus> statuses);
 }
