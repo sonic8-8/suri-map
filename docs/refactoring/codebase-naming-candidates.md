@@ -14,13 +14,13 @@
 
 `Sc08NotificationHarnessRedTest`·`Sc08NotificationHarnessRunner`도 기존 `AppMarkerServiceTest`에 알림 저장·DB 커밋 후 FCM 호출·재전송 중복 방지·전송 실패 시 저장 결과 유지 검증을 보강한 뒤 제거했다. DB와 서비스는 실제 구현을 사용하고 외부 FCM만 Mock으로 대체한다. 실제 SSE 수신·브라우저 표시·업무폰 알림 수신은 별도 확인 대상이다.
 
+`SupportRequestNotificationDispatchService`·`BoardToastEvidence`와 전용 테스트 2개는 서버에서 사용하지 않아 제거했다. 실제 알림 저장·전달 검증은 기존 `AppMarkerServiceTest`에 남아 있다. 미사용 코드의 Map 검사와 테스트용 표시 결과를 실제 서버·상황판 동작으로 옮기지는 않았다.
+
 | 현재 이름 | 변경 후보 |
 |---|---|
 | [MarkerOpBindingRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerOpBindingRedTest.java) | `MarkerOpBindingValidatorTest` |
 | [MarkerNotificationToastQueryIntegrationTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationToastQueryIntegrationTest.java) | `MarkerNotificationMapperTest` |
 | [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |
-| [SupportRequestNotificationDispatchService](../../backend/src/main/java/com/surimap/marker/notification/service/SupportRequestNotificationDispatchService.java) | 서버에서는 사용하지 않고 테스트에서만 직접 호출한다. 실제 FCM 처리 검증과 대조한 뒤 제거 검토 |
-| [BoardToastEvidence](../../backend/src/main/java/com/surimap/marker/notification/service/BoardToastEvidence.java) | 위 테스트용 전달 결과. 실제 상황판 표시 검증과 구분해 제거 검토 |
 
 ## Backend — 나머지 Red 테스트
 
