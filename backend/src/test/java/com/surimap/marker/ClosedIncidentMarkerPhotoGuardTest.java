@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.fail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.domain.marker.Marker;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
@@ -45,9 +47,6 @@ import com.surimap.marker.purge.MarkerPhotoPurgeHookAdapter;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
-import com.surimap.marker.service.MarkerUpdateDeleteService;
-import com.surimap.marker.service.request.MarkerDeleteServiceRequest;
-import com.surimap.marker.service.request.MarkerUpdateServiceRequest;
 import com.surimap.retention.purge.PurgeHookName;
 import com.surimap.retention.purge.PurgeHookRequest;
 import com.surimap.retention.purge.PurgeHookResult;
@@ -163,7 +162,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
     @DisplayName("PATCH /markers/{markerId}는 incident_closed이고 기존 row와 PublishRequest를 변경하지 않는다")
     void updateMarker_closedIncident_rejectsWithoutChangingMarkerOrEvents() {
       seedActiveMarker();
-      MarkerUpdateDeleteService service = updateDeleteService();
+      AppMarkerService service = createMarkerService();
 
       assertIncidentClosed(
           () ->
@@ -188,7 +187,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
     @DisplayName("DELETE /markers/{markerId}는 incident_closed이고 기존 row와 PublishRequest를 변경하지 않는다")
     void deleteMarker_closedIncident_rejectsWithoutChangingMarkerOrEvents() {
       seedActiveMarker();
-      MarkerUpdateDeleteService service = updateDeleteService();
+      AppMarkerService service = createMarkerService();
 
       assertIncidentClosed(
           () ->
@@ -335,13 +334,15 @@ class ClosedIncidentMarkerPhotoGuardTest {
             new MarkerPhotoPurgeCall(INCIDENT_ID, PURGE_RUN_ID, CLOSED_AT, PURGE_DEADLINE_TS));
   }
 
-  private MarkerUpdateDeleteService updateDeleteService() {
-    return new MarkerUpdateDeleteService(
+  private AppMarkerService createMarkerService() {
+    return new AppMarkerService(
         markerRepository,
         new MarkerLocationValidatorImpl(),
+        new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
         closedMarkerGuard,
         markerEventPublisher,
-        Clock.fixed(SERVER_TS, ZoneOffset.UTC));
+        Clock.fixed(SERVER_TS, ZoneOffset.UTC),
+        () -> MARKER_ID);
   }
 
   private void seedActiveMarker() {

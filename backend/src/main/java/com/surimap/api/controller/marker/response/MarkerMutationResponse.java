@@ -1,6 +1,6 @@
 package com.surimap.api.controller.marker.response;
 
-import com.surimap.marker.service.response.MarkerMutationServiceResponse;
+import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;

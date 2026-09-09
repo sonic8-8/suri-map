@@ -7,19 +7,29 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.api.controller.marker.MarkerController;
+import com.surimap.api.service.marker.MarkerService;
 import com.surimap.app.controller.marker.request.MarkerCreateRequest;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
+import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
+import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerCreatePhotoResponse;
@@ -27,6 +37,7 @@ import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
+import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -43,8 +54,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-@WebMvcTest(AppMarkerController.class)
+@WebMvcTest({AppMarkerController.class, MarkerController.class})
 @AutoConfigureMockMvc(addFilters = false)
 @Import({MarkerExceptionHandler.class, MarkerRequestContextResolver.class, GuardConfig.class})
 @WithMockAccount(
@@ -65,6 +77,7 @@ class AppMarkerControllerTest {
   @Autowired private ObjectMapper objectMapper;
 
   @MockitoBean private AppMarkerService appMarkerService;
+  @MockitoBean private MarkerService markerService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
   @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
 
@@ -72,6 +85,73 @@ class AppMarkerControllerTest {
   void setUp() {
     when(authenticationResolver.resolve(AUTHORIZATION, "APP"))
         .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID));
+  }
+
+  @Test
+  @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
+  @DisplayName("웹 인증으로 앱 채널을 가장하면, 수정·삭제 서비스를 호출하지 않고 거부한다")
+  void changeMarker_webPrincipalWithAppHeader_rejectsBeforeCallingService() throws Exception {
+    // given: 헤더만 APP으로 바꿔도 인증된 계정의 채널은 WEB이다.
+    when(authenticationResolver.resolve(AUTHORIZATION, "APP"))
+        .thenReturn(new SuriMapAuthentication(ACCOUNT_ID, "WEB", null));
+
+    // when & then: 앱 Controller로 라우팅되더라도 인증 채널 불일치를 거부한다.
+    for (MockHttpServletRequestBuilder request :
+        List.of(
+            patch("/api/markers/{markerId}", MARKER_ID),
+            delete("/api/markers/{markerId}", MARKER_ID))) {
+      mockMvc
+          .perform(
+              request
+                  .header("Authorization", AUTHORIZATION)
+                  .header("X-Client-Channel", "APP")
+                  .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                  .header("Idempotency-Key", "idem-mismatched-channel")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"version\":1}"))
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.error").value("channel_not_allowed"));
+    }
+    verifyNoInteractions(markerService, appMarkerService);
+  }
+
+  @Test
+  @DisplayName("앱에서 마커를 삭제하면, 앱 서비스에 요청을 전달하고 삭제 결과를 반환한다")
+  void deleteMarker_appChannel_returnsDeletedMarker() throws Exception {
+    // given: 앱 서비스가 삭제 결과를 반환한다.
+    when(appMarkerService.delete(any(MarkerDeleteServiceRequest.class)))
+        .thenReturn(
+            MarkerMutationServiceResponse.builder()
+                .id(MARKER_ID)
+                .status("DELETED")
+                .version(2L)
+                .build());
+
+    // when & then: 기존 URL과 응답을 유지하면서 앱 서비스에 전달한다.
+    mockMvc
+        .perform(
+            delete("/api/markers/{markerId}", MARKER_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-app-delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\":1,\"reason\":\"wrong marker\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(MARKER_ID.toString()))
+        .andExpect(jsonPath("$.status").value("DELETED"))
+        .andExpect(jsonPath("$.version").value(2));
+    ArgumentCaptor<MarkerDeleteServiceRequest> captured =
+        ArgumentCaptor.forClass(MarkerDeleteServiceRequest.class);
+    verify(appMarkerService).delete(captured.capture());
+    assertThat(captured.getValue().getMarkerId()).isEqualTo(MARKER_ID);
+    assertThat(captured.getValue().getVersion()).isEqualTo(1L);
+    assertThat(captured.getValue().getReason()).isEqualTo("wrong marker");
+    assertThat(captured.getValue().getContext().authentication().channel()).isEqualTo("APP");
+    assertThat(captured.getValue().getContext().authentication().policePhoneId())
+        .isEqualTo(POLICE_PHONE_ID);
+    assertThat(captured.getValue().getContext().idempotencyKey()).isEqualTo("idem-app-delete");
+    verifyNoInteractions(markerService);
   }
 
   @Test
@@ -295,5 +375,129 @@ class AppMarkerControllerTest {
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));
 
     verifyNoInteractions(authenticationResolver, appMarkerService);
+  }
+
+  @Test
+  @DisplayName("도메인에서 수정·삭제 충돌이 발생하면, 기존 409 상태와 write_conflict 응답을 반환한다")
+  void changeMarker_domainConflict_returnsConflictError() throws Exception {
+    // given: 도메인의 버전·상태 검증에서 비즈니스 오류가 발생한다.
+    when(appMarkerService.update(any(MarkerUpdateServiceRequest.class)))
+        .thenThrow(new BusinessException(ErrorCode.WRITE_CONFLICT));
+    when(appMarkerService.delete(any(MarkerDeleteServiceRequest.class)))
+        .thenThrow(new BusinessException(ErrorCode.WRITE_CONFLICT));
+
+    // when & then: 공통 예외 처리 후에도 수정·삭제의 HTTP 응답 형식은 유지된다.
+    for (MockHttpServletRequestBuilder request :
+        List.of(
+            patch("/api/markers/{markerId}", MARKER_ID),
+            delete("/api/markers/{markerId}", MARKER_ID))) {
+      mockMvc
+          .perform(
+              request
+                  .header("Authorization", AUTHORIZATION)
+                  .header("X-Client-Channel", "APP")
+                  .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                  .header("Idempotency-Key", "idem-marker-conflict")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"version\":1}"))
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.error", is("write_conflict")));
+    }
+  }
+
+  @Test
+  @DisplayName("앱에서 마커를 수정하면, 수정 결과와 HTTP 200 응답을 반환한다")
+  void updateMarker_appChannel_returnsUpdatedMarker() throws Exception {
+    // given: 앱의 수정 요청과 서비스 응답을 준비한다.
+    MarkerUpdateServiceRequest serviceRequest =
+        MarkerUpdateServiceRequest.builder()
+            .markerId(MARKER_ID)
+            .version(1L)
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))))
+            .memo("S3-2 detail panel memo")
+            .type("NOTE")
+            .context(
+                new MarkerRequestContext(
+                    new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID),
+                    "idem-marker-update-001"))
+            .build();
+    MarkerMutationServiceResponse serviceResponse =
+        MarkerMutationServiceResponse.builder().id(MARKER_ID).status("UPDATED").version(2L).build();
+    when(appMarkerService.update(any(MarkerUpdateServiceRequest.class)))
+        .thenReturn(serviceResponse);
+
+    // when & then: 수정 요청을 보내고 응답 본문과 상태 코드를 확인한다.
+    mockMvc
+        .perform(
+            patch("/api/markers/{markerId}", MARKER_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-update-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"version\":1,"
+                        + "\"location\":{\"type\":\"Point\","
+                        + "\"coordinates\":[126.913700,35.163400]},"
+                        + "\"memo\":\"S3-2 detail panel memo\","
+                        + "\"type\":\"NOTE\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(MARKER_ID.toString())))
+        .andExpect(jsonPath("$.status", is("UPDATED")))
+        .andExpect(jsonPath("$.version", is(2)))
+        .andExpect(handler().handlerType(AppMarkerController.class));
+
+    ArgumentCaptor<MarkerUpdateServiceRequest> requestCaptor =
+        ArgumentCaptor.forClass(MarkerUpdateServiceRequest.class);
+    verify(appMarkerService).update(requestCaptor.capture());
+    assertThat(requestCaptor.getValue()).usingRecursiveComparison().isEqualTo(serviceRequest);
+  }
+
+  @Test
+  @DisplayName("앱에서 업무폰 헤더 없이 마커 수정을 요청하면, police_phone_required 오류로 거부한다")
+  void updateMarker_missingAppPolicePhone_rejectsBeforeCallingService() throws Exception {
+    // given: 업무폰 헤더가 없는 앱 요청이다.
+    // when & then: 요청을 거부하고 수정 서비스를 호출하지 않는다.
+    mockMvc
+        .perform(
+            patch("/api/markers/{markerId}", MARKER_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("Idempotency-Key", "idem-marker-update-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\":1,\"memo\":\"missing police phone\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error", is("police_phone_required")));
+
+    verifyNoInteractions(appMarkerService);
+  }
+
+  @Test
+  @DisplayName("수정·삭제 요청에 양의 버전이 없으면, 서비스를 호출하지 않고 write_conflict 오류로 거부한다")
+  void updateOrDeleteMarker_missingOrNonPositiveVersion_rejectsBeforeCallingService()
+      throws Exception {
+    // given: 본문이 없거나 버전이 누락·0·음수인 수정과 삭제 요청이다.
+    for (String body : List.of("", "null", "{}", "{\"version\":0}", "{\"version\":-1}")) {
+      for (MockHttpServletRequestBuilder request :
+          List.of(
+              patch("/api/markers/{markerId}", MARKER_ID),
+              delete("/api/markers/{markerId}", MARKER_ID))) {
+        // when & then: 기존 오류 코드와 HTTP 409를 유지하고 서비스를 호출하지 않는다.
+        mockMvc
+            .perform(
+                request
+                    .header("Authorization", AUTHORIZATION)
+                    .header("X-Client-Channel", "APP")
+                    .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                    .header("Idempotency-Key", "idem-marker-invalid-version")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error", is("write_conflict")));
+      }
+    }
+    verifyNoInteractions(appMarkerService);
   }
 }

@@ -1,4 +1,4 @@
-package com.surimap.marker.service.request;
+package com.surimap.api.service.marker.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
