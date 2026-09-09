@@ -17,12 +17,8 @@ import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -65,7 +61,8 @@ public class MarkerPhotoDraftService {
     return idempotentResponseCache.replayOrRun(
         "POST /api/markers/photos/upload-url",
         context.getIdempotencyKey(),
-        fingerprint("marker-create-photo-upload-url", request),
+        request,
+        () -> formatLegacyUploadRequestBody(request),
         201,
         PhotoUploadUrlResponse.class,
         () -> createNewUploadUrl(request, context),
@@ -163,15 +160,16 @@ public class MarkerPhotoDraftService {
     return new PhotoApiException("write_conflict", HttpStatus.CONFLICT);
   }
 
-  private String fingerprint(String operation, Object request) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hashed =
-          digest.digest(
-              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hashed);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is not available", exception);
-    }
+  // ponytail: 과거 마커 생성 전 업로드 요청 해시 비교 전용이다. 해당 처리 기록이 없음을 확인한 뒤 제거한다.
+  private String formatLegacyUploadRequestBody(MarkerCreatePhotoUploadUrlRequest request) {
+    return ("marker-create-photo-upload-url:MarkerCreatePhotoUploadUrlRequest[markerId=%s, "
+            + "incidentId=%s, opId=%s, contentType=%s, sizeBytes=%s, checksumSha256=%s]")
+        .formatted(
+            request.markerId(),
+            request.incidentId(),
+            request.opId(),
+            request.contentType(),
+            request.sizeBytes(),
+            request.checksumSha256());
   }
 }

@@ -18,13 +18,9 @@ import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -86,7 +82,8 @@ public class PhotoService {
     return idempotentResponseCache.replayOrRun(
         "POST /api/markers/" + markerId + "/photos/upload-url",
         context.getIdempotencyKey(),
-        fingerprint("upload-url:" + markerId, request),
+        request,
+        () -> formatLegacyUploadRequestBody(markerId, request),
         201,
         PhotoUploadUrlResponse.class,
         () -> createNewUploadUrl(markerId, request, context),
@@ -138,7 +135,8 @@ public class PhotoService {
     return idempotentResponseCache.replayOrRun(
         "POST /api/markers/" + markerId + "/photos/" + photoId + "/attach",
         context.getIdempotencyKey(),
-        fingerprint("attach:" + markerId + ":" + photoId, request),
+        request,
+        () -> formatLegacyAttachRequestBody(markerId, photoId, request),
         200,
         PhotoAttachResponse.class,
         () -> attachUploadedPhoto(markerId, photoId, request, context),
@@ -422,15 +420,24 @@ public class PhotoService {
         response.markerVersion());
   }
 
-  private String fingerprint(String operation, Object request) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hashed =
-          digest.digest(
-              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hashed);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is not available", exception);
-    }
+  // ponytail: 과거 업로드 요청 해시 비교 전용이다. 해당 처리 기록이 없음을 확인한 뒤 제거한다.
+  private String formatLegacyUploadRequestBody(UUID markerId, PhotoUploadUrlRequest request) {
+    return "upload-url:%s:PhotoUploadUrlRequest[contentType=%s, sizeBytes=%s, checksumSha256=%s]"
+        .formatted(markerId, request.contentType(), request.sizeBytes(), request.checksumSha256());
+  }
+
+  // ponytail: 과거 첨부 요청 해시 비교 전용이다. 해당 처리 기록이 없음을 확인한 뒤 제거한다.
+  private String formatLegacyAttachRequestBody(
+      UUID markerId, UUID photoId, PhotoAttachRequest request) {
+    return ("attach:%s:%s:PhotoAttachRequest[sizeBytes=%s, contentType=%s, "
+            + "width=%s, height=%s, checksumSha256=%s]")
+        .formatted(
+            markerId,
+            photoId,
+            request.sizeBytes(),
+            request.contentType(),
+            request.width(),
+            request.height(),
+            request.checksumSha256());
   }
 }
