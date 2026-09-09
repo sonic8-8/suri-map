@@ -102,4 +102,28 @@ class SupportRequestNotificationDispatchTest {
 
     assertThat(dispatcher.findByEventId(NotificationFixtures.SUPPORT_EVENT_ID)).isEmpty();
   }
+
+  @Test
+  @DisplayName("지원하지 않는 알림 유형이면, 외부 FCM 전달 전에 거부한다")
+  void dispatch_unsupportedNotificationType_rejectsBeforeSending() {
+    // given: 기존 전달 코드가 허용하지 않는 알림 유형을 보낸다.
+    MockFcmDispatcher dispatcher = new MockFcmDispatcher();
+    SupportRequestNotificationDispatchService service =
+        new SupportRequestNotificationDispatchService(dispatcher);
+    Map<String, Object> payload = new HashMap<>(NotificationFixtures.supportRequestPayload());
+    payload.put("type", "EXTERNAL_PUSH");
+
+    // when: SC08에 있던 알림 유형 거부를 실제 전달 메서드에서 확인한다.
+    assertThatThrownBy(
+            () ->
+                service.dispatch(
+                    NotificationFixtures.SUPPORT_EVENT_ID,
+                    NotificationFixtures.SUPPORT_FCM_RECIPIENTS,
+                    payload))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("payload.type");
+
+    // then: 외부 전달 기록은 남지 않는다. 서버의 실제 알림 전달 경로 검증과는 구분한다.
+    assertThat(dispatcher.getAllDispatches()).isEmpty();
+  }
 }

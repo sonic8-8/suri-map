@@ -6,6 +6,7 @@ import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
@@ -26,7 +27,6 @@ import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService;
 import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService.AttachmentResult;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
-import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
@@ -35,10 +35,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,76 +46,30 @@ public class AppMarkerService {
 
   private static final long INITIAL_VERSION = 1L;
 
-  private final MarkerRepository markerRepository;
+  private final MarkerMapper markerMapper;
   private final MarkerOpBindingValidator markerOpBindingValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
   private final MarkerCreatePhotoAttachmentService photoAttachmentService;
   private final MarkerNotificationService markerNotificationService;
-  private final Clock clock;
-  private final Supplier<UUID> markerIdSupplier;
+  private final Clock clock = Clock.systemUTC();
   private final IdempotentResponseCache idempotentResponseCache;
 
-  @Autowired
   public AppMarkerService(
-      MarkerRepository markerRepository,
+      MarkerMapper markerMapper,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
       MarkerCreatePhotoAttachmentService photoAttachmentService,
       MarkerNotificationService markerNotificationService,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this(
-        markerRepository,
-        markerOpBindingValidator,
-        markerWriteGuardPort,
-        markerEventPublisher,
-        photoAttachmentService,
-        markerNotificationService,
-        Clock.systemUTC(),
-        UUID::randomUUID,
-        idempotentResponseCacheProvider.getIfAvailable());
-  }
-
-  public AppMarkerService(
-      MarkerRepository markerRepository,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher,
-      MarkerNotificationService markerNotificationService,
-      Clock clock,
-      Supplier<UUID> markerIdSupplier) {
-    this(
-        markerRepository,
-        markerOpBindingValidator,
-        markerWriteGuardPort,
-        markerEventPublisher,
-        null,
-        markerNotificationService,
-        clock,
-        markerIdSupplier,
-        null);
-  }
-
-  private AppMarkerService(
-      MarkerRepository markerRepository,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher,
-      MarkerCreatePhotoAttachmentService photoAttachmentService,
-      MarkerNotificationService markerNotificationService,
-      Clock clock,
-      Supplier<UUID> markerIdSupplier,
-      IdempotentResponseCache idempotentResponseCache) {
-    this.markerRepository = Objects.requireNonNull(markerRepository);
+    this.markerMapper = Objects.requireNonNull(markerMapper);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
-    this.photoAttachmentService = photoAttachmentService;
-    this.markerNotificationService = markerNotificationService;
-    this.clock = Objects.requireNonNull(clock);
-    this.markerIdSupplier = Objects.requireNonNull(markerIdSupplier);
-    this.idempotentResponseCache = idempotentResponseCache;
+    this.photoAttachmentService = Objects.requireNonNull(photoAttachmentService);
+    this.markerNotificationService = Objects.requireNonNull(markerNotificationService);
+    this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
   }
 
   @Transactional
@@ -150,7 +102,7 @@ public class AppMarkerService {
     Point location = canonicalLocation.toPoint();
     Marker.validateLocation(location);
 
-    UUID markerId = request.getId() == null ? markerIdSupplier.get() : request.getId();
+    UUID markerId = request.getId() == null ? UUID.randomUUID() : request.getId();
     Instant serverTs = clock.instant();
     MarkerType markerType = markerType(request.getType());
     MarkerSupportRequestType supportRequestType =
@@ -173,7 +125,7 @@ public class AppMarkerService {
             .status(MarkerStatus.ACTIVE)
             .version(INITIAL_VERSION)
             .build();
-    markerRepository.insertCreate(marker);
+    markerMapper.insertCreate(marker);
 
     MarkerPublishRequest publishRequest =
         new MarkerPublishRequest(
@@ -231,9 +183,6 @@ public class AppMarkerService {
       MarkerSupportRequestType supportRequestType,
       MarkerGeoJsonPoint location,
       Instant clientTs) {
-    if (markerNotificationService == null) {
-      return;
-    }
     markerNotificationService.publishIfNeeded(
         new MarkerNotificationContext(
             markerId,
@@ -265,9 +214,6 @@ public class AppMarkerService {
       UUID markerId, MarkerCreateServiceRequest request, UUID opId, UUID policePhoneId) {
     if (request.getPhotos().isEmpty()) {
       return new AttachmentResult(MarkerStatus.ACTIVE.name(), INITIAL_VERSION, java.util.List.of());
-    }
-    if (photoAttachmentService == null) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
     return photoAttachmentService.attachForCreate(
         request.getIncidentId(),
@@ -356,7 +302,7 @@ public class AppMarkerService {
     Marker.validateType(request.getType());
     MarkerGeoJsonPoint location = resolveUpdateLocation(current, request);
     current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
-    int updated = markerRepository.updateMarker(current, request.getVersion());
+    int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
     MarkerPublishRequest publishRequest =
@@ -402,7 +348,7 @@ public class AppMarkerService {
     requireMutationContext(markerId, mutationContext);
     Marker current = findMarker(markerId);
     current.delete(request.getVersion());
-    int updated = markerRepository.deleteMarker(current, request.getVersion());
+    int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
     MarkerPublishRequest publishRequest =
@@ -420,7 +366,7 @@ public class AppMarkerService {
   }
 
   private Marker findMarker(UUID markerId) {
-    return markerRepository
+    return markerMapper
         .findById(markerId)
         .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT));
   }

@@ -12,14 +12,15 @@
 
 `Sc06MarkerPhotoHarnessRedTest`·`Sc06MarkerPhotoHarnessRunner`는 [AppMarkerServiceTest](../../backend/src/test/java/com/surimap/app/service/marker/AppMarkerServiceTest.java)에 실제 DB 기반 마커 생성 후 사진 첨부·잘못된 좌표 거부 검증을 보강한 뒤 제거했다. 테스트 내부에서 흉내 낸 SSE 수신·상황판 갱신은 실제 연동 검증으로 옮기지 않았다.
 
+`Sc08NotificationHarnessRedTest`·`Sc08NotificationHarnessRunner`도 기존 `AppMarkerServiceTest`에 알림 저장·DB 커밋 후 FCM 호출·재전송 중복 방지·전송 실패 시 저장 결과 유지 검증을 보강한 뒤 제거했다. DB와 서비스는 실제 구현을 사용하고 외부 FCM만 Mock으로 대체한다. 실제 SSE 수신·브라우저 표시·업무폰 알림 수신은 별도 확인 대상이다.
+
 | 현재 이름 | 변경 후보 |
 |---|---|
 | [MarkerOpBindingRedTest](../../backend/src/test/java/com/surimap/marker/domain/MarkerOpBindingRedTest.java) | `MarkerOpBindingValidatorTest` |
 | [MarkerNotificationToastQueryIntegrationTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationToastQueryIntegrationTest.java) | `MarkerNotificationMapperTest` |
 | [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |
-| [Sc08NotificationHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc08/Sc08NotificationHarnessRedTest.java) / [Sc08NotificationHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc08/Sc08NotificationHarnessRunner.java) | 마커 알림 검증과 실행 지원 역할을 확인해 이름 결정 |
-| [SupportRequestNotificationDispatchService](../../backend/src/main/java/com/surimap/marker/notification/service/SupportRequestNotificationDispatchService.java) | 역할 확인 후 결정 |
-| [BoardToastEvidence](../../backend/src/main/java/com/surimap/marker/notification/service/BoardToastEvidence.java) | 역할 확인 후 결정 |
+| [SupportRequestNotificationDispatchService](../../backend/src/main/java/com/surimap/marker/notification/service/SupportRequestNotificationDispatchService.java) | 서버에서는 사용하지 않고 테스트에서만 직접 호출한다. 실제 FCM 처리 검증과 대조한 뒤 제거 검토 |
+| [BoardToastEvidence](../../backend/src/main/java/com/surimap/marker/notification/service/BoardToastEvidence.java) | 위 테스트용 전달 결과. 실제 상황판 표시 검증과 구분해 제거 검토 |
 
 ## Backend — 나머지 Red 테스트
 
