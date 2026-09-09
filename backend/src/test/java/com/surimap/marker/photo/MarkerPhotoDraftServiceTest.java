@@ -2,15 +2,14 @@ package com.surimap.marker.photo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
+import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.dto.MarkerCreatePhotoUploadUrlRequest;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.service.MarkerPhotoDraftService;
-import com.surimap.marker.photo.service.PhotoRequestContext;
 import com.surimap.marker.photo.support.InMemoryPhotoRepository;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerMutationContext;
@@ -28,10 +27,8 @@ import org.springframework.http.HttpStatus;
 @DisplayName("마커 생성 사진 draft upload-url 서비스")
 class MarkerPhotoDraftServiceTest {
 
-  private static final UUID MARKER_ID =
-      UUID.fromString("55555555-5555-5555-5555-555555550340");
-  private static final UUID ACCOUNT_ID =
-      UUID.fromString("11111111-1111-1111-1111-111111110340");
+  private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550340");
+  private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110340");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220340");
   private static final Instant NOW = Instant.parse("2026-05-15T00:30:00Z");

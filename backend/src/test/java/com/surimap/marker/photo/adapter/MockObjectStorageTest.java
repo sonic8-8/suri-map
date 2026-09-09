@@ -3,10 +3,10 @@ package com.surimap.marker.photo.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.fixture.ObjectKeyFixtures;
 import com.surimap.marker.photo.fixture.PhotoFixtures;
-import com.surimap.marker.photo.port.ObjectStoragePort;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;

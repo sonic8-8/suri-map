@@ -1,8 +1,8 @@
 package com.surimap.marker.query;
 
+import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
-import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.repository.MarkerPhotoSummaryRow;
 import java.util.HashMap;
 import java.util.List;

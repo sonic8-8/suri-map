@@ -1,6 +1,7 @@
-package com.surimap.marker.photo.adapter;
+package com.surimap.api.controller.photo;
 
-import com.surimap.marker.photo.port.ObjectStoragePort.ObjectMetadata;
+import com.surimap.client.storage.MockObjectStorageAdapter;
+import com.surimap.client.storage.ObjectStoragePort.ObjectMetadata;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

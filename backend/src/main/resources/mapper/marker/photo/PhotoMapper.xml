@@ -61,6 +61,24 @@
             updated_at = NOW()
     </insert>
 
+    <update id="failPendingPhoto">
+        UPDATE photo
+        SET status = 'FAILED', version = version + 1, updated_at = NOW()
+        WHERE id = #{photoId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'PENDING_UPLOAD'
+          AND version = #{expectedVersion}
+    </update>
+
+    <update id="attachPendingPhoto">
+        UPDATE photo
+        SET status = 'ATTACHED', attached_at = #{photo.attachedAt},
+            width = #{photo.width}, height = #{photo.height},
+            version = version + 1, updated_at = NOW()
+        WHERE id = #{photo.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'PENDING_UPLOAD'
+          AND version = #{expectedVersion}
+    </update>
+
     <select id="findById" resultMap="photoRecordMap">
         SELECT
             id,

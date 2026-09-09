@@ -1,6 +1,5 @@
-package com.surimap.marker.photo.adapter;
+package com.surimap.client.storage;
 
-import com.surimap.marker.photo.port.ObjectStoragePort;
 import io.minio.BucketExistsArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;

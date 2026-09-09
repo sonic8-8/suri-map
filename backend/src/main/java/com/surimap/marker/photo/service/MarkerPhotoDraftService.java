@@ -1,16 +1,17 @@
 package com.surimap.marker.photo.service;
 
+import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.app.service.photo.PhotoService;
+import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.MarkerCreatePhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -88,7 +89,7 @@ public class MarkerPhotoDraftService {
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
           "POST /api/markers/photos/upload-url",
-          context.idempotencyKey(),
+          context.getIdempotencyKey(),
           fingerprint("marker-create-photo-upload-url", request),
           201,
           PhotoUploadUrlResponse.class,
@@ -103,7 +104,7 @@ public class MarkerPhotoDraftService {
     markerWriteGuardPort.requireCreateAccess(
         request.incidentId(),
         validateOpBinding(request.incidentId(), request.opId()),
-        new MarkerRequestContext(context.authentication(), context.idempotencyKey()));
+        new MarkerRequestContext(context.getAuthentication(), context.getIdempotencyKey()));
     requirePhotoSlot(request.markerId());
 
     UUID photoId = photoIdSupplier.get();
@@ -148,13 +149,13 @@ public class MarkerPhotoDraftService {
   }
 
   private void requireWriteContext(PhotoRequestContext context) {
-    if (context == null || context.authentication() == null) {
+    if (context == null || context.getAuthentication() == null) {
       throw new PhotoApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
-    if (!"APP".equals(context.authentication().channel())) {
+    if (!"APP".equals(context.getAuthentication().channel())) {
       throw new PhotoApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
     }
-    if (context.idempotencyKey() == null || context.idempotencyKey().isBlank()) {
+    if (context.getIdempotencyKey() == null || context.getIdempotencyKey().isBlank()) {
       throw conflict();
     }
   }

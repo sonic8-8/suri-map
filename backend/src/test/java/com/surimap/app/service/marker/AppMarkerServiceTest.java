@@ -20,6 +20,9 @@ import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.app.service.photo.PhotoService;
+import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.global.error.BusinessException;
@@ -33,17 +36,15 @@ import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
-import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResult;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
+import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.repository.PhotoRepository;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.photo.service.PhotoRequestContext;
-import com.surimap.marker.photo.service.PhotoService;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -300,6 +301,35 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photoDelta.path("photoId").asText()).isEqualTo(PHOTO_ID.toString());
     assertThat(photoDelta.path("status").asText()).isEqualTo("ATTACHED");
     assertThat(photoDelta.path("version").asLong()).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("만료된 사진을 포함해 마커를 생성하면, 사진은 실패 상태로 남기고 마커와 이벤트는 저장하지 않는다")
+  void createMarker_expiredPhoto_savesFailedPhotoAndRollsBackMarker() {
+    // given: 마커 생성 전에 업로드한 사진의 첨부 기한이 지났다.
+    MarkerCreateServiceRequest request = prepareMarkerRequestWithUploadedPhoto();
+    jdbcTemplate.update(
+        "UPDATE photo SET upload_url_expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?",
+        PHOTO_ID);
+
+    // when: 만료된 사진을 포함해 마커를 생성하려 한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(PhotoApiException.class)
+        .extracting("error", "status")
+        .containsExactly("write_conflict", HttpStatus.CONFLICT);
+
+    // then: 사용할 수 없는 사진만 실패 상태로 남고 마커·이벤트·요청 처리 기록은 롤백된다.
+    MarkerPhoto photo = photoRepository.findById(PHOTO_ID).orElseThrow();
+    assertThat(photo.status()).isEqualTo(PhotoStatus.FAILED);
+    assertThat(photo.version()).isEqualTo(2L);
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
   }
 
   @Test
