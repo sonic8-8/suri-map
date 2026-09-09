@@ -3,20 +3,18 @@ package com.surimap.app.service.photo;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
+import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.dto.PhotoAttachResult;
-import com.surimap.marker.photo.dto.PhotoDelta;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
-import com.surimap.marker.photo.dto.PublishRequest;
-import com.surimap.marker.photo.dto.PublishRequestPayload;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -27,10 +25,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -51,7 +50,7 @@ public class PhotoService {
 
   private final ObjectStoragePort storagePort;
   private final MarkerRuntimeGuardMapper markerRuntimeGuardMapper;
-  private final PhotoEventPublisher photoEventPublisher;
+  private final EventHub eventHub;
   private final MarkerMapper markerMapper;
   private final Clock clock = Clock.systemUTC();
   private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
@@ -62,14 +61,14 @@ public class PhotoService {
   public PhotoService(
       ObjectStoragePort storagePort,
       MarkerRuntimeGuardMapper markerRuntimeGuardMapper,
-      PhotoEventPublisher photoEventPublisher,
+      EventHub eventHub,
       MarkerMapper markerMapper,
       PlatformTransactionManager transactionManager,
       PhotoMapper photoMapper,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
     this.markerRuntimeGuardMapper = Objects.requireNonNull(markerRuntimeGuardMapper);
-    this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
+    this.eventHub = Objects.requireNonNull(eventHub);
     this.markerMapper = Objects.requireNonNull(markerMapper);
     this.idempotentResponseCache = Objects.requireNonNull(idempotentResponseCache);
     this.photoMapper = Objects.requireNonNull(photoMapper);
@@ -130,32 +129,23 @@ public class PhotoService {
   }
 
   @Transactional
-  public PhotoAttachResult attach(
+  public PhotoAttachResponse attach(
       UUID markerId, UUID photoId, PhotoAttachRequest request, PhotoRequestContext context) {
     requireMarkerId(markerId);
     requirePhotoId(photoId);
     requireWriteContext(context);
     validateAttachRequest(request);
-    AtomicReference<PhotoAttachResult> attachedResult = new AtomicReference<>();
-    PhotoAttachResponse response =
-        idempotentResponseCache.replayOrRun(
-            "POST /api/markers/" + markerId + "/photos/" + photoId + "/attach",
-            context.getIdempotencyKey(),
-            fingerprint("attach:" + markerId + ":" + photoId, request),
-            200,
-            PhotoAttachResponse.class,
-            () -> {
-              PhotoAttachResult result = attachUploadedPhoto(markerId, photoId, request, context);
-              attachedResult.set(result);
-              return result.response();
-            },
-            this::metadataForAttach);
-    return attachedResult.get() == null
-        ? new PhotoAttachResult(response, null)
-        : attachedResult.get();
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/markers/" + markerId + "/photos/" + photoId + "/attach",
+        context.getIdempotencyKey(),
+        fingerprint("attach:" + markerId + ":" + photoId, request),
+        200,
+        PhotoAttachResponse.class,
+        () -> attachUploadedPhoto(markerId, photoId, request, context),
+        this::metadataForAttach);
   }
 
-  private PhotoAttachResult attachUploadedPhoto(
+  private PhotoAttachResponse attachUploadedPhoto(
       UUID markerId, UUID photoId, PhotoAttachRequest request, PhotoRequestContext context) {
     Marker marker = requirePhotoAccess(markerId, context);
 
@@ -185,10 +175,8 @@ public class PhotoService {
             photo.getVersion(),
             markerId,
             marker.getVersion());
-    PublishRequest publishRequest =
-        publishRequest(marker, context.getAuthentication().policePhoneId(), photo);
-    photoEventPublisher.publish(publishRequest);
-    return new PhotoAttachResult(response, publishRequest);
+    publishMarkerPhotoUpdate(marker, context.getAuthentication().policePhoneId(), photo);
+    return response;
   }
 
   private void validateUploadRequest(PhotoUploadUrlRequest request) {
@@ -375,17 +363,43 @@ public class PhotoService {
         .orElseThrow(() -> conflict("write_conflict"));
   }
 
-  private PublishRequest publishRequest(Marker marker, UUID policePhoneId, MarkerPhoto photo) {
-    return new PublishRequest(
-        "MARKER_UPDATED",
-        new PublishRequestPayload(
-            marker.getId(),
+  public void publishMarkerPhotoUpdate(Marker marker, UUID policePhoneId, MarkerPhoto photo) {
+    if (marker == null
+        || photo == null
+        || marker.getId() == null
+        || marker.getIncidentId() == null
+        || marker.getVersion() <= 0) {
+      throw conflict("write_conflict");
+    }
+
+    Map<String, Object> photoDelta = new LinkedHashMap<>();
+    photoDelta.put("photoId", photo.getId().toString());
+    photoDelta.put("status", photo.getStatus().name());
+    photoDelta.put("version", photo.getVersion());
+
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("id", marker.getId().toString());
+    payload.put("incidentId", marker.getIncidentId().toString());
+    payload.put(
+        "opId",
+        marker.getOperationalPeriodId() == null
+            ? null
+            : marker.getOperationalPeriodId().toString());
+    payload.put("policePhoneId", policePhoneId == null ? null : policePhoneId.toString());
+    payload.put("status", marker.getStatus());
+    payload.put("version", marker.getVersion());
+    payload.put("photoDelta", photoDelta);
+
+    eventHub.publish(
+        new PublishRequest(
+            MarkerEventIds.eventId("MARKER_UPDATED", marker.getId(), marker.getVersion()),
             marker.getIncidentId(),
-            marker.getOperationalPeriodId(),
-            policePhoneId,
-            marker.getStatus(),
-            marker.getVersion(),
-            new PhotoDelta(photo.getId(), photo.getStatus().name(), photo.getVersion())));
+            "MARKER_UPDATED",
+            1,
+            "marker",
+            marker.getId(),
+            clock.instant(),
+            payload));
   }
 
   private PhotoApiException conflict(String error) {

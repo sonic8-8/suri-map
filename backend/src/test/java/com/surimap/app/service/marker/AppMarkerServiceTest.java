@@ -39,7 +39,7 @@ import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
-import com.surimap.marker.photo.dto.PhotoAttachResult;
+import com.surimap.marker.photo.dto.PhotoAttachResponse;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
@@ -351,7 +351,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     objectStorage.simulateUpload(pendingPhoto.getObjectKey());
 
     // when: 생성 요청과 별개의 사진 첨부 요청을 실제 사진 서비스로 처리한다.
-    PhotoAttachResult attached =
+    PhotoAttachResponse attached =
         photoService.attach(
             markerId,
             upload.photoId(),
@@ -359,11 +359,11 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY));
 
     // then: 사진과 부모 마커의 상태·버전이 바뀌고, DB에 생성·수정 이벤트가 하나씩 남는다.
-    assertThat(attached.response().photoId()).isEqualTo(upload.photoId());
-    assertThat(attached.response().status()).isEqualTo("ATTACHED");
-    assertThat(attached.response().version()).isEqualTo(2L);
-    assertThat(attached.response().markerId()).isEqualTo(markerId);
-    assertThat(attached.response().markerVersion()).isEqualTo(2L);
+    assertThat(attached.photoId()).isEqualTo(upload.photoId());
+    assertThat(attached.status()).isEqualTo("ATTACHED");
+    assertThat(attached.version()).isEqualTo(2L);
+    assertThat(attached.markerId()).isEqualTo(markerId);
+    assertThat(attached.markerVersion()).isEqualTo(2L);
     MarkerPhoto photo = photoMapper.findById(upload.photoId()).orElseThrow();
     assertThat(photo.getMarkerId()).isEqualTo(markerId);
     assertThat(photo.getStatus()).isEqualTo(PhotoStatus.ATTACHED);

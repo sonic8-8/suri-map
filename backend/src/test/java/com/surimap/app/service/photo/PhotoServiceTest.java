@@ -24,7 +24,7 @@ import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
-import com.surimap.marker.photo.dto.PhotoAttachResult;
+import com.surimap.marker.photo.dto.PhotoAttachResponse;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
@@ -232,7 +232,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             ATTACH_IDEMPOTENCY_KEY);
 
     // when: 실제 사진 서비스를 통해 업로드한 사진을 마커에 첨부한다.
-    PhotoAttachResult attached =
+    PhotoAttachResponse attached =
         photoService.attach(
             MARKER_ID,
             photo.getId(),
@@ -240,11 +240,11 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             attachContext);
 
     // then: 사진·부모 마커를 함께 변경하고 이번 요청의 업무폰을 이벤트에 기록한다.
-    assertThat(attached.response().status()).isEqualTo("ATTACHED");
-    assertThat(attached.response().photoId()).isEqualTo(photo.getId());
-    assertThat(attached.response().version()).isEqualTo(2L);
-    assertThat(attached.response().markerId()).isEqualTo(MARKER_ID);
-    assertThat(attached.response().markerVersion()).isEqualTo(2L);
+    assertThat(attached.status()).isEqualTo("ATTACHED");
+    assertThat(attached.photoId()).isEqualTo(photo.getId());
+    assertThat(attached.version()).isEqualTo(2L);
+    assertThat(attached.markerId()).isEqualTo(MARKER_ID);
+    assertThat(attached.markerVersion()).isEqualTo(2L);
     MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
     assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
     assertThat(savedPhoto.getVersion()).isEqualTo(2L);
@@ -256,25 +256,36 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate.queryForMap(
                 """
-        SELECT event_type, incident_id, source_entity_id,
+        SELECT event_id, event_type, incident_id, source_entity_type, source_entity_id,
+            payload_format_version, payload ->> 'id' AS payload_marker_id,
+            payload ->> 'incidentId' AS payload_incident_id,
             payload ->> 'opId' AS op_id, payload ->> 'policePhoneId' AS police_phone_id,
             payload ->> 'status' AS marker_status, payload ->> 'version' AS marker_version,
+            jsonb_typeof(payload -> 'version') AS marker_version_type,
             payload -> 'photoDelta' ->> 'photoId' AS photo_id,
             payload -> 'photoDelta' ->> 'status' AS photo_status,
-            payload -> 'photoDelta' ->> 'version' AS photo_version
+            payload -> 'photoDelta' ->> 'version' AS photo_version,
+            jsonb_typeof(payload -> 'photoDelta' -> 'version') AS photo_version_type
         FROM event_dispatch_job WHERE source_entity_id = ?
         """,
                 MARKER_ID))
+        .containsEntry("event_id", UUID.fromString("efc021e0-8e1b-3c84-9f1e-7ef2a508ff52"))
         .containsEntry("event_type", "MARKER_UPDATED")
         .containsEntry("incident_id", INCIDENT_ID)
+        .containsEntry("source_entity_type", "marker")
         .containsEntry("source_entity_id", MARKER_ID)
+        .containsEntry("payload_format_version", 1)
+        .containsEntry("payload_marker_id", MARKER_ID.toString())
+        .containsEntry("payload_incident_id", INCIDENT_ID.toString())
         .containsEntry("op_id", OP1_ID.toString())
         .containsEntry("police_phone_id", OTHER_REGISTERED_POLICE_PHONE_ID.toString())
         .containsEntry("marker_status", "UPDATED")
         .containsEntry("marker_version", "2")
+        .containsEntry("marker_version_type", "number")
         .containsEntry("photo_id", photo.getId().toString())
         .containsEntry("photo_status", "ATTACHED")
-        .containsEntry("photo_version", "2");
+        .containsEntry("photo_version", "2")
+        .containsEntry("photo_version_type", "number");
   }
 
   @Test
@@ -322,15 +333,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             ATTACH_IDEMPOTENCY_KEY);
     PhotoAttachRequest request =
         new PhotoAttachRequest(1024L, "image/jpeg", 640, 480, CHECKSUM_SHA256);
-    PhotoAttachResult first = photoService.attach(MARKER_ID, photo.getId(), request, context);
+    PhotoAttachResponse first = photoService.attach(MARKER_ID, photo.getId(), request, context);
 
     // when: 같은 키와 본문으로 사진 첨부를 다시 요청한다.
-    PhotoAttachResult repeated = photoService.attach(MARKER_ID, photo.getId(), request, context);
+    PhotoAttachResponse repeated = photoService.attach(MARKER_ID, photo.getId(), request, context);
 
     // then: 기존 응답을 재사용하며 사진·마커 버전은 2, 수정 이벤트는 하나로 유지된다.
-    assertThat(repeated.response()).isEqualTo(first.response());
-    assertThat(first.publishRequest()).isNotNull();
-    assertThat(repeated.publishRequest()).isNull();
+    assertThat(repeated).isEqualTo(first);
     MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
     assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
     assertThat(savedPhoto.getVersion()).isEqualTo(2L);
@@ -611,13 +620,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 파일 업로드를 완료한 뒤 같은 요청 키로 다시 첨부하고 응답도 재요청한다.
     objectStorage.simulateUpload(photo.getObjectKey());
-    PhotoAttachResult attached =
+    PhotoAttachResponse attached =
         photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context);
-    PhotoAttachResult repeated =
+    PhotoAttachResponse repeated =
         photoService.attach(MARKER_ID, photo.getId(), createAttachRequest(), context);
 
     // then: 같은 사진과 파일 키를 사용하며 첨부와 수정 이벤트는 한 번만 반영한다.
-    assertThat(repeated.response()).isEqualTo(attached.response());
+    assertThat(repeated).isEqualTo(attached);
     MarkerPhoto savedPhoto = photoMapper.findById(photo.getId()).orElseThrow();
     assertThat(savedPhoto.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
     assertThat(savedPhoto.getVersion()).isEqualTo(2L);
@@ -776,7 +785,6 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             photoService
                 .attach(MARKER_ID, photo.getId(), createAttachRequest(), createAttachContext())
-                .response()
                 .status())
         .isEqualTo("ATTACHED");
     assertCompletedRequest(ATTACH_IDEMPOTENCY_KEY);

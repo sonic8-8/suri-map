@@ -7,11 +7,7 @@ import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerCreatePhotoResponse;
 import com.surimap.marker.photo.domain.MarkerPhoto;
-import com.surimap.marker.photo.dto.PhotoDelta;
-import com.surimap.marker.photo.dto.PublishRequest;
-import com.surimap.marker.photo.dto.PublishRequestPayload;
 import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.repository.PhotoMapper;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -27,7 +23,6 @@ public class MarkerCreatePhotoAttachmentService {
 
   private final ObjectStoragePort storagePort;
   private final MarkerMapper markerMapper;
-  private final PhotoEventPublisher photoEventPublisher;
   private final Clock clock = Clock.systemUTC();
   private final PhotoService photoService;
   private final PhotoMapper photoMapper;
@@ -35,12 +30,10 @@ public class MarkerCreatePhotoAttachmentService {
   public MarkerCreatePhotoAttachmentService(
       ObjectStoragePort storagePort,
       MarkerMapper markerMapper,
-      PhotoEventPublisher photoEventPublisher,
       PhotoService photoService,
       PhotoMapper photoMapper) {
     this.storagePort = Objects.requireNonNull(storagePort);
     this.markerMapper = Objects.requireNonNull(markerMapper);
-    this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
     this.photoService = Objects.requireNonNull(photoService);
     this.photoMapper = Objects.requireNonNull(photoMapper);
   }
@@ -73,8 +66,7 @@ public class MarkerCreatePhotoAttachmentService {
       if (updated != 1) {
         throw conflict("write_conflict");
       }
-      PublishRequest publishRequest = publishRequest(marker, photo);
-      photoEventPublisher.publish(publishRequest);
+      photoService.publishMarkerPhotoUpdate(marker, marker.getPolicePhoneId(), photo);
       responses.add(
           MarkerCreatePhotoResponse.builder()
               .photoId(photo.getId())
@@ -155,19 +147,6 @@ public class MarkerCreatePhotoAttachmentService {
       return Objects.equals(requested, uploaded);
     }
     return true;
-  }
-
-  private PublishRequest publishRequest(Marker marker, MarkerPhoto photo) {
-    return new PublishRequest(
-        "MARKER_UPDATED",
-        new PublishRequestPayload(
-            marker.getId(),
-            marker.getIncidentId(),
-            marker.getOperationalPeriodId(),
-            marker.getPolicePhoneId(),
-            marker.getStatus(),
-            marker.getVersion(),
-            new PhotoDelta(photo.getId(), photo.getStatus().name(), photo.getVersion())));
   }
 
   private PhotoApiException conflict(String error) {
