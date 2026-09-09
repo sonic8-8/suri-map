@@ -20,12 +20,8 @@ import com.surimap.marker.photo.controller.PhotoController;
 import com.surimap.marker.photo.controller.PhotoRequestContextResolver;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.dto.PhotoAttachResult;
-import com.surimap.marker.photo.dto.PhotoDelta;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
-import com.surimap.marker.photo.dto.PublishRequest;
-import com.surimap.marker.photo.dto.PublishRequestPayload;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.exception.PhotoExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
@@ -48,7 +44,6 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(PhotoController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({PhotoExceptionHandler.class, PhotoRequestContextResolver.class, GuardConfig.class})
-@DisplayName("사진 upload-url/attach API")
 @WithMockAccount(
     accountId = "00000000-0000-0000-0000-000000000501",
     policePhoneId = "00000000-0000-0000-0000-000000000601")
@@ -56,8 +51,6 @@ class PhotoControllerTest {
 
   private static final UUID MARKER_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
   private static final UUID PHOTO_ID = UUID.fromString("00000000-0000-0000-0000-000000000202");
-  private static final UUID INCIDENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000301");
-  private static final UUID OP_ID = UUID.fromString("00000000-0000-0000-0000-000000000401");
   private static final UUID ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000501");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000601");
@@ -292,28 +285,18 @@ class PhotoControllerTest {
   }
 
   @Test
-  @DisplayName("APP attach 요청은 ATTACHED response를 반환한다")
-  void appAttachReturnsCanonicalResponse() throws Exception {
-    var result =
-        new PhotoAttachResult(
-            new PhotoAttachResponse(PHOTO_ID, "ATTACHED", 2L, MARKER_ID, 2L),
-            new PublishRequest(
-                "MARKER_UPDATED",
-                new PublishRequestPayload(
-                    MARKER_ID,
-                    INCIDENT_ID,
-                    OP_ID,
-                    POLICE_PHONE_ID,
-                    "UPDATED",
-                    2L,
-                    new PhotoDelta(PHOTO_ID, "ATTACHED", 2L))));
+  @DisplayName("앱에서 사진 첨부를 요청하면, 첨부 상태와 사진·마커 버전을 응답한다")
+  void attach_appRequest_returnsPhotoStatusAndVersions() throws Exception {
+    // given: 사진 서비스가 첨부를 마치고 사진·마커 버전을 반환한다.
+    PhotoAttachResponse response = new PhotoAttachResponse(PHOTO_ID, "ATTACHED", 2L, MARKER_ID, 2L);
     when(photoService.attach(
             eq(MARKER_ID),
             eq(PHOTO_ID),
             eq(new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, null)),
             argThat(context -> context.getIdempotencyKey().equals("idem-photo-attach-001"))))
-        .thenReturn(result);
+        .thenReturn(response);
 
+    // when & then: 앱의 사진 첨부 요청에 기존 HTTP 상태와 응답 필드를 유지한다.
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/{photoId}/attach", MARKER_ID, PHOTO_ID)

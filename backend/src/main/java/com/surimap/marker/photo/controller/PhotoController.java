@@ -63,6 +63,6 @@ public class PhotoController {
       @RequestBody PhotoAttachRequest request) {
     PhotoRequestContext context =
         contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(photoService.attach(markerId, photoId, request, context).response());
+    return ResponseEntity.ok(photoService.attach(markerId, photoId, request, context));
   }
 }
