@@ -1,8 +1,8 @@
-package com.surimap.marker.service;
+package com.surimap.api.service.marker;
 
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.dto.MarkerListResponse;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
@@ -13,17 +13,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class MarkerReadService {
+public class MarkerService {
 
   private final MarkerQuery markerQuery;
 
-  public MarkerReadService(MarkerQuery markerQuery) {
+  public MarkerService(MarkerQuery markerQuery) {
     this.markerQuery = markerQuery;
   }
 
   @Transactional(readOnly = true)
-  public MarkerListResponse list(UUID incidentId, UUID opId, String type, String status) {
-    return MarkerListResponse.from(
+  public MarkerListServiceResponse list(UUID incidentId, UUID opId, String type, String status) {
+    return MarkerListServiceResponse.from(
         markerQuery.byIncident(
             incidentId, new MarkerQueryFilters(opId, parseType(type), parseStatus(status))));
   }
