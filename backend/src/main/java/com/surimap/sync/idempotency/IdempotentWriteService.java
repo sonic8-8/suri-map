@@ -35,6 +35,14 @@ public class IdempotentWriteService {
   @Transactional
   public IdempotentWriteResponse reserveAndReplay(
       IdempotentWriteRequest request, Supplier<IdempotentWriteResponse> ownerOperation) {
+    return reserveAndReplay(request, ownerOperation, () -> null);
+  }
+
+  @Transactional
+  public IdempotentWriteResponse reserveAndReplay(
+      IdempotentWriteRequest request,
+      Supplier<IdempotentWriteResponse> ownerOperation,
+      Supplier<String> legacyBodyHash) {
     Objects.requireNonNull(request, "request must not be null");
     Objects.requireNonNull(ownerOperation, "ownerOperation must not be null");
 
@@ -58,7 +66,8 @@ public class IdempotentWriteService {
     }
 
     IdempotencyRecord record = existing.get();
-    if (!record.bodyHash().equals(request.bodyHash())) {
+    if (!record.bodyHash().equals(request.bodyHash())
+        && !record.bodyHash().equals(legacyBodyHash.get())) {
       return conflict("idempotency_mismatch");
     }
 

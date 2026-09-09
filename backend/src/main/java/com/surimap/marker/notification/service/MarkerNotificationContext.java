@@ -3,6 +3,7 @@ package com.surimap.marker.notification.service;
 import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -14,7 +15,8 @@ public record MarkerNotificationContext(
     MarkerType markerType,
     MarkerSupportRequestType supportRequestType,
     MarkerGeoJsonPoint location,
-    long markerVersion) {
+    long markerVersion,
+    Instant clientTs) {
 
   public MarkerNotificationContext {
     Objects.requireNonNull(markerId, "markerId must not be null");
@@ -23,6 +25,7 @@ public record MarkerNotificationContext(
     Objects.requireNonNull(policePhoneId, "policePhoneId must not be null");
     Objects.requireNonNull(markerType, "markerType must not be null");
     Objects.requireNonNull(location, "location must not be null");
+    Objects.requireNonNull(clientTs, "clientTs must not be null");
     if (markerVersion <= 0) {
       throw new IllegalArgumentException("markerVersion must be positive");
     }

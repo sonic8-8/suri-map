@@ -1,6 +1,9 @@
 package com.surimap.harness.sc08;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.app.service.marker.AppMarkerService;
+import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.board.BoardAssembler;
 import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
@@ -14,8 +17,6 @@ import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerCreateRequest;
-import com.surimap.marker.dto.MarkerCreateResult;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.dto.MarkerPublishPayload;
@@ -41,7 +42,6 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
-import com.surimap.marker.service.MarkerCreateService;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.math.BigDecimal;
@@ -90,8 +90,9 @@ public class Sc08NotificationHarnessRunner {
 
   public FailureScenarioEvidence runMockFcmMissingFailureInjection() {
     HarnessContext harness = HarnessContext.create(NotificationFlow.supportRequest());
-    MarkerCreateResult createResult =
-        harness.markerCreateService.create(harness.flow.markerRequest(), harness.markerContext);
+    MarkerCreateServiceResponse createResponse =
+        harness.appMarkerService.create(
+            harness.flow.markerRequest().toBuilder().context(harness.markerContext).build());
     harness.eventDispatch.commitAfterWrite();
     MarkerPublishRequest notificationPublish = harness.markerEvents.notificationPublish();
     Map<String, Object> payload =
@@ -119,7 +120,7 @@ public class Sc08NotificationHarnessRunner {
             harness.fcmDispatcher.findByEventId(harness.flow.eventId).isPresent(),
             boardToastCreated,
             !boardToastCreated
-                && createResult.response().id().equals(harness.flow.markerUuid)
+                && createResponse.getId().equals(harness.flow.markerUuid)
                 && harness.eventDispatch.containsEvent(harness.flow.eventId),
             false,
             false,
@@ -150,8 +151,9 @@ public class Sc08NotificationHarnessRunner {
 
   private ScenarioEvidence runNotificationFlow(NotificationFlow flow) {
     HarnessContext harness = HarnessContext.create(flow);
-    MarkerCreateResult createResult =
-        harness.markerCreateService.create(flow.markerRequest(), harness.markerContext);
+    MarkerCreateServiceResponse createResponse =
+        harness.appMarkerService.create(
+            flow.markerRequest().toBuilder().context(harness.markerContext).build());
     harness.eventDispatch.commitAfterWrite();
 
     MarkerRecord markerRow = onlyMarkerRow(harness.markerRepository);
@@ -160,10 +162,10 @@ public class Sc08NotificationHarnessRunner {
     MarkerNotificationPublishRequestPayload notificationPayload =
         (MarkerNotificationPublishRequestPayload) notificationPublish.payload();
     Map<String, Object> payload = flow.payloadMap(notificationPayload);
-    String markerId = String.valueOf(createResult.response().id());
-    String incidentId = String.valueOf(createResult.response().incidentId());
-    String opId = String.valueOf(createResult.response().opId());
-    String policePhoneId = String.valueOf(createResult.response().policePhoneId());
+    String markerId = String.valueOf(createResponse.getId());
+    String incidentId = String.valueOf(createResponse.getIncidentId());
+    String opId = String.valueOf(createResponse.getOpId());
+    String policePhoneId = String.valueOf(createResponse.getPolicePhoneId());
     String notificationId = String.valueOf(notificationPayload.id());
 
     FcmDispatchResult fcmResult =
@@ -216,8 +218,8 @@ public class Sc08NotificationHarnessRunner {
             String.valueOf(notificationPayload.version()),
             opId,
             policePhoneId,
-            createResult.response().status(),
-            String.valueOf(createResult.response().version()),
+            createResponse.getStatus(),
+            String.valueOf(createResponse.getVersion()),
             true,
             harness.eventDispatch.containsEvent(flow.eventId),
             String.valueOf(notificationJob.entityId()),
@@ -292,7 +294,7 @@ public class Sc08NotificationHarnessRunner {
     private final DeduplicatingEventFanout eventFanout;
     private final MarkerRequestContext markerContext =
         new MarkerRequestContext(authentication("APP"), "idem-sc08-marker-create-001");
-    private final MarkerCreateService markerCreateService;
+    private final AppMarkerService appMarkerService;
 
     private HarnessContext(NotificationFlow flow) {
       this.flow = flow;
@@ -305,8 +307,8 @@ public class Sc08NotificationHarnessRunner {
               markerEvents,
               Clock.fixed(SERVER_TS, ZoneOffset.UTC),
               context -> flow.notificationUuid);
-      markerCreateService =
-          new MarkerCreateService(
+      appMarkerService =
+          new AppMarkerService(
               markerRepository,
               new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(
@@ -345,9 +347,10 @@ public class Sc08NotificationHarnessRunner {
 
     private WebRejectionEvidence webRejectionEvidence() {
       try {
-        markerCreateService.create(
-            flow.markerRequest(),
-            new MarkerRequestContext(authentication("WEB"), "idem-web-reject"));
+        appMarkerService.create(
+            flow.markerRequest().toBuilder()
+                .context(new MarkerRequestContext(authentication("WEB"), "idem-web-reject"))
+                .build());
       } catch (MarkerApiException exception) {
         return new WebRejectionEvidence(
             true, String.valueOf(exception.getStatus().value()), exception.getError());
@@ -359,8 +362,10 @@ public class Sc08NotificationHarnessRunner {
       int markerRowsBefore = markerRepository.records().size();
       int eventsBefore = markerEvents.publishedCount();
       try {
-        markerCreateService.create(
-            flow.markerRequest(), new MarkerRequestContext(authentication("APP"), ""));
+        appMarkerService.create(
+            flow.markerRequest().toBuilder()
+                .context(new MarkerRequestContext(authentication("APP"), ""))
+                .build());
       } catch (MarkerApiException exception) {
         return new IdempotencyRejectionEvidence(
             true,
@@ -441,17 +446,19 @@ public class Sc08NotificationHarnessRunner {
           NotificationFixtures.PERSON_FOUND_FCM_RECIPIENTS);
     }
 
-    MarkerCreateRequest markerRequest() {
-      return new MarkerCreateRequest(
-          MarkerGeometryFixtures.INCIDENT_ID,
-          MarkerGeometryFixtures.OP1_ID,
-          markerTypeName,
-          new MarkerGeoJsonPoint(
-              "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
-          supportRequestType,
-          markerTypeName.equals(MarkerType.SUPPORT_REQUEST.name()) ? "드론 지원 요청" : "실종자 발견",
-          CLIENT_TS,
-          0L);
+    MarkerCreateServiceRequest markerRequest() {
+      return MarkerCreateServiceRequest.builder()
+          .incidentId(MarkerGeometryFixtures.INCIDENT_ID)
+          .opId(MarkerGeometryFixtures.OP1_ID)
+          .type(markerTypeName)
+          .location(
+              new MarkerGeoJsonPoint(
+                  "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))))
+          .supportRequestType(supportRequestType)
+          .memo(markerTypeName.equals(MarkerType.SUPPORT_REQUEST.name()) ? "드론 지원 요청" : "실종자 발견")
+          .clientTs(CLIENT_TS)
+          .clockOffsetMs(0L)
+          .build();
     }
 
     Map<String, Object> payloadMap(MarkerNotificationPublishRequestPayload payload) {

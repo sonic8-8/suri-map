@@ -31,11 +31,31 @@ public class IdempotentResponseCache {
       Class<T> responseType,
       Supplier<T> ownerOperation,
       ResponseMetadataExtractor<T> metadataExtractor) {
+    return replayOrRun(
+        endpoint,
+        idempotencyKey,
+        bodyHash,
+        () -> null,
+        responseStatusCode,
+        responseType,
+        ownerOperation,
+        metadataExtractor);
+  }
+
+  private <T> T replayOrRun(
+      String endpoint,
+      String idempotencyKey,
+      String bodyHash,
+      Supplier<String> legacyBodyHash,
+      int responseStatusCode,
+      Class<T> responseType,
+      Supplier<T> ownerOperation,
+      ResponseMetadataExtractor<T> metadataExtractor) {
     IdempotentWriteResponse response =
         idempotentWriteService.reserveAndReplay(
             new IdempotentWriteRequest(endpoint, null, null, idempotencyKey, bodyHash),
-            () ->
-                toIdempotentResponse(responseStatusCode, ownerOperation.get(), metadataExtractor));
+            () -> toIdempotentResponse(responseStatusCode, ownerOperation.get(), metadataExtractor),
+            legacyBodyHash);
     if ("idempotency_mismatch".equals(response.error())) {
       throw new IdempotencyMismatchException();
     }
@@ -56,7 +76,27 @@ public class IdempotentResponseCache {
     return replayOrRun(
         endpoint,
         idempotencyKey,
-        requestHash(request),
+        hashRequestBody(toJson(request)),
+        responseStatusCode,
+        responseType,
+        ownerOperation,
+        metadataExtractor);
+  }
+
+  public <T> T replayOrRun(
+      String endpoint,
+      String idempotencyKey,
+      Object request,
+      Supplier<String> legacyRequestBody,
+      int responseStatusCode,
+      Class<T> responseType,
+      Supplier<T> ownerOperation,
+      ResponseMetadataExtractor<T> metadataExtractor) {
+    return replayOrRun(
+        endpoint,
+        idempotencyKey,
+        hashRequestBody(toJson(request)),
+        () -> hashRequestBody(legacyRequestBody.get()),
         responseStatusCode,
         responseType,
         ownerOperation,
@@ -88,11 +128,10 @@ public class IdempotentResponseCache {
     }
   }
 
-  private String requestHash(Object request) {
+  private String hashRequestBody(String requestBody) {
     try {
       byte[] hash =
-          MessageDigest.getInstance("SHA-256")
-              .digest(toJson(request).getBytes(StandardCharsets.UTF_8));
+          MessageDigest.getInstance("SHA-256").digest(requestBody.getBytes(StandardCharsets.UTF_8));
       return HexFormat.of().formatHex(hash);
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is not available", exception);

@@ -1,5 +1,7 @@
-package com.surimap.marker.service;
+package com.surimap.app.service.marker;
 
+import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
@@ -8,9 +10,6 @@ import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
-import com.surimap.marker.dto.MarkerCreateRequest;
-import com.surimap.marker.dto.MarkerCreateResponse;
-import com.surimap.marker.dto.MarkerCreateResult;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
@@ -23,27 +22,23 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRepository;
+import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.locationtech.jts.geom.Point;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class MarkerCreateService {
+public class AppMarkerService {
 
   private static final long INITIAL_VERSION = 1L;
 
@@ -59,7 +54,7 @@ public class MarkerCreateService {
   private final IdempotentResponseCache idempotentResponseCache;
 
   @Autowired
-  public MarkerCreateService(
+  public AppMarkerService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
@@ -81,7 +76,7 @@ public class MarkerCreateService {
         idempotentResponseCacheProvider.getIfAvailable());
   }
 
-  public MarkerCreateService(
+  public AppMarkerService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
@@ -102,7 +97,7 @@ public class MarkerCreateService {
         null);
   }
 
-  public MarkerCreateService(
+  public AppMarkerService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
@@ -123,29 +118,7 @@ public class MarkerCreateService {
         idempotentResponseCacheProvider.getIfAvailable());
   }
 
-  public MarkerCreateService(
-      MarkerRepository markerRepository,
-      MarkerLocationValidator markerLocationValidator,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher,
-      MarkerCreatePhotoAttachmentService photoAttachmentService,
-      Clock clock,
-      Supplier<UUID> markerIdSupplier) {
-    this(
-        markerRepository,
-        markerLocationValidator,
-        markerOpBindingValidator,
-        markerWriteGuardPort,
-        markerEventPublisher,
-        photoAttachmentService,
-        null,
-        clock,
-        markerIdSupplier,
-        null);
-  }
-
-  public MarkerCreateService(
+  public AppMarkerService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
@@ -167,7 +140,7 @@ public class MarkerCreateService {
         null);
   }
 
-  private MarkerCreateService(
+  private AppMarkerService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
@@ -191,54 +164,52 @@ public class MarkerCreateService {
   }
 
   @Transactional
-  public MarkerCreateResult create(MarkerCreateRequest request, MarkerRequestContext context) {
+  public MarkerCreateServiceResponse create(MarkerCreateServiceRequest request) {
     requireRequest(request);
+    MarkerRequestContext context = request.getContext();
     requireAppContext(context);
     if (idempotentResponseCache != null) {
-      AtomicReference<MarkerCreateResult> createdResult = new AtomicReference<>();
-      MarkerCreateResponse response =
-          idempotentResponseCache.replayOrRun(
-              "POST /api/markers",
-              context == null ? null : context.idempotencyKey(),
-              fingerprint("create", request),
-              201,
-              MarkerCreateResponse.class,
-              () -> {
-                MarkerCreateResult result = createNewMarker(request, context);
-                createdResult.set(result);
-                return result.response();
-              },
-              this::metadataFor);
-      return createdResult.get() == null ? new MarkerCreateResult(response, null) : createdResult.get();
+      return idempotentResponseCache.replayOrRun(
+          "POST /api/markers",
+          context.idempotencyKey(),
+          request,
+          () -> MarkerCreateLegacyRequestBody.format(request),
+          201,
+          MarkerCreateServiceResponse.class,
+          () -> createNewMarker(request),
+          this::metadataFor);
     }
-    return createNewMarker(request, context);
+    return createNewMarker(request);
   }
 
-  private MarkerCreateResult createNewMarker(MarkerCreateRequest request, MarkerRequestContext context) {
+  private MarkerCreateServiceResponse createNewMarker(MarkerCreateServiceRequest request) {
+    MarkerRequestContext context = request.getContext();
     UUID dutyShiftId =
-        markerWriteGuardPort.requireCreateAccess(request.incidentId(), request.opId(), context);
+        markerWriteGuardPort.requireCreateAccess(
+            request.getIncidentId(), request.getOpId(), context);
 
-    UUID opId = validateOpBinding(request.incidentId(), request.opId());
-    MarkerGeoJsonPoint canonicalLocation = request.location().canonical();
+    UUID opId = validateOpBinding(request.getIncidentId(), request.getOpId());
+    MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
-    markerLocationValidator.validate(request.incidentId(), location);
+    markerLocationValidator.validate(request.getIncidentId(), location);
 
-    UUID markerId = request.id() == null ? markerIdSupplier.get() : request.id();
+    UUID markerId = request.getId() == null ? markerIdSupplier.get() : request.getId();
     Instant serverTs = clock.instant();
-    MarkerType markerType = markerType(request.type());
-    MarkerSupportRequestType supportRequestType = supportRequestType(request.supportRequestType());
+    MarkerType markerType = markerType(request.getType());
+    MarkerSupportRequestType supportRequestType =
+        supportRequestType(request.getSupportRequestType());
 
     MarkerCreateRecord record =
         new MarkerCreateRecord(
-            request.incidentId(),
+            request.getIncidentId(),
             markerId,
             opId,
             dutyShiftId,
             markerType,
             supportRequestType,
             location,
-            request.memo(),
-            request.clientTs(),
+            request.getMemo(),
+            request.getClientTs(),
             context.authentication().accountId(),
             context.authentication().policePhoneId(),
             MarkerSource.APP,
@@ -251,57 +222,46 @@ public class MarkerCreateService {
             "MARKER_CREATED",
             new MarkerPublishRequestPayload(
                 markerId,
-                request.incidentId(),
+                request.getIncidentId(),
                 opId,
                 context.authentication().policePhoneId(),
                 MarkerStatus.ACTIVE.name(),
                 INITIAL_VERSION,
                 markerType.name(),
                 canonicalLocation,
-                request.clientTs(),
+                request.getClientTs(),
                 serverTs));
     markerEventPublisher.publish(publishRequest);
     AttachmentResult attachmentResult =
-        attachStagedPhotos(
-            markerId,
-            request,
-            opId,
-            context.authentication().policePhoneId());
-    MarkerCreateResponse response =
-        new MarkerCreateResponse(
-            markerId,
-            request.incidentId(),
-            opId,
-            context.authentication().policePhoneId(),
-            attachmentResult.markerStatus(),
-            attachmentResult.markerVersion(),
-            attachmentResult.photos());
+        attachStagedPhotos(markerId, request, opId, context.authentication().policePhoneId());
+    MarkerCreateServiceResponse response =
+        MarkerCreateServiceResponse.builder()
+            .id(markerId)
+            .incidentId(request.getIncidentId())
+            .opId(opId)
+            .policePhoneId(context.authentication().policePhoneId())
+            .status(attachmentResult.markerStatus())
+            .version(attachmentResult.markerVersion())
+            .photos(attachmentResult.photos())
+            .build();
     publishNotificationIfNeeded(
         markerId,
-        request.incidentId(),
+        request.getIncidentId(),
         opId,
         context,
         markerType,
         supportRequestType,
-        canonicalLocation);
-    return new MarkerCreateResult(response, publishRequest);
+        canonicalLocation,
+        request.getClientTs());
+    return response;
   }
 
-  private ResponseMetadata metadataFor(MarkerCreateResponse response) {
+  private ResponseMetadata metadataFor(MarkerCreateServiceResponse response) {
     return new ResponseMetadata(
-        response.id().toString(), response.status(), response.version(), response.version());
-  }
-
-  private String fingerprint(String operation, Object request) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hashed =
-          digest.digest(
-              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hashed);
-    } catch (NoSuchAlgorithmException exception) {
-      throw new IllegalStateException("SHA-256 is not available", exception);
-    }
+        response.getId().toString(),
+        response.getStatus(),
+        response.getVersion(),
+        response.getVersion());
   }
 
   private void publishNotificationIfNeeded(
@@ -311,7 +271,8 @@ public class MarkerCreateService {
       MarkerRequestContext context,
       MarkerType markerType,
       MarkerSupportRequestType supportRequestType,
-      MarkerGeoJsonPoint location) {
+      MarkerGeoJsonPoint location,
+      Instant clientTs) {
     if (markerNotificationService == null) {
       return;
     }
@@ -324,33 +285,39 @@ public class MarkerCreateService {
             markerType,
             supportRequestType,
             location,
-            INITIAL_VERSION));
+            INITIAL_VERSION,
+            clientTs));
   }
 
-  private void requireRequest(MarkerCreateRequest request) {
+  private void requireRequest(MarkerCreateServiceRequest request) {
     if (request == null
-        || request.incidentId() == null
-        || request.opId() == null
-        || request.type() == null
-        || request.location() == null
-        || request.clientTs() == null) {
+        || request.getIncidentId() == null
+        || request.getOpId() == null
+        || request.getType() == null
+        || request.getLocation() == null
+        || request.getClientTs() == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
-    if (!request.photos().isEmpty() && request.id() == null) {
+    if (!request.getPhotos().isEmpty() && request.getId() == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
   }
 
   private AttachmentResult attachStagedPhotos(
-      UUID markerId, MarkerCreateRequest request, UUID opId, UUID policePhoneId) {
-    if (request.photos().isEmpty()) {
+      UUID markerId, MarkerCreateServiceRequest request, UUID opId, UUID policePhoneId) {
+    if (request.getPhotos().isEmpty()) {
       return new AttachmentResult(MarkerStatus.ACTIVE.name(), INITIAL_VERSION, java.util.List.of());
     }
     if (photoAttachmentService == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
     return photoAttachmentService.attachForCreate(
-        request.incidentId(), opId, markerId, policePhoneId, INITIAL_VERSION, request.photos());
+        request.getIncidentId(),
+        opId,
+        markerId,
+        policePhoneId,
+        INITIAL_VERSION,
+        request.getPhotos());
   }
 
   private void requireAppContext(MarkerRequestContext context) {
