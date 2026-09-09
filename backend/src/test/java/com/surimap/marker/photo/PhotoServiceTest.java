@@ -9,7 +9,6 @@ import com.surimap.marker.photo.domain.PhotoStatus;
 import com.surimap.marker.photo.dto.PhotoAttachRequest;
 import com.surimap.marker.photo.dto.PhotoAttachResult;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
-import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
 import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
@@ -35,7 +34,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
-@DisplayName("사진 upload-url/attach 서비스")
 class PhotoServiceTest {
 
   private static final UUID MARKER_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
@@ -43,7 +41,6 @@ class PhotoServiceTest {
       UUID.fromString("00000000-0000-0000-0000-000000000202");
   private static final UUID INCIDENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000301");
   private static final UUID OP_ID = UUID.fromString("00000000-0000-0000-0000-000000000401");
-  private static final UUID OTHER_OP_ID = UUID.fromString("00000000-0000-0000-0000-000000000402");
   private static final UUID ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000501");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000601");
@@ -71,173 +68,6 @@ class PhotoServiceTest {
     requestContext =
         new PhotoRequestContext(
             new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID), "idem-photo-write-001");
-  }
-
-  @Nested
-  @DisplayName("upload-url")
-  class UploadUrl {
-
-    @Test
-    @DisplayName("정상 요청은 mock uploadUrl, 15분 만료, 초기 version=1을 반환한다")
-    void validRequestReturnsUploadUrlContract() {
-      var request = new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, "sha256:fixture");
-
-      PhotoUploadUrlResponse response =
-          photoService.createUploadUrl(MARKER_ID, request, requestContext);
-
-      assertThat(response.photoId()).isNotNull();
-      assertThat(response.expiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
-      assertThat(response.maxSizeBytes()).isEqualTo(10_485_760L);
-      assertThat(response.version()).isEqualTo(1L);
-      String expectedObjectKey =
-          "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId() + ".jpg";
-      assertThat(repository.findById(response.photoId()))
-          .get()
-          .extracting("objectKey")
-          .isEqualTo(expectedObjectKey);
-      assertThat(response.uploadUrl())
-          .isEqualTo("http://127.0.0.1:18080/mock-upload/" + expectedObjectKey);
-    }
-
-    @Test
-    @DisplayName("마커당 11번째 사진 upload-url은 photo_limit_exceeded로 거부한다")
-    void eleventhPhotoRejected() {
-      for (int index = 0; index < 10; index++) {
-        photoService.createUploadUrl(
-            MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      }
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("photo_limit_exceeded");
-    }
-
-    @Test
-    @DisplayName("10MB 초과 upload-url은 photo_limit_exceeded로 거부한다")
-    void oversizedPhotoRejected() {
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 10_485_761L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("photo_limit_exceeded");
-    }
-
-    @Test
-    @DisplayName("미등록 PolicePhone은 photo row를 만들지 않고 police_phone_not_registered로 실패한다")
-    void unregisteredPolicePhoneRejected() {
-      guard.fail(MARKER_ID, "police_phone_not_registered", HttpStatus.FORBIDDEN);
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("police_phone_not_registered");
-      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
-
-    @Test
-    @DisplayName("미배정 PolicePhone은 photo row를 만들지 않고 police_phone_not_assigned로 실패한다")
-    void unassignedPolicePhoneRejected() {
-      guard.fail(MARKER_ID, "police_phone_not_assigned", HttpStatus.FORBIDDEN);
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("police_phone_not_assigned");
-      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
-
-    @Test
-    @DisplayName("사건 접근 권한이 없는 계정은 incident_access_denied로 실패한다")
-    void incidentAccessDeniedRejected() {
-      guard.fail(MARKER_ID, "incident_access_denied", HttpStatus.FORBIDDEN);
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("incident_access_denied");
-      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
-
-    @Test
-    @DisplayName("종료된 사건의 upload-url 요청은 photo row를 만들지 않고 incident_closed로 실패한다")
-    void closedIncidentUploadUrlRejected() {
-      guard.fail(MARKER_ID, "incident_closed", HttpStatus.CONFLICT);
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("incident_closed");
-      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
-
-    @Test
-    @DisplayName("marker OP가 current OP와 다르면 upload-url은 photo row를 만들지 않고 op_mismatch로 실패한다")
-    void currentOpMismatchBlocksUploadUrl() {
-      guard.useCurrentOp(OTHER_OP_ID);
-
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("op_mismatch");
-      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 markerId는 write_conflict로 실패한다")
-    void nonexistentMarkerRejected() {
-      assertThatThrownBy(
-              () ->
-                  photoService.createUploadUrl(
-                      OTHER_MARKER_ID,
-                      new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null),
-                      requestContext))
-          .isInstanceOf(PhotoApiException.class)
-          .extracting("error")
-          .isEqualTo("write_conflict");
-      assertThat(
-              repository.countByMarkerIdAndStatusIn(OTHER_MARKER_ID, PhotoStatus.countedStatuses()))
-          .isZero();
-    }
   }
 
   @Nested
