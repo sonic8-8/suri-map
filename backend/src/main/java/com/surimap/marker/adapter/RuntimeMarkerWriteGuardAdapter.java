@@ -1,9 +1,6 @@
 package com.surimap.marker.adapter;
 
-import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerAccessMapper;
-import com.surimap.domain.marker.MarkerMapper;
-import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.util.UUID;
@@ -11,20 +8,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Runtime S5 marker write guard. APP creates field markers, APP can update/delete its own field
- * markers, and WEB can correct seed/reference markers.
- */
+/** 사건 상태와 배정 정보를 조회해 마커 기록 권한의 공통 조건을 검사한다. */
 @Component
 public class RuntimeMarkerWriteGuardAdapter {
 
   private final MarkerAccessMapper markerAccessMapper;
-  private final MarkerMapper markerMapper;
 
-  public RuntimeMarkerWriteGuardAdapter(
-      MarkerAccessMapper markerAccessMapper, MarkerMapper markerMapper) {
+  public RuntimeMarkerWriteGuardAdapter(MarkerAccessMapper markerAccessMapper) {
     this.markerAccessMapper = markerAccessMapper;
-    this.markerMapper = markerMapper;
   }
 
   @Transactional(readOnly = true)
@@ -42,31 +33,9 @@ public class RuntimeMarkerWriteGuardAdapter {
   }
 
   @Transactional(readOnly = true)
-  public Marker requireUpdateAccess(UUID markerId, MarkerRequestContext context) {
-    return requireMutationAccess(markerId, context);
-  }
-
-  @Transactional(readOnly = true)
-  public Marker requireDeleteAccess(UUID markerId, MarkerRequestContext context) {
-    return requireMutationAccess(markerId, context);
-  }
-
-  private Marker requireMutationAccess(UUID markerId, MarkerRequestContext context) {
-    requireFieldOrWebContext(context);
-    Marker marker =
-        markerMapper
-            .findById(markerId)
-            .filter(saved -> !MarkerStatus.DELETED.name().equals(saved.getStatus()))
-            .orElseThrow(
-                () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
-    requireOpenIncident(marker.getIncidentId());
-    requireAccountAssignment(marker.getIncidentId(), context.authentication().accountId());
-    if ("WEB".equals(context.authentication().channel())) {
-      requireWebReferenceMarker(marker);
-    } else {
-      requireAppOwnFieldMarker(marker, context);
-    }
-    return marker;
+  public void requireIncidentAccess(UUID incidentId, UUID accountId) {
+    requireOpenIncident(incidentId);
+    requireAccountAssignment(incidentId, accountId);
   }
 
   private void requireAppContext(MarkerRequestContext context) {
@@ -75,36 +44,6 @@ public class RuntimeMarkerWriteGuardAdapter {
     }
     if (!"APP".equals(context.authentication().channel())) {
       throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
-    }
-  }
-
-  private void requireFieldOrWebContext(MarkerRequestContext context) {
-    if (context == null || context.authentication() == null) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
-    }
-    String channel = context.authentication().channel();
-    if ("APP".equals(channel)) {
-      if (context.authentication().policePhoneId() == null) {
-        throw new MarkerApiException("police_phone_required", HttpStatus.BAD_REQUEST);
-      }
-      return;
-    }
-    if ("WEB".equals(channel)) {
-      return;
-    }
-    throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
-  }
-
-  private void requireWebReferenceMarker(Marker marker) {
-    if (marker.isReferenceMarker()) {
-      return;
-    }
-    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
-  }
-
-  private void requireAppOwnFieldMarker(Marker marker, MarkerRequestContext context) {
-    if (!marker.isFieldMarkerCreatedBy(context.authentication().accountId())) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
   }
 

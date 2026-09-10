@@ -1334,6 +1334,39 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("업무폰 정보가 없으면, 앱의 수정·삭제 요청을 마커 조회보다 먼저 거부한다")
+  void changeMarker_missingPolicePhone_rejectsBeforeLookingUpMarker() {
+    // given: 요청할 마커가 저장되어 있지 않고, 앱 인증에도 업무폰 정보가 없다.
+    MarkerRequestContext requestContext = context("APP", null);
+
+    // when: 마커를 수정하거나 삭제하려 한다.
+    assertThatThrownBy(
+            () ->
+                appMarkerService.update(
+                    updateRequest().toBuilder().context(requestContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
+    assertThatThrownBy(
+            () ->
+                appMarkerService.delete(
+                    deleteRequest().toBuilder().context(requestContext).build()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
+
+    // then: 마커 없음 오류보다 업무폰 누락 오류가 우선하며, 기록도 남지 않는다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idempotency_record WHERE idempotency_key = ?",
+                Integer.class,
+                IDEMPOTENCY_KEY))
+        .isZero();
+  }
+
+  @Test
   @DisplayName("이미 삭제된 마커에 새 요청을 보내면, 앱에서 수정·삭제를 거부하고 기록을 유지한다")
   void changeMarker_deletedMarker_rejectsNewRequestWithoutChangingRecords() {
     // given: 삭제 상태의 현장 마커에 새로운 요청 키로 변경을 요청한다.

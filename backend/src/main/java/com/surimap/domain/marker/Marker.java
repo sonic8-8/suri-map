@@ -129,6 +129,10 @@ public class Marker {
         || MarkerSource.SYSTEM.name().equals(markerSource);
   }
 
+  public boolean isDeleted() {
+    return MarkerStatus.DELETED.name().equals(status);
+  }
+
   public void update(
       long expectedVersion, String requestedType, Point requestedLocation, String requestedMemo) {
     validateType(requestedType);
@@ -160,7 +164,7 @@ public class Marker {
   }
 
   public void requireVersion(long expectedVersion) {
-    if (MarkerStatus.DELETED.name().equals(status) || version != expectedVersion) {
+    if (isDeleted() || version != expectedVersion) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
