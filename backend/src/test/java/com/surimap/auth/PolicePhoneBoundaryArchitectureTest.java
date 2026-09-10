@@ -8,7 +8,7 @@ import com.surimap.app.service.photo.PhotoService;
 import com.surimap.app.service.searcharea.AppSearchAreaBoundaryAlertService;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.domain.marker.MarkerAccessMapper;
-import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
+import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -42,7 +42,7 @@ class PolicePhoneBoundaryArchitectureTest {
     assertThat(Arrays.stream(MarkerAccessMapper.class.getDeclaredMethods()).map(Method::getName))
         .doesNotContain("countRegisteredPolicePhone");
     assertThat(
-            Arrays.stream(RuntimeMarkerWriteGuardAdapter.class.getDeclaredMethods())
+            Arrays.stream(MarkerWriteAccessValidator.class.getDeclaredMethods())
                 .map(Method::getName))
         .doesNotContain("requireRegisteredPolicePhone");
     assertThat(Arrays.stream(PhotoService.class.getDeclaredMethods()).map(Method::getName))
