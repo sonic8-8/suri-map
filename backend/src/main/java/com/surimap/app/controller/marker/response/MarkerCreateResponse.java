@@ -3,7 +3,6 @@ package com.surimap.app.controller.marker.response;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
-import com.surimap.marker.dto.MarkerCreatePhotoResponse;
 import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
@@ -50,7 +49,7 @@ public class MarkerCreateResponse {
         .policePhoneId(response.getPolicePhoneId())
         .status(response.getStatus())
         .version(response.getVersion())
-        .photos(response.getPhotos())
+        .photos(response.getPhotos().stream().map(MarkerCreatePhotoResponse::from).toList())
         .build();
   }
 }

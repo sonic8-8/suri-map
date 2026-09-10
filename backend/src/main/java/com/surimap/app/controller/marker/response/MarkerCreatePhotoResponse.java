@@ -1,6 +1,7 @@
-package com.surimap.marker.dto;
+package com.surimap.app.controller.marker.response;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,5 +26,15 @@ public class MarkerCreatePhotoResponse {
     this.version = version;
     this.markerId = markerId;
     this.markerVersion = markerVersion;
+  }
+
+  public static MarkerCreatePhotoResponse from(PhotoAttachServiceResponse response) {
+    return MarkerCreatePhotoResponse.builder()
+        .photoId(response.getPhotoId())
+        .status(response.getStatus())
+        .version(response.getVersion())
+        .markerId(response.getMarkerId())
+        .markerVersion(response.getMarkerVersion())
+        .build();
   }
 }

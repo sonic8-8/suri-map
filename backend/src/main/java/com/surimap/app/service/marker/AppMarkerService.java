@@ -5,8 +5,8 @@ import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
-import com.surimap.app.service.photo.MarkerCreatePhotoAttachmentService;
-import com.surimap.app.service.photo.MarkerCreatePhotoAttachmentService.AttachmentResult;
+import com.surimap.app.service.photo.PhotoService;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
@@ -33,6 +33,7 @@ import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.locationtech.jts.geom.Point;
@@ -50,7 +51,7 @@ public class AppMarkerService {
   private final MarkerOpBindingValidator markerOpBindingValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
-  private final MarkerCreatePhotoAttachmentService photoAttachmentService;
+  private final PhotoService photoService;
   private final MarkerNotificationService markerNotificationService;
   private final Clock clock = Clock.systemUTC();
   private final IdempotentResponseCache idempotentResponseCache;
@@ -60,14 +61,14 @@ public class AppMarkerService {
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
-      MarkerCreatePhotoAttachmentService photoAttachmentService,
+      PhotoService photoService,
       MarkerNotificationService markerNotificationService,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.markerMapper = Objects.requireNonNull(markerMapper);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
-    this.photoAttachmentService = Objects.requireNonNull(photoAttachmentService);
+    this.photoService = Objects.requireNonNull(photoService);
     this.markerNotificationService = Objects.requireNonNull(markerNotificationService);
     this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
   }
@@ -142,17 +143,17 @@ public class AppMarkerService {
                 request.getClientTs(),
                 serverTs));
     markerEventPublisher.publish(publishRequest);
-    AttachmentResult attachmentResult =
-        photoAttachmentService.attachForCreate(marker, request.getPhotos());
+    List<PhotoAttachServiceResponse> photos =
+        photoService.attachPhotosForMarkerCreation(marker, request.getPhotos());
     MarkerCreateServiceResponse response =
         MarkerCreateServiceResponse.builder()
             .id(markerId)
             .incidentId(request.getIncidentId())
             .opId(opId)
             .policePhoneId(context.authentication().policePhoneId())
-            .status(attachmentResult.markerStatus())
-            .version(attachmentResult.markerVersion())
-            .photos(attachmentResult.photos())
+            .status(marker.getStatus())
+            .version(marker.getVersion())
+            .photos(photos)
             .build();
     publishNotificationIfNeeded(
         markerId,

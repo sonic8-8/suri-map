@@ -2,7 +2,7 @@ package com.surimap.app.service.marker.response;
 
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
-import com.surimap.marker.dto.MarkerCreatePhotoResponse;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
@@ -21,7 +21,7 @@ public class MarkerCreateServiceResponse {
   private long version;
 
   @JsonSetter(nulls = Nulls.AS_EMPTY, contentNulls = Nulls.FAIL)
-  private List<MarkerCreatePhotoResponse> photos = List.of();
+  private List<PhotoAttachServiceResponse> photos = List.of();
 
   @Builder
   private MarkerCreateServiceResponse(
@@ -31,7 +31,7 @@ public class MarkerCreateServiceResponse {
       UUID policePhoneId,
       String status,
       long version,
-      List<MarkerCreatePhotoResponse> photos) {
+      List<PhotoAttachServiceResponse> photos) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;

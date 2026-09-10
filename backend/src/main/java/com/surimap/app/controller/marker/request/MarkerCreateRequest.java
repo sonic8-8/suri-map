@@ -3,7 +3,6 @@ package com.surimap.app.controller.marker.request;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
-import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.constraints.NotNull;
@@ -66,7 +65,7 @@ public class MarkerCreateRequest {
         .memo(memo)
         .clientTs(clientTs)
         .clockOffsetMs(clockOffsetMs)
-        .photos(photos)
+        .photos(photos.stream().map(MarkerCreatePhotoRequest::toServiceRequest).toList())
         .context(context)
         .build();
   }
