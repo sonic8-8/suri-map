@@ -1,6 +1,5 @@
 package com.surimap.domain.marker;
 
-import java.util.Optional;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -8,15 +7,8 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface MarkerAccessMapper {
 
-  Optional<String> findIncidentStatus(@Param("incidentId") UUID incidentId);
-
-  Optional<UUID> findCurrentOpId(@Param("incidentId") UUID incidentId);
-
-  int countActiveAssignmentsByAccountId(@Param("accountId") UUID accountId);
-
-  int countActiveIncidentAssignment(
-      @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
-
-  Optional<UUID> findActiveDutyShiftIdByAccount(
-      @Param("opId") UUID opId, @Param("accountId") UUID accountId);
+  MarkerWriteAccessData findWriteAccessData(
+      @Param("incidentId") UUID incidentId,
+      @Param("opId") UUID opId,
+      @Param("accountId") UUID accountId);
 }

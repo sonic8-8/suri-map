@@ -307,13 +307,13 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when & then: 수정·삭제 모두 사건 종료 오류를 반환한다.
     assertThatThrownBy(() -> markerService.update(updateRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
-        .isEqualTo("incident_closed");
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INCIDENT_CLOSED);
     assertThatThrownBy(() -> markerService.delete(deleteRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
-        .isEqualTo("incident_closed");
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INCIDENT_CLOSED);
     assertUnchangedMarker();
   }
 

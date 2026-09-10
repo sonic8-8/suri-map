@@ -466,10 +466,10 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // when: 해당 계정의 업무폰에서 마커 생성을 요청한다.
     assertThatThrownBy(() -> appMarkerService.create(request))
         .isInstanceOfSatisfying(
-            MarkerApiException.class,
+            BusinessException.class,
             exception -> {
-              assertThat(exception.getError()).isEqualTo("police_phone_not_assigned");
-              assertThat(exception.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+              assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.POLICE_PHONE_NOT_ASSIGNED);
+              assertThat(exception.getErrorCode().getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
             });
 
     // then: 마커와 이벤트를 저장하지 않고 예약했던 요청 키도 롤백한다.
@@ -558,9 +558,9 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 현재 OP와 다른 OP로 마커 생성을 요청한다.
     assertThatThrownBy(() -> appMarkerService.create(request))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
-        .isEqualTo("op_mismatch");
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.OP_MISMATCH);
 
     // then: 마커와 생성 이벤트가 DB에 남지 않는다.
     assertThat(readMarkerIds()).isEmpty();
@@ -1429,8 +1429,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 실제 서비스의 사건 상태 조회로 생성 요청을 거부한다.
     assertThatThrownBy(() -> appMarkerService.create(request))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_closed", HttpStatus.CONFLICT);
 
     // then: 마커와 지원 요청 알림·이벤트가 생기지 않고 요청 키도 남기지 않는다.
@@ -1460,12 +1460,12 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when & then: 수정·삭제 모두 사건 종료 오류를 반환한다.
     assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_closed", HttpStatus.CONFLICT);
     assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_closed", HttpStatus.CONFLICT);
     assertUnchangedMarker();
     assertThat(
@@ -1474,6 +1474,82 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                 Integer.class,
                 IDEMPOTENCY_KEY))
         .isZero();
+  }
+
+  @Test
+  @DisplayName("사건이 존재하지 않으면, 차수 검사보다 먼저 접근을 거부하고 마커·이벤트·요청 기록을 남기지 않는다")
+  void createMarker_missingIncident_rejectsAccessWithoutSavingRecords() {
+    // given: 실제 DB에 없는 사건 ID로 마커 생성을 요청한다.
+    MarkerCreateServiceRequest request =
+        createRequest("CLUE", null).toBuilder().incidentId(UUID.randomUUID()).build();
+
+    // when & then: 빈 사건 조회 결과를 허용하지 않고 기존 접근 거부 오류로 처리한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INCIDENT_ACCESS_DENIED);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM marker WHERE incident_id = ?", UUID.class, request.getIncidentId()))
+        .isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT event_type FROM event_dispatch_job WHERE incident_id = ?",
+                String.class,
+                request.getIncidentId()))
+        .isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("사건 종료와 현재 수색 차수 부재가 겹치면, 마커 생성은 사건 종료 오류를 먼저 반환한다")
+  void createMarker_closedIncidentWithoutCurrentOp_rejectsIncidentBeforeOp() {
+    // given: 사건이 종료되었고 활성 수색 차수도 없다.
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+    jdbcTemplate.update(
+        "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE incident_id = ?",
+        INCIDENT_ID);
+    MarkerCreateServiceRequest request = createRequest("CLUE", null);
+
+    // when & then: 조회 결과를 한 번에 전달해도 기존 생성 검사의 오류 순서를 유지한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INCIDENT_CLOSED);
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
+  }
+
+  @Test
+  @DisplayName("사건 배정이 유지되면, 현재 수색 차수와 근무교대가 끝나도 작성자는 기존 마커를 수정할 수 있다")
+  void updateMarker_opAndDutyShiftEnded_allowsAssignedAuthorToUpdate() {
+    // given: 사건은 열려 있고 작성자 배정은 유효하지만 수색 차수와 근무교대는 끝났다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?", DUTY_SHIFT_ID);
+    jdbcTemplate.update(
+        "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE incident_id = ?",
+        INCIDENT_ID);
+
+    // when: 새 마커를 생성하는 것이 아니라 기존 마커를 수정한다.
+    MarkerMutationServiceResponse response = appMarkerService.update(updateRequest());
+
+    // then: 생성에만 필요한 현재 차수·근무 조건을 수정 권한에 추가하지 않는다.
+    assertResponse(response, "UPDATED");
+    assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getMemo())
+        .isEqualTo("updated clue memo");
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
   }
 
   @Test

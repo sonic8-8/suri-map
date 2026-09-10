@@ -8,18 +8,17 @@ import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.PhotoService;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
+import com.surimap.domain.marker.MarkerWriteAccessData;
+import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.exception.OpMismatchException;
-import com.surimap.marker.domain.exception.OpRequiredException;
-import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
@@ -47,8 +46,8 @@ public class AppMarkerService {
   private static final long INITIAL_VERSION = 1L;
 
   private final MarkerMapper markerMapper;
-  private final MarkerOpBindingValidator markerOpBindingValidator;
-  private final RuntimeMarkerWriteGuardAdapter markerWriteGuard;
+  private final MarkerAccessMapper markerAccessMapper;
+  private final MarkerWriteAccessValidator markerWriteAccessValidator;
   private final MarkerEventPublisher markerEventPublisher;
   private final PhotoService photoService;
   private final MarkerNotificationService markerNotificationService;
@@ -57,15 +56,15 @@ public class AppMarkerService {
 
   public AppMarkerService(
       MarkerMapper markerMapper,
-      MarkerOpBindingValidator markerOpBindingValidator,
-      RuntimeMarkerWriteGuardAdapter markerWriteGuard,
+      MarkerAccessMapper markerAccessMapper,
+      MarkerWriteAccessValidator markerWriteAccessValidator,
       MarkerEventPublisher markerEventPublisher,
       PhotoService photoService,
       MarkerNotificationService markerNotificationService,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.markerMapper = Objects.requireNonNull(markerMapper);
-    this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
-    this.markerWriteGuard = Objects.requireNonNull(markerWriteGuard);
+    this.markerAccessMapper = Objects.requireNonNull(markerAccessMapper);
+    this.markerWriteAccessValidator = Objects.requireNonNull(markerWriteAccessValidator);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.photoService = Objects.requireNonNull(photoService);
     this.markerNotificationService = Objects.requireNonNull(markerNotificationService);
@@ -93,10 +92,13 @@ public class AppMarkerService {
 
   private MarkerCreateServiceResponse createNewMarker(MarkerCreateServiceRequest request) {
     MarkerRequestContext context = request.getContext();
-    UUID dutyShiftId =
-        markerWriteGuard.requireCreateAccess(request.getIncidentId(), request.getOpId(), context);
+    MarkerWriteAccessData accessData =
+        markerAccessMapper.findWriteAccessData(
+            request.getIncidentId(), request.getOpId(), context.authentication().accountId());
+    markerWriteAccessValidator.validateCreateAccess(accessData, request.getOpId());
+    UUID dutyShiftId = accessData.getActiveDutyShiftId();
 
-    UUID opId = validateOpBinding(request.getIncidentId(), request.getOpId());
+    UUID opId = accessData.getCurrentOpId();
     MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
     Point location = canonicalLocation.toPoint();
     Marker.validateLocation(location);
@@ -218,16 +220,6 @@ public class AppMarkerService {
     }
     if (context.idempotencyKey() == null || context.idempotencyKey().isBlank()) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
-    }
-  }
-
-  private UUID validateOpBinding(UUID incidentId, UUID requestedOpId) {
-    try {
-      return markerOpBindingValidator.validate(incidentId, requestedOpId);
-    } catch (OpRequiredException exception) {
-      throw new MarkerApiException(exception.errorCode(), HttpStatus.CONFLICT);
-    } catch (OpMismatchException exception) {
-      throw new MarkerApiException(exception.errorCode(), HttpStatus.CONFLICT);
     }
   }
 
@@ -355,7 +347,10 @@ public class AppMarkerService {
             .orElseThrow(
                 () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
     UUID accountId = context.authentication().accountId();
-    markerWriteGuard.requireIncidentAccess(marker.getIncidentId(), accountId);
+    MarkerWriteAccessData accessData =
+        markerAccessMapper.findWriteAccessData(
+            marker.getIncidentId(), marker.getOperationalPeriodId(), accountId);
+    markerWriteAccessValidator.validateIncidentAccess(accessData);
     if (!marker.isFieldMarkerCreatedBy(accountId)) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }

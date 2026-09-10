@@ -26,6 +26,7 @@ import com.surimap.domain.photo.PhotoMapper;
 import com.surimap.domain.photo.PhotoStatus;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
@@ -1684,6 +1685,37 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 INCIDENT_ID))
         .isEmpty();
     assertThat(readRequestBodyHash(BEFORE_CREATION_IDEMPOTENCY_KEY)).isEqualTo(storedRequestHash);
+  }
+
+  @Test
+  @DisplayName("사건 종료와 현재 수색 차수 부재가 겹치면, 생성 전 사진 업로드는 차수 오류를 먼저 반환한다")
+  void createUploadUrlBeforeMarkerCreation_closedIncidentWithoutOp_rejectsOpFirst() {
+    // given: 사건이 종료되었고 활성 수색 차수도 없다.
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = NOW() WHERE id = ?", INCIDENT_ID);
+    jdbcTemplate.update(
+        "UPDATE operational_period SET status = 'ENDED', ended_at = NOW() WHERE incident_id = ?",
+        INCIDENT_ID);
+    MarkerCreatePhotoUploadUrlServiceRequest request =
+        createUploadBeforeMarkerCreationRequest().toBuilder()
+            .context(createUploadBeforeMarkerCreationContext())
+            .build();
+
+    // when & then: 마커 생성과 달리, 생성 전 사진 업로드의 기존 차수 검사 순서를 유지한다.
+    assertThatThrownBy(() -> photoService.createUploadUrlBeforeMarkerCreation(request))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.OP_REQUIRED);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM photo WHERE marker_id = ?", UUID.class, BEFORE_CREATION_MARKER_ID))
+        .isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                BEFORE_CREATION_IDEMPOTENCY_KEY))
+        .isEmpty();
   }
 
   private MarkerCreatePhotoUploadUrlServiceRequest createUploadBeforeMarkerCreationRequest() {

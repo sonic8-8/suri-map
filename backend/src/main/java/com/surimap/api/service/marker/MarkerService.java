@@ -5,11 +5,13 @@ import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.api.service.marker.response.MarkerListServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
+import com.surimap.domain.marker.MarkerWriteAccessData;
+import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
@@ -34,7 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MarkerService {
 
   private final MarkerMapper markerMapper;
-  private final RuntimeMarkerWriteGuardAdapter markerWriteGuard;
+  private final MarkerAccessMapper markerAccessMapper;
+  private final MarkerWriteAccessValidator markerWriteAccessValidator;
   private final MarkerEventPublisher markerEventPublisher;
   private final Clock clock;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -44,13 +47,15 @@ public class MarkerService {
   public MarkerService(
       MarkerQuery markerQuery,
       MarkerMapper markerMapper,
-      RuntimeMarkerWriteGuardAdapter markerWriteGuard,
+      MarkerAccessMapper markerAccessMapper,
+      MarkerWriteAccessValidator markerWriteAccessValidator,
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.markerQuery = markerQuery;
     this.markerMapper = markerMapper;
-    this.markerWriteGuard = markerWriteGuard;
+    this.markerAccessMapper = markerAccessMapper;
+    this.markerWriteAccessValidator = markerWriteAccessValidator;
     this.markerEventPublisher = markerEventPublisher;
     this.clock = clock;
     this.idempotentResponseCache = idempotentResponseCache;
@@ -151,8 +156,12 @@ public class MarkerService {
             .filter(saved -> !saved.isDeleted())
             .orElseThrow(
                 () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
-    markerWriteGuard.requireIncidentAccess(
-        marker.getIncidentId(), context.authentication().accountId());
+    MarkerWriteAccessData accessData =
+        markerAccessMapper.findWriteAccessData(
+            marker.getIncidentId(),
+            marker.getOperationalPeriodId(),
+            context.authentication().accountId());
+    markerWriteAccessValidator.validateIncidentAccess(accessData);
     if (!marker.isReferenceMarker()) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
