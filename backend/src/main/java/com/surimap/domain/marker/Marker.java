@@ -120,6 +120,15 @@ public class Marker {
         photos);
   }
 
+  public boolean isFieldMarkerCreatedBy(UUID accountId) {
+    return MarkerSource.APP.name().equals(markerSource) && createdByAccountId.equals(accountId);
+  }
+
+  public boolean isReferenceMarker() {
+    return MarkerSource.MOCK_SEED.name().equals(markerSource)
+        || MarkerSource.SYSTEM.name().equals(markerSource);
+  }
+
   public void update(
       long expectedVersion, String requestedType, Point requestedLocation, String requestedMemo) {
     validateType(requestedType);

@@ -47,6 +47,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class MarkerServiceTest extends PostGisIntegrationTestSupport {
@@ -265,6 +266,34 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .extracting("error")
         .isEqualTo("incident_access_denied");
     assertUnchangedMarker();
+  }
+
+  @Test
+  @DisplayName("이미 삭제된 기준 마커에 새 요청을 보내면, 웹에서 수정·삭제를 거부하고 기록을 유지한다")
+  void changeMarker_deletedMarker_rejectsNewRequestWithoutChangingRecords() {
+    // given: 삭제 상태의 기준 마커에 새로운 요청 키로 변경을 요청한다.
+    prepareMarkerMutation();
+    jdbcTemplate.update("UPDATE marker SET status = 'DELETED' WHERE id = ?", MUTATION_MARKER_ID);
+
+    // when & then: 버전 충돌 검사에 앞서 기존 권한 오류로 수정·삭제를 거부한다.
+    assertThatThrownBy(() -> markerService.update(updateRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
+    assertThatThrownBy(() -> markerService.delete(deleteRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getStatus()).isEqualTo("DELETED");
+    assertThat(saved.getVersion()).isEqualTo(1L);
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                MUTATION_IDEMPOTENCY_KEY))
+        .isEmpty();
   }
 
   @Test

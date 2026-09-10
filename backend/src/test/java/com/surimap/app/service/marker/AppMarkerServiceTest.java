@@ -1334,6 +1334,34 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("이미 삭제된 마커에 새 요청을 보내면, 앱에서 수정·삭제를 거부하고 기록을 유지한다")
+  void changeMarker_deletedMarker_rejectsNewRequestWithoutChangingRecords() {
+    // given: 삭제 상태의 현장 마커에 새로운 요청 키로 변경을 요청한다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    jdbcTemplate.update("UPDATE marker SET status = 'DELETED' WHERE id = ?", MUTATION_MARKER_ID);
+
+    // when & then: 버전 충돌 검사에 앞서 기존 권한 오류로 수정·삭제를 거부한다.
+    assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
+    assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
+        .isInstanceOf(MarkerApiException.class)
+        .extracting("error", "status")
+        .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getStatus()).isEqualTo("DELETED");
+    assertThat(saved.getVersion()).isEqualTo(1L);
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
+  }
+
+  @Test
   @DisplayName("다른 계정이 기록한 현장 마커이면, 앱에서 수정과 삭제를 거부한다")
   void changeMarker_differentAuthor_preservesMarkerAndEvents() {
     insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);

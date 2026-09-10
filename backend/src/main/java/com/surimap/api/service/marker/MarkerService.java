@@ -19,7 +19,6 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -82,10 +81,7 @@ public class MarkerService {
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    MarkerMutationContext mutationContext =
-        markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
-    requireMutationContext(markerId, mutationContext);
-    Marker current = findMarker(markerId);
+    Marker current = markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
@@ -97,7 +93,7 @@ public class MarkerService {
     MarkerPublishRequest publishRequest =
         createPublishRequest(
             "MARKER_UPDATED",
-            mutationContext,
+            request.getContext().authentication().policePhoneId(),
             current,
             MarkerStatus.UPDATED,
             current.getVersion(),
@@ -129,10 +125,7 @@ public class MarkerService {
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    MarkerMutationContext mutationContext =
-        markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
-    requireMutationContext(markerId, mutationContext);
-    Marker current = findMarker(markerId);
+    Marker current = markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
     current.delete(request.getVersion());
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
@@ -140,7 +133,7 @@ public class MarkerService {
     MarkerPublishRequest publishRequest =
         createPublishRequest(
             "MARKER_DELETED",
-            mutationContext,
+            request.getContext().authentication().policePhoneId(),
             current,
             MarkerStatus.DELETED,
             current.getVersion(),
@@ -149,12 +142,6 @@ public class MarkerService {
     markerEventPublisher.publish(publishRequest);
 
     return MarkerMutationServiceResponse.from(current);
-  }
-
-  private Marker findMarker(UUID markerId) {
-    return markerMapper
-        .findById(markerId)
-        .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT));
   }
 
   private void requireMarkerId(UUID markerId) {
@@ -198,18 +185,9 @@ public class MarkerService {
     }
   }
 
-  private void requireMutationContext(UUID markerId, MarkerMutationContext mutationContext) {
-    if (mutationContext == null
-        || mutationContext.incidentId() == null
-        || mutationContext.opId() == null
-        || !markerId.equals(mutationContext.markerId())) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
-  }
-
   private MarkerPublishRequest createPublishRequest(
       String type,
-      MarkerMutationContext mutationContext,
+      UUID requestingPolicePhoneId,
       Marker marker,
       MarkerStatus status,
       long version,
@@ -219,9 +197,9 @@ public class MarkerService {
         type,
         new MarkerPublishRequestPayload(
             marker.getId(),
-            mutationContext.incidentId(),
+            marker.getIncidentId(),
             marker.getOperationalPeriodId(),
-            resolveEventPolicePhoneId(marker, mutationContext),
+            resolveEventPolicePhoneId(marker, requestingPolicePhoneId),
             status.name(),
             version,
             markerType,
@@ -230,10 +208,8 @@ public class MarkerService {
             clock.instant()));
   }
 
-  private UUID resolveEventPolicePhoneId(Marker marker, MarkerMutationContext mutationContext) {
-    return mutationContext.policePhoneId() == null
-        ? marker.getPolicePhoneId()
-        : mutationContext.policePhoneId();
+  private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {
+    return requestingPolicePhoneId == null ? marker.getPolicePhoneId() : requestingPolicePhoneId;
   }
 
   private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {
