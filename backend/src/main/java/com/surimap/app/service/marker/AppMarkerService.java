@@ -15,7 +15,7 @@ import com.surimap.domain.marker.MarkerWriteAccessData;
 import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.adapter.EventHubMarkerEventPublisher;
+import com.surimap.marker.adapter.MarkerEventPublisher;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
@@ -47,7 +47,7 @@ public class AppMarkerService {
   private final MarkerMapper markerMapper;
   private final MarkerAccessMapper markerAccessMapper;
   private final MarkerWriteAccessValidator markerWriteAccessValidator;
-  private final EventHubMarkerEventPublisher markerEventPublisher;
+  private final MarkerEventPublisher markerEventPublisher;
   private final PhotoService photoService;
   private final MarkerNotificationService markerNotificationService;
   private final Clock clock = Clock.systemUTC();
@@ -57,7 +57,7 @@ public class AppMarkerService {
       MarkerMapper markerMapper,
       MarkerAccessMapper markerAccessMapper,
       MarkerWriteAccessValidator markerWriteAccessValidator,
-      EventHubMarkerEventPublisher markerEventPublisher,
+      MarkerEventPublisher markerEventPublisher,
       PhotoService photoService,
       MarkerNotificationService markerNotificationService,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {

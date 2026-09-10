@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /** Publishes S5 marker events into the shared S4 event outbox. */
 @Component
-public class EventHubMarkerEventPublisher {
+public class MarkerEventPublisher {
 
   private static final int PAYLOAD_FORMAT_VERSION = 1;
   private static final String MARKER_SOURCE_ENTITY_TYPE = "marker";
@@ -23,7 +23,7 @@ public class EventHubMarkerEventPublisher {
 
   private final EventHub eventHub;
 
-  public EventHubMarkerEventPublisher(EventHub eventHub) {
+  public MarkerEventPublisher(EventHub eventHub) {
     this.eventHub = eventHub;
   }
 

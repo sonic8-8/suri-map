@@ -37,6 +37,7 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - Public response로 DB row나 domain object를 직접 반환하지 않는다. API 계약에 맞는 Response DTO로 변환한다.
 - 보호 API를 추가하거나 보안 설정을 바꿀 때는 request parameter보다 인증 principal과 `SecurityContext` 기반 해석을 우선한다.
 - 이름은 `Controller`, `Service`, `QueryService`, `CommandService`, `Mapper`, `Request`, `ServiceRequest`, `Response`, `Config`, `Test`, `TestSupport` 접미사를 사용한다.
+- 이벤트를 조립·발행하는 클래스는 `MarkerEventPublisher`처럼 `{Domain}EventPublisher`로 이름짓고, 실제로 여러 구현을 구분해야 할 때만 `EventHub...Publisher` 같은 구현 방식 접두사를 붙인다.
 - `Reader`, `Provider`, `Manager` 같은 넓은 추상화는 구현 교체 필요나 외부 시스템 경계가 분명할 때만 도입한다.
 
 ## 패키지 설계 원칙
@@ -156,7 +157,7 @@ ResponseEntity<SearchPathStartResponse> start(
 - 회귀 테스트는 별도 테스트 종류가 아니다. 고친 문제가 다시 발생하지 않는지 해당 레이어의 테스트 또는 Scenario/E2E Test에서 확인하고, `*RegressionTest`라는 클래스 이름은 사용하지 않는다.
 - `HarnessTest`, `HarnessRunner`는 테스트 종류나 최종 테스트 클래스 이름으로 사용하지 않는다. 테스트 지원 코드가 필요하면 `FixtureLoader`, `ScenarioDriver`, `ApiClient`처럼 실제 역할이 드러나는 이름을 사용한다.
 - Service Test는 Controller를 호출하지 않고 Mapper와 DB를 Fake나 Mock으로 바꾸지 않는다. Mapper Test도 Service를 호출하지 않는다.
-- `Publisher`는 이벤트 발행 책임이 명확할 때만 사용한다. 이벤트 저장소에 stage하는 구현은 `EventHub...Publisher`, 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 무엇을 발행하거나 기록하는지 이름에 드러낸다.
+- 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 실제 역할을 드러낸다.
 
 ## Service 분리 기준
 

@@ -1,7 +1,7 @@
 package com.surimap.marker.notification.service;
 
 import com.surimap.account.AccountIdentityCatalog;
-import com.surimap.marker.adapter.EventHubMarkerEventPublisher;
+import com.surimap.marker.adapter.MarkerEventPublisher;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.event.MarkerEventIds;
@@ -36,7 +36,7 @@ public class MarkerNotificationService {
   private final MarkerNotificationRepository markerNotificationRepository;
   private final NotificationRecipientResolver recipientResolver;
   private final NotificationPayloadFactory payloadFactory;
-  private final EventHubMarkerEventPublisher markerEventPublisher;
+  private final MarkerEventPublisher markerEventPublisher;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
   private final Clock clock = Clock.systemUTC();
@@ -45,7 +45,7 @@ public class MarkerNotificationService {
       MarkerNotificationRepository markerNotificationRepository,
       NotificationRecipientResolver recipientResolver,
       NotificationPayloadFactory payloadFactory,
-      EventHubMarkerEventPublisher markerEventPublisher,
+      MarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
