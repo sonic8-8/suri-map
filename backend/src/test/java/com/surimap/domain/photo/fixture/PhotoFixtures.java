@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.fixture;
+package com.surimap.domain.photo.fixture;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -1,8 +1,8 @@
 package com.surimap.marker.controller;
 
+import com.surimap.global.auth.SuriMapAuthentication;
+import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;

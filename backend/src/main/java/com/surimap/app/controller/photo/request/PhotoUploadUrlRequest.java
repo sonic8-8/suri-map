@@ -5,6 +5,7 @@ import static com.surimap.app.service.photo.PhotoService.MAX_SIZE_BYTES;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PhotoUploadUrlRequest {
 
+  @NotNull
   @Pattern(regexp = "image/(jpeg|png|webp)")
   private String contentType;
 

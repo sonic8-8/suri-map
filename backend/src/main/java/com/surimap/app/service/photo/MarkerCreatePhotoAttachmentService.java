@@ -1,21 +1,20 @@
-package com.surimap.marker.photo.service;
+package com.surimap.app.service.photo;
 
-import com.surimap.app.service.photo.PhotoService;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.photo.MarkerPhoto;
+import com.surimap.domain.photo.PhotoMapper;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerCreatePhotoResponse;
-import com.surimap.marker.photo.domain.MarkerPhoto;
-import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.repository.PhotoMapper;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -46,8 +45,7 @@ public class MarkerCreatePhotoAttachmentService {
 
     List<MarkerCreatePhotoResponse> responses = new ArrayList<>();
     for (MarkerCreatePhotoRequest request : photos) {
-      MarkerPhoto photo =
-          photoMapper.findById(request.getPhotoId()).orElseThrow(() -> conflict("write_conflict"));
+      MarkerPhoto photo = photoMapper.findById(request.getPhotoId()).orElseThrow(() -> conflict());
       requireAttachableMarker(marker.getId(), photo);
       requireOpenUploadUrl(photo);
       ObjectStoragePort.ObjectMetadata objectMetadata = requireUploadedObject(photo);
@@ -56,7 +54,7 @@ public class MarkerCreatePhotoAttachmentService {
       long expectedPhotoVersion = photo.getVersion();
       photo.attach(clock.instant(), request.getWidth(), request.getHeight());
       if (photoMapper.attachPendingPhoto(photo, expectedPhotoVersion) != 1) {
-        throw conflict("write_conflict");
+        throw conflict();
       }
       long expectedMarkerVersion = marker.getVersion();
       marker.markUpdated(expectedMarkerVersion);
@@ -64,7 +62,7 @@ public class MarkerCreatePhotoAttachmentService {
           markerMapper.updateMarkerStatusVersion(
               marker.getId(), expectedMarkerVersion, marker.getStatus(), marker.getVersion());
       if (updated != 1) {
-        throw conflict("write_conflict");
+        throw conflict();
       }
       photoService.publishMarkerPhotoUpdate(marker, marker.getPolicePhoneId(), photo);
       responses.add(
@@ -81,7 +79,7 @@ public class MarkerCreatePhotoAttachmentService {
 
   private void validatePhotos(List<MarkerCreatePhotoRequest> photos) {
     if (photos.size() > PhotoService.MAX_PHOTOS_PER_MARKER) {
-      throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
+      throw new BusinessException(ErrorCode.PHOTO_LIMIT_EXCEEDED);
     }
     var photoIds = new HashSet<UUID>();
     for (MarkerCreatePhotoRequest photo : photos) {
@@ -89,35 +87,33 @@ public class MarkerCreatePhotoAttachmentService {
           || photo.getPhotoId() == null
           || !photoIds.add(photo.getPhotoId())
           || !PhotoService.ALLOWED_CONTENT_TYPES.contains(photo.getContentType())) {
-        throw conflict("write_conflict");
+        throw conflict();
       }
       if (photo.getSizeBytes() <= 0 || photo.getSizeBytes() > PhotoService.MAX_SIZE_BYTES) {
-        throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
+        throw new BusinessException(ErrorCode.PHOTO_LIMIT_EXCEEDED);
       }
       if ((photo.getWidth() != null && photo.getWidth() <= 0)
           || (photo.getHeight() != null && photo.getHeight() <= 0)) {
-        throw conflict("write_conflict");
+        throw conflict();
       }
     }
   }
 
   private void requireAttachableMarker(UUID markerId, MarkerPhoto photo) {
     if (!photo.getMarkerId().equals(markerId) || !photo.isOpenForAttach()) {
-      throw conflict("write_conflict");
+      throw conflict();
     }
   }
 
   private void requireOpenUploadUrl(MarkerPhoto photo) {
     if (!photo.getUploadUrlExpiresAt().isAfter(clock.instant())) {
       photoService.failPendingPhoto(photo.getId(), photo.getVersion());
-      throw conflict("write_conflict");
+      throw conflict();
     }
   }
 
   private ObjectStoragePort.ObjectMetadata requireUploadedObject(MarkerPhoto photo) {
-    return storagePort
-        .headObject(photo.getObjectKey())
-        .orElseThrow(() -> conflict("write_conflict"));
+    return storagePort.headObject(photo.getObjectKey()).orElseThrow(() -> conflict());
   }
 
   private void requireMatchingMetadata(
@@ -134,7 +130,7 @@ public class MarkerCreatePhotoAttachmentService {
             request.getChecksumSha256(),
             objectMetadata.checksumSha256())) {
       photoService.failPendingPhoto(photo.getId(), photo.getVersion());
-      throw conflict("write_conflict");
+      throw conflict();
     }
   }
 
@@ -149,8 +145,8 @@ public class MarkerCreatePhotoAttachmentService {
     return true;
   }
 
-  private PhotoApiException conflict(String error) {
-    return new PhotoApiException(error, HttpStatus.CONFLICT);
+  private BusinessException conflict() {
+    return new BusinessException(ErrorCode.WRITE_CONFLICT);
   }
 
   public record AttachmentResult(

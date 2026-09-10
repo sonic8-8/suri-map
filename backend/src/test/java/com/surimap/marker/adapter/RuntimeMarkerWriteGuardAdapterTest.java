@@ -4,9 +4,9 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.util.Optional;

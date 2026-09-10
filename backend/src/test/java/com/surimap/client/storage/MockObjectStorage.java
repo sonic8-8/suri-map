@@ -1,6 +1,5 @@
-package com.surimap.marker.photo.adapter;
+package com.surimap.client.storage;
 
-import com.surimap.client.storage.ObjectStoragePort;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;

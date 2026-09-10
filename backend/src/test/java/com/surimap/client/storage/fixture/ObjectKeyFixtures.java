@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.fixture;
+package com.surimap.client.storage.fixture;
 
 import java.util.UUID;
 

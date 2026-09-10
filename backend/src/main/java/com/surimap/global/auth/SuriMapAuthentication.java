@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.security;
+package com.surimap.global.auth;
 
 import java.util.UUID;
 

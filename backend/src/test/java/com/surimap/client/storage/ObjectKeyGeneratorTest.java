@@ -1,9 +1,9 @@
-package com.surimap.marker.photo;
+package com.surimap.client.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.marker.photo.fixture.ObjectKeyFixtures;
+import com.surimap.client.storage.fixture.ObjectKeyFixtures;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 

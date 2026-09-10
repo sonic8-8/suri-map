@@ -1,10 +1,8 @@
-package com.surimap.marker.photo.adapter;
+package com.surimap.global.auth;
 
-import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +31,7 @@ public class SecurityContextSuriMapAuthenticationResolver implements SuriMapAuth
     }
   }
 
-  private static PhotoApiException denied() {
-    return new PhotoApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+  private static BusinessException denied() {
+    return new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
   }
 }

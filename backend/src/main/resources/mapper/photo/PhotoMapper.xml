@@ -3,8 +3,8 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.surimap.marker.photo.repository.PhotoMapper">
-    <resultMap id="photoMap" type="com.surimap.marker.photo.domain.MarkerPhoto">
+<mapper namespace="com.surimap.domain.photo.PhotoMapper">
+    <resultMap id="photoMap" type="com.surimap.domain.photo.MarkerPhoto">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="markerId" column="marker_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="objectKey" column="object_key"/>

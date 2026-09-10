@@ -455,7 +455,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `contentType`, `sizeBytes`, optional `checksumSha256`
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
-- Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Errors: `invalid_photo_content_type`, `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- 사진 형식 검증: 요청 본문의 `contentType`은 `image/jpeg`, `image/png`, `image/webp` 중 하나여야 한다. 누락/null, 빈 문자열·공백, 미지원 값은 `400 {"error":"invalid_photo_content_type"}`으로 거부한다. 형식과 크기가 모두 잘못되면 형식 오류를 먼저 반환한다. 이 규칙은 아래 마커 생성 전 업로드 주소 발급과 사진 첨부 API에도 적용한다. 저장된 사진·업로드 파일의 메타데이터 불일치 등 상태 충돌은 기존 `409 write_conflict`를 유지한다.
 - Note: response의 `uploadUrl`은 S3/MinIO-compatible presigned URL for upload다. API endpoint 이름은 storage 구현 용어인 `presign`이 아니라 클라이언트 동작인 `upload-url`로 둔다.
 
 #### POST `/api/markers/photos/upload-url`
@@ -468,7 +469,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `markerId`, `incidentId`, `opId`, `contentType`, `sizeBytes`, optional `checksumSha256`
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
-- Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `invalid_photo_content_type`, `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: 마커 생성 화면에서 사진을 먼저 업로드하기 위한 staged upload-url이다. 응답 photo row는 `PENDING_UPLOAD`이고, `POST /api/markers`의 `photos` 배열에 같은 `photoId`를 포함해야 `ATTACHED`로 확정된다.
 
 #### POST `/api/markers/{markerId}/photos/{photoId}/attach`
@@ -481,7 +482,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `sizeBytes`, `contentType`, optional `width`, `height`, `checksumSha256`
 - Response: `200 {photoId, status, version, markerId, markerVersion}`
-- Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Errors: `invalid_photo_content_type`, `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - Note: object storage 업로드 완료 후 photo row를 marker에 연결·확정하는 단계다. API endpoint 이름은 `finalize`가 아니라 `attach`로 둔다.
 
 ### 4.7 Sync / Offline

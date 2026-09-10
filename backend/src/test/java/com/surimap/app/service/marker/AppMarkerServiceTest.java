@@ -3,12 +3,12 @@ package com.surimap.app.service.marker;
 import static com.surimap.account.AccountIdentityCatalog.PRECINCT_COMMANDER_ID;
 import static com.surimap.account.AccountIdentityCatalog.PRECINCT_TEAM_ID;
 import static com.surimap.account.AccountIdentityCatalog.SUPPORT_TEAM_ID;
+import static com.surimap.domain.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
 import static com.surimap.maparea.fixture.BoundaryAreaFixtures.OVERALL_AREA_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.HARNESS_OVERALL_SEARCH_AREA;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP2_ID;
-import static com.surimap.marker.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,11 +22,17 @@ import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
+import com.surimap.app.service.photo.request.PhotoAttachServiceRequest;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.photo.MarkerPhoto;
+import com.surimap.domain.photo.PhotoMapper;
+import com.surimap.domain.photo.PhotoStatus;
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
@@ -38,13 +44,6 @@ import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
-import com.surimap.marker.photo.domain.MarkerPhoto;
-import com.surimap.marker.photo.domain.PhotoStatus;
-import com.surimap.marker.photo.dto.PhotoAttachRequest;
-import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.repository.PhotoMapper;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -316,8 +315,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 만료된 사진을 포함해 마커를 생성하려 한다.
     assertThatThrownBy(() -> appMarkerService.create(request))
-        .isInstanceOf(PhotoApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 사용할 수 없는 사진만 실패 상태로 남고 마커·이벤트·요청 처리 기록은 롤백된다.
@@ -358,19 +357,26 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     objectStorage.simulateUpload(pendingPhoto.getObjectKey());
 
     // when: 생성 요청과 별개의 사진 첨부 요청을 실제 사진 서비스로 처리한다.
-    PhotoAttachResponse attached =
+    PhotoAttachServiceResponse attached =
         photoService.attach(
-            markerId,
-            upload.getPhotoId(),
-            new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, CHECKSUM_SHA256),
-            new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY));
+            PhotoAttachServiceRequest.builder()
+                .sizeBytes(1_048_576L)
+                .contentType("image/jpeg")
+                .width(640)
+                .height(480)
+                .checksumSha256(CHECKSUM_SHA256)
+                .markerId(markerId)
+                .photoId(upload.getPhotoId())
+                .context(
+                    new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY))
+                .build());
 
     // then: 사진과 부모 마커의 상태·버전이 바뀌고, DB에 생성·수정 이벤트가 하나씩 남는다.
-    assertThat(attached.photoId()).isEqualTo(upload.getPhotoId());
-    assertThat(attached.status()).isEqualTo("ATTACHED");
-    assertThat(attached.version()).isEqualTo(2L);
-    assertThat(attached.markerId()).isEqualTo(markerId);
-    assertThat(attached.markerVersion()).isEqualTo(2L);
+    assertThat(attached.getPhotoId()).isEqualTo(upload.getPhotoId());
+    assertThat(attached.getStatus()).isEqualTo("ATTACHED");
+    assertThat(attached.getVersion()).isEqualTo(2L);
+    assertThat(attached.getMarkerId()).isEqualTo(markerId);
+    assertThat(attached.getMarkerVersion()).isEqualTo(2L);
     MarkerPhoto photo = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     assertThat(photo.getMarkerId()).isEqualTo(markerId);
     assertThat(photo.getStatus()).isEqualTo(PhotoStatus.ATTACHED);
