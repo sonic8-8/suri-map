@@ -12,6 +12,7 @@ import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
@@ -26,7 +27,6 @@ import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.service.MarkerNotificationContext;
 import com.surimap.marker.notification.service.MarkerNotificationService;
 import com.surimap.marker.port.MarkerEventPublisher;
-import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -48,7 +48,7 @@ public class AppMarkerService {
 
   private final MarkerMapper markerMapper;
   private final MarkerOpBindingValidator markerOpBindingValidator;
-  private final MarkerWriteGuardPort markerWriteGuardPort;
+  private final RuntimeMarkerWriteGuardAdapter markerWriteGuard;
   private final MarkerEventPublisher markerEventPublisher;
   private final PhotoService photoService;
   private final MarkerNotificationService markerNotificationService;
@@ -58,14 +58,14 @@ public class AppMarkerService {
   public AppMarkerService(
       MarkerMapper markerMapper,
       MarkerOpBindingValidator markerOpBindingValidator,
-      MarkerWriteGuardPort markerWriteGuardPort,
+      RuntimeMarkerWriteGuardAdapter markerWriteGuard,
       MarkerEventPublisher markerEventPublisher,
       PhotoService photoService,
       MarkerNotificationService markerNotificationService,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.markerMapper = Objects.requireNonNull(markerMapper);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
-    this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
+    this.markerWriteGuard = Objects.requireNonNull(markerWriteGuard);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.photoService = Objects.requireNonNull(photoService);
     this.markerNotificationService = Objects.requireNonNull(markerNotificationService);
@@ -94,8 +94,7 @@ public class AppMarkerService {
   private MarkerCreateServiceResponse createNewMarker(MarkerCreateServiceRequest request) {
     MarkerRequestContext context = request.getContext();
     UUID dutyShiftId =
-        markerWriteGuardPort.requireCreateAccess(
-            request.getIncidentId(), request.getOpId(), context);
+        markerWriteGuard.requireCreateAccess(request.getIncidentId(), request.getOpId(), context);
 
     UUID opId = validateOpBinding(request.getIncidentId(), request.getOpId());
     MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
@@ -279,7 +278,7 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
+    Marker current = markerWriteGuard.requireUpdateAccess(markerId, request.getContext());
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
@@ -326,7 +325,7 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
+    Marker current = markerWriteGuard.requireDeleteAccess(markerId, request.getContext());
     current.delete(request.getVersion());
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);

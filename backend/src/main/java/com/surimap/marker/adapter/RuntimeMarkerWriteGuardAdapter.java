@@ -1,10 +1,10 @@
 package com.surimap.marker.adapter;
 
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -16,18 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
  * markers, and WEB can correct seed/reference markers.
  */
 @Component
-public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
+public class RuntimeMarkerWriteGuardAdapter {
 
-  private final MarkerRuntimeGuardMapper markerRuntimeGuardMapper;
+  private final MarkerAccessMapper markerAccessMapper;
   private final MarkerMapper markerMapper;
 
   public RuntimeMarkerWriteGuardAdapter(
-      MarkerRuntimeGuardMapper markerRuntimeGuardMapper, MarkerMapper markerMapper) {
-    this.markerRuntimeGuardMapper = markerRuntimeGuardMapper;
+      MarkerAccessMapper markerAccessMapper, MarkerMapper markerMapper) {
+    this.markerAccessMapper = markerAccessMapper;
     this.markerMapper = markerMapper;
   }
 
-  @Override
   @Transactional(readOnly = true)
   public UUID requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
     requireAppContext(context);
@@ -36,19 +35,17 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
     requireOpenIncident(incidentId);
     requireCurrentOp(incidentId, opId);
     requireAccountAssignment(incidentId, accountId);
-    return markerRuntimeGuardMapper
+    return markerAccessMapper
         .findActiveDutyShiftIdByAccount(opId, accountId)
         .orElseThrow(
             () -> new MarkerApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN));
   }
 
-  @Override
   @Transactional(readOnly = true)
   public Marker requireUpdateAccess(UUID markerId, MarkerRequestContext context) {
     return requireMutationAccess(markerId, context);
   }
 
-  @Override
   @Transactional(readOnly = true)
   public Marker requireDeleteAccess(UUID markerId, MarkerRequestContext context) {
     return requireMutationAccess(markerId, context);
@@ -113,7 +110,7 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
 
   private void requireOpenIncident(UUID incidentId) {
     String status =
-        markerRuntimeGuardMapper
+        markerAccessMapper
             .findIncidentStatus(incidentId)
             .orElseThrow(
                 () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
@@ -128,7 +125,7 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
 
   private void requireCurrentOp(UUID incidentId, UUID opId) {
     UUID currentOpId =
-        markerRuntimeGuardMapper
+        markerAccessMapper
             .findCurrentOpId(incidentId)
             .orElseThrow(() -> new MarkerApiException("op_required", HttpStatus.CONFLICT));
     if (!currentOpId.equals(opId)) {
@@ -137,10 +134,10 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
   }
 
   private void requireAccountAssignment(UUID incidentId, UUID accountId) {
-    if (markerRuntimeGuardMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
+    if (markerAccessMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
       throw new MarkerApiException("team_not_assigned", HttpStatus.FORBIDDEN);
     }
-    if (markerRuntimeGuardMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
+    if (markerAccessMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
       throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
   }

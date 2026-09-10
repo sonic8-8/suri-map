@@ -9,6 +9,7 @@ import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.client.storage.ObjectKeyGenerator;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.photo.MarkerPhoto;
 import com.surimap.domain.photo.PhotoMapper;
@@ -17,12 +18,11 @@ import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.adapter.MarkerRuntimeGuardMapper;
+import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.event.MarkerEventIds;
-import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -53,7 +53,7 @@ public class PhotoService {
       Set.of("image/jpeg", "image/png", "image/webp");
 
   private final ObjectStoragePort storagePort;
-  private final MarkerRuntimeGuardMapper markerRuntimeGuardMapper;
+  private final MarkerAccessMapper markerAccessMapper;
   private final EventHub eventHub;
   private final MarkerMapper markerMapper;
   private final Clock clock = Clock.systemUTC();
@@ -61,26 +61,26 @@ public class PhotoService {
   private final IdempotentResponseCache idempotentResponseCache;
   private final TransactionTemplate photoFailureTransaction;
   private final PhotoMapper photoMapper;
-  private final MarkerWriteGuardPort markerWriteGuardPort;
+  private final RuntimeMarkerWriteGuardAdapter markerWriteGuard;
   private final MarkerOpBindingValidator markerOpBindingValidator;
 
   public PhotoService(
       ObjectStoragePort storagePort,
-      MarkerRuntimeGuardMapper markerRuntimeGuardMapper,
+      MarkerAccessMapper markerAccessMapper,
       EventHub eventHub,
       MarkerMapper markerMapper,
       PlatformTransactionManager transactionManager,
       PhotoMapper photoMapper,
       IdempotentResponseCache idempotentResponseCache,
-      MarkerWriteGuardPort markerWriteGuardPort,
+      RuntimeMarkerWriteGuardAdapter markerWriteGuard,
       MarkerOpBindingValidator markerOpBindingValidator) {
     this.storagePort = Objects.requireNonNull(storagePort);
-    this.markerRuntimeGuardMapper = Objects.requireNonNull(markerRuntimeGuardMapper);
+    this.markerAccessMapper = Objects.requireNonNull(markerAccessMapper);
     this.eventHub = Objects.requireNonNull(eventHub);
     this.markerMapper = Objects.requireNonNull(markerMapper);
     this.idempotentResponseCache = Objects.requireNonNull(idempotentResponseCache);
     this.photoMapper = Objects.requireNonNull(photoMapper);
-    this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
+    this.markerWriteGuard = Objects.requireNonNull(markerWriteGuard);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
     this.photoFailureTransaction = new TransactionTemplate(transactionManager);
     this.photoFailureTransaction.setPropagationBehavior(
@@ -141,7 +141,7 @@ public class PhotoService {
         201,
         PhotoUploadUrlServiceResponse.class,
         () -> {
-          markerWriteGuardPort.requireCreateAccess(
+          markerWriteGuard.requireCreateAccess(
               request.getIncidentId(),
               validateOpBinding(request.getIncidentId(), request.getOpId()),
               new MarkerRequestContext(context.getAuthentication(), context.getIdempotencyKey()));
@@ -352,7 +352,7 @@ public class PhotoService {
 
   private void requireOpenIncident(UUID incidentId) {
     String status =
-        markerRuntimeGuardMapper.findIncidentStatus(incidentId).orElseThrow(PhotoService::denied);
+        markerAccessMapper.findIncidentStatus(incidentId).orElseThrow(PhotoService::denied);
     if ("OPEN".equals(status)) {
       return;
     }
@@ -363,17 +363,17 @@ public class PhotoService {
   }
 
   private void requireAccountAssignment(UUID incidentId, UUID accountId) {
-    if (markerRuntimeGuardMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
+    if (markerAccessMapper.countActiveAssignmentsByAccountId(accountId) == 0) {
       throw new BusinessException(ErrorCode.TEAM_NOT_ASSIGNED);
     }
-    if (markerRuntimeGuardMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
+    if (markerAccessMapper.countActiveIncidentAssignment(incidentId, accountId) == 0) {
       throw denied();
     }
   }
 
   private void requireCurrentOp(Marker marker) {
     UUID currentOpId =
-        markerRuntimeGuardMapper
+        markerAccessMapper
             .findCurrentOpId(marker.getIncidentId())
             .orElseThrow(() -> new BusinessException(ErrorCode.OP_REQUIRED));
     if (!currentOpId.equals(marker.getOperationalPeriodId())) {
@@ -382,7 +382,7 @@ public class PhotoService {
   }
 
   private void requireActiveDutyShift(UUID opId, UUID accountId) {
-    markerRuntimeGuardMapper
+    markerAccessMapper
         .findActiveDutyShiftIdByAccount(opId, accountId)
         .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_NOT_ASSIGNED));
   }
