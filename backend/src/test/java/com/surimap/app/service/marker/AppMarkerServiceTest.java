@@ -24,6 +24,7 @@ import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
+import com.surimap.app.service.photo.request.MarkerCreatePhotoServiceRequest;
 import com.surimap.app.service.photo.request.PhotoAttachServiceRequest;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
@@ -42,7 +43,6 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
@@ -323,7 +323,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     }
     MarkerCreateServiceRequest invalidRequest =
         request.toBuilder()
-            .photos(List.of(objectMapper.treeToValue(photoJson, MarkerCreatePhotoRequest.class)))
+            .photos(
+                List.of(objectMapper.treeToValue(photoJson, MarkerCreatePhotoServiceRequest.class)))
             .build();
 
     // when: 사진 형식이 잘못된 요청으로 마커를 생성하려 한다.
@@ -866,17 +867,18 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertStoredResponseWithoutDuplicates(firstResponse, repeatedResponse, "PERSON_FOUND");
   }
 
-  @Test
-  @DisplayName("사진을 포함한 과거 요청을 재전송하면, 사진을 다시 첨부하지 않고 기존 응답을 반환한다")
-  void createMarker_legacyRequestWithPhoto_returnsStoredAttachmentResponse() {
-    // given: 사진 첨부까지 완료된 요청이 변경 전 해시로 기록되어 있다.
+  @ParameterizedTest(name = "{0} 해시 기록")
+  @ValueSource(strings = {"JSON", "LEGACY"})
+  @DisplayName("사진을 포함한 처리 완료 요청을 재전송하면, 사진을 다시 첨부하지 않고 기존 응답을 반환한다")
+  void createMarker_sameRequestWithPhoto_returnsStoredAttachmentResponse(String storedHashFormat) {
+    // given: 사진 첨부까지 완료된 요청을 현재 또는 과거 방식의 해시로 기록한다.
     MarkerCreateServiceRequest request = prepareMarkerRequestWithUploadedPhoto();
     MarkerCreateServiceResponse firstResponse = appMarkerService.create(request);
-    jdbcTemplate.update(
-        "UPDATE idempotency_record SET request_body_hash = ? WHERE idempotency_key = ? AND"
-            + " request_path = '/api/markers' AND request_method = 'POST'",
-        "d11455f257e00d3b325694535c9593ff511458fe5f506c911d287fe76ba4f55d",
-        IDEMPOTENCY_KEY);
+    assertThat(readRequestBodyHash())
+        .isEqualTo("ab6dacb1e5226f2068add5326859e21e5dfa9e456bcf1f65cf65a32ebc3ed0a1");
+    if ("LEGACY".equals(storedHashFormat)) {
+      replaceStoredRequestHash("d11455f257e00d3b325694535c9593ff511458fe5f506c911d287fe76ba4f55d");
+    }
 
     // when: 이미 첨부된 사진을 포함한 같은 요청을 재전송한다.
     MarkerCreateServiceResponse repeatedResponse =
@@ -953,7 +955,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .clockOffsetMs(0L)
         .photos(
             List.of(
-                MarkerCreatePhotoRequest.builder()
+                MarkerCreatePhotoServiceRequest.builder()
                     .photoId(PHOTO_ID)
                     .sizeBytes(1_048_576L)
                     .contentType("image/jpeg")

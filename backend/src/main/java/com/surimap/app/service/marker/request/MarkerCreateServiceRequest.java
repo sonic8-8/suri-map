@@ -2,7 +2,7 @@ package com.surimap.app.service.marker.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.surimap.marker.dto.MarkerCreatePhotoRequest;
+import com.surimap.app.service.photo.request.MarkerCreatePhotoServiceRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.time.Instant;
@@ -37,7 +37,7 @@ public class MarkerCreateServiceRequest {
   private String memo;
   private Instant clientTs;
   private Long clockOffsetMs;
-  private List<MarkerCreatePhotoRequest> photos = List.of();
+  private List<MarkerCreatePhotoServiceRequest> photos = List.of();
 
   // 인증 정보와 요청 키는 HTTP 본문이 아니므로 요청 내용 비교에서 제외한다.
   @JsonIgnore private MarkerRequestContext context;
@@ -53,7 +53,7 @@ public class MarkerCreateServiceRequest {
       String memo,
       Instant clientTs,
       Long clockOffsetMs,
-      List<MarkerCreatePhotoRequest> photos,
+      List<MarkerCreatePhotoServiceRequest> photos,
       MarkerRequestContext context) {
     this.id = id;
     this.incidentId = incidentId;

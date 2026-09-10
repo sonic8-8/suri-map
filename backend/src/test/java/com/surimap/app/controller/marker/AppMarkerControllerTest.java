@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.marker.MarkerController;
 import com.surimap.api.service.marker.MarkerService;
+import com.surimap.app.controller.marker.request.MarkerCreatePhotoRequest;
 import com.surimap.app.controller.marker.request.MarkerCreateRequest;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
@@ -25,6 +26,7 @@ import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
@@ -34,8 +36,6 @@ import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
-import com.surimap.marker.dto.MarkerCreatePhotoRequest;
-import com.surimap.marker.dto.MarkerCreatePhotoResponse;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -327,7 +327,7 @@ class AppMarkerControllerTest {
             .version(2L)
             .photos(
                 List.of(
-                    MarkerCreatePhotoResponse.builder()
+                    PhotoAttachServiceResponse.builder()
                         .photoId(photoId)
                         .status("ATTACHED")
                         .version(2L)

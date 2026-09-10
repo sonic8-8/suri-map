@@ -1,5 +1,6 @@
 package com.surimap.app.service.photo;
 
+import com.surimap.app.service.photo.request.MarkerCreatePhotoServiceRequest;
 import com.surimap.app.service.photo.request.MarkerCreatePhotoUploadUrlServiceRequest;
 import com.surimap.app.service.photo.request.PhotoAttachServiceRequest;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
@@ -28,7 +29,10 @@ import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -206,15 +210,54 @@ public class PhotoService {
         () -> formatLegacyAttachRequestBody(markerId, photoId, request),
         200,
         PhotoAttachServiceResponse.class,
-        () -> attachUploadedPhoto(markerId, photoId, request, context),
+        () ->
+            attachUploadedPhoto(
+                requirePhotoAccess(markerId, context),
+                request,
+                context.getAuthentication().policePhoneId()),
         this::metadataForAttach);
   }
 
-  private PhotoAttachServiceResponse attachUploadedPhoto(
-      UUID markerId, UUID photoId, PhotoAttachServiceRequest request, PhotoRequestContext context) {
-    Marker marker = requirePhotoAccess(markerId, context);
+  // 마커 생성 서비스가 권한 검사와 마커 저장을 마친 뒤, 같은 트랜잭션에서 호출한다.
+  public List<PhotoAttachServiceResponse> attachPhotosForMarkerCreation(
+      Marker marker, List<MarkerCreatePhotoServiceRequest> photos) {
+    if (photos == null || photos.isEmpty()) {
+      return List.of();
+    }
+    validatePhotosForMarkerCreation(photos);
 
-    MarkerPhoto photo = photoMapper.findById(photoId).orElseThrow(() -> conflict());
+    List<PhotoAttachServiceResponse> responses = new ArrayList<>();
+    for (MarkerCreatePhotoServiceRequest photo : photos) {
+      responses.add(
+          attachUploadedPhoto(
+              marker,
+              photo.toPhotoAttachServiceRequest(marker.getId()),
+              marker.getPolicePhoneId()));
+    }
+    return List.copyOf(responses);
+  }
+
+  private void validatePhotosForMarkerCreation(List<MarkerCreatePhotoServiceRequest> photos) {
+    if (photos.size() > MAX_PHOTOS_PER_MARKER) {
+      throw new BusinessException(ErrorCode.PHOTO_LIMIT_EXCEEDED);
+    }
+    var photoIds = new HashSet<UUID>();
+    for (MarkerCreatePhotoServiceRequest photo : photos) {
+      if (photo == null || photo.getPhotoId() == null || !photoIds.add(photo.getPhotoId())) {
+        throw conflict();
+      }
+      validatePhotoMetadata(photo.getContentType(), photo.getSizeBytes());
+      if ((photo.getWidth() != null && photo.getWidth() <= 0)
+          || (photo.getHeight() != null && photo.getHeight() <= 0)) {
+        throw conflict();
+      }
+    }
+  }
+
+  private PhotoAttachServiceResponse attachUploadedPhoto(
+      Marker marker, PhotoAttachServiceRequest request, UUID policePhoneId) {
+    UUID markerId = marker.getId();
+    MarkerPhoto photo = photoMapper.findById(request.getPhotoId()).orElseThrow(() -> conflict());
     requireAttachableMarker(markerId, photo);
     requireOpenUploadUrl(photo);
     ObjectStoragePort.ObjectMetadata objectMetadata = requireUploadedObject(photo);
@@ -241,11 +284,11 @@ public class PhotoService {
             .markerId(markerId)
             .markerVersion(marker.getVersion())
             .build();
-    publishMarkerPhotoUpdate(marker, context.getAuthentication().policePhoneId(), photo);
+    publishMarkerPhotoUpdate(marker, policePhoneId, photo);
     return response;
   }
 
-  void validatePhotoMetadata(String contentType, long sizeBytes) {
+  private void validatePhotoMetadata(String contentType, long sizeBytes) {
     if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
       throw new BusinessException(ErrorCode.INVALID_PHOTO_CONTENT_TYPE);
     }

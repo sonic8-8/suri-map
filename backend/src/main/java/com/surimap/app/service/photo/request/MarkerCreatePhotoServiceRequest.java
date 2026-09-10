@@ -1,4 +1,4 @@
-package com.surimap.marker.dto;
+package com.surimap.app.service.photo.request;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.UUID;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @JsonPropertyOrder({"photoId", "sizeBytes", "contentType", "width", "height", "checksumSha256"})
-public class MarkerCreatePhotoRequest {
+public class MarkerCreatePhotoServiceRequest {
 
   private UUID photoId;
   private long sizeBytes;
@@ -19,7 +19,7 @@ public class MarkerCreatePhotoRequest {
   private String checksumSha256;
 
   @Builder
-  private MarkerCreatePhotoRequest(
+  private MarkerCreatePhotoServiceRequest(
       UUID photoId,
       long sizeBytes,
       String contentType,
@@ -32,5 +32,17 @@ public class MarkerCreatePhotoRequest {
     this.width = width;
     this.height = height;
     this.checksumSha256 = checksumSha256;
+  }
+
+  public PhotoAttachServiceRequest toPhotoAttachServiceRequest(UUID markerId) {
+    return PhotoAttachServiceRequest.builder()
+        .markerId(markerId)
+        .photoId(photoId)
+        .sizeBytes(sizeBytes)
+        .contentType(contentType)
+        .width(width)
+        .height(height)
+        .checksumSha256(checksumSha256)
+        .build();
   }
 }
