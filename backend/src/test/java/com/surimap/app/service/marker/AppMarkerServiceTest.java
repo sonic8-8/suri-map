@@ -12,9 +12,11 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP2_ID;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
 import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
@@ -59,6 +61,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -302,6 +305,46 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photoDelta.path("photoId").asText()).isEqualTo(PHOTO_ID.toString());
     assertThat(photoDelta.path("status").asText()).isEqualTo("ATTACHED");
     assertThat(photoDelta.path("version").asLong()).isEqualTo(2L);
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"null", "\"\"", "\" \"", "\"image/gif\""})
+  @DisplayName("마커 생성 사진의 형식이 없거나 지원하지 않으면, 요청을 거부하고 마커와 이벤트를 저장하지 않는다")
+  void createMarker_invalidPhotoContentType_rejectsRequestAndRollsBackMarker(String contentTypeJson)
+      throws Exception {
+    // given: contentType 필드를 생략하거나 null·빈 값·공백·미지원 형식으로 보낸다.
+    MarkerCreateServiceRequest request = prepareMarkerRequestWithUploadedPhoto();
+    ObjectNode photoJson = objectMapper.valueToTree(request.getPhotos().get(0));
+    if (contentTypeJson == null) {
+      photoJson.remove("contentType");
+    } else {
+      photoJson.set("contentType", objectMapper.readTree(contentTypeJson));
+    }
+    MarkerCreateServiceRequest invalidRequest =
+        request.toBuilder()
+            .photos(List.of(objectMapper.treeToValue(photoJson, MarkerCreatePhotoRequest.class)))
+            .build();
+
+    // when: 사진 형식이 잘못된 요청으로 마커를 생성하려 한다.
+    Throwable failure = catchThrowable(() -> appMarkerService.create(invalidRequest));
+
+    // then: 기존 사진은 첨부 대기 상태를 유지하고, 마커·이벤트·요청 처리 기록은 남지 않는다.
+    MarkerPhoto photo = photoMapper.findById(PHOTO_ID).orElseThrow();
+    assertThat(photo.getStatus()).isEqualTo(PhotoStatus.PENDING_UPLOAD);
+    assertThat(photo.getVersion()).isEqualTo(1L);
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_status FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
+    assertThat(failure)
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
+        .containsExactly("invalid_photo_content_type", HttpStatus.BAD_REQUEST);
   }
 
   @Test

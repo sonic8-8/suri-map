@@ -418,7 +418,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
-- Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `invalid_geometry`, `invalid_photo_content_type`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Photo validation: `photos[].contentType`은 `image/jpeg`, `image/png`, `image/webp`만 허용한다. 누락·null·빈 문자열·공백·미지원 형식은 `400 invalid_photo_content_type`으로 거부한다. 허용된 형식이더라도 기존 업로드 정보와 다르면 `409 write_conflict`를 유지한다.
 - Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다. 전체 수색구역과 담당 구역은 현장 마커 생성의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 Point이면 저장한다. `invalid_geometry`는 Point type, 좌표 개수, SRID, NaN, lon/lat 범위 오류처럼 좌표 자체가 잘못된 경우에 한정한다.
 
 #### PATCH `/api/markers/{markerId}`

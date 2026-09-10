@@ -121,6 +121,44 @@ class AppMarkerControllerTest {
   }
 
   @Test
+  @DisplayName("마커 생성 중 사진 형식 오류가 발생하면, HTTP 400과 invalid_photo_content_type을 반환한다")
+  void createMarker_invalidPhotoContentType_returnsBadRequest() throws Exception {
+    // given: 서비스가 사진 형식 오류로 마커 생성을 거부한다.
+    when(appMarkerService.create(any(MarkerCreateServiceRequest.class)))
+        .thenThrow(new BusinessException(ErrorCode.INVALID_PHOTO_CONTENT_TYPE));
+
+    // when: 사진의 contentType이 null인 마커 생성 요청을 보낸다.
+    mockMvc
+        .perform(
+            post("/api/markers")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "id":"55555555-5555-5555-5555-555555550071",
+                      "incidentId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+                      "opId":"88888888-8888-8888-8888-888888880001",
+                      "type":"CLUE",
+                      "location":{"type":"Point","coordinates":[126.9134,35.1631]},
+                      "clientTs":"2026-04-28T00:05:00Z",
+                      "photos":[{
+                        "photoId":"55555555-5555-5555-5555-555555550172",
+                        "sizeBytes":1048576,
+                        "contentType":null
+                      }]
+                    }
+                    """))
+        // then: 기존 공통 예외 처리로 사진 형식 오류를 HTTP 응답에 전달한다.
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("invalid_photo_content_type"))
+        .andExpect(jsonPath("$.*").value(hasSize(1)));
+  }
+
+  @Test
   @WithMockAccount(accountId = "11111111-1111-1111-1111-111111110071", channel = Channel.WEB)
   @DisplayName("웹 인증으로 앱 채널을 가장하면, 수정·삭제 서비스를 호출하지 않고 거부한다")
   void changeMarker_webPrincipalWithAppHeader_rejectsBeforeCallingService() throws Exception {

@@ -720,6 +720,11 @@
             "body": "{\"error\": \"invalid_geometry\"}"
           },
           {
+            "code": 400,
+            "case": "invalid_photo_content_type",
+            "body": "{\"error\": \"invalid_photo_content_type\"}"
+          },
+          {
             "code": 403,
             "case": "channel_not_allowed",
             "body": "{\"error\": \"channel_not_allowed\"}"
