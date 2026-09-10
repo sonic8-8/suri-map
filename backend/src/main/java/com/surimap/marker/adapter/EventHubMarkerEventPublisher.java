@@ -4,10 +4,8 @@ import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishPayload;
-import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.port.MarkerEventPublisher;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -17,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /** Publishes S5 marker events into the shared S4 event outbox. */
 @Component
-public class EventHubMarkerEventPublisher implements MarkerEventPublisher {
+public class EventHubMarkerEventPublisher {
 
   private static final int PAYLOAD_FORMAT_VERSION = 1;
   private static final String MARKER_SOURCE_ENTITY_TYPE = "marker";
@@ -29,35 +27,28 @@ public class EventHubMarkerEventPublisher implements MarkerEventPublisher {
     this.eventHub = eventHub;
   }
 
-  @Override
-  public void publish(MarkerPublishRequest request) {
-    if (request == null || request.type() == null || request.payload() == null) {
+  public void publish(String eventType, MarkerPublishPayload payload) {
+    if (eventType == null || payload == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
-    MarkerPublishPayload payload = request.payload();
     if (payload.id() == null || payload.incidentId() == null || payload.version() <= 0) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
 
     eventHub.publish(
         new PublishRequest(
-            eventIdFor(request),
+            MarkerEventIds.eventId(eventType, payload.id(), payload.version()),
             payload.incidentId(),
-            request.type(),
+            eventType,
             PAYLOAD_FORMAT_VERSION,
-            sourceEntityType(request),
+            sourceEntityType(eventType),
             payload.id(),
             occurredAt(payload),
             payloadFor(payload)));
   }
 
-  private static UUID eventIdFor(MarkerPublishRequest request) {
-    MarkerPublishPayload payload = request.payload();
-    return MarkerEventIds.eventId(request.type(), payload.id(), payload.version());
-  }
-
-  private static String sourceEntityType(MarkerPublishRequest request) {
-    if (request.type().startsWith("MARKER_")) {
+  private static String sourceEntityType(String eventType) {
+    if (eventType.startsWith("MARKER_")) {
       return MARKER_SOURCE_ENTITY_TYPE;
     }
     return MARKER_NOTIFICATION_SOURCE_ENTITY_TYPE;

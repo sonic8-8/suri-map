@@ -1,9 +1,9 @@
 package com.surimap.marker.notification.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.marker.adapter.EventHubMarkerEventPublisher;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
-import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
@@ -11,7 +11,6 @@ import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import com.surimap.marker.notification.repository.MarkerNotificationRepository;
-import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.time.Clock;
@@ -37,7 +36,7 @@ public class MarkerNotificationService {
   private final MarkerNotificationRepository markerNotificationRepository;
   private final NotificationRecipientResolver recipientResolver;
   private final NotificationPayloadFactory payloadFactory;
-  private final MarkerEventPublisher markerEventPublisher;
+  private final EventHubMarkerEventPublisher markerEventPublisher;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
   private final Clock clock = Clock.systemUTC();
@@ -46,7 +45,7 @@ public class MarkerNotificationService {
       MarkerNotificationRepository markerNotificationRepository,
       NotificationRecipientResolver recipientResolver,
       NotificationPayloadFactory payloadFactory,
-      MarkerEventPublisher markerEventPublisher,
+      EventHubMarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
@@ -57,13 +56,13 @@ public class MarkerNotificationService {
     this.fcmDispatcher = Objects.requireNonNull(fcmDispatcher);
   }
 
-  public Optional<MarkerPublishRequest> publishIfNeeded(MarkerNotificationContext context) {
+  public void publishIfNeeded(MarkerNotificationContext context) {
     Objects.requireNonNull(context, "context must not be null");
-    return notificationTypeFor(context.markerType())
-        .flatMap(notificationType -> publishMarkerNotification(context, notificationType));
+    notificationTypeFor(context.markerType())
+        .ifPresent(notificationType -> publishMarkerNotification(context, notificationType));
   }
 
-  private Optional<MarkerPublishRequest> publishMarkerNotification(
+  private void publishMarkerNotification(
       MarkerNotificationContext context, NotificationType notificationType) {
     NotificationRecipients recipients =
         recipientResolver.resolve(context.incidentId(), notificationType);
@@ -91,13 +90,10 @@ public class MarkerNotificationService {
             createdAt);
     int inserted = markerNotificationRepository.insertIfAbsent(record);
     if (inserted == 0) {
-      return Optional.empty();
+      return;
     }
-    MarkerPublishRequest publishRequest =
-        new MarkerPublishRequest(notificationType.name(), payload);
-    markerEventPublisher.publish(publishRequest);
+    markerEventPublisher.publish(notificationType.name(), payload);
     sendFcmAfterCommit(notificationType.name(), payload);
-    return Optional.of(publishRequest);
   }
 
   private void sendFcmAfterCommit(
