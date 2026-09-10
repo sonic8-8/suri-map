@@ -12,13 +12,12 @@ import com.surimap.domain.marker.MarkerWriteAccessData;
 import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.marker.adapter.EventHubMarkerEventPublisher;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -38,7 +37,7 @@ public class MarkerService {
   private final MarkerMapper markerMapper;
   private final MarkerAccessMapper markerAccessMapper;
   private final MarkerWriteAccessValidator markerWriteAccessValidator;
-  private final MarkerEventPublisher markerEventPublisher;
+  private final EventHubMarkerEventPublisher markerEventPublisher;
   private final Clock clock;
   private final IdempotentResponseCache idempotentResponseCache;
 
@@ -49,7 +48,7 @@ public class MarkerService {
       MarkerMapper markerMapper,
       MarkerAccessMapper markerAccessMapper,
       MarkerWriteAccessValidator markerWriteAccessValidator,
-      MarkerEventPublisher markerEventPublisher,
+      EventHubMarkerEventPublisher markerEventPublisher,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.markerQuery = markerQuery;
@@ -95,16 +94,15 @@ public class MarkerService {
     int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequest publishRequest =
-        createPublishRequest(
-            "MARKER_UPDATED",
+    MarkerPublishRequestPayload eventPayload =
+        createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
             MarkerStatus.UPDATED,
             current.getVersion(),
             current.getMarkerType(),
             location);
-    markerEventPublisher.publish(publishRequest);
+    markerEventPublisher.publish("MARKER_UPDATED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
   }
@@ -135,16 +133,15 @@ public class MarkerService {
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequest publishRequest =
-        createPublishRequest(
-            "MARKER_DELETED",
+    MarkerPublishRequestPayload eventPayload =
+        createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
             MarkerStatus.DELETED,
             current.getVersion(),
             null,
             null);
-    markerEventPublisher.publish(publishRequest);
+    markerEventPublisher.publish("MARKER_DELETED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
   }
@@ -209,27 +206,24 @@ public class MarkerService {
     }
   }
 
-  private MarkerPublishRequest createPublishRequest(
-      String type,
+  private MarkerPublishRequestPayload createPublishPayload(
       UUID requestingPolicePhoneId,
       Marker marker,
       MarkerStatus status,
       long version,
       String markerType,
       MarkerGeoJsonPoint location) {
-    return new MarkerPublishRequest(
-        type,
-        new MarkerPublishRequestPayload(
-            marker.getId(),
-            marker.getIncidentId(),
-            marker.getOperationalPeriodId(),
-            resolveEventPolicePhoneId(marker, requestingPolicePhoneId),
-            status.name(),
-            version,
-            markerType,
-            location,
-            null,
-            clock.instant()));
+    return new MarkerPublishRequestPayload(
+        marker.getId(),
+        marker.getIncidentId(),
+        marker.getOperationalPeriodId(),
+        resolveEventPolicePhoneId(marker, requestingPolicePhoneId),
+        status.name(),
+        version,
+        markerType,
+        location,
+        null,
+        clock.instant());
   }
 
   private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {
