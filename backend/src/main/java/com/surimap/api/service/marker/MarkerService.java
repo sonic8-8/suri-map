@@ -15,8 +15,8 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.adapter.MarkerEventPublisher;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.dto.MarkerEventPayload;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
@@ -94,7 +94,7 @@ public class MarkerService {
     int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequestPayload eventPayload =
+    MarkerEventPayload eventPayload =
         createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
@@ -133,7 +133,7 @@ public class MarkerService {
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequestPayload eventPayload =
+    MarkerEventPayload eventPayload =
         createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
@@ -206,24 +206,24 @@ public class MarkerService {
     }
   }
 
-  private MarkerPublishRequestPayload createPublishPayload(
+  private MarkerEventPayload createPublishPayload(
       UUID requestingPolicePhoneId,
       Marker marker,
       MarkerStatus status,
       long version,
       String markerType,
       MarkerGeoJsonPoint location) {
-    return new MarkerPublishRequestPayload(
-        marker.getId(),
-        marker.getIncidentId(),
-        marker.getOperationalPeriodId(),
-        resolveEventPolicePhoneId(marker, requestingPolicePhoneId),
-        status.name(),
-        version,
-        markerType,
-        location,
-        null,
-        clock.instant());
+    return MarkerEventPayload.builder()
+        .id(marker.getId())
+        .incidentId(marker.getIncidentId())
+        .opId(marker.getOperationalPeriodId())
+        .policePhoneId(resolveEventPolicePhoneId(marker, requestingPolicePhoneId))
+        .status(status.name())
+        .version(version)
+        .type(markerType)
+        .location(location)
+        .serverTs(clock.instant())
+        .build();
   }
 
   private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {

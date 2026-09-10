@@ -3,7 +3,7 @@ package com.surimap.marker.notification.service;
 import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.marker.adapter.MarkerEventPublisher;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
+import com.surimap.marker.dto.MarkerNotificationPayload;
 import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
@@ -68,7 +68,7 @@ public class MarkerNotificationService {
         recipientResolver.resolve(context.incidentId(), notificationType);
     UUID notificationId = UUID.randomUUID();
     Instant createdAt = clock.instant();
-    MarkerNotificationPublishRequestPayload payload =
+    MarkerNotificationPayload payload =
         payloadFactory.markerNotificationPayload(
             notificationType,
             notificationId,
@@ -96,8 +96,7 @@ public class MarkerNotificationService {
     sendFcmAfterCommit(notificationType.name(), payload);
   }
 
-  private void sendFcmAfterCommit(
-      String eventType, MarkerNotificationPublishRequestPayload payload) {
+  private void sendFcmAfterCommit(String eventType, MarkerNotificationPayload payload) {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
       sendFcm(eventType, payload);
       return;
@@ -111,9 +110,9 @@ public class MarkerNotificationService {
         });
   }
 
-  private void sendFcm(String eventType, MarkerNotificationPublishRequestPayload payload) {
+  private void sendFcm(String eventType, MarkerNotificationPayload payload) {
     List<String> recipientTokens =
-        payload.recipientPolicePhoneIds().stream()
+        payload.getRecipientPolicePhoneIds().stream()
             .map(MarkerNotificationService::parseUuid)
             .filter(Objects::nonNull)
             .flatMap(policePhoneId -> fcmTokenQuery.activeByPolicePhone(policePhoneId).stream())
@@ -125,7 +124,8 @@ public class MarkerNotificationService {
     if (recipientTokens.isEmpty()) {
       return;
     }
-    String eventId = MarkerEventIds.eventId(eventType, payload.id(), payload.version()).toString();
+    String eventId =
+        MarkerEventIds.eventId(eventType, payload.getId(), payload.getVersion()).toString();
     try {
       fcmDispatcher.send(recipientTokens, createFcmPayload(eventType, payload), eventId);
     } catch (RuntimeException exception) {
@@ -134,25 +134,25 @@ public class MarkerNotificationService {
   }
 
   private static Map<String, Object> createFcmPayload(
-      String eventType, MarkerNotificationPublishRequestPayload payload) {
+      String eventType, MarkerNotificationPayload payload) {
     Map<String, Object> values = new LinkedHashMap<>();
     values.put("type", eventType);
-    values.put("id", payload.id().toString());
-    values.put("markerId", payload.markerId().toString());
-    values.put("incidentId", payload.incidentId().toString());
-    values.put("opId", payload.opId().toString());
-    values.put("policePhoneId", payload.policePhoneId().toString());
-    values.put("status", payload.status());
-    values.put("version", payload.version());
-    values.put("recipientPolicy", payload.recipientPolicy());
-    values.put("recipientAccountIds", payload.recipientAccountIds());
-    values.put("recipientPolicePhoneIds", payload.recipientPolicePhoneIds());
-    values.put("markerType", payload.markerType());
-    if (payload.clientTs() != null) {
-      values.put("clientTs", payload.clientTs().toString());
+    values.put("id", payload.getId().toString());
+    values.put("markerId", payload.getMarkerId().toString());
+    values.put("incidentId", payload.getIncidentId().toString());
+    values.put("opId", payload.getOpId().toString());
+    values.put("policePhoneId", payload.getPolicePhoneId().toString());
+    values.put("status", payload.getStatus());
+    values.put("version", payload.getVersion());
+    values.put("recipientPolicy", payload.getRecipientPolicy());
+    values.put("recipientAccountIds", payload.getRecipientAccountIds());
+    values.put("recipientPolicePhoneIds", payload.getRecipientPolicePhoneIds());
+    values.put("markerType", payload.getMarkerType());
+    if (payload.getClientTs() != null) {
+      values.put("clientTs", payload.getClientTs().toString());
     }
-    if (payload.locationLabel() != null) {
-      values.put("locationLabel", payload.locationLabel());
+    if (payload.getLocationLabel() != null) {
+      values.put("locationLabel", payload.getLocationLabel());
     }
     return values;
   }

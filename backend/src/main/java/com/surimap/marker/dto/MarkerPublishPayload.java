@@ -5,19 +5,19 @@ import java.util.UUID;
 
 public interface MarkerPublishPayload {
 
-  UUID id();
+  UUID getId();
 
-  UUID incidentId();
+  UUID getIncidentId();
 
-  UUID opId();
+  UUID getOpId();
 
-  UUID policePhoneId();
+  UUID getPolicePhoneId();
 
-  String status();
+  String getStatus();
 
-  long version();
+  long getVersion();
 
-  String type();
+  String getType();
 
-  Instant clientTs();
+  Instant getClientTs();
 }
