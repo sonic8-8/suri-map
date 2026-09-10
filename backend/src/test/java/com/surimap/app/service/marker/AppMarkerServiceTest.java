@@ -10,6 +10,7 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP2_ID;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
+import static com.surimap.policephone.PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -453,6 +454,33 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(photoDelta.path("photoId").asText()).isEqualTo(upload.getPhotoId().toString());
     assertThat(photoDelta.path("status").asText()).isEqualTo("ATTACHED");
     assertThat(photoDelta.path("version").asLong()).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("활성 근무교대가 없으면, 마커 생성을 거부하고 마커·이벤트·요청 처리 기록을 남기지 않는다")
+  void createMarker_withoutActiveDutyShift_rejectsWithoutSavingMarkerEventOrRequest() {
+    // given: 사건에는 배정되어 있지만 현재 수색 차수의 활성 근무교대는 없다.
+    jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?", DUTY_SHIFT_ID);
+    MarkerCreateServiceRequest request = createRequest("CLUE", null);
+
+    // when: 해당 계정의 업무폰에서 마커 생성을 요청한다.
+    assertThatThrownBy(() -> appMarkerService.create(request))
+        .isInstanceOfSatisfying(
+            MarkerApiException.class,
+            exception -> {
+              assertThat(exception.getError()).isEqualTo("police_phone_not_assigned");
+              assertThat(exception.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+            });
+
+    // then: 마커와 이벤트를 저장하지 않고 예약했던 요청 키도 롤백한다.
+    assertThat(readMarkerIds()).isEmpty();
+    assertThat(readEventTypes()).isEmpty();
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT idempotency_key FROM idempotency_record WHERE idempotency_key = ?",
+                String.class,
+                IDEMPOTENCY_KEY))
+        .isEmpty();
   }
 
   @Test
@@ -1198,6 +1226,32 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(event.path("location").path("coordinates").get(1).decimalValue())
         .isEqualByComparingTo("35.163401");
     assertThat(Instant.parse(event.path("serverTs").asText())).isBetween(startedAt, completedAt);
+  }
+
+  @Test
+  @DisplayName("같은 작성 계정이 다른 업무폰에서 마커를 수정하면, 수정 이벤트에 요청한 업무폰을 기록한다")
+  void updateMarker_sameAuthorOnAnotherPhone_savesChangesAndEventWithRequestPhone()
+      throws Exception {
+    // given: 마커를 기록한 계정이 다른 업무폰에서 같은 마커의 수정을 요청한다.
+    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    MarkerUpdateServiceRequest request =
+        updateRequest().toBuilder()
+            .context(context("APP", REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+            .build();
+
+    // when: 실제 서비스의 권한 검사와 마커 수정을 실행한다.
+    MarkerMutationServiceResponse response = appMarkerService.update(request);
+
+    // then: 최초 작성 계정·업무폰은 유지하고 이번 수정에 사용한 업무폰을 이벤트에 기록한다.
+    assertResponse(response, "UPDATED");
+    Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
+    assertThat(saved.getMemo()).isEqualTo("updated clue memo");
+    assertThat(saved.getStatus()).isEqualTo("UPDATED");
+    assertThat(saved.getVersion()).isEqualTo(2L);
+    assertThat(saved.getCreatedByAccountId()).isEqualTo(PRECINCT_TEAM_ID);
+    assertThat(saved.getPolicePhoneId()).isEqualTo(ASSIGNED_POLICE_PHONE_ID);
+    assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
+    assertEvent(readMutationEventPayload(), "UPDATED", REGISTERED_UNASSIGNED_POLICE_PHONE_ID);
   }
 
   @Test
