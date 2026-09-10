@@ -278,7 +278,7 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuard.requireUpdateAccess(markerId, request.getContext());
+    Marker current = requireMutationAccess(markerId, request.getContext());
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
@@ -325,7 +325,7 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuard.requireDeleteAccess(markerId, request.getContext());
+    Marker current = requireMutationAccess(markerId, request.getContext());
     current.delete(request.getVersion());
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
@@ -342,6 +342,24 @@ public class AppMarkerService {
     markerEventPublisher.publish(publishRequest);
 
     return MarkerMutationServiceResponse.from(current);
+  }
+
+  private Marker requireMutationAccess(UUID markerId, MarkerRequestContext context) {
+    if (context.authentication().policePhoneId() == null) {
+      throw new MarkerApiException("police_phone_required", HttpStatus.BAD_REQUEST);
+    }
+    Marker marker =
+        markerMapper
+            .findById(markerId)
+            .filter(saved -> !saved.isDeleted())
+            .orElseThrow(
+                () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
+    UUID accountId = context.authentication().accountId();
+    markerWriteGuard.requireIncidentAccess(marker.getIncidentId(), accountId);
+    if (!marker.isFieldMarkerCreatedBy(accountId)) {
+      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    }
+    return marker;
   }
 
   private void requireMarkerId(UUID markerId) {

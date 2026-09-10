@@ -344,7 +344,7 @@ public class PhotoService {
   private Marker findActiveMarker(UUID markerId) {
     requireMarkerId(markerId);
     Marker marker = markerMapper.findById(markerId).orElseThrow(() -> conflict());
-    if ("DELETED".equals(marker.getStatus())) {
+    if (marker.isDeleted()) {
       throw conflict();
     }
     return marker;

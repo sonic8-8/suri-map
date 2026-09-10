@@ -63,6 +63,22 @@ class MarkerTest {
     assertThat(referenceMarker).isEqualTo(expected);
   }
 
+  @Test
+  @DisplayName("마커를 삭제하면, 생성·수정 상태와 구분해 삭제 상태로 판단한다")
+  void isDeleted_afterDeletion_distinguishesActiveAndUpdatedStates() {
+    // given: 새 마커와 수정한 마커는 삭제 상태가 아니다.
+    Marker marker = createMarker();
+    assertThat(marker.isDeleted()).isFalse();
+    marker.markUpdated(1L);
+    assertThat(marker.isDeleted()).isFalse();
+
+    // when: 현재 버전으로 마커를 삭제한다.
+    marker.delete(2L);
+
+    // then: 마커가 자신의 삭제 상태를 판단한다.
+    assertThat(marker.isDeleted()).isTrue();
+  }
+
   @ParameterizedTest
   @CsvSource({
     "126.913400,35.163100", "126.904000,35.162000", "126.9134007,35.1631007",
