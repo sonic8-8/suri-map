@@ -20,8 +20,8 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.dto.MarkerEventPayload;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.service.MarkerNotificationContext;
 import com.surimap.marker.notification.service.MarkerNotificationService;
@@ -127,18 +127,19 @@ public class AppMarkerService {
             .build();
     markerMapper.insertCreate(marker);
 
-    MarkerPublishRequestPayload eventPayload =
-        new MarkerPublishRequestPayload(
-            markerId,
-            request.getIncidentId(),
-            opId,
-            context.authentication().policePhoneId(),
-            MarkerStatus.ACTIVE.name(),
-            INITIAL_VERSION,
-            markerType.name(),
-            canonicalLocation,
-            request.getClientTs(),
-            serverTs);
+    MarkerEventPayload eventPayload =
+        MarkerEventPayload.builder()
+            .id(markerId)
+            .incidentId(request.getIncidentId())
+            .opId(opId)
+            .policePhoneId(context.authentication().policePhoneId())
+            .status(MarkerStatus.ACTIVE.name())
+            .version(INITIAL_VERSION)
+            .type(markerType.name())
+            .location(canonicalLocation)
+            .clientTs(request.getClientTs())
+            .serverTs(serverTs)
+            .build();
     markerEventPublisher.publish("MARKER_CREATED", eventPayload);
     List<PhotoAttachServiceResponse> photos =
         photoService.attachPhotosForMarkerCreation(marker, request.getPhotos());
@@ -276,7 +277,7 @@ public class AppMarkerService {
     int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequestPayload eventPayload =
+    MarkerEventPayload eventPayload =
         createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
@@ -318,7 +319,7 @@ public class AppMarkerService {
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
-    MarkerPublishRequestPayload eventPayload =
+    MarkerEventPayload eventPayload =
         createPublishPayload(
             request.getContext().authentication().policePhoneId(),
             current,
@@ -381,24 +382,24 @@ public class AppMarkerService {
     }
   }
 
-  private MarkerPublishRequestPayload createPublishPayload(
+  private MarkerEventPayload createPublishPayload(
       UUID requestingPolicePhoneId,
       Marker marker,
       MarkerStatus status,
       long version,
       String markerType,
       MarkerGeoJsonPoint location) {
-    return new MarkerPublishRequestPayload(
-        marker.getId(),
-        marker.getIncidentId(),
-        marker.getOperationalPeriodId(),
-        resolveEventPolicePhoneId(marker, requestingPolicePhoneId),
-        status.name(),
-        version,
-        markerType,
-        location,
-        null,
-        clock.instant());
+    return MarkerEventPayload.builder()
+        .id(marker.getId())
+        .incidentId(marker.getIncidentId())
+        .opId(marker.getOperationalPeriodId())
+        .policePhoneId(resolveEventPolicePhoneId(marker, requestingPolicePhoneId))
+        .status(status.name())
+        .version(version)
+        .type(markerType)
+        .location(location)
+        .serverTs(clock.instant())
+        .build();
   }
 
   private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {

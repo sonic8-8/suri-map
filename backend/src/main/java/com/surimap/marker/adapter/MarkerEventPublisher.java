@@ -2,10 +2,10 @@ package com.surimap.marker.adapter;
 
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
+import com.surimap.marker.dto.MarkerEventPayload;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
+import com.surimap.marker.dto.MarkerNotificationPayload;
 import com.surimap.marker.dto.MarkerPublishPayload;
-import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
 import java.time.Instant;
@@ -33,18 +33,18 @@ public class MarkerEventPublisher {
     if (eventType == null || payload == null) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
-    if (payload.id() == null || payload.incidentId() == null || payload.version() <= 0) {
+    if (payload.getId() == null || payload.getIncidentId() == null || payload.getVersion() <= 0) {
       throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
     }
 
     eventHub.publish(
         new PublishRequest(
-            MarkerEventIds.eventId(eventType, payload.id(), payload.version()),
-            payload.incidentId(),
+            MarkerEventIds.eventId(eventType, payload.getId(), payload.getVersion()),
+            payload.getIncidentId(),
             eventType,
             PAYLOAD_FORMAT_VERSION,
             sourceEntityType(eventType),
-            payload.id(),
+            payload.getId(),
             occurredAt(payload),
             payloadFor(payload)));
   }
@@ -57,40 +57,40 @@ public class MarkerEventPublisher {
   }
 
   private static Instant occurredAt(MarkerPublishPayload payload) {
-    if (payload instanceof MarkerPublishRequestPayload markerPayload
-        && markerPayload.serverTs() != null) {
-      return markerPayload.serverTs();
+    if (payload instanceof MarkerEventPayload markerPayload
+        && markerPayload.getServerTs() != null) {
+      return markerPayload.getServerTs();
     }
     return Instant.now();
   }
 
   private static Map<String, Object> payloadFor(MarkerPublishPayload payload) {
     Map<String, Object> values = new LinkedHashMap<>();
-    values.put("id", payload.id().toString());
-    values.put("incidentId", payload.incidentId().toString());
-    values.put("opId", payload.opId() == null ? null : payload.opId().toString());
+    values.put("id", payload.getId().toString());
+    values.put("incidentId", payload.getIncidentId().toString());
+    values.put("opId", payload.getOpId() == null ? null : payload.getOpId().toString());
     values.put(
         "policePhoneId",
-        payload.policePhoneId() == null ? null : payload.policePhoneId().toString());
-    values.put("status", payload.status());
-    values.put("version", payload.version());
-    putIfPresent(values, "type", payload.type());
-    putIfPresent(values, "clientTs", payload.clientTs());
-    if (payload instanceof MarkerPublishRequestPayload markerPayload) {
-      putIfPresent(values, "location", locationPayload(markerPayload.location()));
-      putIfPresent(values, "serverTs", markerPayload.serverTs());
-    } else if (payload instanceof MarkerNotificationPublishRequestPayload notificationPayload) {
-      putIfPresent(values, "markerId", notificationPayload.markerId());
-      putIfPresent(values, "recipientPolicy", notificationPayload.recipientPolicy());
-      if (!notificationPayload.recipientAccountIds().isEmpty()) {
-        values.put("recipientAccountIds", notificationPayload.recipientAccountIds());
+        payload.getPolicePhoneId() == null ? null : payload.getPolicePhoneId().toString());
+    values.put("status", payload.getStatus());
+    values.put("version", payload.getVersion());
+    putIfPresent(values, "type", payload.getType());
+    putIfPresent(values, "clientTs", payload.getClientTs());
+    if (payload instanceof MarkerEventPayload markerPayload) {
+      putIfPresent(values, "location", locationPayload(markerPayload.getLocation()));
+      putIfPresent(values, "serverTs", markerPayload.getServerTs());
+    } else if (payload instanceof MarkerNotificationPayload notificationPayload) {
+      putIfPresent(values, "markerId", notificationPayload.getMarkerId());
+      putIfPresent(values, "recipientPolicy", notificationPayload.getRecipientPolicy());
+      if (!notificationPayload.getRecipientAccountIds().isEmpty()) {
+        values.put("recipientAccountIds", notificationPayload.getRecipientAccountIds());
       }
-      if (!notificationPayload.recipientPolicePhoneIds().isEmpty()) {
-        values.put("recipientPolicePhoneIds", notificationPayload.recipientPolicePhoneIds());
+      if (!notificationPayload.getRecipientPolicePhoneIds().isEmpty()) {
+        values.put("recipientPolicePhoneIds", notificationPayload.getRecipientPolicePhoneIds());
       }
-      putIfPresent(values, "markerType", notificationPayload.markerType());
-      putIfPresent(values, "locationLabel", notificationPayload.locationLabel());
-      putIfPresent(values, "policePhoneName", notificationPayload.policePhoneName());
+      putIfPresent(values, "markerType", notificationPayload.getMarkerType());
+      putIfPresent(values, "locationLabel", notificationPayload.getLocationLabel());
+      putIfPresent(values, "policePhoneName", notificationPayload.getPolicePhoneName());
     }
     return values;
   }
