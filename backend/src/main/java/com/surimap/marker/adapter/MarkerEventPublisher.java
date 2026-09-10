@@ -3,7 +3,9 @@ package com.surimap.marker.adapter;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.dto.MarkerPublishPayload;
+import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
 import java.time.Instant;
@@ -55,7 +57,11 @@ public class MarkerEventPublisher {
   }
 
   private static Instant occurredAt(MarkerPublishPayload payload) {
-    return payload.serverTs() == null ? Instant.now() : payload.serverTs();
+    if (payload instanceof MarkerPublishRequestPayload markerPayload
+        && markerPayload.serverTs() != null) {
+      return markerPayload.serverTs();
+    }
+    return Instant.now();
   }
 
   private static Map<String, Object> payloadFor(MarkerPublishPayload payload) {
@@ -69,20 +75,23 @@ public class MarkerEventPublisher {
     values.put("status", payload.status());
     values.put("version", payload.version());
     putIfPresent(values, "type", payload.type());
-    putIfPresent(values, "location", locationPayload(payload.location()));
     putIfPresent(values, "clientTs", payload.clientTs());
-    putIfPresent(values, "serverTs", payload.serverTs());
-    putIfPresent(values, "markerId", payload.markerId());
-    putIfPresent(values, "recipientPolicy", payload.recipientPolicy());
-    if (!payload.recipientAccountIds().isEmpty()) {
-      values.put("recipientAccountIds", payload.recipientAccountIds());
+    if (payload instanceof MarkerPublishRequestPayload markerPayload) {
+      putIfPresent(values, "location", locationPayload(markerPayload.location()));
+      putIfPresent(values, "serverTs", markerPayload.serverTs());
+    } else if (payload instanceof MarkerNotificationPublishRequestPayload notificationPayload) {
+      putIfPresent(values, "markerId", notificationPayload.markerId());
+      putIfPresent(values, "recipientPolicy", notificationPayload.recipientPolicy());
+      if (!notificationPayload.recipientAccountIds().isEmpty()) {
+        values.put("recipientAccountIds", notificationPayload.recipientAccountIds());
+      }
+      if (!notificationPayload.recipientPolicePhoneIds().isEmpty()) {
+        values.put("recipientPolicePhoneIds", notificationPayload.recipientPolicePhoneIds());
+      }
+      putIfPresent(values, "markerType", notificationPayload.markerType());
+      putIfPresent(values, "locationLabel", notificationPayload.locationLabel());
+      putIfPresent(values, "policePhoneName", notificationPayload.policePhoneName());
     }
-    if (!payload.recipientPolicePhoneIds().isEmpty()) {
-      values.put("recipientPolicePhoneIds", payload.recipientPolicePhoneIds());
-    }
-    putIfPresent(values, "markerType", payload.markerType());
-    putIfPresent(values, "locationLabel", payload.locationLabel());
-    putIfPresent(values, "policePhoneName", payload.policePhoneName());
     return values;
   }
 
