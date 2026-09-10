@@ -83,15 +83,10 @@ public class MarkerCreatePhotoAttachmentService {
     }
     var photoIds = new HashSet<UUID>();
     for (MarkerCreatePhotoRequest photo : photos) {
-      if (photo == null
-          || photo.getPhotoId() == null
-          || !photoIds.add(photo.getPhotoId())
-          || !PhotoService.ALLOWED_CONTENT_TYPES.contains(photo.getContentType())) {
+      if (photo == null || photo.getPhotoId() == null || !photoIds.add(photo.getPhotoId())) {
         throw conflict();
       }
-      if (photo.getSizeBytes() <= 0 || photo.getSizeBytes() > PhotoService.MAX_SIZE_BYTES) {
-        throw new BusinessException(ErrorCode.PHOTO_LIMIT_EXCEEDED);
-      }
+      photoService.validatePhotoMetadata(photo.getContentType(), photo.getSizeBytes());
       if ((photo.getWidth() != null && photo.getWidth() <= 0)
           || (photo.getHeight() != null && photo.getHeight() <= 0)) {
         throw conflict();

@@ -245,7 +245,7 @@ public class PhotoService {
     return response;
   }
 
-  private void validatePhotoMetadata(String contentType, long sizeBytes) {
+  void validatePhotoMetadata(String contentType, long sizeBytes) {
     if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
       throw new BusinessException(ErrorCode.INVALID_PHOTO_CONTENT_TYPE);
     }
