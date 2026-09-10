@@ -388,8 +388,7 @@ public class PhotoService {
   }
 
   private void requireAppOwnFieldMarker(Marker marker, UUID accountId) {
-    if (!"APP".equals(marker.getMarkerSource())
-        || !accountId.equals(marker.getCreatedByAccountId())) {
+    if (!marker.isFieldMarkerCreatedBy(accountId)) {
       throw denied();
     }
   }

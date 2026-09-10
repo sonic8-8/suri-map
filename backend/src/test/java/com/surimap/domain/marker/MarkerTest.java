@@ -1,5 +1,6 @@
 package com.surimap.domain.marker;
 
+import static com.surimap.account.AccountIdentityCatalog.PRECINCT_TEAM_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +30,38 @@ class MarkerTest {
 
   private static final GeometryFactory GEOMETRY_FACTORY =
       new GeometryFactory(new PrecisionModel(), 4326);
+
+  @ParameterizedTest
+  @CsvSource({"APP,true", "WEB,false", "MOCK_SEED,false", "SYSTEM,false"})
+  @DisplayName("앱에서 기록한 마커이고 작성 계정이 같으면, 해당 계정의 현장 마커로 판단한다")
+  void isFieldMarkerCreatedBy_sourceAndAuthorMatch_identifiesOwnFieldMarker(
+      MarkerSource source, boolean expected) {
+    // given: 같은 작성 계정이 기록한 마커를 출처별로 준비한다.
+    Marker marker = createMarker(source);
+
+    // when: 작성 계정의 현장 마커인지 판단한다.
+    boolean ownFieldMarker = marker.isFieldMarkerCreatedBy(marker.getCreatedByAccountId());
+
+    // then: 앱에서 기록한 마커만 해당하며, 다른 계정이나 계정 누락은 해당하지 않는다.
+    assertThat(ownFieldMarker).isEqualTo(expected);
+    assertThat(marker.isFieldMarkerCreatedBy(PRECINCT_TEAM_ID)).isFalse();
+    assertThat(marker.isFieldMarkerCreatedBy(null)).isFalse();
+  }
+
+  @ParameterizedTest
+  @CsvSource({"APP,false", "WEB,false", "MOCK_SEED,true", "SYSTEM,true"})
+  @DisplayName("출처가 MOCK_SEED 또는 SYSTEM이면, 웹에서 보정할 수 있는 기준 마커로 판단한다")
+  void isReferenceMarker_seedOrSystemSource_identifiesReferenceMarker(
+      MarkerSource source, boolean expected) {
+    // given: 현장 기록·웹 기록·초기 기준점·시스템 마커를 준비한다.
+    Marker marker = createMarker(source);
+
+    // when: 웹 보정 대상인 기준 마커인지 판단한다.
+    boolean referenceMarker = marker.isReferenceMarker();
+
+    // then: 초기 기준점과 시스템 마커만 기준 마커로 분류한다.
+    assertThat(referenceMarker).isEqualTo(expected);
+  }
 
   @ParameterizedTest
   @CsvSource({
@@ -224,6 +257,10 @@ class MarkerTest {
   }
 
   private Marker createMarker() {
+    return createMarker(MarkerSource.APP);
+  }
+
+  private Marker createMarker(MarkerSource source) {
     return Marker.builder()
         .id(UUID.fromString("55555555-5555-5555-5555-555555550072"))
         .incidentId(MarkerGeometryFixtures.INCIDENT_ID)
@@ -234,7 +271,7 @@ class MarkerTest {
         .occurredAt(Instant.parse("2026-04-28T00:05:00Z"))
         .createdByAccountId(UUID.fromString("11111111-1111-1111-1111-111111110072"))
         .policePhoneId(UUID.fromString("22222222-2222-2222-2222-222222220072"))
-        .markerSource(MarkerSource.APP)
+        .markerSource(source)
         .status(MarkerStatus.ACTIVE)
         .version(1L)
         .build();
