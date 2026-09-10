@@ -1,6 +1,6 @@
 package com.surimap.app.service.photo.response;
 
-import com.surimap.marker.photo.domain.MarkerPhoto;
+import com.surimap.domain.photo.MarkerPhoto;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Builder;

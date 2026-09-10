@@ -1,11 +1,11 @@
-package com.surimap.marker.photo.controller;
+package com.surimap.app.controller.photo;
 
 import com.surimap.app.service.photo.PhotoRequestContext;
-import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
+import com.surimap.global.auth.SuriMapAuthentication;
+import com.surimap.global.auth.SuriMapAuthenticationResolver;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,42 +34,42 @@ public class PhotoRequestContextResolver {
     if ("APP".equals(channel)) {
       return;
     }
-    throw new PhotoApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+    throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
   }
 
   private void requireIdempotencyKey(String idempotencyKey) {
     if (idempotencyKey != null && !idempotencyKey.isBlank()) {
       return;
     }
-    throw new PhotoApiException("write_conflict", HttpStatus.CONFLICT);
+    throw new BusinessException(ErrorCode.WRITE_CONFLICT);
   }
 
   private void requireAuthorization(String authorization) {
     if (authorization != null && !authorization.isBlank()) {
       return;
     }
-    throw new PhotoApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
   }
 
   private UUID parsePolicePhoneId(String policePhoneId) {
     if (policePhoneId == null || policePhoneId.isBlank()) {
-      throw new PhotoApiException("police_phone_required", HttpStatus.BAD_REQUEST);
+      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
     }
     try {
       return UUID.fromString(policePhoneId);
     } catch (IllegalArgumentException exception) {
-      throw new PhotoApiException("police_phone_required", HttpStatus.BAD_REQUEST);
+      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
     }
   }
 
   private void requireMatchingPolicePhone(
       SuriMapAuthentication authentication, UUID headerPolicePhoneId) {
     if (!"APP".equals(authentication.channel())) {
-      throw new PhotoApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
     }
     if (headerPolicePhoneId.equals(authentication.policePhoneId())) {
       return;
     }
-    throw new PhotoApiException("police_phone_not_registered", HttpStatus.FORBIDDEN);
+    throw new BusinessException(ErrorCode.POLICE_PHONE_NOT_REGISTERED);
   }
 }

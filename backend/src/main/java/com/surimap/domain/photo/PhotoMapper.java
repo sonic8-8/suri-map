@@ -1,7 +1,5 @@
-package com.surimap.marker.photo.repository;
+package com.surimap.domain.photo;
 
-import com.surimap.marker.photo.domain.MarkerPhoto;
-import com.surimap.marker.photo.domain.PhotoStatus;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;

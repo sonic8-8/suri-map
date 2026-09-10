@@ -1,4 +1,4 @@
-package com.surimap.marker.photo;
+package com.surimap.client.storage;
 
 import java.util.Map;
 import java.util.UUID;

@@ -1,12 +1,12 @@
 package com.surimap.app.controller.photo;
 
-import static com.surimap.marker.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
+import static com.surimap.domain.photo.fixture.PhotoFixtures.CHECKSUM_SHA256;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ID;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -15,21 +15,24 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
+import com.surimap.app.service.photo.request.MarkerCreatePhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.request.PhotoAttachServiceRequest;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
+import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
-import com.surimap.marker.photo.controller.PhotoRequestContextResolver;
-import com.surimap.marker.photo.dto.PhotoAttachRequest;
-import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.exception.PhotoApiException;
-import com.surimap.marker.photo.exception.PhotoExceptionHandler;
-import com.surimap.marker.photo.security.SuriMapAuthentication;
-import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
+import com.surimap.global.auth.SuriMapAuthentication;
+import com.surimap.global.auth.SuriMapAuthenticationResolver;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
+import com.surimap.global.error.GlobalExceptionHandler;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.util.UUID;
@@ -44,14 +47,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PhotoController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({PhotoExceptionHandler.class, PhotoRequestContextResolver.class, GuardConfig.class})
+@Import({GlobalExceptionHandler.class, PhotoRequestContextResolver.class, GuardConfig.class})
 @WithMockAccount(
     accountId = "00000000-0000-0000-0000-000000000501",
     policePhoneId = "00000000-0000-0000-0000-000000000601")
@@ -68,6 +70,7 @@ class PhotoControllerTest {
   private static final String AUTHORIZATION = "Bearer app-token-photo";
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private ObjectMapper objectMapper;
 
   @MockitoBean private PhotoService photoService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
@@ -161,7 +164,7 @@ class PhotoControllerTest {
   }
 
   @ParameterizedTest(name = "파일 형식: {0}")
-  @ValueSource(strings = {"image/gif", "IMAGE/JPEG", ""})
+  @ValueSource(strings = {"image/gif", "IMAGE/JPEG", "", " "})
   @DisplayName("사진 형식과 크기가 모두 잘못되면, 크기 오류보다 형식 오류를 먼저 반환한다")
   void createUploadUrl_invalidContentTypeAndSize_rejectsTypeBeforeSize(String contentType)
       throws Exception {
@@ -176,22 +179,25 @@ class PhotoControllerTest {
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"contentType\":\"%s\",\"sizeBytes\":0}".formatted(contentType)))
-        .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error", is("write_conflict")));
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error", is("invalid_photo_content_type")));
 
     verifyNoInteractions(photoService);
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"{\"sizeBytes\":0}", "{\"contentType\":null,\"sizeBytes\":10485761}"})
-  @DisplayName("파일 형식이 누락되면, 서비스의 형식 오류를 크기 오류로 바꾸지 않는다")
-  void createUploadUrl_missingContentType_preservesServiceError(String requestBody)
+  @ValueSource(
+      strings = {
+        "{\"sizeBytes\":1048576}",
+        "{\"contentType\":null,\"sizeBytes\":1048576}",
+        "{\"sizeBytes\":0}",
+        "{\"contentType\":null,\"sizeBytes\":10485761}"
+      })
+  @DisplayName("사진 형식이 누락되거나 null이면, 크기 검사보다 먼저 400 입력 오류를 반환한다")
+  void createUploadUrl_missingContentType_rejectsBeforeSizeAndService(String requestBody)
       throws Exception {
-    // given: Controller의 오류 전달만 확인한다. 실제 Service의 null 처리 개선은 별도 작업이다.
-    when(photoService.createUploadUrl(any(PhotoUploadUrlServiceRequest.class)))
-        .thenThrow(new PhotoApiException("write_conflict", HttpStatus.CONFLICT));
-
-    // when & then: 크기까지 잘못되어도 Controller에서 먼저 크기 오류로 확정하지 않는다.
+    // given: 파일 형식 필드를 생략하거나 명시적으로 null을 보내며, 크기도 잘못될 수 있다.
+    // when & then: 서비스에 위임하지 않고 사진 형식 입력 오류를 응답한다.
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
@@ -201,10 +207,11 @@ class PhotoControllerTest {
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody))
-        .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error", is("write_conflict")));
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.*", hasSize(1)))
+        .andExpect(jsonPath("$.error", is("invalid_photo_content_type")));
 
-    verify(photoService).createUploadUrl(argThat(request -> request.getContentType() == null));
+    verifyNoInteractions(photoService);
   }
 
   @Test
@@ -331,12 +338,18 @@ class PhotoControllerTest {
     verifyNoInteractions(photoService);
   }
 
-  @ParameterizedTest(name = "파일 크기: {0}")
-  @ValueSource(longs = {1_048_576L, 10_485_761L})
-  @DisplayName("인증 헤더가 없으면, 파일 크기 검사보다 먼저 업로드 권한 오류를 반환한다")
-  void createUploadUrl_missingAuthorization_rejectsBeforeBodyValidation(long sizeBytes)
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "{\"contentType\":\"image/jpeg\",\"sizeBytes\":1048576}",
+        "{\"contentType\":\"image/jpeg\",\"sizeBytes\":10485761}",
+        "{\"contentType\":null,\"sizeBytes\":1048576}",
+        "{\"sizeBytes\":0}"
+      })
+  @DisplayName("인증 헤더가 없으면, 사진 형식·크기 검사보다 먼저 업로드 권한 오류를 반환한다")
+  void createUploadUrl_missingAuthorization_rejectsBeforeBodyValidation(String requestBody)
       throws Exception {
-    // given: 파일 크기의 유효 여부와 관계없이 인증 헤더를 보내지 않는다.
+    // given: 사진 형식·크기의 유효 여부와 관계없이 인증 헤더를 보내지 않는다.
     // when & then: HTTP 오류를 응답하고 사진 서비스는 호출하지 않는다.
     mockMvc
         .perform(
@@ -345,7 +358,7 @@ class PhotoControllerTest {
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"contentType\":\"image/jpeg\",\"sizeBytes\":%s}".formatted(sizeBytes)))
+                .content(requestBody))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("incident_access_denied")));
 
@@ -357,7 +370,7 @@ class PhotoControllerTest {
   void createUploadUrl_invalidAuthorization_rejectsBeforeService() throws Exception {
     // given: 인증 해석기가 알 수 없는 토큰을 거부한다.
     when(authenticationResolver.resolve("Bearer unknown", "APP"))
-        .thenThrow(new PhotoApiException("incident_access_denied", HttpStatus.FORBIDDEN));
+        .thenThrow(new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED));
 
     // when & then: HTTP 오류를 응답하고 사진 서비스는 호출하지 않는다.
     mockMvc
@@ -398,13 +411,15 @@ class PhotoControllerTest {
   @DisplayName("앱에서 사진 첨부를 요청하면, 첨부 상태와 사진·마커 버전을 응답한다")
   void attach_appRequest_returnsPhotoStatusAndVersions() throws Exception {
     // given: 사진 서비스가 첨부를 마치고 사진·마커 버전을 반환한다.
-    PhotoAttachResponse response = new PhotoAttachResponse(PHOTO_ID, "ATTACHED", 2L, MARKER_ID, 2L);
-    when(photoService.attach(
-            eq(MARKER_ID),
-            eq(PHOTO_ID),
-            eq(new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, null)),
-            argThat(context -> context.getIdempotencyKey().equals("idem-photo-attach-001"))))
-        .thenReturn(response);
+    PhotoAttachServiceResponse response =
+        PhotoAttachServiceResponse.builder()
+            .photoId(PHOTO_ID)
+            .status("ATTACHED")
+            .version(2L)
+            .markerId(MARKER_ID)
+            .markerVersion(2L)
+            .build();
+    when(photoService.attach(any(PhotoAttachServiceRequest.class))).thenReturn(response);
 
     // when & then: 앱의 사진 첨부 요청에 기존 HTTP 상태와 응답 필드를 유지한다.
     mockMvc
@@ -425,12 +440,47 @@ class PhotoControllerTest {
         .andExpect(jsonPath("$.markerId", is(MARKER_ID.toString())))
         .andExpect(jsonPath("$.markerVersion", is(2)));
 
-    verify(photoService)
-        .attach(
-            eq(MARKER_ID),
-            eq(PHOTO_ID),
-            eq(new PhotoAttachRequest(1_048_576L, "image/jpeg", 640, 480, null)),
-            argThat(context -> context.getAuthentication().accountId().equals(ACCOUNT_ID)));
+    ArgumentCaptor<PhotoAttachServiceRequest> captured =
+        ArgumentCaptor.forClass(PhotoAttachServiceRequest.class);
+    verify(photoService).attach(captured.capture());
+    assertThat(captured.getValue())
+        .usingRecursiveComparison()
+        .isEqualTo(
+            PhotoAttachServiceRequest.builder()
+                .markerId(MARKER_ID)
+                .photoId(PHOTO_ID)
+                .sizeBytes(1_048_576L)
+                .contentType("image/jpeg")
+                .width(640)
+                .height(480)
+                .context(
+                    new PhotoRequestContext(
+                        new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID),
+                        "idem-photo-attach-001"))
+                .build());
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"{\"sizeBytes\":1048576}", "{\"contentType\":null,\"sizeBytes\":1048576}"})
+  @DisplayName("첨부할 사진 형식이 누락되거나 null이면, 서비스 호출 전에 400 입력 오류를 응답한다")
+  void attach_missingContentType_returnsBadRequest(String requestBody) throws Exception {
+    // given: 사진 형식 필드를 생략하거나 명시적으로 null을 보낸다.
+    // when & then: 인증을 확인한 뒤 형식 입력 오류를 응답하고 서비스를 호출하지 않는다.
+    mockMvc
+        .perform(
+            post("/api/markers/{markerId}/photos/{photoId}/attach", MARKER_ID, PHOTO_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-photo-attach-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.*", hasSize(1)))
+        .andExpect(jsonPath("$.error", is("invalid_photo_content_type")));
+
+    verifyNoInteractions(photoService);
   }
 
   @Test
@@ -451,6 +501,138 @@ class PhotoControllerTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("write_conflict")));
 
+    verifyNoInteractions(photoService);
+  }
+
+  @ParameterizedTest(name = "contentType null 필드 포함: {0}")
+  @ValueSource(booleans = {false, true})
+  @DisplayName("마커 생성 전 업로드할 사진 형식이 누락되거나 null이면, 서비스 호출 전에 400 입력 오류를 응답한다")
+  void createUploadUrlBeforeMarkerCreation_missingContentType_returnsBadRequest(
+      boolean includeNullContentType) throws Exception {
+    // given: 사건·마커·수색 차수는 지정했지만 사진 형식을 보내지 않는다.
+    ObjectNode request =
+        objectMapper
+            .createObjectNode()
+            .put("markerId", MARKER_ID.toString())
+            .put("incidentId", INCIDENT_ID.toString())
+            .put("opId", OP1_ID.toString())
+            .put("sizeBytes", 1_048_576L);
+    if (includeNullContentType) {
+      request.putNull("contentType");
+    }
+
+    // when & then: 인증 확인 뒤 사진 형식 입력 오류를 응답하고 서비스를 호출하지 않는다.
+    mockMvc
+        .perform(
+            post("/api/markers/photos/upload-url")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-photo-upload-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.*", hasSize(1)))
+        .andExpect(jsonPath("$.error", is("invalid_photo_content_type")));
+
+    verifyNoInteractions(photoService);
+  }
+
+  @ParameterizedTest(name = "파일 형식: {0}, 체크섬: {1}")
+  @CsvSource({"image/jpeg,", "image/png," + CHECKSUM_SHA256, "image/webp," + CHECKSUM_SHA256})
+  @DisplayName("마커 생성 전 업로드 주소를 요청하면, 앱이 지정한 마커·사건·수색 차수를 서비스로 전달한다")
+  void createUploadUrlBeforeMarkerCreation_appRequest_returnsUploadUrlAndPassesContext(
+      String contentType, String checksumSha256) throws Exception {
+    // given: 아직 저장하지 않은 마커 ID로 사진 업로드 주소를 요청한다.
+    PhotoUploadUrlServiceResponse response =
+        PhotoUploadUrlServiceResponse.builder()
+            .photoId(PHOTO_ID)
+            .uploadUrl("http://127.0.0.1:18080/mock-upload/" + PHOTO_ID)
+            .expiresAt(EXPIRES_AT)
+            .maxSizeBytes(10_485_760L)
+            .version(1L)
+            .build();
+    when(photoService.createUploadUrlBeforeMarkerCreation(
+            any(MarkerCreatePhotoUploadUrlServiceRequest.class)))
+        .thenReturn(response);
+    ObjectNode request =
+        objectMapper
+            .createObjectNode()
+            .put("markerId", MARKER_ID.toString())
+            .put("incidentId", INCIDENT_ID.toString())
+            .put("opId", OP1_ID.toString())
+            .put("contentType", contentType)
+            .put("sizeBytes", 1_048_576L);
+    if (checksumSha256 != null) {
+      request.put("checksumSha256", checksumSha256);
+    }
+
+    // when & then: 생성 전 전용 URL과 기존의 5개 응답 필드를 유지한다.
+    mockMvc
+        .perform(
+            post("/api/markers/photos/upload-url")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-photo-upload-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.*", hasSize(5)))
+        .andExpect(jsonPath("$.photoId", is(PHOTO_ID.toString())))
+        .andExpect(jsonPath("$.uploadUrl", is(response.getUploadUrl())))
+        .andExpect(jsonPath("$.expiresAt", is("2026-04-28T00:15:00Z")))
+        .andExpect(jsonPath("$.maxSizeBytes", is(10_485_760)))
+        .andExpect(jsonPath("$.version", is(1)));
+
+    // then: HTTP 본문과 인증·요청 키를 Service Request로 변환한다.
+    ArgumentCaptor<MarkerCreatePhotoUploadUrlServiceRequest> captured =
+        ArgumentCaptor.forClass(MarkerCreatePhotoUploadUrlServiceRequest.class);
+    verify(photoService).createUploadUrlBeforeMarkerCreation(captured.capture());
+    assertThat(captured.getValue())
+        .usingRecursiveComparison()
+        .isEqualTo(
+            MarkerCreatePhotoUploadUrlServiceRequest.builder()
+                .markerId(MARKER_ID)
+                .incidentId(INCIDENT_ID)
+                .opId(OP1_ID)
+                .contentType(contentType)
+                .sizeBytes(1_048_576L)
+                .checksumSha256(checksumSha256)
+                .context(
+                    new PhotoRequestContext(
+                        new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID),
+                        "idem-marker-create-photo-upload-001"))
+                .build());
+  }
+
+  @ParameterizedTest(name = "누락된 식별자: {0}")
+  @ValueSource(strings = {"markerId", "incidentId", "opId"})
+  @DisplayName("생성 전 업로드의 식별자가 없으면, 사진 형식·크기 검사보다 먼저 쓰기 충돌 오류를 응답한다")
+  void createUploadUrlBeforeMarkerCreation_missingId_rejectsBeforePhotoValidation(
+      String missingField) throws Exception {
+    // given: 필수 식별자 하나와 사진 형식을 빠뜨리고 잘못된 크기를 보낸다.
+    ObjectNode request =
+        objectMapper
+            .createObjectNode()
+            .put("markerId", MARKER_ID.toString())
+            .put("incidentId", INCIDENT_ID.toString())
+            .put("opId", OP1_ID.toString())
+            .put("sizeBytes", 0);
+    request.remove(missingField);
+
+    // when & then: 원래 서비스가 검사하던 식별자 우선 순서와 409 응답을 유지한다.
+    mockMvc
+        .perform(
+            post("/api/markers/photos/upload-url")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-marker-create-photo-upload-001")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("write_conflict")));
     verifyNoInteractions(photoService);
   }
 }

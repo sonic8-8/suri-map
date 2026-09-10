@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.security;
+package com.surimap.global.auth;
 
 public interface SuriMapAuthenticationResolver {
 

@@ -1,5 +1,5 @@
 package com.surimap.marker.service;
 
-import com.surimap.marker.photo.security.SuriMapAuthentication;
+import com.surimap.global.auth.SuriMapAuthentication;
 
 public record MarkerRequestContext(SuriMapAuthentication authentication, String idempotencyKey) {}

@@ -1,4 +1,4 @@
-package com.surimap.marker.photo.domain;
+package com.surimap.domain.photo;
 
 import java.util.Set;
 

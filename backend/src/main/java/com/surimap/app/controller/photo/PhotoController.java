@@ -1,6 +1,9 @@
 package com.surimap.app.controller.photo;
 
+import com.surimap.app.controller.photo.request.MarkerCreatePhotoUploadUrlRequest;
+import com.surimap.app.controller.photo.request.PhotoAttachRequest;
 import com.surimap.app.controller.photo.request.PhotoUploadUrlRequest;
+import com.surimap.app.controller.photo.response.PhotoAttachResponse;
 import com.surimap.app.controller.photo.response.PhotoUploadUrlResponse;
 import com.surimap.app.service.photo.PhotoRequestContext;
 import com.surimap.app.service.photo.PhotoService;
@@ -9,10 +12,8 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
-import com.surimap.marker.photo.controller.PhotoRequestContextResolver;
-import com.surimap.marker.photo.dto.PhotoAttachRequest;
-import com.surimap.marker.photo.dto.PhotoAttachResponse;
-import com.surimap.marker.photo.exception.PhotoApiException;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -26,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/markers/{markerId}/photos")
+@RequestMapping("/api/markers")
 public class PhotoController {
 
   private final PhotoService photoService;
@@ -37,7 +38,7 @@ public class PhotoController {
     this.contextResolver = contextResolver;
   }
 
-  @PostMapping("/upload-url")
+  @PostMapping("/{markerId}/photos/upload-url")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
@@ -51,19 +52,32 @@ public class PhotoController {
       BindingResult validation) {
     PhotoRequestContext context =
         contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
-    if (validation.hasFieldErrors("contentType")) {
-      throw new PhotoApiException("write_conflict", HttpStatus.CONFLICT);
-    }
-    // ponytail: 형식 누락 오류는 기존 Service 순서를 유지한다. 누락 처리 개선 후 필수 검증으로 교체한다.
-    if (request.getContentType() != null && validation.hasFieldErrors("sizeBytes")) {
-      throw new PhotoApiException("photo_limit_exceeded", HttpStatus.PAYLOAD_TOO_LARGE);
-    }
+    validatePhotoRequest(validation);
     PhotoUploadUrlServiceResponse response =
         photoService.createUploadUrl(request.toServiceRequest(markerId, context));
     return ResponseEntity.status(HttpStatus.CREATED).body(PhotoUploadUrlResponse.from(response));
   }
 
-  @PostMapping("/{photoId}/attach")
+  @PostMapping("/photos/upload-url")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
+  public ResponseEntity<PhotoUploadUrlResponse> createUploadUrlBeforeMarkerCreation(
+      @RequestHeader(value = "Authorization", required = false) String authorization,
+      @RequestHeader(value = "X-Client-Channel", required = false) String channel,
+      @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @Valid @RequestBody MarkerCreatePhotoUploadUrlRequest request,
+      BindingResult validation) {
+    PhotoRequestContext context =
+        contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
+    validatePhotoRequest(validation);
+    PhotoUploadUrlServiceResponse response =
+        photoService.createUploadUrlBeforeMarkerCreation(request.toServiceRequest(context));
+    return ResponseEntity.status(HttpStatus.CREATED).body(PhotoUploadUrlResponse.from(response));
+  }
+
+  @PostMapping("/{markerId}/photos/{photoId}/attach")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
@@ -74,9 +88,27 @@ public class PhotoController {
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-      @RequestBody PhotoAttachRequest request) {
+      @Valid @RequestBody PhotoAttachRequest request,
+      BindingResult validation) {
     PhotoRequestContext context =
         contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
-    return ResponseEntity.ok(photoService.attach(markerId, photoId, request, context));
+    validatePhotoRequest(validation);
+    return ResponseEntity.ok(
+        PhotoAttachResponse.from(
+            photoService.attach(request.toServiceRequest(markerId, photoId, context))));
+  }
+
+  private void validatePhotoRequest(BindingResult validation) {
+    if (validation.hasFieldErrors("markerId")
+        || validation.hasFieldErrors("incidentId")
+        || validation.hasFieldErrors("opId")) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+    if (validation.hasFieldErrors("contentType")) {
+      throw new BusinessException(ErrorCode.INVALID_PHOTO_CONTENT_TYPE);
+    }
+    if (validation.hasFieldErrors("sizeBytes")) {
+      throw new BusinessException(ErrorCode.PHOTO_LIMIT_EXCEEDED);
+    }
   }
 }
