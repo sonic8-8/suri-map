@@ -12,8 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -22,34 +22,18 @@ public class NotificationPayloadFactory {
   private final ObjectMapper objectMapper;
   private final PolicePhoneMapper policePhoneMapper;
 
-  public NotificationPayloadFactory(ObjectMapper objectMapper) {
-    this(objectMapper, (PolicePhoneMapper) null);
-  }
-
   @Autowired
   public NotificationPayloadFactory(
       ObjectMapper objectMapper, ObjectProvider<PolicePhoneMapper> policePhoneMapperProvider) {
-    this(objectMapper, policePhoneMapperProvider == null ? null : policePhoneMapperProvider.getIfAvailable());
+    this(
+        objectMapper,
+        policePhoneMapperProvider == null ? null : policePhoneMapperProvider.getIfAvailable());
   }
 
-  private NotificationPayloadFactory(ObjectMapper objectMapper, PolicePhoneMapper policePhoneMapper) {
+  private NotificationPayloadFactory(
+      ObjectMapper objectMapper, PolicePhoneMapper policePhoneMapper) {
     this.objectMapper = Objects.requireNonNull(objectMapper);
     this.policePhoneMapper = policePhoneMapper;
-  }
-
-  public MarkerNotificationPublishRequestPayload supportRequestPayload(
-      UUID notificationId,
-      MarkerNotificationContext context,
-      NotificationRecipients recipients,
-      MarkerNotificationStatus status,
-      long notificationVersion) {
-    return markerNotificationPayload(
-        NotificationType.SUPPORT_REQUEST_CREATED,
-        notificationId,
-        context,
-        recipients,
-        status,
-        notificationVersion);
   }
 
   public MarkerNotificationPublishRequestPayload markerNotificationPayload(

@@ -28,36 +28,4 @@ public record MarkerNotificationPublishRequestPayload(
     recipientPolicePhoneIds =
         recipientPolicePhoneIds == null ? List.of() : List.copyOf(recipientPolicePhoneIds);
   }
-
-  public MarkerNotificationPublishRequestPayload(
-      UUID id,
-      UUID markerId,
-      UUID incidentId,
-      UUID opId,
-      UUID policePhoneId,
-      String status,
-      long version,
-      String type,
-      String recipientPolicy,
-      List<String> recipientAccountIds,
-      List<String> recipientPolicePhoneIds,
-      String markerType,
-      String locationLabel) {
-    this(
-        id,
-        markerId,
-        incidentId,
-        opId,
-        policePhoneId,
-        status,
-        version,
-        type,
-        recipientPolicy,
-        recipientAccountIds,
-        recipientPolicePhoneIds,
-        markerType,
-        locationLabel,
-        null,
-        null);
-  }
 }
