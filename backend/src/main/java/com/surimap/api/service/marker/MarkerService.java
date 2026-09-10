@@ -9,6 +9,7 @@ import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.marker.adapter.RuntimeMarkerWriteGuardAdapter;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
@@ -16,7 +17,6 @@ import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerEventPublisher;
-import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MarkerService {
 
   private final MarkerMapper markerMapper;
-  private final MarkerWriteGuardPort markerWriteGuardPort;
+  private final RuntimeMarkerWriteGuardAdapter markerWriteGuard;
   private final MarkerEventPublisher markerEventPublisher;
   private final Clock clock;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -44,13 +44,13 @@ public class MarkerService {
   public MarkerService(
       MarkerQuery markerQuery,
       MarkerMapper markerMapper,
-      MarkerWriteGuardPort markerWriteGuardPort,
+      RuntimeMarkerWriteGuardAdapter markerWriteGuard,
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.markerQuery = markerQuery;
     this.markerMapper = markerMapper;
-    this.markerWriteGuardPort = markerWriteGuardPort;
+    this.markerWriteGuard = markerWriteGuard;
     this.markerEventPublisher = markerEventPublisher;
     this.clock = clock;
     this.idempotentResponseCache = idempotentResponseCache;
@@ -81,7 +81,7 @@ public class MarkerService {
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuardPort.requireUpdateAccess(markerId, request.getContext());
+    Marker current = markerWriteGuard.requireUpdateAccess(markerId, request.getContext());
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
@@ -125,7 +125,7 @@ public class MarkerService {
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = markerWriteGuardPort.requireDeleteAccess(markerId, request.getContext());
+    Marker current = markerWriteGuard.requireDeleteAccess(markerId, request.getContext());
     current.delete(request.getVersion());
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);

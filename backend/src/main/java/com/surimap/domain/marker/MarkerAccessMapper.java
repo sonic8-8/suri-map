@@ -1,4 +1,4 @@
-package com.surimap.marker.adapter;
+package com.surimap.domain.marker;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
-public interface MarkerRuntimeGuardMapper {
+public interface MarkerAccessMapper {
 
   Optional<String> findIncidentStatus(@Param("incidentId") UUID incidentId);
 
