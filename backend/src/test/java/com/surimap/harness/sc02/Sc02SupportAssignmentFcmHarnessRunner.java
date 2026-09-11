@@ -1,9 +1,9 @@
 package com.surimap.harness.sc02;
 
+import com.surimap.domain.marker.MarkerNotification;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher.CapturedDispatch;
 import com.surimap.marker.notification.fixture.NotificationFixtures;
-import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -323,7 +323,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
     private int rows;
     private boolean insertAttempted;
 
-    public int insertIfAbsent(MarkerNotificationRecord record) {
+    public int insertIfAbsent(MarkerNotification notification) {
       insertAttempted = true;
       rows++;
       return 1;

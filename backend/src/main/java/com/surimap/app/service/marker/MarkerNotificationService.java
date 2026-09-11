@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerNotification;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.global.event.MarkerNotificationPayload;
@@ -15,7 +16,6 @@ import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.marker.notification.repository.MarkerNotificationMapper;
-import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
@@ -97,19 +97,20 @@ public class MarkerNotificationService {
             recipients,
             MarkerNotificationStatus.SNAPSHOT_CREATED,
             INITIAL_NOTIFICATION_VERSION);
-    MarkerNotificationRecord record =
-        new MarkerNotificationRecord(
-            notificationId,
-            marker.getId(),
-            notificationType,
-            recipients.policy(),
-            accountDbIds(recipients.accountIds()),
-            policePhoneDbIds(recipients.policePhoneIds()),
-            serializeNotificationPayload(notificationType, payload),
-            MarkerNotificationStatus.SNAPSHOT_CREATED,
-            INITIAL_NOTIFICATION_VERSION,
-            createdAt);
-    int inserted = markerNotificationMapper.insertIfAbsent(record);
+    MarkerNotification notification =
+        MarkerNotification.builder()
+            .id(notificationId)
+            .markerId(marker.getId())
+            .notificationType(notificationType)
+            .recipientRule(recipients.policy())
+            .recipientAccountIds(accountDbIds(recipients.accountIds()))
+            .recipientPolicePhoneIds(policePhoneDbIds(recipients.policePhoneIds()))
+            .notificationPayloadJson(serializeNotificationPayload(notificationType, payload))
+            .status(MarkerNotificationStatus.SNAPSHOT_CREATED)
+            .version(INITIAL_NOTIFICATION_VERSION)
+            .createdAt(createdAt)
+            .build();
+    int inserted = markerNotificationMapper.insertIfAbsent(notification);
     if (inserted == 0) {
       return;
     }
