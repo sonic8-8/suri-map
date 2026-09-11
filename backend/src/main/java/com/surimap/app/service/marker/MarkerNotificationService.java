@@ -14,8 +14,8 @@ import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
+import com.surimap.marker.notification.repository.MarkerNotificationMapper;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
-import com.surimap.marker.notification.repository.MarkerNotificationRepository;
 import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
@@ -40,7 +40,7 @@ public class MarkerNotificationService {
   private static final Logger log = LoggerFactory.getLogger(MarkerNotificationService.class);
   private static final long INITIAL_NOTIFICATION_VERSION = 1L;
 
-  private final MarkerNotificationRepository markerNotificationRepository;
+  private final MarkerNotificationMapper markerNotificationMapper;
   private final IncidentAssignmentView incidentAssignmentView;
   private final ObjectMapper objectMapper;
   private final PolicePhoneMapper policePhoneMapper;
@@ -50,14 +50,14 @@ public class MarkerNotificationService {
   private final Clock clock = Clock.systemUTC();
 
   public MarkerNotificationService(
-      MarkerNotificationRepository markerNotificationRepository,
+      MarkerNotificationMapper markerNotificationMapper,
       IncidentAssignmentView incidentAssignmentView,
       ObjectMapper objectMapper,
       ObjectProvider<PolicePhoneMapper> policePhoneMapperProvider,
       MarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
-    this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
+    this.markerNotificationMapper = Objects.requireNonNull(markerNotificationMapper);
     this.incidentAssignmentView = Objects.requireNonNull(incidentAssignmentView);
     this.objectMapper = Objects.requireNonNull(objectMapper);
     this.policePhoneMapper =
@@ -109,7 +109,7 @@ public class MarkerNotificationService {
             MarkerNotificationStatus.SNAPSHOT_CREATED,
             INITIAL_NOTIFICATION_VERSION,
             createdAt);
-    int inserted = markerNotificationRepository.insertIfAbsent(record);
+    int inserted = markerNotificationMapper.insertIfAbsent(record);
     if (inserted == 0) {
       return;
     }
