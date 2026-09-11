@@ -3,18 +3,19 @@ package com.surimap.app.service.marker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.domain.marker.Marker;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.global.event.MarkerNotificationPayload;
 import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import com.surimap.marker.notification.repository.MarkerNotificationRepository;
-import com.surimap.marker.notification.service.MarkerNotificationContext;
 import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
@@ -66,31 +67,40 @@ public class MarkerNotificationService {
     this.fcmDispatcher = Objects.requireNonNull(fcmDispatcher);
   }
 
-  public void publishIfNeeded(MarkerNotificationContext context) {
-    Objects.requireNonNull(context, "context must not be null");
-    notificationTypeFor(context.markerType())
-        .ifPresent(notificationType -> publishMarkerNotification(context, notificationType));
+  public void publishIfNeeded(Marker marker) {
+    Objects.requireNonNull(marker, "marker must not be null");
+    Objects.requireNonNull(marker.getId(), "markerId must not be null");
+    Objects.requireNonNull(marker.getIncidentId(), "incidentId must not be null");
+    Objects.requireNonNull(marker.getOperationalPeriodId(), "opId must not be null");
+    Objects.requireNonNull(marker.getPolicePhoneId(), "policePhoneId must not be null");
+    Objects.requireNonNull(marker.getMarkerType(), "markerType must not be null");
+    Objects.requireNonNull(marker.getLocation(), "location must not be null");
+    Objects.requireNonNull(marker.getOccurredAt(), "clientTs must not be null");
+    if (marker.getVersion() <= 0) {
+      throw new IllegalArgumentException("markerVersion must be positive");
+    }
+    notificationTypeFor(MarkerType.valueOf(marker.getMarkerType()))
+        .ifPresent(notificationType -> publishMarkerNotification(marker, notificationType));
   }
 
-  private void publishMarkerNotification(
-      MarkerNotificationContext context, NotificationType notificationType) {
+  private void publishMarkerNotification(Marker marker, NotificationType notificationType) {
     NotificationRecipients recipients =
         incidentAssignmentView.notificationTargets(
-            context.incidentId(), notificationType.getRecipientPolicy());
+            marker.getIncidentId(), notificationType.getRecipientPolicy());
     UUID notificationId = UUID.randomUUID();
     Instant createdAt = clock.instant();
     MarkerNotificationPayload payload =
         createNotificationPayload(
             notificationType,
             notificationId,
-            context,
+            marker,
             recipients,
             MarkerNotificationStatus.SNAPSHOT_CREATED,
             INITIAL_NOTIFICATION_VERSION);
     MarkerNotificationRecord record =
         new MarkerNotificationRecord(
             notificationId,
-            context.markerId(),
+            marker.getId(),
             notificationType,
             recipients.policy(),
             accountDbIds(recipients.accountIds()),
@@ -110,31 +120,31 @@ public class MarkerNotificationService {
   private MarkerNotificationPayload createNotificationPayload(
       NotificationType notificationType,
       UUID notificationId,
-      MarkerNotificationContext context,
+      Marker marker,
       NotificationRecipients recipients,
       MarkerNotificationStatus status,
       long notificationVersion) {
     Objects.requireNonNull(notificationType, "notificationType must not be null");
     Objects.requireNonNull(notificationId, "notificationId must not be null");
-    Objects.requireNonNull(context, "context must not be null");
+    Objects.requireNonNull(marker, "marker must not be null");
     Objects.requireNonNull(recipients, "recipients must not be null");
     Objects.requireNonNull(status, "status must not be null");
     return MarkerNotificationPayload.builder()
         .id(notificationId)
-        .markerId(context.markerId())
-        .incidentId(context.incidentId())
-        .opId(context.opId())
-        .policePhoneId(context.policePhoneId())
+        .markerId(marker.getId())
+        .incidentId(marker.getIncidentId())
+        .opId(marker.getOperationalPeriodId())
+        .policePhoneId(marker.getPolicePhoneId())
         .status(status.name())
         .version(notificationVersion)
         .type(notificationType.name())
         .recipientPolicy(recipients.policy().name())
         .recipientAccountIds(recipients.accountIds())
         .recipientPolicePhoneIds(recipients.policePhoneIds())
-        .markerType(context.markerType().name())
-        .locationLabel(formatLocationLabel(context))
-        .policePhoneName(findPolicePhoneName(context.policePhoneId()))
-        .clientTs(context.clientTs())
+        .markerType(marker.getMarkerType())
+        .locationLabel(formatLocationLabel(marker))
+        .policePhoneName(findPolicePhoneName(marker.getPolicePhoneId()))
+        .clientTs(marker.getOccurredAt())
         .build();
   }
 
@@ -151,9 +161,10 @@ public class MarkerNotificationService {
     }
   }
 
-  private String formatLocationLabel(MarkerNotificationContext context) {
-    BigDecimal lon = context.location().coordinates().get(0);
-    BigDecimal lat = context.location().coordinates().get(1);
+  private String formatLocationLabel(Marker marker) {
+    MarkerGeoJsonPoint location = MarkerGeoJsonPoint.from(marker.getLocation());
+    BigDecimal lon = location.coordinates().get(0);
+    BigDecimal lat = location.coordinates().get(1);
     return lon.toPlainString() + "," + lat.toPlainString();
   }
 

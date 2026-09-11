@@ -23,7 +23,6 @@ import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.notification.service.MarkerNotificationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -152,15 +151,7 @@ public class AppMarkerService {
             .version(marker.getVersion())
             .photos(photos)
             .build();
-    publishNotificationIfNeeded(
-        markerId,
-        request.getIncidentId(),
-        opId,
-        context,
-        markerType,
-        supportRequestType,
-        canonicalLocation,
-        request.getClientTs());
+    markerNotificationService.publishIfNeeded(marker);
     return response;
   }
 
@@ -170,28 +161,6 @@ public class AppMarkerService {
         response.getStatus(),
         response.getVersion(),
         response.getVersion());
-  }
-
-  private void publishNotificationIfNeeded(
-      UUID markerId,
-      UUID incidentId,
-      UUID opId,
-      MarkerRequestContext context,
-      MarkerType markerType,
-      MarkerSupportRequestType supportRequestType,
-      MarkerGeoJsonPoint location,
-      Instant clientTs) {
-    markerNotificationService.publishIfNeeded(
-        new MarkerNotificationContext(
-            markerId,
-            incidentId,
-            opId,
-            context.authentication().policePhoneId(),
-            markerType,
-            supportRequestType,
-            location,
-            INITIAL_VERSION,
-            clientTs));
   }
 
   private void requireRequest(MarkerCreateServiceRequest request) {
