@@ -4,7 +4,6 @@ import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
 import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
 import com.surimap.marker.notification.domain.NotificationRecipients;
-import com.surimap.marker.notification.port.NotificationTargetPort;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -12,14 +11,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** S1-1 incident_assignment 기반 계정·알림 대상 read view. */
 @Service
-@Primary
-public class IncidentAssignmentView implements NotificationTargetPort {
+public class IncidentAssignmentView {
 
   private static final String SUPPORT_ASSIGNMENT = "SUPPORT_ASSIGNMENT";
   private static final String SUPPORT_REQUEST = "SUPPORT_REQUEST";
@@ -40,7 +37,6 @@ public class IncidentAssignmentView implements NotificationTargetPort {
     return targets(rows, predicateFor(normalizedPolicy));
   }
 
-  @Override
   @Transactional(readOnly = true)
   public NotificationRecipients notificationTargets(
       UUID incidentId, NotificationRecipientPolicy recipientPolicy) {
