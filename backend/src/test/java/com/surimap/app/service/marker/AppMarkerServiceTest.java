@@ -650,6 +650,36 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("지원 요청을 받을 계정이 없으면, DB에는 빈 수신자 목록을 저장하고 이벤트에서는 생략하며 FCM은 보내지 않는다")
+  void createMarker_withoutNotificationRecipients_savesEmptyListsWithoutSendingFcm()
+      throws Exception {
+    // given: 지원 요청을 작성할 일반 대원만 남기고 지휘 계정·현장 지휘관의 배정을 해제한다.
+    jdbcTemplate.update(
+        "UPDATE incident_assignment SET revoked_at = NOW() WHERE incident_id = ? AND account_id IN (?, ?)",
+        INCIDENT_ID,
+        PRECINCT_COMMANDER_ID,
+        SUPPORT_TEAM_ID);
+    MarkerCreateServiceRequest request = createRequest("SUPPORT_REQUEST", "DRONE");
+
+    // when: 수신자가 없는 상태에서 지원 요청 마커를 생성한다.
+    MarkerCreateServiceResponse response = appMarkerService.create(request);
+
+    // then: 알림 자체는 남기되, 빈 수신자 목록의 저장·전달 규칙을 구분한다.
+    JsonNode snapshot =
+        objectMapper.readTree(
+            jdbcTemplate.queryForObject(
+                "SELECT notification_payload::text FROM marker_notification WHERE marker_id = ?",
+                String.class,
+                response.getId()));
+    assertThat(snapshot.get("recipientAccountIds")).isEqualTo(objectMapper.createArrayNode());
+    assertThat(snapshot.get("recipientPolicePhoneIds")).isEqualTo(objectMapper.createArrayNode());
+    ObjectNode expectedEvent = snapshot.deepCopy();
+    expectedEvent.remove(List.of("recipientAccountIds", "recipientPolicePhoneIds"));
+    assertThat(readEventPayload("SUPPORT_REQUEST_CREATED")).isEqualTo(expectedEvent);
+    assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+  }
+
+  @Test
   @DisplayName("발견 마커를 생성하면, 사건에 배정된 계정·업무폰 대상 알림을 저장하고 커밋 후 FCM으로 전달한다")
   void createMarker_personFound_savesNotificationAndDispatchesAfterCommit() throws Exception {
     // given: 일반 대원·지휘 계정·현장 지휘관이 배정된 사건에서 발견 마커 생성을 요청한다.
@@ -1121,6 +1151,21 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                   .containsExactlyInAnyOrderElementsOf(
                       expectedPhoneIds.stream().map(UUID::toString).toList());
               assertThat(dispatch.payload())
+                  .containsOnlyKeys(
+                      "type",
+                      "id",
+                      "markerId",
+                      "incidentId",
+                      "opId",
+                      "policePhoneId",
+                      "status",
+                      "version",
+                      "recipientPolicy",
+                      "recipientAccountIds",
+                      "recipientPolicePhoneIds",
+                      "markerType",
+                      "locationLabel",
+                      "clientTs")
                   .containsEntry("type", eventType)
                   .containsEntry("id", notification.path("id").asText())
                   .containsEntry("markerId", markerId.toString())

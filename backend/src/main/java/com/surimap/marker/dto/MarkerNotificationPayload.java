@@ -1,7 +1,10 @@
 package com.surimap.marker.dto;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -61,5 +64,27 @@ public class MarkerNotificationPayload implements MarkerPublishPayload {
     this.locationLabel = locationLabel;
     this.policePhoneName = policePhoneName;
     this.clientTs = clientTs;
+  }
+
+  public Map<String, Object> toMap() {
+    Map<String, Object> values = new LinkedHashMap<>();
+    values.put("type", type);
+    values.put("id", Objects.toString(id, null));
+    values.put("markerId", Objects.toString(markerId, null));
+    values.put("incidentId", Objects.toString(incidentId, null));
+    values.put("opId", Objects.toString(opId, null));
+    values.put("policePhoneId", Objects.toString(policePhoneId, null));
+    values.put("status", status);
+    values.put("version", version);
+    values.put("recipientPolicy", recipientPolicy);
+    values.put("recipientAccountIds", recipientAccountIds);
+    values.put("recipientPolicePhoneIds", recipientPolicePhoneIds);
+    values.put("markerType", markerType);
+    values.put("locationLabel", locationLabel);
+    values.put("policePhoneName", policePhoneName);
+    if (clientTs != null) {
+      values.put("clientTs", clientTs.toString());
+    }
+    return values;
   }
 }

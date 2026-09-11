@@ -15,7 +15,6 @@ import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -135,25 +134,14 @@ public class MarkerNotificationService {
 
   private static Map<String, Object> createFcmPayload(
       String eventType, MarkerNotificationPayload payload) {
-    Map<String, Object> values = new LinkedHashMap<>();
+    Map<String, Object> values = payload.toMap();
+    // FCM은 다섯 식별자가 모두 있는 알림만 전송한다.
+    for (String field : List.of("id", "markerId", "incidentId", "opId", "policePhoneId")) {
+      Objects.requireNonNull(values.get(field), field + " must not be null");
+    }
     values.put("type", eventType);
-    values.put("id", payload.getId().toString());
-    values.put("markerId", payload.getMarkerId().toString());
-    values.put("incidentId", payload.getIncidentId().toString());
-    values.put("opId", payload.getOpId().toString());
-    values.put("policePhoneId", payload.getPolicePhoneId().toString());
-    values.put("status", payload.getStatus());
-    values.put("version", payload.getVersion());
-    values.put("recipientPolicy", payload.getRecipientPolicy());
-    values.put("recipientAccountIds", payload.getRecipientAccountIds());
-    values.put("recipientPolicePhoneIds", payload.getRecipientPolicePhoneIds());
-    values.put("markerType", payload.getMarkerType());
-    if (payload.getClientTs() != null) {
-      values.put("clientTs", payload.getClientTs().toString());
-    }
-    if (payload.getLocationLabel() != null) {
-      values.put("locationLabel", payload.getLocationLabel());
-    }
+    values.remove("policePhoneName");
+    values.remove("locationLabel", null);
     return values;
   }
 

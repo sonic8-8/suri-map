@@ -10,6 +10,7 @@ import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -65,6 +66,28 @@ public class MarkerEventPublisher {
   }
 
   private static Map<String, Object> payloadFor(MarkerPublishPayload payload) {
+    if (payload instanceof MarkerNotificationPayload notificationPayload) {
+      Map<String, Object> values = notificationPayload.toMap();
+      // 알림 이벤트에서는 선택 필드의 null과 빈 수신자 목록을 생략한다.
+      for (String field :
+          List.of(
+              "type",
+              "markerId",
+              "recipientPolicy",
+              "markerType",
+              "locationLabel",
+              "policePhoneName")) {
+        values.remove(field, null);
+      }
+      if (notificationPayload.getRecipientAccountIds().isEmpty()) {
+        values.remove("recipientAccountIds");
+      }
+      if (notificationPayload.getRecipientPolicePhoneIds().isEmpty()) {
+        values.remove("recipientPolicePhoneIds");
+      }
+      return values;
+    }
+
     Map<String, Object> values = new LinkedHashMap<>();
     values.put("id", payload.getId().toString());
     values.put("incidentId", payload.getIncidentId().toString());
@@ -79,18 +102,6 @@ public class MarkerEventPublisher {
     if (payload instanceof MarkerEventPayload markerPayload) {
       putIfPresent(values, "location", locationPayload(markerPayload.getLocation()));
       putIfPresent(values, "serverTs", markerPayload.getServerTs());
-    } else if (payload instanceof MarkerNotificationPayload notificationPayload) {
-      putIfPresent(values, "markerId", notificationPayload.getMarkerId());
-      putIfPresent(values, "recipientPolicy", notificationPayload.getRecipientPolicy());
-      if (!notificationPayload.getRecipientAccountIds().isEmpty()) {
-        values.put("recipientAccountIds", notificationPayload.getRecipientAccountIds());
-      }
-      if (!notificationPayload.getRecipientPolicePhoneIds().isEmpty()) {
-        values.put("recipientPolicePhoneIds", notificationPayload.getRecipientPolicePhoneIds());
-      }
-      putIfPresent(values, "markerType", notificationPayload.getMarkerType());
-      putIfPresent(values, "locationLabel", notificationPayload.getLocationLabel());
-      putIfPresent(values, "policePhoneName", notificationPayload.getPolicePhoneName());
     }
     return values;
   }
