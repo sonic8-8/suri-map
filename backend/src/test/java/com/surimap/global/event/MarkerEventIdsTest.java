@@ -1,4 +1,4 @@
-package com.surimap.marker.event;
+package com.surimap.global.event;
 
 import static com.surimap.marker.notification.fixture.NotificationFixtures.PERSON_FOUND_NOTIFICATION_ID;
 import static org.assertj.core.api.Assertions.assertThat;

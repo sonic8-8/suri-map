@@ -2,7 +2,7 @@ package com.surimap.marker.notification.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.marker.dto.MarkerNotificationPayload;
+import com.surimap.global.event.MarkerNotificationPayload;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;

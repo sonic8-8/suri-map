@@ -1,4 +1,4 @@
-package com.surimap.marker.event;
+package com.surimap.global.event;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -12,7 +12,6 @@ public final class MarkerEventIds {
     Objects.requireNonNull(eventType, "eventType must not be null");
     Objects.requireNonNull(sourceId, "sourceId must not be null");
     return UUID.nameUUIDFromBytes(
-        ("event:" + eventType + ":" + sourceId + ":v" + version)
-            .getBytes(StandardCharsets.UTF_8));
+        ("event:" + eventType + ":" + sourceId + ":v" + version).getBytes(StandardCharsets.UTF_8));
   }
 }
