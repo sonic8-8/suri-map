@@ -8,7 +8,6 @@ import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.policephone.PolicePhoneMapper;
 import java.math.BigDecimal;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -70,24 +69,8 @@ public class NotificationPayloadFactory {
   public String toJson(NotificationType notificationType, MarkerNotificationPayload payload) {
     Objects.requireNonNull(notificationType, "notificationType must not be null");
     Objects.requireNonNull(payload, "payload must not be null");
-    Map<String, Object> fields = new LinkedHashMap<>();
+    Map<String, Object> fields = payload.toMap();
     fields.put("type", notificationType.name());
-    fields.put("id", payload.getId());
-    fields.put("markerId", payload.getMarkerId());
-    fields.put("incidentId", payload.getIncidentId());
-    fields.put("opId", payload.getOpId());
-    fields.put("policePhoneId", payload.getPolicePhoneId());
-    fields.put("status", payload.getStatus());
-    fields.put("version", payload.getVersion());
-    fields.put("recipientPolicy", payload.getRecipientPolicy());
-    fields.put("recipientAccountIds", payload.getRecipientAccountIds());
-    fields.put("recipientPolicePhoneIds", payload.getRecipientPolicePhoneIds());
-    fields.put("markerType", payload.getMarkerType());
-    fields.put("locationLabel", payload.getLocationLabel());
-    fields.put("policePhoneName", payload.getPolicePhoneName());
-    if (payload.getClientTs() != null) {
-      fields.put("clientTs", payload.getClientTs().toString());
-    }
     try {
       return objectMapper.writeValueAsString(fields);
     } catch (JsonProcessingException exception) {
