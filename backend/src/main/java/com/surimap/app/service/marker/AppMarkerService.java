@@ -24,7 +24,6 @@ import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.service.MarkerNotificationContext;
-import com.surimap.marker.notification.service.MarkerNotificationService;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;

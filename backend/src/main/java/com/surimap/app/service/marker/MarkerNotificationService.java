@@ -1,5 +1,7 @@
-package com.surimap.marker.notification.service;
+package com.surimap.app.service.marker;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.global.event.MarkerEventPublisher;
@@ -12,8 +14,11 @@ import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
 import com.surimap.marker.notification.repository.MarkerNotificationRepository;
+import com.surimap.marker.notification.service.MarkerNotificationContext;
+import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -35,7 +41,8 @@ public class MarkerNotificationService {
 
   private final MarkerNotificationRepository markerNotificationRepository;
   private final IncidentAssignmentView incidentAssignmentView;
-  private final NotificationPayloadFactory payloadFactory;
+  private final ObjectMapper objectMapper;
+  private final PolicePhoneMapper policePhoneMapper;
   private final MarkerEventPublisher markerEventPublisher;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
@@ -44,13 +51,16 @@ public class MarkerNotificationService {
   public MarkerNotificationService(
       MarkerNotificationRepository markerNotificationRepository,
       IncidentAssignmentView incidentAssignmentView,
-      NotificationPayloadFactory payloadFactory,
+      ObjectMapper objectMapper,
+      ObjectProvider<PolicePhoneMapper> policePhoneMapperProvider,
       MarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
     this.incidentAssignmentView = Objects.requireNonNull(incidentAssignmentView);
-    this.payloadFactory = Objects.requireNonNull(payloadFactory);
+    this.objectMapper = Objects.requireNonNull(objectMapper);
+    this.policePhoneMapper =
+        policePhoneMapperProvider == null ? null : policePhoneMapperProvider.getIfAvailable();
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.fcmTokenQuery = Objects.requireNonNull(fcmTokenQuery);
     this.fcmDispatcher = Objects.requireNonNull(fcmDispatcher);
@@ -70,7 +80,7 @@ public class MarkerNotificationService {
     UUID notificationId = UUID.randomUUID();
     Instant createdAt = clock.instant();
     MarkerNotificationPayload payload =
-        payloadFactory.markerNotificationPayload(
+        createNotificationPayload(
             notificationType,
             notificationId,
             context,
@@ -85,7 +95,7 @@ public class MarkerNotificationService {
             recipients.policy(),
             accountDbIds(recipients.accountIds()),
             policePhoneDbIds(recipients.policePhoneIds()),
-            payloadFactory.toJson(notificationType, payload),
+            serializeNotificationPayload(notificationType, payload),
             MarkerNotificationStatus.SNAPSHOT_CREATED,
             INITIAL_NOTIFICATION_VERSION,
             createdAt);
@@ -95,6 +105,63 @@ public class MarkerNotificationService {
     }
     markerEventPublisher.publish(notificationType.name(), payload);
     sendFcmAfterCommit(notificationType.name(), payload);
+  }
+
+  private MarkerNotificationPayload createNotificationPayload(
+      NotificationType notificationType,
+      UUID notificationId,
+      MarkerNotificationContext context,
+      NotificationRecipients recipients,
+      MarkerNotificationStatus status,
+      long notificationVersion) {
+    Objects.requireNonNull(notificationType, "notificationType must not be null");
+    Objects.requireNonNull(notificationId, "notificationId must not be null");
+    Objects.requireNonNull(context, "context must not be null");
+    Objects.requireNonNull(recipients, "recipients must not be null");
+    Objects.requireNonNull(status, "status must not be null");
+    return MarkerNotificationPayload.builder()
+        .id(notificationId)
+        .markerId(context.markerId())
+        .incidentId(context.incidentId())
+        .opId(context.opId())
+        .policePhoneId(context.policePhoneId())
+        .status(status.name())
+        .version(notificationVersion)
+        .type(notificationType.name())
+        .recipientPolicy(recipients.policy().name())
+        .recipientAccountIds(recipients.accountIds())
+        .recipientPolicePhoneIds(recipients.policePhoneIds())
+        .markerType(context.markerType().name())
+        .locationLabel(formatLocationLabel(context))
+        .policePhoneName(findPolicePhoneName(context.policePhoneId()))
+        .clientTs(context.clientTs())
+        .build();
+  }
+
+  private String serializeNotificationPayload(
+      NotificationType notificationType, MarkerNotificationPayload payload) {
+    Objects.requireNonNull(notificationType, "notificationType must not be null");
+    Objects.requireNonNull(payload, "payload must not be null");
+    Map<String, Object> fields = payload.toMap();
+    fields.put("type", notificationType.name());
+    try {
+      return objectMapper.writeValueAsString(fields);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("failed to serialize marker notification payload", exception);
+    }
+  }
+
+  private String formatLocationLabel(MarkerNotificationContext context) {
+    BigDecimal lon = context.location().coordinates().get(0);
+    BigDecimal lat = context.location().coordinates().get(1);
+    return lon.toPlainString() + "," + lat.toPlainString();
+  }
+
+  private String findPolicePhoneName(UUID policePhoneId) {
+    if (policePhoneMapper == null || policePhoneId == null) {
+      return null;
+    }
+    return policePhoneMapper.findDisplayNameById(policePhoneId).orElse(null);
   }
 
   private void sendFcmAfterCommit(String eventType, MarkerNotificationPayload payload) {

@@ -1122,6 +1122,14 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(snapshot.path("opId").asText()).isEqualTo(OP1_ID.toString());
     assertThat(snapshot.path("policePhoneId").asText())
         .isEqualTo(ASSIGNED_POLICE_PHONE_ID.toString());
+    // 알림을 기록한 업무폰의 표시 이름도 실제 DB 조회 결과를 사용한다.
+    String expectedPolicePhoneName =
+        jdbcTemplate.queryForObject(
+            "SELECT display_name FROM police_phone WHERE id = ?",
+            String.class,
+            ASSIGNED_POLICE_PHONE_ID);
+    assertThat(expectedPolicePhoneName).isNotBlank();
+    assertThat(snapshot.path("policePhoneName").asText()).isEqualTo(expectedPolicePhoneName);
     assertThat(snapshot.path("status").asText()).isEqualTo("SNAPSHOT_CREATED");
     assertThat(snapshot.path("version").asLong()).isEqualTo(1L);
     assertThat(snapshot.path("type").asText()).isEqualTo(eventType);
