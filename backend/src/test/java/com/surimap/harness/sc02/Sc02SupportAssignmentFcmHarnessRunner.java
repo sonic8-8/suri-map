@@ -4,7 +4,6 @@ import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher.CapturedDispatch;
 import com.surimap.marker.notification.fixture.NotificationFixtures;
 import com.surimap.marker.notification.repository.MarkerNotificationRecord;
-import com.surimap.marker.notification.repository.MarkerNotificationRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -191,7 +190,8 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
 
     List<IncidentAssignmentRow> newlyAssignedSupportRows() {
       return rows.stream()
-          .filter(row -> row.newlyAssigned() && row.active() && SUPPORT_TEAM_ID.equals(row.teamId()))
+          .filter(
+              row -> row.newlyAssigned() && row.active() && SUPPORT_TEAM_ID.equals(row.teamId()))
           .toList();
     }
   }
@@ -302,24 +302,27 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
     }
 
     void dispatch(
-        AssignmentChangedEvent event, AssignmentRecipients recipients, Map<String, Object> payload) {
+        AssignmentChangedEvent event,
+        AssignmentRecipients recipients,
+        Map<String, Object> payload) {
       int markerRowsBefore = markerNotifications.count();
       var result = dispatcher.send(recipients.fcmRecipients(), payload, event.eventId());
       if (!result.isFullySuccessful() || dispatcher.hasNoDispatchFor(event.eventId())) {
         throw fcmMockMissing();
       }
-      if (markerNotifications.count() != markerRowsBefore || markerNotifications.insertAttempted()) {
+      if (markerNotifications.count() != markerRowsBefore
+          || markerNotifications.insertAttempted()) {
         throw new IllegalStateException("assignment FCM must not create marker_notification rows");
       }
     }
   }
 
-  private static final class MarkerNotificationTableSpy implements MarkerNotificationRepository {
+  // ponytail: 실제 DB 미저장은 검증하지 못한다. 운영 배정·FCM 경로의 DB 검증으로 교체할 때 제거한다.
+  private static final class MarkerNotificationTableSpy {
 
     private int rows;
     private boolean insertAttempted;
 
-    @Override
     public int insertIfAbsent(MarkerNotificationRecord record) {
       insertAttempted = true;
       rows++;

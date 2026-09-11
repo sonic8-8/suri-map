@@ -5,9 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
-public interface MarkerNotificationMapper
-    extends MarkerNotificationRepository, MarkerNotificationToastQuery {
+public interface MarkerNotificationMapper extends MarkerNotificationToastQuery {
 
-  @Override
   int insertIfAbsent(@Param("record") MarkerNotificationRecord record);
 }
