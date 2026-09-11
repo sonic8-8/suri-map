@@ -1,12 +1,8 @@
-package com.surimap.marker.adapter;
+package com.surimap.global.event;
 
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
-import com.surimap.marker.dto.MarkerEventPayload;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.dto.MarkerNotificationPayload;
-import com.surimap.marker.dto.MarkerPublishPayload;
-import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
 import java.time.Instant;
 import java.util.LinkedHashMap;

@@ -1,4 +1,4 @@
-package com.surimap.marker.dto;
+package com.surimap.global.event;
 
 import java.time.Instant;
 import java.util.UUID;

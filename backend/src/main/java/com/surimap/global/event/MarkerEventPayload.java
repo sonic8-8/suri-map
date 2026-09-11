@@ -1,5 +1,6 @@
-package com.surimap.marker.dto;
+package com.surimap.global.event;
 
+import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Builder;
