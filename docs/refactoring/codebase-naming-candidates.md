@@ -18,11 +18,12 @@
 
 `SupportRequestNotificationDispatchService`·`BoardToastEvidence`와 전용 테스트 2개는 서버에서 사용하지 않아 제거했다. 실제 알림 저장·전달 검증은 기존 `AppMarkerServiceTest`에 남아 있다. 미사용 코드의 Map 검사와 테스트용 표시 결과를 실제 서버·상황판 동작으로 옮기지는 않았다.
 
-`MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/marker/notification/service/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/marker/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
+`MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/marker/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
+
+`MarkerNotificationToastQuery`를 제거하고 [MarkerNotificationMapper](../../backend/src/main/java/com/surimap/domain/marker/MarkerNotificationMapper.java)의 `findNotificationRowsByIncidentId`로 조회 선언을 모았다. 조회 결과는 Mapper 내부의 `NotificationRow` class로 옮겼다. 기존 알림 조회 테스트는 [MarkerNotificationMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerNotificationMapperTest.java)로 이름·위치를 정리했다. 상황판 슬롯 이름은 `marker_notification`을 사용한다.
 
 | 현재 이름 | 변경 후보 |
 |---|---|
-| [MarkerNotificationToastQueryIntegrationTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationToastQueryIntegrationTest.java) | `MarkerNotificationMapperTest` |
 | [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |
 
 ## Backend — 나머지 Red 테스트

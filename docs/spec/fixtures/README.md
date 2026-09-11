@@ -56,7 +56,7 @@ JSON fixture에서 UUID도 문자열로 표현되지만, 의미상 DB PK/FK 또�
 | `evt-s1-assignment-support-assigned-001` | SC-02 지원 배정 notification event | SC-02 | L2, L5, L6 | `S1-1.json`, `S5.json` | `common-fixtures.json` | notification fixture 단계에서 로드 | 공통 데이터 | S1-1 assignment event와 S5 recipient fixture를 같이 검증 |
 | `evt-s3-path-appended-001` | path append event 기준값 | SC-05, SC-09 | L2, L4, L6 | `S3-1.json`, `S3-2.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | board path row와 cross-check |
 | `evt-s5-marker-updated-photo-001` | photo attach 완료 event | SC-06, SC-09 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | marker/photo version 기대값과 연결 |
-| `evt-s5-support-request-001` | 지원 요청 notification event | SC-08 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | toast row/Fcm recipient fixture와 연결 |
+| `evt-s5-support-request-001` | 지원 요청 notification event | SC-08 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | marker_notification row/Fcm recipient fixture와 연결 |
 | `evt-s5-person-found-001` | 인원 발견 notification event | SC-08 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | all assigned recipient fixture와 연결 |
 | `bs-inc-precinct-first-001` | board API 응답 기준 row 집합 | SC-02, SC-03, SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12 | L2, L3, L5, L6 | `S3-2.json`, `S2.json`, `S1-2.json`, `S8.json` | `common-fixtures.json` | board probe 단계에서 로드 | 공통 데이터 | overall_search_area, area, police_phone_freshness, handover, summary rows 포함 |
 | `rr-precinct-001` | SC-10 radio report fixture | SC-10 | L1, L3, L6 | `harness-scenarios.md §6` | `common-fixtures.json` | command flow 단계에서 로드 | 공통 데이터 | `decisionId`와 함께 검증 |

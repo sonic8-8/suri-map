@@ -1359,7 +1359,7 @@
           "fcm:dev-support-phone-01"
         ],
         "expectedToast": {
-          "slot": "toast",
+          "slot": "marker_notification",
           "type": "SUPPORT_REQUEST_CREATED",
           "id": "66666666-6666-6666-6666-666666660801",
           "status": "SNAPSHOT_CREATED",
@@ -1424,7 +1424,7 @@
           "fcm:dev-support-phone-01"
         ],
         "expectedToast": {
-          "slot": "toast",
+          "slot": "marker_notification",
           "type": "PERSON_FOUND",
           "id": "66666666-6666-6666-6666-666666660802",
           "status": "SNAPSHOT_CREATED",
@@ -1552,7 +1552,7 @@
             "status": "SKIPPED"
           }
         ],
-        "uiExpectation": "No user-facing notification failure is shown; board/toast convergence is verified through S3-2 mock refetch output only."
+        "uiExpectation": "No user-facing notification failure is shown; board/marker_notification convergence is verified through S3-2 mock refetch output only."
       },
       "sc09OutboxReplayConvergence": {
         "incidentId": "10000000-0000-4000-8000-000000000001",
@@ -1725,7 +1725,7 @@
           "sourceResponseAlias": "mk-precinct-clue-001"
         },
         {
-          "slot": "toast",
+          "slot": "marker_notification",
           "sourceSpec": "S5",
           "sourceResponseId": "support-request-precinct-001",
           "boardRowId": "board-toast-support-request-precinct-001",

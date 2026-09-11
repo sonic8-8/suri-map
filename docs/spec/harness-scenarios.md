@@ -390,7 +390,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **e2e_red_test**:
   - "지원 요청 마커 생성 시 실종팀 지휘관 역할 개인 계정과 현장 지휘관 역할 개인 계정에 알림이 도달한다"
   - "실종자 발견 마커 생성 시 사건 배정 단말 전체에 강조 알림이 도달한다"
-  - "지원 요청·실종자 발견 마커는 marker 엔티티와 toast/FCM payload가 같은 id/status/version을 참조하되, marker 표시와 알림 표시는 서로 다른 UI 책임으로 분리해 검증한다"
+  - "지원 요청·실종자 발견 마커는 marker 엔티티와 marker_notification/FCM payload가 같은 id/status/version을 참조하되, marker 표시와 알림 표시는 서로 다른 UI 책임으로 분리해 검증한다"
   - "지원 요청 또는 실종자 발견 마커 생성 중 앱은 로딩·CTA 비활성 상태를 표시한다"
   - "지원 요청 또는 실종자 발견 마커 저장 성공 후 생성한 앱은 전파 완료 피드백을 표시하고 pending 상태가 남지 않는다"
   - "지원 요청 또는 실종자 발견 마커 생성 실패 시 앱은 실패 사유와 재시도 CTA를 표시한다"
@@ -402,8 +402,8 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "동일 이벤트를 재수신해도 같은 화면에 중복 토스트·배너가 쌓이지 않는다"
   - "웹에서 지원 요청 또는 실종자 발견 마커 생성 API를 호출하면 `403 channel_not_allowed`"
   - "앱 백그라운드에서도 FCM data message가 도달하고 Android가 OS notification을 로컬 생성한다"
-  - "지원 요청·실종자 발견 마커 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, FCM payload, board response marker/toast row가 같은 알림 상태를 말하고 board response version이 수렴해야 한다"
-- **board_merge**: `marker` slot + `toast` slot
+  - "지원 요청·실종자 발견 마커 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, FCM payload, board response marker/marker_notification row가 같은 알림 상태를 말하고 board response version이 수렴해야 한다"
+- **board_merge**: `marker` slot + `marker_notification` slot
 - **notes**: 드론·경찰견은 실제 출동 요청·승인·장비 연동이 아니라 요청 위치 기록 마커에 한정한다.
 
 ---
@@ -436,7 +436,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "복구 후에도 남은 실패·재시도 항목과 stale package는 복구 완료 상태와 섞이지 않고 별도 경고/재적재 필요 상태로 남는다"
   - "복구 후 상황판 위치 점 최신성 표시가 normal로 돌아온다"
   - "mock event stream fixture가 SSE 재연결 `Last-Event-ID` replay, out-of-order stream, duplicate delivery를 주입한다"
-  - "동일 `eventId` 재수신 시 marker/path/toast/OP row와 화면 요소가 중복 생성되지 않는다"
+  - "동일 `eventId` 재수신 시 marker/path/marker_notification/OP row와 화면 요소가 중복 생성되지 않는다"
   - "`sequence` 또는 entity `version`이 더 낮은 stale event는 최신 board response와 화면 상태를 덮지 못하고, 이벤트 순서 역전이 발생해도 최신 상태가 과거 상태로 회귀하지 않는다"
   - "웹에서 `POST /sync/clock`, `POST /police-phones/{policePhoneId}/heartbeat`, Outbox flush/requeue write를 직접 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /police-phones/{policePhoneId}/heartbeat` 또는 Outbox의 package installation·path·marker/photo write를 전송하면 `403 police_phone_not_registered`를 응답하고 큐 항목은 완료 처리되지 않는다"

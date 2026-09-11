@@ -103,6 +103,48 @@ describe('incident board API', () => {
     );
   });
 
+  test('마커 알림 슬롯을 조회하면, 요청과 응답 매핑에 marker_notification을 사용한다', async () => {
+    // given: 서버가 마커 알림 데이터와 재조회 커서를 반환한다.
+    const response = incidentBoardResponse();
+    const notification = {
+      id: 'support-request-precinct-001',
+      status: 'SNAPSHOT_CREATED',
+      version: 3,
+      sequence: 3,
+      sourceSpec: 'S5',
+      sourceHash: 'hash-s5-toast-support-current',
+      latestEventId: 'evt-s5-support-request-001',
+      type: 'SUPPORT_REQUEST_CREATED',
+    };
+    response.slots.marker_notification = [notification];
+    response.slotSources.marker_notification = [notification];
+    const client = fakeApiClient(response);
+    const api = createIncidentBoardApi(client);
+
+    // when: 마커 알림 슬롯을 요청하고 응답을 화면용 조회 결과로 변환한다.
+    const received = await api.fetchIncidentBoard({
+      incidentId: response.incidentId,
+      includeSlots: ['marker_notification'],
+    });
+    const viewModel = mapIncidentBoardResponse(received);
+
+    // then: 새 슬롯 키로 알림과 커서를 읽고, 기존 toast 슬롯은 만들지 않는다.
+    expect(client.get).toHaveBeenCalledWith('/incidents/inc-precinct-first-001/board', {
+      query: { opIds: undefined, includeSlots: ['marker_notification'], sinceVersion: undefined },
+    });
+    expect(viewModel.rowsBySlot.marker_notification).toEqual([
+      { ...notification, slot: 'marker_notification', sourceId: notification.id, sourceResponseId: notification.id },
+    ]);
+    expect(viewModel.cursorsBySlot.marker_notification).toEqual([notification]);
+    expect(viewModel.hostRows.find((row) => row.slot === 'marker_notification')).toMatchObject({
+      id: notification.id,
+      latestEventId: notification.latestEventId,
+      slotSources: [notification.id],
+    });
+    expect(viewModel.rowsBySlot).not.toHaveProperty('toast');
+    expect(viewModel.cursorsBySlot).not.toHaveProperty('toast');
+  });
+
   test('maps board response rows without copying server state into UI display store', () => {
     const viewModel = mapIncidentBoardResponse(incidentBoardResponse());
 

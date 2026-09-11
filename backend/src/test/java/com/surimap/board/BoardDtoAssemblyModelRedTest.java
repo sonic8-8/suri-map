@@ -293,7 +293,7 @@ class BoardDtoAssemblyModelRedTest {
             "policePhoneId", "freshness", "lastHeartbeatAt", "lastSyncAt", "elapsedSeconds"
           };
       case "marker" -> new String[] {"opId", "geometry", "geometryHash"};
-      case "toast" -> new String[] {"markerId"};
+      case "marker_notification" -> new String[] {"markerId"};
       case "package_badge" -> new String[] {"policePhoneId", "policePhoneCode", "policePhoneName"};
       case "op_toggle", "op_history", "handover_status" -> new String[] {};
       case "handover_memo" -> new String[] {"opId"};
@@ -488,7 +488,7 @@ class BoardDtoAssemblyModelRedTest {
             "evt-s5-marker-created-001",
             "hash-s5-marker-clue-current"),
         row(
-            "toast",
+            "marker_notification",
             "S5",
             "support-request-precinct-001",
             "board-toast-support-request-precinct-001",
@@ -626,7 +626,7 @@ class BoardDtoAssemblyModelRedTest {
         payload.put("geometryHash", "hash-geometry-" + sourceResponseId);
         payload.put("geometry", Map.of("type", "Point"));
       }
-      case "toast" -> {
+      case "marker_notification" -> {
         payload.put("markerId", "mk-precinct-support-001");
         payload.put("messageKey", "support_request_created");
       }

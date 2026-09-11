@@ -731,7 +731,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - 지원 요청 알림은 실종팀 지휘관 역할 개인 계정과 현장 지휘관 역할 개인 계정 우선이다.
 - 실종자 발견 알림은 사건 배정 계정·단말 전체 대상이다.
 - 지원 부대 배정 알림은 `INCIDENT_ASSIGNMENT_CHANGED` fanout 시 신규 배정된 개인 계정의 활성 PolicePhone에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 역할 계정의 policePhoneId는 Android FCM recipient로 고정하지 않는다. Android는 FCM 수신 후 최종 상태를 `/api/incidents` REST refetch로 수렴한다.
-- Web toast와 FCM push는 별도 저장 엔티티가 아니라 S4 `EventFanout`과 S5 notification payload/recipient 및 `FcmDispatcher` adapter의 전달 계약이다.
+- Web 알림 UI와 FCM push는 별도 저장 엔티티가 아니라 S4 `EventFanout`과 S5 notification payload/recipient 및 `FcmDispatcher` adapter의 전달 계약이다.
 - FCM fanout orchestration은 S5가 소유하지 않는다. S5는 S4가 호출할 수 있는 `FcmDispatcher` port와 fixture/mock adapter를 제공하며, 실제 외부 FCM 없이 대체 가능해야 한다.
 
 ---
@@ -1303,6 +1303,8 @@ Guard shorthand:
 
 ### 9.2 Board Shell Slots
 
+`marker_notification`은 지원 요청·실종자 발견 알림 데이터를 담는 상황판 슬롯이며, 토스트나 팝업 같은 표시 방식과 구분한다.
+
 | slot | feature owner | mounted by | source contract | purpose |
 |---|---|---|---|---|
 | `overall_search_area` | S2 | S3-2 | `SearchAreaQuery.overallOf` | 지도 기준 범위 표시 |
@@ -1310,7 +1312,7 @@ Guard shorthand:
 | `path` | S3-1 | S3-2 | `PathQuery.byIncident`, `PathQuery.byOp` | 계정별 경로·구간 표시 |
 | `police_phone_freshness` | S1-2 | S3-2 | `PolicePhoneFreshnessQuery.byIncident` | accountId가 같은 경로 위치 점에 최근 업무폰 최신성 표시 |
 | `marker` | S5 | S3-2 | `MarkerQuery.byIncident` | 마커 레이어 |
-| `toast` | S5 | S3-2 | `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` | 지원 요청·발견 알림 |
+| `marker_notification` | S5 | S3-2 | `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` | 지원 요청·발견 알림 |
 | `package_badge` | S7 | S3-2 | `OfflinePackageInstallationQuery.byIncident` | 오프라인 패키지 상태 |
 | `op_toggle` | S8 | S3-2 | `OperationalPeriodQuery.list` | OP 레이어 토글 |
 | `op_history` | S8 | S3-2 | `OperationalPeriodQuery.list`, `OP_TRANSITIONED`, `SearchAreaAssignmentQuery.byOp` | OP 전환과 OP별 담당 배정 맥락 표시 |
@@ -1355,7 +1357,7 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-05 수색 경로·PolicePhone GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /api/search-paths`, `POST /api/search-paths/batch`, `PATCH /api/search-path-segments/{searchPathSegmentId}`, `SEARCH_PATH_STARTED`, `PATH_APPENDED`, `SEARCH_PATH_SEGMENT_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `path`, `police_phone_freshness` | S3-1 owns `search_path`/`search_path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `SearchAreaQuery.overallOf(incidentId)` as optional validation input only; overall area 미지정 상태의 초동 path writes는 기본 좌표 유효성으로 허용하고 S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP/duty shift context로 반영한다 |
 | SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /api/markers`, `POST /api/markers/photos/upload-url`, `POST /api/markers/{markerId}/photos/upload-url`, `POST /api/markers/{markerId}/photos/{photoId}/attach`, `MARKER_CREATED`, `MARKER_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `SearchAreaQuery.overallOf(incidentId)` for board/offline package context, not for rejecting valid marker Point outside an area; overall area 미지정 또는 area 밖 marker/photo writes는 허용하고 S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context로 반영한다 |
 | SC-07 통신 단절 중 로컬 기록 | S6, S1-2, S3-1, S5, S7 | `POST /api/sync/outbox/requeue`, local Outbox rows for `POST /api/search-paths/batch` and `POST /api/markers`, package availability from S7 manifest | - | S6 local store/Outbox -> S3-1/S5 pending writes after recovery, S7 offline package -> app local renderer |
-| SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /api/markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
+| SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /api/markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `marker_notification` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/marker_notification; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
 | SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /api/sync/outbox/requeue`, `POST /api/search-paths/batch`, `POST /api/markers`, `POST /api/incidents/{incidentId}/offline-package/installations`, `GET /api/incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness`, `package_badge` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state including `package_badge` |
 | SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /api/search-areas/{searchAreaId}`, `POST /api/operational-periods`, `POST /api/handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
 | SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /api/incidents/{incidentId}/board`, `GET /api/search-paths`, `GET /api/handover-memos`, `PATCH /api/duty-shifts/{dutyShiftId}`, `POST /api/operational-periods`, `POST /api/operational-periods/comparisons`, `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `OP_COMPARISON_ANALYSIS_CHANGED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | DutyShift 종료 또는 OP 전환 commit 이후 S8 서버 job이 이전 근무/OP source snapshot으로 summary를 생성하고 S4 `EventFanout` refetch signal을 발행한다. OP 비교 분석 생성은 S8이 결정적 metric/diff/common-region fact를 저장하고 S4 refetch signal을 발행하되 원본 geometry/status/version row를 변경하지 않는다. APP duty shift end는 S6 Outbox sequence barrier 뒤에 서버로 전송되어야 하며, 서버는 `sourceHash`/`sourceReadiness`로 늦게 반영된 경로·마커·사진 attach·메모 누락을 stale/regeneration으로 처리한다. Web/App은 생성된 summary를 read-only로 확인한다; S1-1/S1-2 access guard |

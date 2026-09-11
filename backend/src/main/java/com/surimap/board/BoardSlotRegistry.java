@@ -12,7 +12,7 @@ public final class BoardSlotRegistry {
           "path",
           "police_phone_freshness",
           "marker",
-          "toast",
+          "marker_notification",
           "package_badge",
           "op_toggle",
           "op_history",

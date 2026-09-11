@@ -26,7 +26,8 @@ class BoardRefetchGuardRedTest {
   @DisplayName("deduplicates duplicate eventId without adding another board row")
   void deduplicates_duplicate_event_id_without_adding_another_board_row() {
     BoardRefetchResult result =
-        new BoardRefetchGuard().apply(currentRequest(), List.of(signal(duplicateToastEvent())));
+        new BoardRefetchGuard()
+            .apply(currentRequest(), List.of(signal(duplicateMarkerNotificationEvent())));
 
     assertThat(result.ledger())
         .singleElement()
@@ -35,7 +36,7 @@ class BoardRefetchGuardRedTest {
               assertThat(entry.eventId()).isEqualTo("evt-s5-support-request-001");
               assertThat(entry.incidentId()).isEqualTo(INCIDENT_ID);
               assertThat(entry.applyStatus()).isEqualTo(BoardRefetchLedgerStatus.DUPLICATE);
-              assertThat(entry.slot()).isEqualTo("toast");
+              assertThat(entry.slot()).isEqualTo("marker_notification");
               assertThat(entry.entityId()).isEqualTo("support-request-precinct-001");
               assertThat(entry.status()).isEqualTo("VISIBLE");
               assertThat(entry.version()).isEqualTo(1);
@@ -44,8 +45,8 @@ class BoardRefetchGuardRedTest {
               assertThat(entry.boardResponseVersion())
                   .isEqualTo(result.board().boardResponseVersion());
             });
-    assertThat(toastRows(result.board())).hasSize(1);
-    assertThat(toastRows(result.board()).get(0).get("latestEventId"))
+    assertThat(markerNotificationRows(result.board())).hasSize(1);
+    assertThat(markerNotificationRows(result.board()).get(0).get("latestEventId"))
         .isEqualTo("evt-s5-support-request-001");
   }
 
@@ -214,8 +215,8 @@ class BoardRefetchGuardRedTest {
   }
 
   @SuppressWarnings("unchecked")
-  private static List<Map<String, Object>> toastRows(BoardDTO board) {
-    return (List<Map<String, Object>>) board.slots().get("toast");
+  private static List<Map<String, Object>> markerNotificationRows(BoardDTO board) {
+    return (List<Map<String, Object>>) board.slots().get("marker_notification");
   }
 
   private static BoardAssemblyRequest currentRequest() {
@@ -227,7 +228,7 @@ class BoardRefetchGuardRedTest {
         ACTIVE_OP_ID,
         SELECTED_OP_IDS,
         GEOMETRY_HASH,
-        List.of(currentPathRow(), currentToastRow()));
+        List.of(currentPathRow(), currentMarkerNotificationRow()));
   }
 
   private static BoardAssemblyRequest staleAreaRequest() {
@@ -403,17 +404,17 @@ class BoardRefetchGuardRedTest {
         Map.of("opId", "op-precinct-001-op2"));
   }
 
-  private static BoardSourceRow currentToastRow() {
-    return toastRow("evt-s5-support-request-001");
+  private static BoardSourceRow currentMarkerNotificationRow() {
+    return markerNotificationRow("evt-s5-support-request-001");
   }
 
-  private static BoardSourceRow duplicateToastEvent() {
-    return toastRow("evt-s5-support-request-001");
+  private static BoardSourceRow duplicateMarkerNotificationEvent() {
+    return markerNotificationRow("evt-s5-support-request-001");
   }
 
-  private static BoardSourceRow toastRow(String eventId) {
+  private static BoardSourceRow markerNotificationRow(String eventId) {
     return new BoardSourceRow(
-        "toast",
+        "marker_notification",
         "S5",
         "support-request-precinct-001",
         "board-toast-support-request-precinct-001",
