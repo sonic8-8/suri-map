@@ -22,8 +22,8 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
   private static final String GEOMETRY_HASH = "hash-board-geometry-current";
   private static final List<String> TASK_SCENARIO_MATRIX =
       List.of(
-          "SC-02", "SC-03", "SC-04", "SC-05", "SC-06", "SC-07", "SC-08", "SC-09", "SC-10",
-          "SC-11", "SC-12");
+          "SC-02", "SC-03", "SC-04", "SC-05", "SC-06", "SC-07", "SC-08", "SC-09", "SC-10", "SC-11",
+          "SC-12");
 
   BoardApiAssemblyCoverageReport boardApiAssemblyCoverage() throws IOException {
     JsonNode s32 = fixture("docs/spec/specs/S3-2.json");
@@ -58,44 +58,29 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
   private ScenarioProbe scenarioProbe(String scenarioId) {
     return switch (scenarioId) {
       case "SC-02" ->
-          new ScenarioProbe(
-              scenarioId, "handover_status", "S8", "mock-112-incident-001", true);
+          new ScenarioProbe(scenarioId, "handover_status", "S8", "mock-112-incident-001", true);
       case "SC-03" ->
           new ScenarioProbe(
-              scenarioId,
-              "package_badge",
-              "S7",
-              "tile-manifest-inc-precinct-001",
-              true);
+              scenarioId, "package_badge", "S7", "tile-manifest-inc-precinct-001", true);
       case "SC-04" ->
-          new ScenarioProbe(
-              scenarioId, "overall_search_area", "S2", "osa-precinct-001", true);
-      case "SC-05" ->
-          new ScenarioProbe(scenarioId, "path", "S3-1", "gps-path-normal-001", true);
-      case "SC-06" ->
-          new ScenarioProbe(scenarioId, "marker", "S5", "mk-precinct-clue-001", true);
+          new ScenarioProbe(scenarioId, "overall_search_area", "S2", "osa-precinct-001", true);
+      case "SC-05" -> new ScenarioProbe(scenarioId, "path", "S3-1", "gps-path-normal-001", true);
+      case "SC-06" -> new ScenarioProbe(scenarioId, "marker", "S5", "mk-precinct-clue-001", true);
       case "SC-07" ->
           new ScenarioProbe(scenarioId, "path", "S6", "net-script-domain-write-001", false);
       case "SC-08" ->
-          new ScenarioProbe(scenarioId, "toast", "S5", "support-request-precinct-001", true);
+          new ScenarioProbe(
+              scenarioId, "marker_notification", "S5", "support-request-precinct-001", true);
       case "SC-09" ->
           new ScenarioProbe(scenarioId, "path", "S4", "sc09OutboxReplayConvergence", true);
       case "SC-10" ->
           new ScenarioProbe(scenarioId, "op_toggle", "S8", "evt-s8-op-transition-001", true);
       case "SC-11" ->
           new ScenarioProbe(
-              scenarioId,
-              "search_history_summary",
-              "S8",
-              "ai-summary-op-precinct-001-op2",
-              true);
+              scenarioId, "search_history_summary", "S8", "ai-summary-op-precinct-001-op2", true);
       case "SC-12" ->
           new ScenarioProbe(
-              scenarioId,
-              "incident_terminal",
-              "S1-1",
-              "evt-s1-1-incident-closed-001",
-              true);
+              scenarioId, "incident_terminal", "S1-1", "evt-s1-1-incident-closed-001", true);
       default -> throw new IllegalArgumentException("unknown scenario id: " + scenarioId);
     };
   }

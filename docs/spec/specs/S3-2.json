@@ -76,7 +76,7 @@
       {
         "item": "FCM payload/recipient 계산 및 전송",
         "owner": "S5/S4",
-        "reason": "상황판 toast 표시만 소유한다."
+        "reason": "상황판 marker_notification 표시만 소유한다."
       },
       {
         "item": "자동 수색 누락 확정 또는 다음 구역 지시",
@@ -124,7 +124,7 @@
     {
       "id": "FR-18",
       "summary": "분산된 수색 정보를 공용 상황판 한 화면에서 정리해 본다.",
-      "handling": "team/PolicePhone, path, area, marker, missing person, package, OP slots를 BoardAssembler에서 병합한다. toast slot은 FR-10/FR-17 및 알림 NFR의 표현 요소로만 취급한다."
+      "handling": "team/PolicePhone, path, area, marker, missing person, package, OP slots를 BoardAssembler에서 병합한다. marker_notification slot은 FR-10/FR-17 및 알림 NFR의 표현 요소로만 취급한다."
     },
     {
       "id": "FR-19",
@@ -253,7 +253,7 @@
                   "path",
                   "police_phone_freshness",
                   "marker",
-                  "toast",
+                  "marker_notification",
                   "package_badge",
                   "op_toggle",
                   "op_history",
@@ -579,7 +579,7 @@
                       }
                     }
                   },
-                  "toast": {
+                  "marker_notification": {
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -1032,7 +1032,7 @@
                   "path",
                   "police_phone_freshness",
                   "marker",
-                  "toast",
+                  "marker_notification",
                   "package_badge",
                   "op_toggle",
                   "op_history",
@@ -1048,7 +1048,7 @@
                     "path",
                     "police_phone_freshness",
                     "marker",
-                    "toast",
+                    "marker_notification",
                     "package_badge",
                     "op_toggle",
                     "op_history",
@@ -1114,7 +1114,7 @@
                   "path",
                   "police_phone_freshness",
                   "marker",
-                  "toast",
+                  "marker_notification",
                   "package_badge",
                   "op_toggle",
                   "op_history",
@@ -1130,7 +1130,7 @@
                     "path",
                     "police_phone_freshness",
                     "marker",
-                    "toast",
+                    "marker_notification",
                     "package_badge",
                     "op_toggle",
                     "op_history",
@@ -1192,7 +1192,7 @@
                   "path",
                   "police_phone_freshness",
                   "marker",
-                  "toast",
+                  "marker_notification",
                   "package_badge",
                   "op_toggle",
                   "op_history",
@@ -1208,7 +1208,7 @@
                     "path",
                     "police_phone_freshness",
                     "marker",
-                    "toast",
+                    "marker_notification",
                     "package_badge",
                     "op_toggle",
                     "op_history",
@@ -1376,7 +1376,7 @@
       {
         "from_spec": "S5",
         "interface": "MarkerQuery.byIncident, SUPPORT_REQUEST_CREATED, PERSON_FOUND",
-        "usage": "marker slot, marker detail panel, toast slot을 구성한다."
+        "usage": "marker slot, marker detail panel, marker_notification slot을 구성한다."
       },
       {
         "from_spec": "S7",
@@ -1464,12 +1464,12 @@
       {
         "type": "SUPPORT_REQUEST_CREATED",
         "from_spec": "S5",
-        "handler": "marker slot과 toast slot을 갱신한다."
+        "handler": "marker slot과 marker_notification slot을 갱신한다."
       },
       {
         "type": "PERSON_FOUND",
         "from_spec": "S5",
-        "handler": "발견 marker 강조와 toast slot을 갱신한다."
+        "handler": "발견 marker 강조와 marker_notification slot을 갱신한다."
       },
       {
         "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
@@ -1663,7 +1663,7 @@
       {
         "spec": "S5",
         "contract": "MarkerQuery, notification events",
-        "stub_strategy": "marker and toast event fixtures with eventId duplication",
+        "stub_strategy": "marker and marker_notification event fixtures with eventId duplication",
         "replaced_by_real_at": "S5 marker/photo/notification harness PASS"
       },
       {
@@ -1694,7 +1694,7 @@
       ],
       "given": "S4 SSE stream sends duplicate PATH_APPENDED with the same eventId",
       "when": "SituationBoardShell applies the stream",
-      "then": "path row, toast row, map layer, and board_refetch_probe contain only one applied effect for that eventId",
+      "then": "path row, marker_notification row, map layer, and board_refetch_probe contain only one applied effect for that eventId",
       "priority": "critical"
     },
     {
@@ -1778,7 +1778,7 @@
         "FR-17"
       ],
       "given": "SUPPORT_REQUEST_CREATED and PERSON_FOUND events arrive twice with the same eventId",
-      "when": "toast slot renders alerts",
+      "when": "marker_notification slot renders alerts",
       "then": "each alert is shown once and links back to the matching marker row",
       "priority": "high"
     },
@@ -1902,7 +1902,7 @@
       {
         "name": "source_write_response_converges_to_board_rows_by_slot",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-04 overall_search_area/area, SC-05 path/police_phone_freshness, SC-06 marker, SC-08 toast/marker, SC-10 area/op/handover, SC-11 OP comparison/search_history_summary, and SC-12 incident_terminal fixtures converge from source write response id/status/version through SSE payload to board API row at the same or higher version."
+        "scenario": "SC-04 overall_search_area/area, SC-05 path/police_phone_freshness, SC-06 marker, SC-08 marker_notification/marker, SC-10 area/op/handover, SC-11 OP comparison/search_history_summary, and SC-12 incident_terminal fixtures converge from source write response id/status/version through SSE payload to board API row at the same or higher version."
       },
       {
         "name": "refetch_trigger_delay_keeps_stale_board_response_failed",
@@ -1964,7 +1964,7 @@
       {
         "name": "duplicate_toast_event_is_rendered_once",
         "framework": "Vitest + React Testing Library",
-        "scenario": "duplicate SUPPORT_REQUEST_CREATED eventId does not create duplicate toast or marker highlight."
+        "scenario": "duplicate SUPPORT_REQUEST_CREATED eventId does not create duplicate marker_notification or marker highlight."
       }
     ],
     "android": [
@@ -2046,7 +2046,7 @@
         "sourceResponseAlias": "mk-precinct-clue-001"
       },
       {
-        "slot": "toast",
+        "slot": "marker_notification",
         "sourceSpec": "S5",
         "sourceResponseId": "support-request-precinct-001",
         "boardRowId": "board-toast-support-request-precinct-001",
@@ -2143,7 +2143,7 @@
     "api_assembly_failure_fixtures": {
       "duplicate_event": {
         "eventId": "evt-s5-support-request-001",
-        "slot": "toast",
+        "slot": "marker_notification",
         "entityId": "support-request-precinct-001",
         "expectedLedgerStatus": "DUPLICATE",
         "expectedBoardRowCount": 1

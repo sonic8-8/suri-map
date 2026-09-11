@@ -3,6 +3,8 @@ package com.surimap.board;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.surimap.api.service.path.SearchPathService;
@@ -10,6 +12,8 @@ import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.domain.marker.MarkerNotificationMapper;
+import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPathStatus;
@@ -33,8 +37,6 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.notification.query.MarkerNotificationToastQuery;
-import com.surimap.marker.notification.query.MarkerNotificationToastRow;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
@@ -67,7 +69,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
-@DisplayName("incident board source row collector")
 class IncidentBoardSourceRowCollectorIntegrationTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
@@ -81,6 +82,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID PATH_ID = UUID.fromString("40000000-0000-4000-8000-000000000001");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("40000000-0000-4000-8000-000000000101");
   private static final UUID MARKER_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
+  private static final UUID NOTIFICATION_ID =
+      UUID.fromString("51000000-0000-4000-8000-000000000001");
+  private static final UUID NOTIFICATION_EVENT_ID =
+      UUID.fromString("52000000-0000-4000-8000-000000000001");
   private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
   private static final UUID POLICE_PHONE_ID =
@@ -97,9 +102,11 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Test
-  @DisplayName("collects available source-owner rows for board slots")
+  @DisplayName("여러 상황판 슬롯을 요청하면, 각 조회 결과와 마커 알림 정보를 모아 반환한다")
   void collects_available_source_owner_rows_for_board_slots() {
+    // given: 각 슬롯의 조회 결과와 마커 알림 조회 결과를 준비한다.
     CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
+    MarkerNotificationMapper notificationMapper = createNotificationMapper();
     DefaultIncidentBoardSourceRowCollector collector =
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
@@ -113,8 +120,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(null),
             provider(new FakeIncidentReadMapper()),
             provider(null),
-            provider(new FakeToastQuery()));
+            provider(notificationMapper));
 
+    // when: 마커 알림을 포함한 상황판 슬롯을 조회한다.
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
             new BoardSourceRowContext(
@@ -126,7 +134,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "path",
                     "police_phone_freshness",
                     "marker",
-                    "toast",
+                    "marker_notification",
                     "package_badge",
                     "op_toggle",
                     "op_history",
@@ -135,6 +143,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "search_history_summary"),
                 null));
 
+    // then: 요청한 슬롯을 모으고 마커 알림의 데이터·식별자·이벤트 정보를 보존한다.
     assertThat(snapshot.activeOpId()).isEqualTo(OP_ID);
     assertThat(snapshot.selectedOpIds()).containsExactly(OP_ID);
     assertThat(snapshot.geometryHash()).isNotBlank();
@@ -147,7 +156,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "path",
             "police_phone_freshness",
             "marker",
-            "toast",
+            "marker_notification",
             "package_badge",
             "op_toggle",
             "op_history",
@@ -167,7 +176,26 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .containsKey("endedAt");
     assertThat(row(snapshot, "police_phone_freshness").sourceSpec()).isEqualTo("S1-2");
     assertThat(row(snapshot, "marker").sourceSpec()).isEqualTo("S5");
-    assertThat(row(snapshot, "toast").payload()).containsEntry("type", "SUPPORT_REQUEST_CREATED");
+    BoardSourceRow notification = row(snapshot, "marker_notification");
+    assertThat(notification.sourceSpec()).isEqualTo("S5");
+    assertThat(notification.sourceResponseId()).isEqualTo(NOTIFICATION_ID.toString());
+    assertThat(notification.boardRowId()).isEqualTo("board-toast-" + NOTIFICATION_ID);
+    assertThat(notification.status()).isEqualTo("SNAPSHOT_CREATED");
+    assertThat(notification.version()).isEqualTo(12L);
+    assertThat(notification.sequence()).isEqualTo(12L);
+    assertThat(notification.latestEventId()).isEqualTo(NOTIFICATION_EVENT_ID.toString());
+    assertThat(notification.sourceHash())
+        .isEqualTo("sha256:9351a678d4ff485f72ab12c7cb5b38da7a1cc8010034e15a77313c2c6a5f050c");
+    assertThat(notification.payload())
+        .containsExactlyInAnyOrderEntriesOf(
+            Map.of(
+                "type", "SUPPORT_REQUEST_CREATED",
+                "markerId", MARKER_ID.toString(),
+                "incidentId", INCIDENT_ID.toString(),
+                "opId", OP_ID.toString(),
+                "policePhoneId", PHONE_ID.toString(),
+                "createdAt", STARTED_AT));
+    verify(notificationMapper).findNotificationRowsByIncidentId(INCIDENT_ID);
     assertThat(row(snapshot, "package_badge").sourceSpec()).isEqualTo("S7");
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
     assertThat(row(snapshot, "handover_memo").payload())
@@ -175,6 +203,68 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(row(snapshot, "handover_status").payload()).containsEntry("handoverStatus", "READY");
     assertThat(row(snapshot, "search_history_summary").payload())
         .containsEntry("summaryText", "searched ridge trail and checked shelter");
+  }
+
+  @Test
+  @DisplayName("마커 알림에 이벤트가 없으면, 기존 규칙의 대체 이벤트 ID를 사용한다")
+  void collect_markerNotificationWithoutEvent_preservesFallbackEventId() {
+    // given: 마커 알림 조회 결과에 최근 이벤트 ID가 없다.
+    MarkerNotificationMapper mapper = createNotificationMapper();
+    when(mapper.findNotificationRowsByIncidentId(INCIDENT_ID))
+        .thenReturn(List.of(createNotificationRow(null)));
+    DefaultIncidentBoardSourceRowCollector collector =
+        createNotificationCollector(provider(mapper));
+
+    // when: 마커 알림 슬롯을 조회한다.
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(
+            new BoardSourceRowContext(
+                INCIDENT_ID, List.of(), List.of("marker_notification"), null));
+
+    // then: 슬롯 이름 변경 전과 같은 대체 이벤트 ID를 유지한다.
+    assertThat(row(snapshot, "marker_notification").latestEventId())
+        .isEqualTo("evt-s5-toast-" + NOTIFICATION_ID + "-v12");
+  }
+
+  @Test
+  @DisplayName("마커 알림 슬롯을 요청하지 않으면, 알림 Mapper를 호출하지 않는다")
+  void collect_markerNotificationSlotExcluded_skipsNotificationQuery() {
+    // given: 마커 알림을 조회할 수 있는 Mapper가 있다.
+    MarkerNotificationMapper mapper = createNotificationMapper();
+    DefaultIncidentBoardSourceRowCollector collector =
+        createNotificationCollector(provider(mapper));
+
+    // when: 알림이 아닌 마커 슬롯만 요청한다.
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(
+            new BoardSourceRowContext(INCIDENT_ID, List.of(), List.of("marker"), null));
+
+    // then: 알림을 조회하지 않으며 반환 슬롯에도 포함하지 않는다.
+    verifyNoInteractions(mapper);
+    assertThat(snapshot.sourceRows())
+        .extracting(BoardSourceRow::slot)
+        .doesNotContain("marker_notification");
+  }
+
+  @Test
+  @DisplayName("마커 알림 조회가 제공되지 않으면, 알림 슬롯 요청에도 빈 결과를 반환한다")
+  void collect_markerNotificationMapperMissing_returnsEmptyRows() {
+    // given: Provider 자체가 없거나 Provider가 제공하는 Mapper가 없다.
+    List<ObjectProvider<MarkerNotificationMapper>> providers =
+        java.util.Arrays.asList(null, provider(null));
+    for (ObjectProvider<MarkerNotificationMapper> mapperProvider : providers) {
+      DefaultIncidentBoardSourceRowCollector collector =
+          createNotificationCollector(mapperProvider);
+
+      // when: 마커 알림 슬롯을 요청한다.
+      IncidentBoardSourceRowSnapshot snapshot =
+          collector.collect(
+              new BoardSourceRowContext(
+                  INCIDENT_ID, List.of(), List.of("marker_notification"), null));
+
+      // then: 기존과 같이 오류 없이 알림 조회 결과를 비워 둔다.
+      assertThat(snapshot.sourceRows()).isEmpty();
+    }
   }
 
   @Test
@@ -776,22 +866,43 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
   }
 
-  private static final class FakeToastQuery implements MarkerNotificationToastQuery {
-    @Override
-    public List<MarkerNotificationToastRow> byIncident(UUID incidentId) {
-      return List.of(
-          new MarkerNotificationToastRow(
-              UUID.fromString("51000000-0000-4000-8000-000000000001"),
-              MARKER_ID,
-              incidentId,
-              OP_ID,
-              PHONE_ID,
-              "SUPPORT_REQUEST_CREATED",
-              "SNAPSHOT_CREATED",
-              12L,
-              STARTED_AT,
-              UUID.fromString("52000000-0000-4000-8000-000000000001")));
-    }
+  private static MarkerNotificationMapper createNotificationMapper() {
+    MarkerNotificationMapper mapper = mock(MarkerNotificationMapper.class);
+    when(mapper.findNotificationRowsByIncidentId(INCIDENT_ID))
+        .thenReturn(List.of(createNotificationRow(NOTIFICATION_EVENT_ID)));
+    return mapper;
+  }
+
+  private static NotificationRow createNotificationRow(UUID latestEventId) {
+    return NotificationRow.builder()
+        .notificationId(NOTIFICATION_ID)
+        .markerId(MARKER_ID)
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .policePhoneId(PHONE_ID)
+        .notificationType("SUPPORT_REQUEST_CREATED")
+        .status("SNAPSHOT_CREATED")
+        .version(12L)
+        .createdAt(STARTED_AT)
+        .latestEventId(latestEventId)
+        .build();
+  }
+
+  private static DefaultIncidentBoardSourceRowCollector createNotificationCollector(
+      ObjectProvider<MarkerNotificationMapper> mapperProvider) {
+    return new DefaultIncidentBoardSourceRowCollector(
+        provider(null),
+        provider(null),
+        provider(null),
+        new CapturingMarkerQuery(),
+        new FakePackageQuery(),
+        new FakeOperationalPeriodQuery(),
+        new FakeHandoverMemoQuery(),
+        new FakeSummaryMapper(),
+        provider(null),
+        provider(null),
+        provider(null),
+        mapperProvider);
   }
 
   private static final class FakePackageQuery implements OfflinePackageInstallationQuery {

@@ -1584,10 +1584,10 @@
               "description": "업무폰에서 마커를 기록한 시각. 신규 알림은 마커 생성 요청의 clientTs를 그대로 전달한다. 기존 알림에 값이 없으면 기록 시각 확인 불가로 표시하며, SSE envelope.occurredAt이나 브라우저 수신 시각으로 대체하지 않는다."
             }
           },
-          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
+          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/marker_notification row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
         },
         "subscribers": [
-          "S3-2 toast slot",
+          "S3-2 marker_notification slot",
           "S4 EventFanout -> S5 FcmDispatcher"
         ]
       },
@@ -1664,10 +1664,10 @@
               "description": "업무폰에서 마커를 기록한 시각. 신규 알림은 마커 생성 요청의 clientTs를 그대로 전달한다. 기존 알림에 값이 없으면 기록 시각 확인 불가로 표시하며, SSE envelope.occurredAt이나 브라우저 수신 시각으로 대체하지 않는다."
             }
           },
-          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
+          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/marker_notification row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
         },
         "subscribers": [
-          "S3-2 toast slot",
+          "S3-2 marker_notification slot",
           "S4 EventFanout -> S5 FcmDispatcher"
         ]
       }
@@ -1744,7 +1744,7 @@
         },
         {
           "name": "AlertToastSource",
-          "responsibility": "SUPPORT_REQUEST_CREATED/PERSON_FOUND event를 toast slot input으로 변환"
+          "responsibility": "SUPPORT_REQUEST_CREATED/PERSON_FOUND event를 marker_notification slot input으로 변환"
         }
       ],
       "state_management": "S3-2 board store + React Query for MarkerQuery",
@@ -2086,7 +2086,7 @@
       {
         "name": "AlertToastSourceContractTest",
         "framework": "Vitest + RTL",
-        "scenario": "SUPPORT_REQUEST_CREATED와 PERSON_FOUND event가 toast slot input으로 분리되고 같은 eventId를 중복 표시하지 않는다."
+        "scenario": "SUPPORT_REQUEST_CREATED와 PERSON_FOUND event가 marker_notification slot input으로 분리되고 같은 eventId를 중복 표시하지 않는다."
       },
       {
         "name": "MarkerSlotPhotoDeltaConvergenceTest",
@@ -2252,7 +2252,7 @@
         "fcm:dev-support-phone-01"
       ],
       "expectedToast": {
-        "slot": "toast",
+        "slot": "marker_notification",
         "type": "SUPPORT_REQUEST_CREATED",
         "id": "66666666-6666-6666-6666-666666660801",
         "status": "SNAPSHOT_CREATED",
@@ -2317,7 +2317,7 @@
         "fcm:dev-support-phone-01"
       ],
       "expectedToast": {
-        "slot": "toast",
+        "slot": "marker_notification",
         "type": "PERSON_FOUND",
         "id": "66666666-6666-6666-6666-666666660802",
         "status": "SNAPSHOT_CREATED",
@@ -2364,7 +2364,7 @@
     "convergence_failure_injection": {
       "eventDispatchJobMissing": "fail if marker/photo/notification row commits without S4 PublishRequest capture",
       "sseMissing": "fail if eventId is not observed by mock SSE client",
-      "boardNotUpdated": "fail if mock board API marker/toast row version is lower than REST response version",
+      "boardNotUpdated": "fail if mock board API marker/marker_notification row version is lower than REST response version",
       "fcmMockMissing": "fail if INCIDENT_ASSIGNMENT_CHANGED, SUPPORT_REQUEST_CREATED, or PERSON_FOUND has recipients but mock FcmDispatcher has no matching eventId payload record"
     }
   },

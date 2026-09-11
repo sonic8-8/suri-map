@@ -86,7 +86,9 @@ class BoardApiSseConvergenceHarnessRedTest {
 
     BoardRefetchResult duplicate =
         guard.apply(
-            current, List.of(signal(toastRow(text(failures.at("/duplicate_event"), "eventId")))));
+            current,
+            List.of(
+                signal(markerNotificationRow(text(failures.at("/duplicate_event"), "eventId")))));
     assertThat(duplicate.ledger())
         .singleElement()
         .satisfies(
@@ -98,7 +100,7 @@ class BoardApiSseConvergenceHarnessRedTest {
               assertThat(entry.applyStatus().name())
                   .isEqualTo(text(expected, "expectedLedgerStatus"));
             });
-    assertThat(slotRows(duplicate.board(), "toast"))
+    assertThat(slotRows(duplicate.board(), "marker_notification"))
         .hasSize((int) number(failures.at("/duplicate_event"), "expectedBoardRowCount"));
     assertThat(duplicate.convergenceProbe()).isNull();
 
@@ -173,7 +175,7 @@ class BoardApiSseConvergenceHarnessRedTest {
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
                 "SC-07", "path", "S6", "net-script-domain-write-001", false),
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
-                "SC-08", "toast", "S5", "support-request-precinct-001", true),
+                "SC-08", "marker_notification", "S5", "support-request-precinct-001", true),
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
                 "SC-09", "path", "S4", "sc09OutboxReplayConvergence", true),
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
@@ -190,8 +192,7 @@ class BoardApiSseConvergenceHarnessRedTest {
         .as("L6-T10B must provide the mocked source contract matrix for SC-02 through SC-12")
         .containsExactlyElementsOf(expectedMatrix);
     assertThat(observedHarnessMatrix)
-        .filteredOn(
-            probe -> probe.scenarioId().equals("SC-07") && !probe.boardMergeRequired())
+        .filteredOn(probe -> probe.scenarioId().equals("SC-07") && !probe.boardMergeRequired())
         .as("SC-07 is included for task coverage but remains local/offline-only until SC-09 replay")
         .singleElement()
         .satisfies(
@@ -367,7 +368,7 @@ class BoardApiSseConvergenceHarnessRedTest {
         GEOMETRY_HASH,
         List.of(
             pathRow(2, 502, "evt-s3-path-appended-001", "hash-s3-path-mixed-current"),
-            toastRow("evt-s5-support-request-001")));
+            markerNotificationRow("evt-s5-support-request-001")));
   }
 
   private static BoardAssemblyRequest staleAreaRequest(long staleVersion) {
@@ -406,7 +407,8 @@ class BoardApiSseConvergenceHarnessRedTest {
   }
 
   private static BoardRefetchSignal signal(BoardSourceRow row) {
-    String eventType = row.slot().equals("toast") ? "SUPPORT_REQUEST_CREATED" : "PATH_APPENDED";
+    String eventType =
+        row.slot().equals("marker_notification") ? "SUPPORT_REQUEST_CREATED" : "PATH_APPENDED";
     return BoardRefetchSignal.fromRow(
         "inc-precinct-first-001",
         eventType,
@@ -463,9 +465,9 @@ class BoardApiSseConvergenceHarnessRedTest {
             version));
   }
 
-  private static BoardSourceRow toastRow(String eventId) {
+  private static BoardSourceRow markerNotificationRow(String eventId) {
     return new BoardSourceRow(
-        "toast",
+        "marker_notification",
         "S5",
         "support-request-precinct-001",
         "board-toast-support-request-precinct-001",

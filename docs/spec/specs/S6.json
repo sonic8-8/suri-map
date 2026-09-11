@@ -1670,7 +1670,7 @@
       "expectedBoardProbe": {
         "slots": [
           "marker",
-          "toast"
+          "marker_notification"
         ],
         "marker": {
           "id": "55555555-5555-5555-5555-555555550801",
@@ -1678,7 +1678,7 @@
           "version": 1,
           "idAlias": "mk-precinct-support-001"
         },
-        "toast": {
+        "marker_notification": {
           "id": "66666666-6666-6666-6666-666666660801",
           "status": "READY_FOR_FANOUT",
           "version": 1,

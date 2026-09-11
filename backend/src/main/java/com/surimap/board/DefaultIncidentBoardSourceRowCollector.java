@@ -6,6 +6,8 @@ import com.surimap.api.service.path.response.SearchPathExcludedPointServiceRespo
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.domain.marker.MarkerNotificationMapper;
+import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -20,8 +22,6 @@ import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.notification.query.MarkerNotificationToastQuery;
-import com.surimap.marker.notification.query.MarkerNotificationToastRow;
 import com.surimap.marker.query.MarkerPhotoSummary;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
@@ -75,7 +75,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final ObjectProvider<IncidentMapper> incidentMapper;
   private final ObjectProvider<IncidentReadMapper> incidentReadMapper;
   private final ObjectProvider<IncidentDataPurgeStore> purgeStore;
-  private final ObjectProvider<MarkerNotificationToastQuery> toastQuery;
+  private final ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider;
   private final ObjectProvider<DutyShiftMapper> dutyShiftMapper;
 
   public DefaultIncidentBoardSourceRowCollector(
@@ -115,7 +115,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<IncidentMapper> incidentMapper,
       ObjectProvider<IncidentReadMapper> incidentReadMapper,
       ObjectProvider<IncidentDataPurgeStore> purgeStore,
-      ObjectProvider<MarkerNotificationToastQuery> toastQuery) {
+      ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider) {
     this(
         searchAreaQuery,
         searchPathService,
@@ -128,7 +128,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         incidentMapper,
         incidentReadMapper,
         purgeStore,
-        toastQuery,
+        markerNotificationMapperProvider,
         null,
         null);
   }
@@ -145,7 +145,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<IncidentMapper> incidentMapper,
       ObjectProvider<IncidentReadMapper> incidentReadMapper,
       ObjectProvider<IncidentDataPurgeStore> purgeStore,
-      ObjectProvider<MarkerNotificationToastQuery> toastQuery,
+      ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider,
       ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery) {
     this(
         searchAreaQuery,
@@ -159,7 +159,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         incidentMapper,
         incidentReadMapper,
         purgeStore,
-        toastQuery,
+        markerNotificationMapperProvider,
         null,
         searchAreaAssignmentQuery);
   }
@@ -177,7 +177,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<IncidentMapper> incidentMapper,
       ObjectProvider<IncidentReadMapper> incidentReadMapper,
       ObjectProvider<IncidentDataPurgeStore> purgeStore,
-      ObjectProvider<MarkerNotificationToastQuery> toastQuery,
+      ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider,
       ObjectProvider<DutyShiftMapper> dutyShiftMapper,
       ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery) {
     this.searchAreaQuery = searchAreaQuery;
@@ -200,7 +200,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.incidentMapper = incidentMapper;
     this.incidentReadMapper = incidentReadMapper;
     this.purgeStore = purgeStore;
-    this.toastQuery = toastQuery;
+    this.markerNotificationMapperProvider = markerNotificationMapperProvider;
     this.dutyShiftMapper = dutyShiftMapper;
   }
 
@@ -221,7 +221,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     collectPathRows(context, selectedOpIds, rows);
     collectPolicePhoneFreshnessRows(context, rows, terminalRow.isPresent());
     collectMarkerRows(context, markerOpIds(context, activeOpId, selectedOpIds), rows);
-    collectToastRows(context, rows);
+    collectMarkerNotificationRows(context, rows);
     collectPackageRows(context, rows);
     collectIncidentTerminalRow(context, rows, terminalRow);
     collectOperationalPeriodRows(context, rows);
@@ -348,15 +348,21 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     rows.addAll(packageBadgeBoardAssembler.sourceRowsByIncident(context.incidentId().toString()));
   }
 
-  private void collectToastRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
-    if (!context.includes("toast")) {
+  private void collectMarkerNotificationRows(
+      BoardSourceRowContext context, List<BoardSourceRow> rows) {
+    if (!context.includes("marker_notification")) {
       return;
     }
-    MarkerNotificationToastQuery query = toastQuery == null ? null : toastQuery.getIfAvailable();
-    if (query == null) {
+    MarkerNotificationMapper mapper =
+        markerNotificationMapperProvider == null
+            ? null
+            : markerNotificationMapperProvider.getIfAvailable();
+    if (mapper == null) {
       return;
     }
-    query.byIncident(context.incidentId()).stream().map(this::toastRow).forEach(rows::add);
+    mapper.findNotificationRowsByIncidentId(context.incidentId()).stream()
+        .map(this::toMarkerNotificationSourceRow)
+        .forEach(rows::add);
   }
 
   private void collectIncidentTerminalRow(
@@ -909,26 +915,27 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
-  private BoardSourceRow toastRow(MarkerNotificationToastRow row) {
+  private BoardSourceRow toMarkerNotificationSourceRow(NotificationRow row) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("type", row.notificationType());
-    payload.put("markerId", row.markerId().toString());
-    payload.put("incidentId", row.incidentId().toString());
-    putUuid(payload, "opId", row.opId());
-    putUuid(payload, "policePhoneId", row.policePhoneId());
-    payload.put("createdAt", row.createdAt());
+    payload.put("type", row.getNotificationType());
+    payload.put("markerId", row.getMarkerId().toString());
+    payload.put("incidentId", row.getIncidentId().toString());
+    putUuid(payload, "opId", row.getOpId());
+    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
+    payload.put("createdAt", row.getCreatedAt());
+    // 슬롯 키만 변경하고 기존 상황판 행 ID·대체 이벤트 ID·내용 해시는 유지한다.
     return sourceRow(
-        "toast",
+        "marker_notification",
         "S5",
-        row.notificationId().toString(),
-        "board-toast-" + row.notificationId(),
-        row.status(),
-        row.version(),
-        row.version(),
-        row.latestEventId() == null
-            ? eventId("S5", "toast", row.notificationId().toString(), row.version())
-            : row.latestEventId().toString(),
-        sourceHash("toast", row.notificationId().toString(), row.version(), row.status()),
+        row.getNotificationId().toString(),
+        "board-toast-" + row.getNotificationId(),
+        row.getStatus(),
+        row.getVersion(),
+        row.getVersion(),
+        row.getLatestEventId() == null
+            ? eventId("S5", "toast", row.getNotificationId().toString(), row.getVersion())
+            : row.getLatestEventId().toString(),
+        sourceHash("toast", row.getNotificationId().toString(), row.getVersion(), row.getStatus()),
         payload);
   }
 
