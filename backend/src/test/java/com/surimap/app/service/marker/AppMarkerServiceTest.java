@@ -712,6 +712,70 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
   @ParameterizedTest(name = "마커 유형: {0}")
   @CsvSource({"SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED", "PERSON_FOUND,,PERSON_FOUND"})
+  @DisplayName("사진 첨부로 마커 버전이 증가해도, 새 알림은 버전 1과 마커의 기록 시각·좌표로 생성한다")
+  void createMarker_withPhoto_createsNotificationWithIndependentVersion(
+      String markerType, String supportRequestType, String eventType) throws Exception {
+    // given: 업로드된 사진과 소수점 아래 7자리인 좌표를 지원 요청·발견 마커에 포함한다.
+    MarkerCreateServiceRequest request =
+        prepareMarkerRequestWithUploadedPhoto().toBuilder()
+            .type(markerType)
+            .supportRequestType(supportRequestType)
+            .location(
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.9134004"), new BigDecimal("35.1631004"))))
+            .build();
+
+    // when: 같은 트랜잭션에서 마커 생성, 사진 첨부, 알림 생성을 마친 뒤 커밋한다.
+    MarkerCreateServiceResponse response =
+        new TransactionTemplate(transactionManager)
+            .execute(
+                status -> {
+                  MarkerCreateServiceResponse created = appMarkerService.create(request);
+                  assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+                  return created;
+                });
+
+    // then: 사진 첨부로 마커는 버전 2가 되지만, DB·이벤트·FCM의 새 알림은 버전 1을 사용한다.
+    assertThat(response.getStatus()).isEqualTo("UPDATED");
+    assertThat(response.getVersion()).isEqualTo(2L);
+    assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
+    assertThat(photoMapper.findById(PHOTO_ID).orElseThrow().getStatus())
+        .isEqualTo(PhotoStatus.ATTACHED);
+    JsonNode notification =
+        objectMapper.readTree(
+            jdbcTemplate.queryForObject(
+                "SELECT to_jsonb(n)::text FROM marker_notification n WHERE marker_id = ?",
+                String.class,
+                MARKER_ID));
+    assertThat(notification.path("status").asText()).isEqualTo("SNAPSHOT_CREATED");
+    assertThat(notification.path("version").asLong()).isEqualTo(1L);
+    JsonNode snapshot = notification.path("notification_payload");
+    assertThat(snapshot.path("markerId").asText()).isEqualTo(MARKER_ID.toString());
+    assertThat(snapshot.path("markerType").asText()).isEqualTo(markerType);
+    assertThat(snapshot.path("status").asText()).isEqualTo("SNAPSHOT_CREATED");
+    assertThat(snapshot.path("version").asLong()).isEqualTo(1L);
+    assertThat(snapshot.path("clientTs").asText()).isEqualTo(CLIENT_TS.toString());
+    assertThat(snapshot.path("locationLabel").asText()).isEqualTo("126.913400,35.163100");
+    assertThat(readEventTypes())
+        .containsExactlyInAnyOrder("MARKER_CREATED", "MARKER_UPDATED", eventType);
+    assertThat(readEventPayload(eventType)).isEqualTo(snapshot);
+    assertThat(fcmDispatcher.getAllDispatches())
+        .singleElement()
+        .satisfies(
+            dispatch -> {
+              assertThat(dispatch.eventId()).isEqualTo(readEventId(eventType));
+              assertThat(dispatch.payload())
+                  .containsEntry("type", eventType)
+                  .containsEntry("markerId", MARKER_ID.toString())
+                  .containsEntry("status", "SNAPSHOT_CREATED")
+                  .containsEntry("version", 1L)
+                  .containsEntry("clientTs", CLIENT_TS.toString())
+                  .containsEntry("locationLabel", "126.913400,35.163100");
+            });
+  }
+
+  @ParameterizedTest(name = "마커 유형: {0}")
+  @CsvSource({"SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED", "PERSON_FOUND,,PERSON_FOUND"})
   @DisplayName("마커 생성 트랜잭션이 롤백되면, 마커·알림·이벤트를 남기지 않고 FCM도 전달하지 않는다")
   void createMarker_transactionRolledBack_discardsChangesWithoutSendingFcm(
       String markerType, String supportRequestType, String eventType) {
