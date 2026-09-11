@@ -1,6 +1,7 @@
 package com.surimap.marker.notification.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.marker.adapter.MarkerEventPublisher;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerNotificationPayload;
@@ -33,7 +34,7 @@ public class MarkerNotificationService {
   private static final long INITIAL_NOTIFICATION_VERSION = 1L;
 
   private final MarkerNotificationRepository markerNotificationRepository;
-  private final NotificationRecipientResolver recipientResolver;
+  private final IncidentAssignmentView incidentAssignmentView;
   private final NotificationPayloadFactory payloadFactory;
   private final MarkerEventPublisher markerEventPublisher;
   private final FcmTokenQuery fcmTokenQuery;
@@ -42,13 +43,13 @@ public class MarkerNotificationService {
 
   public MarkerNotificationService(
       MarkerNotificationRepository markerNotificationRepository,
-      NotificationRecipientResolver recipientResolver,
+      IncidentAssignmentView incidentAssignmentView,
       NotificationPayloadFactory payloadFactory,
       MarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
-    this.recipientResolver = Objects.requireNonNull(recipientResolver);
+    this.incidentAssignmentView = Objects.requireNonNull(incidentAssignmentView);
     this.payloadFactory = Objects.requireNonNull(payloadFactory);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.fcmTokenQuery = Objects.requireNonNull(fcmTokenQuery);
@@ -64,7 +65,8 @@ public class MarkerNotificationService {
   private void publishMarkerNotification(
       MarkerNotificationContext context, NotificationType notificationType) {
     NotificationRecipients recipients =
-        recipientResolver.resolve(context.incidentId(), notificationType);
+        incidentAssignmentView.notificationTargets(
+            context.incidentId(), notificationType.getRecipientPolicy());
     UUID notificationId = UUID.randomUUID();
     Instant createdAt = clock.instant();
     MarkerNotificationPayload payload =
