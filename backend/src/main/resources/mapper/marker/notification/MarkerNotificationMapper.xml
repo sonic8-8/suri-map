@@ -59,14 +59,14 @@
             created_at
         )
         VALUES (
-            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{record.notificationType},
-            #{record.recipientRule},
+            #{notification.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{notification.markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{notification.notificationType},
+            #{notification.recipientRule},
             <choose>
-                <when test="record.recipientAccountIds != null and record.recipientAccountIds.size > 0">
+                <when test="notification.recipientAccountIds != null and notification.recipientAccountIds.size > 0">
                     ARRAY[
-                    <foreach collection="record.recipientAccountIds" item="accountId" separator=",">
+                    <foreach collection="notification.recipientAccountIds" item="accountId" separator=",">
                         CAST(#{accountId} AS UUID)
                     </foreach>
                     ]::uuid[]
@@ -74,19 +74,19 @@
                 <otherwise>ARRAY[]::uuid[]</otherwise>
             </choose>,
             <choose>
-                <when test="record.recipientPolicePhoneIds != null and record.recipientPolicePhoneIds.size > 0">
+                <when test="notification.recipientPolicePhoneIds != null and notification.recipientPolicePhoneIds.size > 0">
                     ARRAY[
-                    <foreach collection="record.recipientPolicePhoneIds" item="policePhoneId" separator=",">
+                    <foreach collection="notification.recipientPolicePhoneIds" item="policePhoneId" separator=",">
                         CAST(#{policePhoneId} AS UUID)
                     </foreach>
                     ]::uuid[]
                 </when>
                 <otherwise>ARRAY[]::uuid[]</otherwise>
             </choose>,
-            CAST(#{record.notificationPayloadJson} AS jsonb),
-            #{record.status},
-            #{record.version},
-            #{record.createdAt}
+            CAST(#{notification.notificationPayloadJson} AS jsonb),
+            #{notification.status},
+            #{notification.version},
+            #{notification.createdAt}
         )
         ON CONFLICT (marker_id) DO NOTHING
     </insert>
