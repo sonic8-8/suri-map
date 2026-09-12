@@ -12,10 +12,10 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
+import com.surimap.global.auth.MarkerAuthenticationResolver;
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.controller.MarkerRequestContextResolver;
-import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -35,12 +35,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AppMarkerController {
 
   private final AppMarkerService appMarkerService;
-  private final MarkerRequestContextResolver contextResolver;
+  private final MarkerAuthenticationResolver markerAuthenticationResolver;
 
   public AppMarkerController(
-      AppMarkerService appMarkerService, MarkerRequestContextResolver contextResolver) {
+      AppMarkerService appMarkerService,
+      MarkerAuthenticationResolver markerAuthenticationResolver) {
     this.appMarkerService = appMarkerService;
-    this.contextResolver = contextResolver;
+    this.markerAuthenticationResolver = markerAuthenticationResolver;
   }
 
   @PostMapping
@@ -54,13 +55,14 @@ public class AppMarkerController {
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody MarkerCreateRequest request,
       BindingResult validation) {
-    MarkerRequestContext context =
-        contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
+    SuriMapAuthentication authentication =
+        markerAuthenticationResolver.resolveForAppWrite(
+            authorization, channel, policePhoneId, idempotencyKey);
     if (validation.hasErrors()) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerCreateServiceResponse response =
-        appMarkerService.create(request.toServiceRequest(context));
+        appMarkerService.create(request.toServiceRequest(authentication, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(MarkerCreateResponse.from(response));
   }
 
@@ -77,14 +79,14 @@ public class AppMarkerController {
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody(required = false) MarkerUpdateRequest request,
       BindingResult validation) {
-    MarkerRequestContext context =
-        contextResolver.resolveFieldOrWebWrite(
+    SuriMapAuthentication authentication =
+        markerAuthenticationResolver.resolveForAppOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
-        appMarkerService.update(request.toServiceRequest(markerId, context));
+        appMarkerService.update(request.toServiceRequest(markerId, authentication, idempotencyKey));
     return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 
@@ -100,14 +102,14 @@ public class AppMarkerController {
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody(required = false) MarkerDeleteRequest request,
       BindingResult validation) {
-    MarkerRequestContext context =
-        contextResolver.resolveFieldOrWebWrite(
+    SuriMapAuthentication authentication =
+        markerAuthenticationResolver.resolveForAppOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
-        appMarkerService.delete(request.toServiceRequest(markerId, context));
+        appMarkerService.delete(request.toServiceRequest(markerId, authentication, idempotencyKey));
     return ResponseEntity.ok(MarkerMutationResponse.from(response));
   }
 }

@@ -29,7 +29,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -69,7 +68,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private MarkerService markerService;
   @Autowired private MarkerMapper markerMapper;
   @Autowired private ObjectMapper objectMapper;
-  private MarkerRequestContext mutationContext;
+  private SuriMapAuthentication mutationAuthentication;
   private static final UUID MUTATION_MARKER_ID =
       UUID.fromString("55555555-5555-5555-5555-555555550072");
   private static final UUID MUTATION_INCIDENT_ID = MarkerGeometryFixtures.INCIDENT_ID;
@@ -306,6 +305,24 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         Arguments.of("다른 마커 상태", INCIDENT_ID, OP_ID, "CLUE", "UPDATED"));
   }
 
+  @Test
+  @DisplayName("웹의 수정·삭제 요청을 직렬화하면, 인증 정보와 멱등키는 본문에서 제외한다")
+  void serializeMarkerRequests_webWrites_excludesAuthenticationAndIdempotencyKey() {
+    // given: 인증 정보와 멱등키가 있는 웹의 서비스 요청을 준비한다.
+    mutationAuthentication = createAuthentication("WEB", null);
+    List<Object> requests = List.of(updateRequest(), deleteRequest());
+
+    for (Object request : requests) {
+      // when: 멱등성 비교에 사용하는 요청 본문을 JSON으로 변환한다.
+      JsonNode body = objectMapper.valueToTree(request);
+
+      // then: 요청 본문은 남기고, 헤더에서 받은 인증 정보와 멱등키는 제외한다.
+      assertThat(body.isEmpty()).isFalse();
+      assertThat(body.has("authentication")).isFalse();
+      assertThat(body.has("idempotencyKey")).isFalse();
+    }
+  }
+
   @ParameterizedTest
   @EnumSource(
       value = MarkerSource.class,
@@ -318,7 +335,11 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
     insertMarker(source, null);
     MarkerUpdateServiceRequest request =
-        updateRequest().toBuilder().context(context("WEB", null)).type("NOTE").build();
+        updateRequest().toBuilder()
+            .authentication(createAuthentication("WEB", null))
+            .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+            .type("NOTE")
+            .build();
 
     // when: 메모와 유형을 수정한다.
     MarkerMutationServiceResponse response = markerService.update(request);
@@ -341,7 +362,10 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
     insertMarker(MarkerSource.MOCK_SEED, null);
     MarkerDeleteServiceRequest request =
-        deleteRequest().toBuilder().context(context("WEB", null)).build();
+        deleteRequest().toBuilder()
+            .authentication(createAuthentication("WEB", null))
+            .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+            .build();
 
     // when: 웹에서 삭제를 요청한다.
     MarkerMutationServiceResponse response = markerService.delete(request);
@@ -362,16 +386,27 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // given: 웹에서 현장 마커를 변경하도록 요청한다.
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
     insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
-    MarkerRequestContext requestContext = context("WEB", ASSIGNED_POLICE_PHONE_ID);
+    SuriMapAuthentication requestAuthentication =
+        createAuthentication("WEB", ASSIGNED_POLICE_PHONE_ID);
 
     // when & then: 실제 DB의 마커 출처로 수정·삭제 권한을 판단한다.
     assertThatThrownBy(
-            () -> markerService.update(updateRequest().toBuilder().context(requestContext).build()))
+            () ->
+                markerService.update(
+                    updateRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertThatThrownBy(
-            () -> markerService.delete(deleteRequest().toBuilder().context(requestContext).build()))
+            () ->
+                markerService.delete(
+                    deleteRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
@@ -518,20 +553,30 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
 
   @Test
   @DisplayName("웹 서비스에 앱 인증으로 수정·삭제를 요청하면, 저장된 응답이 있어도 거부한다")
-  void changeMarker_appContext_rejectsBeforeReusingStoredResponse() {
+  void changeMarker_appAuthentication_rejectsBeforeReusingStoredResponse() {
     // given: 웹에서 처리한 수정 응답이 있고, 같은 요청 키를 가진 앱 인증이 있다.
     prepareMarkerMutation();
     markerService.update(updateRequest());
-    MarkerRequestContext appContext = context("APP", ASSIGNED_POLICE_PHONE_ID);
+    SuriMapAuthentication appAuthentication = createAuthentication("APP", ASSIGNED_POLICE_PHONE_ID);
 
     // when & then: 저장된 응답을 반환하기 전에 서비스의 채널 경계를 검사한다.
     assertThatThrownBy(
-            () -> markerService.update(updateRequest().toBuilder().context(appContext).build()))
+            () ->
+                markerService.update(
+                    updateRequest().toBuilder()
+                        .authentication(appAuthentication)
+                        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThatThrownBy(
-            () -> markerService.delete(deleteRequest().toBuilder().context(appContext).build()))
+            () ->
+                markerService.delete(
+                    deleteRequest().toBuilder()
+                        .authentication(appAuthentication)
+                        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
@@ -565,14 +610,12 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         UUID.randomUUID(),
         MUTATION_INCIDENT_ID,
         PRECINCT_TEAM_ID);
-    mutationContext = context("WEB", null);
+    mutationAuthentication = createAuthentication("WEB", null);
     insertMarker(MarkerSource.MOCK_SEED, null);
   }
 
-  private MarkerRequestContext context(String channel, UUID policePhoneId) {
-    return new MarkerRequestContext(
-        new SuriMapAuthentication(PRECINCT_TEAM_ID, channel, policePhoneId),
-        MUTATION_IDEMPOTENCY_KEY);
+  private SuriMapAuthentication createAuthentication(String channel, UUID policePhoneId) {
+    return new SuriMapAuthentication(PRECINCT_TEAM_ID, channel, policePhoneId);
   }
 
   private MarkerUpdateServiceRequest updateRequest() {
@@ -580,7 +623,8 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .markerId(MUTATION_MARKER_ID)
         .version(1L)
         .memo("updated clue memo")
-        .context(mutationContext)
+        .authentication(mutationAuthentication)
+        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
         .build();
   }
 
@@ -589,7 +633,8 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .markerId(MUTATION_MARKER_ID)
         .version(1L)
         .reason("wrong marker")
-        .context(mutationContext)
+        .authentication(mutationAuthentication)
+        .idempotencyKey(MUTATION_IDEMPOTENCY_KEY)
         .build();
   }
 

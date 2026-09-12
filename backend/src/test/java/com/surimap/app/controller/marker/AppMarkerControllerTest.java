@@ -31,14 +31,13 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
+import com.surimap.global.auth.MarkerAuthenticationResolver;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.error.GlobalExceptionHandler;
-import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -59,7 +58,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 @WebMvcTest({AppMarkerController.class, MarkerController.class})
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GlobalExceptionHandler.class, MarkerRequestContextResolver.class, GuardConfig.class})
+@Import({GlobalExceptionHandler.class, MarkerAuthenticationResolver.class, GuardConfig.class})
 @WithMockAccount(
     accountId = "11111111-1111-1111-1111-111111110071",
     policePhoneId = "22222222-2222-2222-2222-222222220071")
@@ -218,10 +217,9 @@ class AppMarkerControllerTest {
     assertThat(captured.getValue().getMarkerId()).isEqualTo(MARKER_ID);
     assertThat(captured.getValue().getVersion()).isEqualTo(1L);
     assertThat(captured.getValue().getReason()).isEqualTo("wrong marker");
-    assertThat(captured.getValue().getContext().authentication().channel()).isEqualTo("APP");
-    assertThat(captured.getValue().getContext().authentication().policePhoneId())
-        .isEqualTo(POLICE_PHONE_ID);
-    assertThat(captured.getValue().getContext().idempotencyKey()).isEqualTo("idem-app-delete");
+    assertThat(captured.getValue().getAuthentication().channel()).isEqualTo("APP");
+    assertThat(captured.getValue().getAuthentication().policePhoneId()).isEqualTo(POLICE_PHONE_ID);
+    assertThat(captured.getValue().getIdempotencyKey()).isEqualTo("idem-app-delete");
     verifyNoInteractions(markerService);
   }
 
@@ -285,10 +283,10 @@ class AppMarkerControllerTest {
     assertThat(captured.getLocation().coordinates())
         .containsExactly(new BigDecimal("126.913400"), new BigDecimal("35.163100"));
     assertThat(captured.getPhotos()).isEmpty();
-    assertThat(captured.getContext().authentication().accountId()).isEqualTo(ACCOUNT_ID);
-    assertThat(captured.getContext().authentication().policePhoneId()).isEqualTo(POLICE_PHONE_ID);
-    assertThat(captured.getContext().authentication().channel()).isEqualTo("APP");
-    assertThat(captured.getContext().idempotencyKey()).isEqualTo("idem-marker-create-001");
+    assertThat(captured.getAuthentication().accountId()).isEqualTo(ACCOUNT_ID);
+    assertThat(captured.getAuthentication().policePhoneId()).isEqualTo(POLICE_PHONE_ID);
+    assertThat(captured.getAuthentication().channel()).isEqualTo("APP");
+    assertThat(captured.getIdempotencyKey()).isEqualTo("idem-marker-create-001");
   }
 
   @Test
@@ -489,10 +487,8 @@ class AppMarkerControllerTest {
                     "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))))
             .memo("S3-2 detail panel memo")
             .type("NOTE")
-            .context(
-                new MarkerRequestContext(
-                    new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID),
-                    "idem-marker-update-001"))
+            .authentication(new SuriMapAuthentication(ACCOUNT_ID, "APP", POLICE_PHONE_ID))
+            .idempotencyKey("idem-marker-update-001")
             .build();
     MarkerMutationServiceResponse serviceResponse =
         MarkerMutationServiceResponse.builder().id(MARKER_ID).status("UPDATED").version(2L).build();

@@ -46,7 +46,6 @@ import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
-import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
@@ -107,7 +106,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private PolicePhonePersistenceService policePhonePersistenceService;
   @Autowired private PlatformTransactionManager transactionManager;
 
-  private MarkerRequestContext context;
+  private SuriMapAuthentication authentication;
 
   @BeforeEach
   void setUp() {
@@ -184,10 +183,24 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         memberAssignmentId,
         ASSIGNED_POLICE_PHONE_ID,
         PRECINCT_TEAM_ID);
-    context =
-        new MarkerRequestContext(
-            new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID),
-            IDEMPOTENCY_KEY);
+    authentication = new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID);
+  }
+
+  @Test
+  @DisplayName("앱의 생성·수정·삭제 요청을 직렬화하면, 인증 정보와 멱등키는 본문에서 제외한다")
+  void serializeMarkerRequests_appWrites_excludesAuthenticationAndIdempotencyKey() {
+    // given: 인증 정보와 멱등키가 있는 앱의 서비스 요청을 준비한다.
+    List<Object> requests = List.of(createRequest("CLUE", null), updateRequest(), deleteRequest());
+
+    for (Object request : requests) {
+      // when: 멱등성 비교에 사용하는 요청 본문을 JSON으로 변환한다.
+      JsonNode body = objectMapper.valueToTree(request);
+
+      // then: 요청 본문은 남기고, 헤더에서 받은 인증 정보와 멱등키는 제외한다.
+      assertThat(body.isEmpty()).isFalse();
+      assertThat(body.has("authentication")).isFalse();
+      assertThat(body.has("idempotencyKey")).isFalse();
+    }
   }
 
   @Test
@@ -257,7 +270,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .memo("precision-over-6dp")
             .clientTs(CLIENT_TS)
             .clockOffsetMs(0L)
-            .context(context)
+            .authentication(authentication)
+            .idempotencyKey(IDEMPOTENCY_KEY)
             .build();
 
     // when: 단서 마커를 생성한다.
@@ -390,8 +404,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                 .contentType("image/jpeg")
                 .sizeBytes(1_048_576L)
                 .checksumSha256(CHECKSUM_SHA256)
-                .context(
-                    new PhotoRequestContext(context.authentication(), PHOTO_UPLOAD_IDEMPOTENCY_KEY))
+                .context(new PhotoRequestContext(authentication, PHOTO_UPLOAD_IDEMPOTENCY_KEY))
                 .build());
     MarkerPhoto pendingPhoto = photoMapper.findById(upload.getPhotoId()).orElseThrow();
     assertThat(created.getStatus()).isEqualTo("ACTIVE");
@@ -411,8 +424,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                 .checksumSha256(CHECKSUM_SHA256)
                 .markerId(markerId)
                 .photoId(upload.getPhotoId())
-                .context(
-                    new PhotoRequestContext(context.authentication(), PHOTO_ATTACH_IDEMPOTENCY_KEY))
+                .context(new PhotoRequestContext(authentication, PHOTO_ATTACH_IDEMPOTENCY_KEY))
                 .build());
 
     // then: 사진과 부모 마커의 상태·버전이 바뀌고, DB에 생성·수정 이벤트가 하나씩 남는다.
@@ -486,15 +498,18 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("웹 채널에서 마커 생성을 요청하면, 요청을 거부하고 마커·이벤트를 저장하지 않는다")
   void createMarker_webChannel_rejectsWithoutSavingMarkerOrEvent() {
     // given: 앱이 아닌 웹 채널에서 단서 마커 생성을 요청한다.
-    MarkerRequestContext webContext =
-        new MarkerRequestContext(
-            new SuriMapAuthentication(PRECINCT_TEAM_ID, "WEB", ASSIGNED_POLICE_PHONE_ID),
-            IDEMPOTENCY_KEY);
+    SuriMapAuthentication webAuthentication =
+        new SuriMapAuthentication(PRECINCT_TEAM_ID, "WEB", ASSIGNED_POLICE_PHONE_ID);
     MarkerCreateServiceRequest request = createRequest("CLUE", null);
 
     // when: 웹 채널의 생성 요청을 처리한다.
     assertThatThrownBy(
-            () -> appMarkerService.create(request.toBuilder().context(webContext).build()))
+            () ->
+                appMarkerService.create(
+                    request.toBuilder()
+                        .authentication(webAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
@@ -552,7 +567,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .memo(MARKER_MEMO)
             .clientTs(CLIENT_TS)
             .clockOffsetMs(0L)
-            .context(context)
+            .authentication(authentication)
+            .idempotencyKey(IDEMPOTENCY_KEY)
             .build();
 
     // when: 현재 OP와 다른 OP로 마커 생성을 요청한다.
@@ -597,7 +613,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .memo("outside overall search area")
             .clientTs(CLIENT_TS)
             .clockOffsetMs(0L)
-            .context(context)
+            .authentication(authentication)
+            .idempotencyKey(IDEMPOTENCY_KEY)
             .build();
 
     // when: 구역 밖의 좌표로 단서 마커를 생성한다.
@@ -820,7 +837,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerCreateServiceRequest request =
         createRequest(markerType, supportRequestType).toBuilder()
             .id(MARKER_ID)
-            .context(new MarkerRequestContext(context.authentication(), ""))
+            .authentication(authentication)
+            .idempotencyKey("")
             .build();
 
     // when: 실제 앱 서비스가 빈 멱등성 키를 거부한다.
@@ -1084,7 +1102,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
                     .height(480)
                     .checksumSha256(CHECKSUM_SHA256)
                     .build()))
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(IDEMPOTENCY_KEY)
         .build();
   }
 
@@ -1112,7 +1131,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .memo(MARKER_MEMO)
         .clientTs(CLIENT_TS)
         .clockOffsetMs(0L)
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(IDEMPOTENCY_KEY)
         .build();
   }
 
@@ -1352,7 +1372,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     MarkerUpdateServiceRequest request =
         updateRequest().toBuilder()
-            .context(context("APP", REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+            .authentication(createAuthentication("APP", REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+            .idempotencyKey(IDEMPOTENCY_KEY)
             .build();
 
     // when: 실제 서비스의 권한 검사와 마커 수정을 실행한다.
@@ -1429,20 +1450,27 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // given: 앱에서 기준 마커를 변경하도록 요청한다.
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
     insertMarker(MarkerSource.MOCK_SEED, ASSIGNED_POLICE_PHONE_ID);
-    MarkerRequestContext requestContext = context("APP", ASSIGNED_POLICE_PHONE_ID);
+    SuriMapAuthentication requestAuthentication =
+        createAuthentication("APP", ASSIGNED_POLICE_PHONE_ID);
 
     // when & then: 실제 DB의 마커 출처로 수정·삭제 권한을 판단한다.
     assertThatThrownBy(
             () ->
                 appMarkerService.update(
-                    updateRequest().toBuilder().context(requestContext).build()))
+                    updateRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertThatThrownBy(
             () ->
                 appMarkerService.delete(
-                    deleteRequest().toBuilder().context(requestContext).build()))
+                    deleteRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
@@ -1453,20 +1481,26 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @DisplayName("업무폰 정보가 없으면, 앱의 수정·삭제 요청을 마커 조회보다 먼저 거부한다")
   void changeMarker_missingPolicePhone_rejectsBeforeLookingUpMarker() {
     // given: 요청할 마커가 저장되어 있지 않고, 앱 인증에도 업무폰 정보가 없다.
-    MarkerRequestContext requestContext = context("APP", null);
+    SuriMapAuthentication requestAuthentication = createAuthentication("APP", null);
 
     // when: 마커를 수정하거나 삭제하려 한다.
     assertThatThrownBy(
             () ->
                 appMarkerService.update(
-                    updateRequest().toBuilder().context(requestContext).build()))
+                    updateRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error", "errorCode.status")
         .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
     assertThatThrownBy(
             () ->
                 appMarkerService.delete(
-                    deleteRequest().toBuilder().context(requestContext).build()))
+                    deleteRequest().toBuilder()
+                        .authentication(requestAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error", "errorCode.status")
         .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
@@ -1874,20 +1908,30 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
   @Test
   @DisplayName("앱 서비스에 웹 인증으로 수정·삭제를 요청하면, 저장된 응답이 있어도 거부한다")
-  void changeMarker_webContext_rejectsBeforeReusingStoredResponse() {
+  void changeMarker_webAuthentication_rejectsBeforeReusingStoredResponse() {
     // given: 앱에서 처리한 수정 응답이 있고, 같은 요청 키를 가진 웹 인증이 있다.
     insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
     appMarkerService.update(updateRequest());
-    MarkerRequestContext webContext = context("WEB", null);
+    SuriMapAuthentication webAuthentication = createAuthentication("WEB", null);
 
     // when & then: 저장된 응답을 반환하기 전에 서비스의 채널 경계를 검사한다.
     assertThatThrownBy(
-            () -> appMarkerService.update(updateRequest().toBuilder().context(webContext).build()))
+            () ->
+                appMarkerService.update(
+                    updateRequest().toBuilder()
+                        .authentication(webAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThatThrownBy(
-            () -> appMarkerService.delete(deleteRequest().toBuilder().context(webContext).build()))
+            () ->
+                appMarkerService.delete(
+                    deleteRequest().toBuilder()
+                        .authentication(webAuthentication)
+                        .idempotencyKey(IDEMPOTENCY_KEY)
+                        .build()))
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
@@ -1920,9 +1964,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly("COMPLETED");
   }
 
-  private MarkerRequestContext context(String channel, UUID policePhoneId) {
-    return new MarkerRequestContext(
-        new SuriMapAuthentication(PRECINCT_TEAM_ID, channel, policePhoneId), IDEMPOTENCY_KEY);
+  private SuriMapAuthentication createAuthentication(String channel, UUID policePhoneId) {
+    return new SuriMapAuthentication(PRECINCT_TEAM_ID, channel, policePhoneId);
   }
 
   private MarkerUpdateServiceRequest updateRequest() {
@@ -1930,7 +1973,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .markerId(MUTATION_MARKER_ID)
         .version(1L)
         .memo("updated clue memo")
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(IDEMPOTENCY_KEY)
         .build();
   }
 
@@ -1939,7 +1983,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .markerId(MUTATION_MARKER_ID)
         .version(1L)
         .reason("wrong marker")
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(IDEMPOTENCY_KEY)
         .build();
   }
 

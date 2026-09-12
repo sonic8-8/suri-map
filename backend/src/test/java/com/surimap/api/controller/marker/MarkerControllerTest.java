@@ -38,14 +38,13 @@ import com.surimap.config.GuardConfig;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
+import com.surimap.global.auth.MarkerAuthenticationResolver;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.error.GlobalExceptionHandler;
-import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.retention.purge.RecordLocationAccessAspect;
 import com.surimap.support.auth.WithMockAccount;
@@ -72,7 +71,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
   GlobalExceptionHandler.class,
-  MarkerRequestContextResolver.class,
+  MarkerAuthenticationResolver.class,
   GuardConfig.class,
   AopAutoConfiguration.class,
   RecordLocationAccessAspect.class,
@@ -375,9 +374,8 @@ class MarkerControllerTest {
             .markerId(MARKER_ID)
             .version(2L)
             .reason("board cleanup")
-            .context(
-                new MarkerRequestContext(
-                    new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-marker-delete-001"))
+            .authentication(new SuriMapAuthentication(ACCOUNT_ID, "WEB", null))
+            .idempotencyKey("idem-marker-delete-001")
             .build();
     MarkerMutationServiceResponse serviceResponse =
         MarkerMutationServiceResponse.builder().id(MARKER_ID).status("DELETED").version(3L).build();
@@ -417,9 +415,8 @@ class MarkerControllerTest {
                     "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))))
             .memo("S3-2 detail panel memo")
             .type("NOTE")
-            .context(
-                new MarkerRequestContext(
-                    new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-marker-update-001"))
+            .authentication(new SuriMapAuthentication(ACCOUNT_ID, "WEB", null))
+            .idempotencyKey("idem-marker-update-001")
             .build();
     MarkerMutationServiceResponse serviceResponse =
         MarkerMutationServiceResponse.builder().id(MARKER_ID).status("UPDATED").version(2L).build();

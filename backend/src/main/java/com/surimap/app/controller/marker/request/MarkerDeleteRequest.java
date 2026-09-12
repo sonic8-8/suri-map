@@ -1,7 +1,7 @@
 package com.surimap.app.controller.marker.request;
 
 import com.surimap.app.service.marker.request.MarkerDeleteServiceRequest;
-import com.surimap.marker.service.MarkerRequestContext;
+import com.surimap.global.auth.SuriMapAuthentication;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.util.UUID;
@@ -22,12 +22,14 @@ public class MarkerDeleteRequest {
     this.reason = reason;
   }
 
-  public MarkerDeleteServiceRequest toServiceRequest(UUID markerId, MarkerRequestContext context) {
+  public MarkerDeleteServiceRequest toServiceRequest(
+      UUID markerId, SuriMapAuthentication authentication, String idempotencyKey) {
     return MarkerDeleteServiceRequest.builder()
         .markerId(markerId)
         .version(version)
         .reason(reason)
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(idempotencyKey)
         .build();
   }
 }
