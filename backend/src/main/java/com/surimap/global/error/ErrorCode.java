@@ -17,7 +17,8 @@ public enum ErrorCode {
   POLICE_PHONE_NOT_REGISTERED(HttpStatus.FORBIDDEN, "police_phone_not_registered"),
   POLICE_PHONE_NOT_ASSIGNED(HttpStatus.FORBIDDEN, "police_phone_not_assigned"),
   INVALID_PHOTO_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "invalid_photo_content_type"),
-  INVALID_GEOMETRY(HttpStatus.BAD_REQUEST, "invalid_geometry");
+  INVALID_GEOMETRY(HttpStatus.BAD_REQUEST, "invalid_geometry"),
+  INVALID_MARKER_FILTER(HttpStatus.BAD_REQUEST, "invalid_marker_filter");
 
   private final HttpStatus status;
   private final String error;

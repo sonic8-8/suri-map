@@ -22,7 +22,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.MarkerEventPayload;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -33,7 +32,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -170,22 +168,22 @@ public class AppMarkerService {
         || request.getType() == null
         || request.getLocation() == null
         || request.getClientTs() == null) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     if (!request.getPhotos().isEmpty() && request.getId() == null) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
 
   private void requireAppContext(MarkerRequestContext context) {
     if (context == null || context.authentication() == null) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
     if (!"APP".equals(context.authentication().channel())) {
-      throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
     }
     if (context.idempotencyKey() == null || context.idempotencyKey().isBlank()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
 
@@ -193,7 +191,7 @@ public class AppMarkerService {
     try {
       return MarkerType.valueOf(value);
     } catch (IllegalArgumentException exception) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
 
@@ -204,7 +202,7 @@ public class AppMarkerService {
     try {
       return MarkerSupportRequestType.valueOf(value);
     } catch (IllegalArgumentException exception) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
 
@@ -302,21 +300,20 @@ public class AppMarkerService {
 
   private Marker requireMutationAccess(UUID markerId, MarkerRequestContext context) {
     if (context.authentication().policePhoneId() == null) {
-      throw new MarkerApiException("police_phone_required", HttpStatus.BAD_REQUEST);
+      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
     }
     Marker marker =
         markerMapper
             .findById(markerId)
             .filter(saved -> !saved.isDeleted())
-            .orElseThrow(
-                () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
+            .orElseThrow(() -> new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED));
     UUID accountId = context.authentication().accountId();
     MarkerWriteAccessData accessData =
         markerAccessMapper.findWriteAccessData(
             marker.getIncidentId(), marker.getOperationalPeriodId(), accountId);
     markerWriteAccessValidator.validateIncidentAccess(accessData);
     if (!marker.isFieldMarkerCreatedBy(accountId)) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
     return marker;
   }

@@ -35,9 +35,9 @@ import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.global.error.GlobalExceptionHandler;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
@@ -59,7 +59,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 @WebMvcTest({AppMarkerController.class, MarkerController.class})
 @AutoConfigureMockMvc(addFilters = false)
-@Import({MarkerExceptionHandler.class, MarkerRequestContextResolver.class, GuardConfig.class})
+@Import({GlobalExceptionHandler.class, MarkerRequestContextResolver.class, GuardConfig.class})
 @WithMockAccount(
     accountId = "11111111-1111-1111-1111-111111110071",
     policePhoneId = "22222222-2222-2222-2222-222222220071")

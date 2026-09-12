@@ -45,7 +45,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.policephone.PolicePhonePersistenceService;
@@ -496,8 +495,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // when: 웹 채널의 생성 요청을 처리한다.
     assertThatThrownBy(
             () -> appMarkerService.create(request.toBuilder().context(webContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
 
     // then: 마커와 생성 이벤트가 DB에 남지 않는다.
@@ -826,8 +825,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when: 실제 앱 서비스가 빈 멱등성 키를 거부한다.
     assertThatThrownBy(() -> appMarkerService.create(request))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("write_conflict", HttpStatus.CONFLICT);
 
     // then: 마커·알림·이벤트를 저장하지 않고 FCM도 전달하지 않는다.
@@ -1437,15 +1436,15 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             () ->
                 appMarkerService.update(
                     updateRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertThatThrownBy(
             () ->
                 appMarkerService.delete(
                     deleteRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertUnchangedMarker();
   }
@@ -1461,15 +1460,15 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             () ->
                 appMarkerService.update(
                     updateRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
     assertThatThrownBy(
             () ->
                 appMarkerService.delete(
                     deleteRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("police_phone_required", HttpStatus.BAD_REQUEST);
 
     // then: 마커 없음 오류보다 업무폰 누락 오류가 우선하며, 기록도 남지 않는다.
@@ -1492,12 +1491,12 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when & then: 버전 충돌 검사에 앞서 기존 권한 오류로 수정·삭제를 거부한다.
     assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
     assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
     Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("DELETED");
@@ -1523,12 +1522,12 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when & then: 같은 사건에 배정되어 있어도 작성자가 아니면 거부한다.
     assertThatThrownBy(() -> appMarkerService.update(updateRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertThatThrownBy(() -> appMarkerService.delete(deleteRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertUnchangedMarker();
   }
@@ -1884,13 +1883,13 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     // when & then: 저장된 응답을 반환하기 전에 서비스의 채널 경계를 검사한다.
     assertThatThrownBy(
             () -> appMarkerService.update(updateRequest().toBuilder().context(webContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThatThrownBy(
             () -> appMarkerService.delete(deleteRequest().toBuilder().context(webContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
