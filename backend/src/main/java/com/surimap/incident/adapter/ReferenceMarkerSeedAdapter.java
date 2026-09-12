@@ -1,6 +1,6 @@
 package com.surimap.incident.adapter;
 
-import com.surimap.marker.domain.MarkerType;
+import com.surimap.domain.marker.MarkerType;
 import com.surimap.marker.domain.port.ReferenceMarkerSeed;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;

@@ -1,7 +1,7 @@
 package com.surimap.marker.query;
 
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
+import com.surimap.domain.marker.MarkerStatus;
+import com.surimap.domain.marker.MarkerType;
 import java.util.UUID;
 
 /** Optional MarkerQuery.byIncident filters. Null status means ACTIVE and UPDATED only. */

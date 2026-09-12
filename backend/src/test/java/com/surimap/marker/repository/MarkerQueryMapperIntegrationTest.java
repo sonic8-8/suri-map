@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.marker.MarkerStatus;
+import com.surimap.domain.marker.MarkerType;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.query.MarkerQueryFilters;
 import java.sql.Timestamp;
 import java.time.Instant;

@@ -1,6 +1,7 @@
 package com.surimap.offlinepackage.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.domain.marker.MarkerSource;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
 import com.surimap.incident.repository.IncidentMapper;
@@ -11,7 +12,6 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
