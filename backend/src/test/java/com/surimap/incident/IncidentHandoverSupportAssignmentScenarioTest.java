@@ -1,4 +1,4 @@
-package com.surimap.harness.sc02;
+package com.surimap.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -35,7 +35,6 @@ import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,12 +47,16 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** SC-02 인계·지원 배정이 S1-1 import부터 SSE/FCM/board 소비 증거까지 이어지는지 검증한다. */
+/**
+ * 사건 인계·지원 배정의 DB 저장, 이벤트 저장과 FCM 호출을 확인한다. SSE 전달과 상황판 조립은 테스트에서 직접 호출하므로 자동 전달이나 화면 표시를 검증하지는
+ * 않는다.
+ */
 @AutoConfigureMockMvc(addFilters = false)
-@DisplayName("L1-I02 SC-02 인계·지원 배정 통합 검증")
-class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTestSupport {
+@TestPropertySource(properties = "fcm.provider=mock")
+class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTestSupport {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
@@ -71,6 +74,8 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
 
   @Autowired private SseStreamService sseStreamService;
 
+  @Autowired private MockFcmDispatcher fcmDispatcher;
+
   @Autowired private MockMvc mockMvc;
 
   @DynamicPropertySource
@@ -80,11 +85,12 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   }
 
   @BeforeEach
-  void seedSc02BaseIncident() {
+  void seedIncidentBeforeHandover() {
     assignmentPollingHandler.reset();
+    fcmDispatcher.reset();
     jdbcTemplate.execute(
         """
-        TRUNCATE TABLE marker_notification, photo, marker, event_dispatch_job,
+        TRUNCATE TABLE fcm_token, marker_notification, photo, marker, event_dispatch_job,
           operational_period, incident_assignment, missing_person, idempotency_record,
           "incident" RESTART IDENTITY CASCADE
         """);
@@ -115,6 +121,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     jdbcTemplate.execute(
         "TRUNCATE TABLE handover_memo_seed_probe, marker_seed_probe, search_path_seed_probe");
     seedAccountAndPolicePhoneFixtures();
+    seedActiveFcmTokens();
     seedIncident();
     seedOp1Evidence();
     seedInitialAssignments();
@@ -128,13 +135,18 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
       accountId = "acct-support-team",
       policePhoneId = "00000000-0000-0000-0000-000000000208",
       roles = {Role.MEMBER})
-  @DisplayName("인계·지원 배정 후 OP1 보존, SSE, FCM, board 슬롯이 수렴한다")
-  void handoverAndSupportAssignmentConvergesSseFcmAndBoard() throws Exception {
+  @DisplayName("인계·지원 배정을 반영할 경우, 기존 배정을 유지하고 신규 업무폰에 알린다")
+  void handoverAndSupportAssignments_preserveAssignmentsAndNotifyNewPolicePhones()
+      throws Exception {
+    // given: 초동 배정·첫 수색 차수의 자료와 현장 업무폰의 FCM 토큰이 있는 사건이다.
     assignmentPollingHandler.registerInitialAssignments(initialAssignments());
+    assertThat(count("marker_notification", "1 = 1")).isZero();
 
+    // when: 실종팀 인계에 이어 지원 부대 배정을 반영한다.
     assignmentPollingHandler.handleAssignmentChanges(SOURCE_INCIDENT_ID, handoverAssignments());
     assignmentPollingHandler.handleAssignmentChanges(SOURCE_INCIDENT_ID, supportAssignments());
 
+    // then: 기존 배정을 해제하지 않고 신규 배정만 추가한다.
     assertThat(activeAssignmentAccountIds())
         .containsExactlyInAnyOrder(
             "11111111-1111-1111-1111-111111110001",
@@ -148,12 +160,14 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     assertThat(
             count("incident_assignment", "incident_id = ? AND revoked_at IS NOT NULL", INCIDENT_ID))
         .isZero();
-    assertOp1SeedEvidenceStillBelongsToSameIncidentAndOp();
+    assertOp1ProbeRowsUnchanged();
 
+    // when: 같은 배정 목록을 다시 수신한다.
     assignmentPollingHandler.handleAssignmentChanges(
         SOURCE_INCIDENT_ID,
         concat(initialAssignments(), handoverAssignments(), supportAssignments()));
 
+    // then: 배정과 이벤트를 중복 저장하지 않는다.
     List<AssignmentChangedOutboxRow> assignmentEvents = assignmentChangedOutboxRows();
     assertThat(assignmentEvents).hasSize(2);
     assertThat(count("incident_assignment", "incident_id = ? AND revoked_at IS NULL", INCIDENT_ID))
@@ -162,8 +176,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     AssignmentChangedOutboxRow handoverEvent = assignmentEvents.get(0);
     assertThat(handoverEvent.payloadStringList("changedAccountIds"))
         .containsExactly(
-            "11111111-1111-1111-1111-111111110004",
-            "11111111-1111-1111-1111-111111110005");
+            "11111111-1111-1111-1111-111111110004", "11111111-1111-1111-1111-111111110005");
 
     AssignmentChangedOutboxRow supportEvent = assignmentEvents.get(1);
     assertThat(supportEvent.eventType()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
@@ -175,8 +188,10 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     assertThat(supportEvent.payloadStringList("changedAccountIds"))
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_CHANGED_ACCOUNT_IDS);
 
+    // when: 저장된 이벤트를 SSE 스트림 서비스에 직접 전달한다.
     ReplayAppend sseEvidence =
         sseStreamService.dispatchLive(supportEvent.rowId(), supportEvent.toPublishRequest());
+    // then: 전달한 배정 이벤트의 종류와 버전을 유지한다.
     assertThat(sseEvidence.isNew()).isTrue();
     assertThat(sseEvidence.event().envelope().type()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
     assertThat(sseEvidence.event().envelope().payload().get("version")).isEqualTo(3);
@@ -188,18 +203,28 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     assertThat(targets.policePhoneIds())
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS);
 
-    MockFcmDispatcher dispatcher = new MockFcmDispatcher();
-    Map<String, Object> fcmPayload = assignmentFcmPayload(supportEvent, targets);
-    dispatcher.send(
-        fcmRecipientsFor(targets.policePhoneIds()), fcmPayload, supportEvent.eventId().toString());
+    // then: 실제 배정 서비스가 호출한 FCM 기록을 확인한다. 테스트에서 send를 호출하지 않는다.
     MockFcmDispatcher.CapturedDispatch captured =
-        dispatcher.findByEventId(supportEvent.eventId().toString()).orElseThrow();
+        fcmDispatcher
+            .findByEventId("fcm:INCIDENT_ASSIGNMENT_CHANGED:" + INCIDENT_ID + ":v3")
+            .orElseThrow();
 
+    assertThat(fcmDispatcher.getDispatchCount()).isEqualTo(2);
+    assertThat(
+            fcmDispatcher
+                .findByEventId("fcm:INCIDENT_ASSIGNMENT_CHANGED:" + INCIDENT_ID + ":v2")
+                .orElseThrow()
+                .recipients())
+        .containsExactly("fcm:dev-alpha-phone-01");
     assertThat(captured.recipients())
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_FCM_RECIPIENTS);
-    assertThat(captured.recipients()).doesNotContain("fcm:dev-support-cmd-phone-01");
-    assertThat(captured.recipientPolicePhoneIds()).doesNotContain("dev-support-cmd-phone-01");
-    assertThat(captured.payload()).containsEntry("pii", false);
+    assertThat(captured.recipientPolicePhoneIds())
+        .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS);
+    assertThat(captured.payload())
+        .containsEntry("type", "INCIDENT_ASSIGNMENT_CHANGED")
+        .containsEntry("incidentId", INCIDENT_ID.toString())
+        .containsEntry("status", "ACTIVE")
+        .containsEntry("version", 3L);
     assertThat(captured.payload())
         .doesNotContainKeys(
             "missingPersonName",
@@ -211,7 +236,9 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
             "photoUrl");
     assertThat(count("marker_notification", "1 = 1")).isZero();
 
-    BoardDTO board = assembleSc02Board(supportEvent);
+    // when: 상황판 조회를 대신하지 않고, 고정 자료로 상황판 조립만 호출한다.
+    BoardDTO board = assembleBoardFromFixtureRows(supportEvent);
+    // then: 조립 결과에 첫 수색 차수와 인계·배정 상태가 유지된다.
     assertThat(board.boardResponseVersion()).isGreaterThanOrEqualTo(supportEvent.payloadVersion());
     assertThat(board.slotRow("path", PATH_CAR_ID).payload())
         .containsEntry("opId", OP1_ID.toString());
@@ -225,6 +252,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         .containsEntry("handoverCompleted", true)
         .containsEntry("supportAssigned", true);
 
+    // when/then: 지원 부대 계정으로 사건을 조회하면 반영된 배정 목록을 받는다.
     mockMvc
         .perform(
             get("/api/incidents/{incidentId}", INCIDENT_ID)
@@ -390,19 +418,35 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         OP1_ID);
   }
 
+  private void seedActiveFcmTokens() {
+    // 기존 배정 업무폰과 신규 현장 업무폰의 토큰을 준비한다. 지휘 업무폰은 토큰이 없는 fixture다.
+    // 계정 유형만으로 FCM 수신을 제한한다는 의미는 아니다.
+    jdbcTemplate.update(
+        """
+        INSERT INTO fcm_token (
+          id, account_id, police_phone_id, app_instance_id, token_hash, token_ciphertext, status
+        )
+        SELECT id, account_id, id, 'incident-assignment-test', phone_code,
+          'cipher:fcm:' || phone_code, 'ACTIVE'
+        FROM police_phone
+        WHERE id IN (
+          '00000000-0000-0000-0000-000000000101',
+          '00000000-0000-0000-0000-000000000205',
+          '00000000-0000-0000-0000-000000000207',
+          '00000000-0000-0000-0000-000000000208'
+        )
+        """);
+  }
+
   private void seedInitialAssignments() {
     insertAssignment(
         "10000000-0000-4000-8000-000000000001",
         "11111111-1111-1111-1111-111111110001",
         "FIELD_COMMANDER");
     insertAssignment(
-        "10000000-0000-4000-8000-000000000002",
-        "11111111-1111-1111-1111-111111110002",
-        "MEMBER");
+        "10000000-0000-4000-8000-000000000002", "11111111-1111-1111-1111-111111110002", "MEMBER");
     insertAssignment(
-        "10000000-0000-4000-8000-000000000003",
-        "11111111-1111-1111-1111-111111110003",
-        "MEMBER");
+        "10000000-0000-4000-8000-000000000003", "11111111-1111-1111-1111-111111110003", "MEMBER");
   }
 
   private void insertAssignment(String id, String accountId, String incidentRole) {
@@ -436,7 +480,8 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         INCIDENT_ID);
   }
 
-  private void assertOp1SeedEvidenceStillBelongsToSameIncidentAndOp() {
+  // ponytail: 전용 probe 행의 보존만 확인한다. 실제 경로·마커·메모 보존은 해당 저장 흐름의 테스트로 대체한다.
+  private void assertOp1ProbeRowsUnchanged() {
     assertThat(evidenceCount("search_path_seed_probe", PATH_CAR_ID)).isEqualTo(1);
     assertThat(evidenceCount("search_path_seed_probe", PATH_FOOT_ID)).isEqualTo(1);
     assertThat(evidenceCount("marker_seed_probe", MARKER_ID)).isEqualTo(1);
@@ -489,33 +534,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     }
   }
 
-  private Map<String, Object> assignmentFcmPayload(
-      AssignmentChangedOutboxRow event, NotificationTargets targets) {
-    Map<String, Object> payload = new LinkedHashMap<>(event.payload());
-    payload.put("type", event.eventType());
-    payload.put("incidentId", event.incidentId().toString());
-    payload.put("recipientPolicy", NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICY);
-    payload.put("recipientAccountIds", targets.accountIds());
-    payload.put("recipientPolicePhoneIds", targets.policePhoneIds());
-    payload.put("pii", false);
-    return payload;
-  }
-
-  private static List<String> fcmRecipientsFor(List<String> policePhoneIds) {
-    return policePhoneIds.stream()
-        .map(Sc02HandoverSupportAssignmentIntegrationTest::fcmRecipientFor)
-        .toList();
-  }
-
-  private static String fcmRecipientFor(String policePhoneId) {
-    int fixtureIndex = NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS.indexOf(policePhoneId);
-    if (fixtureIndex >= 0) {
-      return NotificationFixtures.ASSIGNMENT_FCM_RECIPIENTS.get(fixtureIndex);
-    }
-    return "fcm:" + policePhoneId;
-  }
-
-  private BoardDTO assembleSc02Board(AssignmentChangedOutboxRow supportEvent) {
+  private BoardDTO assembleBoardFromFixtureRows(AssignmentChangedOutboxRow supportEvent) {
     long version = supportEvent.payloadVersion();
     String eventId = supportEvent.eventId().toString();
     return new BoardAssembler()

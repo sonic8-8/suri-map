@@ -4,7 +4,7 @@
 
 현재 이름은 유지한다. 마커·알림부터 함께 변경하고, 나머지는 해당 영역을 정리할 때 이름을 확정한다. API·이벤트·DB 필드·fixture ID 같은 계약 이름은 이 목록만으로 바꾸지 않는다.
 
-`Sc08` 같은 시나리오 번호도 파일·클래스 이름의 변경 대상이다. 번호 대신 검증하는 동작이나 실행·데이터 준비 역할이 드러나도록 정한다. 문서의 시나리오 번호와 fixture ID는 유지한다.
+`Sc02`·`Sc08` 같은 시나리오 번호도 파일·클래스 이름의 변경 대상이다. 번호 대신 검증하는 동작이나 실행·데이터 준비 역할이 드러나도록 정한다. 문서의 시나리오 번호와 fixture ID는 유지한다.
 
 ## 마커·알림 — 먼저 진행
 
@@ -21,6 +21,8 @@
 `MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/marker/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
 
 `MarkerNotificationToastQuery`를 제거하고 [MarkerNotificationMapper](../../backend/src/main/java/com/surimap/domain/marker/MarkerNotificationMapper.java)의 `findNotificationRowsByIncidentId`로 조회 선언을 모았다. 조회 결과는 Mapper 내부의 `NotificationRow` class로 옮겼다. 기존 알림 조회 테스트는 [MarkerNotificationMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerNotificationMapperTest.java)로 이름·위치를 정리했다. 상황판 슬롯 이름은 `marker_notification`을 사용한다.
+
+`Sc02SupportAssignmentFcmHarnessRunner`·`Sc02SupportAssignmentFcmHarnessRedTest`는 테스트 안에서 배정·수신자 선택을 재구현하고 DB와 무관한 카운터를 검사하므로 제거했다. 기존 `Sc02HandoverSupportAssignmentIntegrationTest`는 [IncidentHandoverSupportAssignmentScenarioTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentScenarioTest.java)로 옮겼다. 실제 배정 서비스가 DB 토큰을 조회해 호출한 FCM 기록과 `marker_notification` 미저장을 검증한다. 테스트가 직접 만드는 FCM payload·수신자 목록은 제거했다. 남은 SSE 직접 호출·고정 자료의 상황판 조립·probe 행 검사는 실제 자동 전달·화면 표시·경로 보존 검증과 구분한다.
 
 | 현재 이름 | 변경 후보 |
 |---|---|
@@ -53,7 +55,6 @@
 | eventhub | [SseTerminalStreamReleaseRedTest](../../backend/src/test/java/com/surimap/eventhub/SseTerminalStreamReleaseRedTest.java) |
 | handover | [HandoverMemoContextBindingRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoContextBindingRedTest.java) |
 | handover | [HandoverMemoCreatePublishRequestRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoCreatePublishRequestRedTest.java) |
-| harness/sc02 | [Sc02SupportAssignmentFcmHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc02/Sc02SupportAssignmentFcmHarnessRedTest.java) |
 | harness/sc09 | [Sc07Sc09OfflineReplayHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRedTest.java) |
 | maparea | [SearchAreaAssignmentWriteRedTest](../../backend/src/test/java/com/surimap/maparea/SearchAreaAssignmentWriteRedTest.java) |
 | offlinepackage | [OfflinePackageInstallationApiRedTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiRedTest.java) |
@@ -85,7 +86,6 @@
 | [AuthPolicePhoneHarnessRunner](../../backend/src/test/java/com/surimap/account/harness/AuthPolicePhoneHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [Sc02ToSc12BoardConvergenceHarnessRunner](../../backend/src/test/java/com/surimap/board/Sc02ToSc12BoardConvergenceHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [EventHubHarnessRunner](../../backend/src/test/java/com/surimap/eventhub/harness/EventHubHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
-| [Sc02SupportAssignmentFcmHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc02/Sc02SupportAssignmentFcmHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [Sc04SearchAreaHarnessTest](../../backend/src/test/java/com/surimap/harness/sc04/Sc04SearchAreaHarnessTest.java) | 검증 대상·시나리오 확인 후 결정 |
 | [Sc07Sc09OfflineReplayHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [Sc10OpHandoverHarnessTest](../../backend/src/test/java/com/surimap/harness/sc10/Sc10OpHandoverHarnessTest.java) | 검증 대상·시나리오 확인 후 결정 |
@@ -100,7 +100,6 @@
 | 영역 | 변경 대상 |
 |---|---|
 | harness/sc01 | [Sc01IncidentStartIntegrationTest](../../backend/src/test/java/com/surimap/harness/sc01/Sc01IncidentStartIntegrationTest.java) / [Sc01IncidentStartBridgeTest](../../backend/src/test/java/com/surimap/harness/sc01/Sc01IncidentStartBridgeTest.java) |
-| harness/sc02 | [Sc02HandoverSupportAssignmentIntegrationTest](../../backend/src/test/java/com/surimap/harness/sc02/Sc02HandoverSupportAssignmentIntegrationTest.java) |
 | harness/sc04 | [Sc04Fixtures](../../backend/src/test/java/com/surimap/harness/sc04/fixture/Sc04Fixtures.java) |
 | harness/sc10 | [Sc10Fixtures](../../backend/src/test/java/com/surimap/harness/sc10/fixture/Sc10Fixtures.java) |
 | harness/sc12 | [Sc12IncidentCloseDataPurgeIntegrationTest](../../backend/src/test/java/com/surimap/harness/sc12/Sc12IncidentCloseDataPurgeIntegrationTest.java) |
