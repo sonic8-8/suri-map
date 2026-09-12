@@ -18,14 +18,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.api.controller.marker.response.MarkerListResponse;
+import com.surimap.api.controller.marker.response.MarkersResponse;
 import com.surimap.api.service.marker.MarkerService;
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.app.controller.marker.AppMarkerController;
 import com.surimap.app.service.marker.AppMarkerService;
 import com.surimap.common.auth.Channel;
@@ -242,7 +242,7 @@ class MarkerControllerTest {
             .build();
     when(markerService.list(INCIDENT_ID, OP_ID, "CLUE", null))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(INCIDENT_ID)
                 .markers(List.of(marker))
                 .build());
@@ -285,8 +285,8 @@ class MarkerControllerTest {
             .andReturn();
 
     // then: 좌표는 소수점 6자리로 정규화된 표현을 유지한다.
-    MarkerListResponse response =
-        objectMapper.readValue(result.getResponse().getContentAsString(), MarkerListResponse.class);
+    MarkersResponse response =
+        objectMapper.readValue(result.getResponse().getContentAsString(), MarkersResponse.class);
     assertThat(response.getMarkers().get(0).getLocation().coordinates())
         .extracting(BigDecimal::toPlainString)
         .containsExactly("126.913400", "35.163100");
@@ -312,7 +312,7 @@ class MarkerControllerTest {
     // given: 해당 사건에는 조회할 마커가 없다.
     when(markerService.list(INCIDENT_ID, null, null, null))
         .thenReturn(
-            MarkerListServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
+            MarkersServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
 
     // when & then: 업무폰 헤더 없이 웹에서 빈 목록을 조회한다.
     mockMvc

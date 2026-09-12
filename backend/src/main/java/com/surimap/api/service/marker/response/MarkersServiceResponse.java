@@ -16,13 +16,13 @@ import org.locationtech.jts.geom.Point;
 
 @Getter
 @NoArgsConstructor
-public class MarkerListServiceResponse {
+public class MarkersServiceResponse {
 
   private UUID incidentId;
   private List<MarkerServiceResponse> markers;
 
   @Builder
-  private MarkerListServiceResponse(UUID incidentId, List<MarkerServiceResponse> markers) {
+  private MarkersServiceResponse(UUID incidentId, List<MarkerServiceResponse> markers) {
     this.incidentId = incidentId;
     this.markers = List.copyOf(markers);
   }

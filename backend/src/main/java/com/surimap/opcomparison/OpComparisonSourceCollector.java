@@ -1,7 +1,7 @@
 package com.surimap.opcomparison;
 
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.opcomparison.OpComparisonApiException;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.domain.path.SearchPath;

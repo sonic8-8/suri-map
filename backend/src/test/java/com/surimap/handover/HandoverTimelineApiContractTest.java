@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.surimap.api.controller.handover.HandoverTimelineController;
 import com.surimap.api.service.handover.HandoverTimelineApiService;
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
@@ -89,7 +89,7 @@ class HandoverTimelineApiContractTest {
     when(searchPathService.findAll()).thenReturn(List.of(path()));
     when(markerService.list(INCIDENT_ID, OP_ID, null, null))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(INCIDENT_ID)
                 .markers(List.of(marker()))
                 .build());
@@ -142,7 +142,7 @@ class HandoverTimelineApiContractTest {
     when(searchPathService.findAll()).thenReturn(List.of(legacyPath()));
     when(markerService.list(INCIDENT_ID, OP_ID, null, null))
         .thenReturn(
-            MarkerListServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
+            MarkersServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
     when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of());
     when(searchHistorySummaryMapper.findByOp(OP_ID, INCIDENT_ID, "OP", OP_ID, null, null))
         .thenReturn(List.of());
