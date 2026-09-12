@@ -6,6 +6,8 @@ import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
@@ -14,22 +16,20 @@ import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Autowired;
 
 class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
 
   @Autowired private ReferenceMarkerSeed referenceMarkerSeed;
   @Autowired private MarkerMapper markerMapper;
-  @Autowired private MarkerQuery markerQuery;
+  @Autowired private MarkerService markerService;
 
   @BeforeEach
   void setUp() {
@@ -55,24 +55,24 @@ class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
     // then: 응답과 저장된 마커에 기존 식별자·유형·출처·상태·좌표를 유지한다.
     assertThat(result.incidentId()).isEqualTo(INCIDENT_ID);
     assertThat(result.markers()).hasSize(1);
-    MarkerView marker = result.markers().get(0);
-    assertThat(marker.id()).isEqualTo(MARKER_ID);
-    assertThat(marker.incidentId()).isEqualTo(INCIDENT_ID);
-    assertThat(marker.opId()).isEqualTo(OP1_ID);
-    assertThat(marker.type()).isEqualTo(MarkerType.CLUE);
-    assertThat(marker.source()).isEqualTo(MarkerSource.MOCK_SEED);
-    assertThat(marker.status()).isEqualTo(MarkerStatus.ACTIVE);
-    assertThat(marker.version()).isEqualTo(1L);
-    assertThat(marker.location().getSRID()).isEqualTo(4326);
-    assertThat(marker.location().getX()).isEqualTo(126.913400);
-    assertThat(marker.location().getY()).isEqualTo(35.163100);
-    assertThat(marker.photoSummary()).isEmpty();
+    MarkerServiceResponse marker = result.markers().get(0);
+    assertThat(marker.getId()).isEqualTo(MARKER_ID);
+    assertThat(marker.getIncidentId()).isEqualTo(INCIDENT_ID);
+    assertThat(marker.getOpId()).isEqualTo(OP1_ID);
+    assertThat(marker.getType()).isEqualTo(MarkerType.CLUE);
+    assertThat(marker.getSource()).isEqualTo(MarkerSource.MOCK_SEED);
+    assertThat(marker.getStatus()).isEqualTo(MarkerStatus.ACTIVE);
+    assertThat(marker.getVersion()).isEqualTo(1L);
+    assertThat(marker.getLocation().getSRID()).isEqualTo(4326);
+    assertThat(marker.getLocation().getX()).isEqualTo(126.913400);
+    assertThat(marker.getLocation().getY()).isEqualTo(35.163100);
+    assertThat(marker.getPhotoSummary()).isEmpty();
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getMarkerSource())
         .isEqualTo("MOCK_SEED");
     assertThat(countMarkers()).isEqualTo(1);
     // then: 오프라인 패키지에서 사용하는 실제 마커 조회로도 저장한 기준 마커를 읽는다.
-    assertThat(markerQuery.byIncident(INCIDENT_ID, MarkerQueryFilters.empty()).markers())
-        .extracting(MarkerView::id)
+    assertThat(markerService.list(INCIDENT_ID, null, null, null).getMarkers())
+        .extracting(MarkerServiceResponse::getId)
         .containsExactly(MARKER_ID);
   }
 
@@ -90,7 +90,10 @@ class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
             INCIDENT_ID, List.of(MarkerSeedFixtures.referenceClueSeed()));
 
     // then: 저장된 결과를 반환하며 마커 수와 버전을 늘리지 않는다.
-    assertThat(repeated).isEqualTo(first);
+    assertThat(repeated)
+        .usingRecursiveComparison()
+        .withEqualsForType(Point::equalsExact, Point.class)
+        .isEqualTo(first);
     assertThat(markerMapper.findById(MARKER_ID).orElseThrow().getVersion()).isEqualTo(1L);
     assertThat(countMarkers()).isEqualTo(1);
   }

@@ -1,6 +1,9 @@
 package com.surimap.offlinepackage.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
@@ -12,10 +15,6 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerQueryResult;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.AssignedArea;
@@ -136,7 +135,7 @@ public class OfflinePackageRepository {
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final SearchAreaQuery searchAreaQuery;
   private final SearchAreaAssignmentQuery assignmentQuery;
-  private final MarkerQuery markerQuery;
+  private final MarkerService markerService;
   private final PolicePhoneMapper policePhoneMapper;
   private final TileService tileService;
 
@@ -151,7 +150,7 @@ public class OfflinePackageRepository {
         (OperationalPeriodQuery) null,
         (SearchAreaQuery) null,
         (SearchAreaAssignmentQuery) null,
-        (MarkerQuery) null,
+        (MarkerService) null,
         (PolicePhoneMapper) null,
         tileService);
   }
@@ -163,7 +162,7 @@ public class OfflinePackageRepository {
       ObjectProvider<OperationalPeriodQuery> operationalPeriodQuery,
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
-      ObjectProvider<MarkerQuery> markerQuery,
+      ObjectProvider<MarkerService> markerService,
       ObjectProvider<PolicePhoneMapper> policePhoneMapper,
       ObjectProvider<TileService> tileService) {
     this(
@@ -172,7 +171,7 @@ public class OfflinePackageRepository {
         operationalPeriodQuery == null ? null : operationalPeriodQuery.getIfAvailable(),
         searchAreaQuery == null ? null : searchAreaQuery.getIfAvailable(),
         assignmentQuery == null ? null : assignmentQuery.getIfAvailable(),
-        markerQuery == null ? null : markerQuery.getIfAvailable(),
+        markerService == null ? null : markerService.getIfAvailable(),
         policePhoneMapper == null ? null : policePhoneMapper.getIfAvailable(),
         tileService == null ? null : tileService.getIfAvailable(LocalTileService::new));
   }
@@ -183,7 +182,7 @@ public class OfflinePackageRepository {
       ObjectProvider<OperationalPeriodQuery> operationalPeriodQuery,
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
-      ObjectProvider<MarkerQuery> markerQuery,
+      ObjectProvider<MarkerService> markerService,
       ObjectProvider<TileService> tileService) {
     this(
         mapper,
@@ -191,7 +190,7 @@ public class OfflinePackageRepository {
         operationalPeriodQuery,
         searchAreaQuery,
         assignmentQuery,
-        markerQuery,
+        markerService,
         null,
         tileService);
   }
@@ -202,7 +201,7 @@ public class OfflinePackageRepository {
       OperationalPeriodQuery operationalPeriodQuery,
       SearchAreaQuery searchAreaQuery,
       SearchAreaAssignmentQuery assignmentQuery,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       PolicePhoneMapper policePhoneMapper,
       TileService tileService) {
     this.mapper = mapper;
@@ -210,7 +209,7 @@ public class OfflinePackageRepository {
     this.operationalPeriodQuery = operationalPeriodQuery;
     this.searchAreaQuery = searchAreaQuery;
     this.assignmentQuery = assignmentQuery;
-    this.markerQuery = markerQuery;
+    this.markerService = markerService;
     this.policePhoneMapper = policePhoneMapper;
     this.tileService = tileService == null ? new LocalTileService() : tileService;
   }
@@ -334,7 +333,7 @@ public class OfflinePackageRepository {
         || operationalPeriodQuery == null
         || searchAreaQuery == null
         || assignmentQuery == null
-        || markerQuery == null) {
+        || markerService == null) {
       return Optional.empty();
     }
     try {
@@ -393,8 +392,9 @@ public class OfflinePackageRepository {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     List<SearchAreaRow> assignedAreas =
         assignedAreaIds.stream().map(areasById::get).filter(Objects::nonNull).toList();
-    MarkerQueryResult markerResult = markerQuery.byIncident(incidentId, MarkerQueryFilters.empty());
-    List<MarkerView> markers = markerResult == null ? List.of() : markerResult.markers();
+    MarkerListServiceResponse markerResult = markerService.list(incidentId, null, null, null);
+    List<MarkerServiceResponse> markers =
+        markerResult == null ? List.of() : markerResult.getMarkers();
 
     return Optional.of(
         new SourceSnapshot(
@@ -409,16 +409,18 @@ public class OfflinePackageRepository {
             assignedAreas,
             markers.stream()
                 .filter(OfflinePackageRepository::isInitialReferenceMarker)
-                .filter(marker -> marker.location() != null)
+                .filter(marker -> marker.getLocation() != null)
                 .sorted(
                     Comparator.comparing(
-                            MarkerView::occurredAt, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(MarkerView::id))
+                            MarkerServiceResponse::getOccurredAt,
+                            Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(MarkerServiceResponse::getId))
                 .toList()));
   }
 
-  private static boolean isInitialReferenceMarker(MarkerView marker) {
-    return marker.source() == MarkerSource.MOCK_SEED || marker.source() == MarkerSource.SYSTEM;
+  private static boolean isInitialReferenceMarker(MarkerServiceResponse marker) {
+    return marker.getSource() == MarkerSource.MOCK_SEED
+        || marker.getSource() == MarkerSource.SYSTEM;
   }
 
   private OfflinePackageManifestResponse manifestFromSource(
@@ -470,11 +472,11 @@ public class OfflinePackageRepository {
             .map(
                 marker ->
                     new InitialMarker(
-                        marker.id().toString(),
-                        marker.incidentId().toString(),
-                        marker.opId().toString(),
-                        coordinate(marker.location()),
-                        marker.status().name()))
+                        marker.getId().toString(),
+                        marker.getIncidentId().toString(),
+                        marker.getOpId().toString(),
+                        coordinate(marker.getLocation()),
+                        marker.getStatus().name()))
             .toList(),
         new OverallSearchArea(
             source.overallSearchArea().id().toString(),
@@ -774,7 +776,7 @@ public class OfflinePackageRepository {
     String markerKey =
         source.initialMarkers().isEmpty()
             ? "initial-marker:none:" + incidentId
-            : "initial-marker:" + source.initialMarkers().get(0).id();
+            : "initial-marker:" + source.initialMarkers().get(0).getId();
     items.add(
         item(
             markerKey,
@@ -1083,7 +1085,7 @@ public class OfflinePackageRepository {
       PolicePhoneStateRow policePhone,
       OverallSearchAreaResult overallSearchArea,
       List<SearchAreaRow> assignedAreas,
-      List<MarkerView> initialMarkers) {
+      List<MarkerServiceResponse> initialMarkers) {
 
     String manifestHashSource() {
       return String.join(
@@ -1132,12 +1134,12 @@ public class OfflinePackageRepository {
 
     String markerHash() {
       return initialMarkers.stream()
-          .map(marker -> marker.id() + ":" + marker.status() + ":" + marker.version())
+          .map(marker -> marker.getId() + ":" + marker.getStatus() + ":" + marker.getVersion())
           .collect(Collectors.joining(","));
     }
 
     long maxMarkerVersion() {
-      return initialMarkers.stream().mapToLong(MarkerView::version).max().orElse(0L);
+      return initialMarkers.stream().mapToLong(MarkerServiceResponse::getVersion).max().orElse(0L);
     }
   }
 

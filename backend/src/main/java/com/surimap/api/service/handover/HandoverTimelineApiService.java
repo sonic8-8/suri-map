@@ -8,6 +8,8 @@ import com.surimap.api.controller.handover.response.HandoverTimelineResponse.Pat
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.PointResponse;
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ScopeResponse;
 import com.surimap.api.controller.summary.response.SearchHistorySummaryItemResponse;
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
@@ -19,9 +21,6 @@ import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -45,7 +44,7 @@ public class HandoverTimelineApiService {
       List.of("blue", "green", "yellow", "pink", "purple", "gray");
 
   private final SearchPathService searchPathService;
-  private final MarkerQuery markerQuery;
+  private final MarkerService markerService;
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
   private final DutyShiftMapper dutyShiftMapper;
@@ -53,13 +52,13 @@ public class HandoverTimelineApiService {
 
   public HandoverTimelineApiService(
       SearchPathService searchPathService,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
       DutyShiftMapper dutyShiftMapper) {
     this.searchPathService =
         Objects.requireNonNull(searchPathService, "searchPathService must not be null");
-    this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
+    this.markerService = Objects.requireNonNull(markerService, "markerService must not be null");
     this.handoverMemoQuery =
         Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
     this.searchHistorySummaryMapper =
@@ -89,7 +88,7 @@ public class HandoverTimelineApiService {
             includeOtherActors,
             dutyShiftMapper);
     List<SearchPath> paths = scopedPaths(incidentId, operationalPeriodId, scope);
-    List<MarkerView> markers = scopedMarkers(incidentId, operationalPeriodId, scope);
+    List<MarkerServiceResponse> markers = scopedMarkers(incidentId, operationalPeriodId, scope);
     List<HandoverMemoRow> memos = scopedMemos(incidentId, operationalPeriodId, scope);
 
     ActorRegistry actors = new ActorRegistry();
@@ -119,14 +118,12 @@ public class HandoverTimelineApiService {
         .toList();
   }
 
-  private List<MarkerView> scopedMarkers(UUID incidentId, UUID opId, Scope scope) {
-    return markerQuery
-        .byIncident(incidentId, new MarkerQueryFilters(opId, null, null))
-        .markers()
-        .stream()
+  private List<MarkerServiceResponse> scopedMarkers(UUID incidentId, UUID opId, Scope scope) {
+    return markerService.list(incidentId, opId, null, null).getMarkers().stream()
         .filter(
             marker ->
-                scope.includes(marker.dutyShiftId(), marker.occurredAt(), marker.occurredAt()))
+                scope.includes(
+                    marker.getDutyShiftId(), marker.getOccurredAt(), marker.getOccurredAt()))
         .toList();
   }
 
@@ -162,7 +159,7 @@ public class HandoverTimelineApiService {
 
   private List<EventResponse> events(
       List<SearchPath> paths,
-      List<MarkerView> markers,
+      List<MarkerServiceResponse> markers,
       List<HandoverMemoRow> memos,
       ActorRegistry actors) {
     List<EventResponse> events = new ArrayList<>();
@@ -206,12 +203,12 @@ public class HandoverTimelineApiService {
                 Map.of("pathId", path.getId().toString())));
       }
     }
-    for (MarkerView marker : markers) {
-      String actorId = actors.actorFor(marker.policePhoneId(), "현장 기록자");
+    for (MarkerServiceResponse marker : markers) {
+      String actorId = actors.actorFor(marker.getPolicePhoneId(), "현장 기록자");
       events.add(
           new EventResponse(
-              "marker-" + marker.id(),
-              marker.occurredAt(),
+              "marker-" + marker.getId(),
+              marker.getOccurredAt(),
               "MARKER",
               actorId,
               "마커 기록",
@@ -256,30 +253,30 @@ public class HandoverTimelineApiService {
     };
   }
 
-  private Map<String, Object> markerDetail(MarkerView marker) {
+  private Map<String, Object> markerDetail(MarkerServiceResponse marker) {
     Map<String, Object> detail = new LinkedHashMap<>();
-    detail.put("markerId", marker.id().toString());
-    detail.put("markerType", marker.type().name());
-    if (marker.supportRequestType() != null) {
-      detail.put("supportRequestType", marker.supportRequestType().name());
+    detail.put("markerId", marker.getId().toString());
+    detail.put("markerType", marker.getType().name());
+    if (marker.getSupportRequestType() != null) {
+      detail.put("supportRequestType", marker.getSupportRequestType().name());
     }
-    if (marker.memo() != null && !marker.memo().isBlank()) {
-      detail.put("memo", marker.memo());
+    if (marker.getMemo() != null && !marker.getMemo().isBlank()) {
+      detail.put("memo", marker.getMemo());
     }
-    if (marker.location() != null) {
+    if (marker.getLocation() != null) {
       detail.put(
           "location",
           Map.of(
-              "lat", BigDecimal.valueOf(marker.location().getY()),
-              "lng", BigDecimal.valueOf(marker.location().getX())));
+              "lat", BigDecimal.valueOf(marker.getLocation().getY()),
+              "lng", BigDecimal.valueOf(marker.getLocation().getX())));
     }
-    detail.put("photoCount", marker.photoSummary().size());
+    detail.put("photoCount", marker.getPhotoSummary().size());
     return detail;
   }
 
   private MetricsResponse metrics(
       List<SearchPath> paths,
-      List<MarkerView> markers,
+      List<MarkerServiceResponse> markers,
       List<HandoverMemoRow> memos,
       Scope scope,
       UUID opId) {

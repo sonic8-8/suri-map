@@ -1,8 +1,8 @@
 package com.surimap.marker.seed;
 
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
-import com.surimap.marker.query.MarkerView;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,11 +41,11 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
     Map<UUID, Marker> persisted =
         markerMapper.findByIds(markerIds).stream()
             .collect(Collectors.toMap(Marker::getId, Function.identity()));
-    List<MarkerView> markers =
+    List<MarkerServiceResponse> markers =
         markerIds.stream()
             .map(persisted::get)
             .filter(Objects::nonNull)
-            .map(marker -> marker.toView(List.of()))
+            .map(marker -> MarkerServiceResponse.from(marker, List.of()))
             .toList();
     return new ReferenceMarkerSeedResult(incidentId, markers);
   }

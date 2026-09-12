@@ -7,10 +7,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.surimap.incident.domain.IncidentRecord;
-import com.surimap.incident.repository.IncidentMapper;
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
+import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
@@ -19,9 +21,6 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerQueryResult;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.dto.TileStyleResponse;
@@ -114,7 +113,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     OperationalPeriodQuery operationalPeriodQuery = Mockito.mock(OperationalPeriodQuery.class);
     SearchAreaQuery searchAreaQuery = Mockito.mock(SearchAreaQuery.class);
     SearchAreaAssignmentQuery assignmentQuery = Mockito.mock(SearchAreaAssignmentQuery.class);
-    MarkerQuery markerQuery = Mockito.mock(MarkerQuery.class);
+    MarkerService markerService = Mockito.mock(MarkerService.class);
     OfflinePackageRepository repository =
         new OfflinePackageRepository(
             mapper,
@@ -122,7 +121,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
             provider(operationalPeriodQuery),
             provider(searchAreaQuery),
             provider(assignmentQuery),
-            provider(markerQuery),
+            provider(markerService),
             provider(new GzipFixtureTileService()));
     IncidentRecord incident = new IncidentRecord();
     incident.setId(incidentId);
@@ -162,8 +161,9 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     when(searchAreaQuery.byOp(eq(opId), any(SearchAreaFilters.class)))
         .thenReturn(new SearchAreaCollection(incidentId, 0L, List.of()));
     when(assignmentQuery.byOp(opId)).thenReturn(List.of());
-    when(markerQuery.byIncident(eq(incidentId), any(MarkerQueryFilters.class)))
-        .thenReturn(new MarkerQueryResult(incidentId, List.of()));
+    when(markerService.list(eq(incidentId), any(), any(), any()))
+        .thenReturn(
+            MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
 
     OfflinePackageManifestResponse manifest =
         repository.manifest(incidentId.toString(), OfflinePackageRepository.POLICE_PHONE_ID);
@@ -201,7 +201,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     OperationalPeriodQuery operationalPeriodQuery = Mockito.mock(OperationalPeriodQuery.class);
     SearchAreaQuery searchAreaQuery = Mockito.mock(SearchAreaQuery.class);
     SearchAreaAssignmentQuery assignmentQuery = Mockito.mock(SearchAreaAssignmentQuery.class);
-    MarkerQuery markerQuery = Mockito.mock(MarkerQuery.class);
+    MarkerService markerService = Mockito.mock(MarkerService.class);
     PolicePhoneMapper policePhoneMapper = Mockito.mock(PolicePhoneMapper.class);
     OfflinePackageRepository repository =
         new OfflinePackageRepository(
@@ -210,7 +210,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
             provider(operationalPeriodQuery),
             provider(searchAreaQuery),
             provider(assignmentQuery),
-            provider(markerQuery),
+            provider(markerService),
             provider(policePhoneMapper),
             provider(new GzipFixtureTileService()));
     IncidentRecord incident = new IncidentRecord();
@@ -256,13 +256,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
         .thenReturn(
             Optional.of(
                 new OverallSearchAreaResult(
-                    overallAreaId,
-                    incidentId,
-                    "ACTIVE",
-                    1L,
-                    geometry,
-                    List.of(),
-                    Instant.EPOCH)));
+                    overallAreaId, incidentId, "ACTIVE", 1L, geometry, List.of(), Instant.EPOCH)));
     when(searchAreaQuery.byOp(eq(opId), any(SearchAreaFilters.class)))
         .thenReturn(
             new SearchAreaCollection(
@@ -292,10 +286,12 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
                     null,
                     "ACTIVE",
                     1L)));
-    when(markerQuery.byIncident(eq(incidentId), any(MarkerQueryFilters.class)))
-        .thenReturn(new MarkerQueryResult(incidentId, List.of()));
+    when(markerService.list(eq(incidentId), any(), any(), any()))
+        .thenReturn(
+            MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
 
-    OfflinePackageManifestResponse manifest = repository.manifest(incidentId.toString(), phoneId.toString());
+    OfflinePackageManifestResponse manifest =
+        repository.manifest(incidentId.toString(), phoneId.toString());
 
     assertThat(manifest.assignedAreas())
         .extracting(OfflinePackageManifestResponse.AssignedArea::areaId)

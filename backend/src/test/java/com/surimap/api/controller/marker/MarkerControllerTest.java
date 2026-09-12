@@ -23,6 +23,8 @@ import com.surimap.api.service.marker.MarkerService;
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.controller.marker.AppMarkerController;
 import com.surimap.app.service.marker.AppMarkerService;
@@ -44,8 +46,6 @@ import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.exception.MarkerExceptionHandler;
-import com.surimap.marker.query.MarkerPhotoSummary;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.retention.purge.RecordLocationAccessAspect;
@@ -208,34 +208,38 @@ class MarkerControllerTest {
   @DisplayName("앱에서 마커를 조회하면, 마커·사진 정보를 반환하고 위치 조회 기록을 남긴다")
   void listMarkers_appChannel_returnsMarkersAndRecordsLocationAccess() throws Exception {
     // given: 서비스가 반환할 마커와 첨부 사진 정보를 준비한다.
-    MarkerView marker =
-        new MarkerView(
-            READ_MARKER_ID,
-            INCIDENT_ID,
-            OP_ID,
-            null,
-            READ_ACCOUNT_ID,
-            READ_POLICE_PHONE_ID,
-            MarkerType.CLUE,
-            null,
-            MarkerSource.APP,
-            MarkerStatus.ACTIVE,
-            7L,
-            new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
-                .toPoint(),
-            "등산로 입구 제보",
-            Instant.parse("2026-05-14T00:00:01Z"),
-            List.of(
-                new MarkerPhotoSummary(
-                    PHOTO_ID,
-                    "ATTACHED",
-                    3L,
-                    "image/jpeg",
-                    1024L,
-                    Instant.parse("2026-05-14T00:00:02Z"),
-                    PHOTO_URL,
-                    PHOTO_URL)));
+    MarkerServiceResponse marker =
+        MarkerServiceResponse.builder()
+            .id(READ_MARKER_ID)
+            .incidentId(INCIDENT_ID)
+            .opId(OP_ID)
+            .dutyShiftId(null)
+            .accountId(READ_ACCOUNT_ID)
+            .policePhoneId(READ_POLICE_PHONE_ID)
+            .type(MarkerType.CLUE)
+            .supportRequestType(null)
+            .source(MarkerSource.APP)
+            .status(MarkerStatus.ACTIVE)
+            .version(7L)
+            .location(
+                new MarkerGeoJsonPoint(
+                        "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
+                    .toPoint())
+            .memo("등산로 입구 제보")
+            .occurredAt(Instant.parse("2026-05-14T00:00:01Z"))
+            .photoSummary(
+                List.of(
+                    MarkerPhotoServiceResponse.builder()
+                        .photoId(PHOTO_ID)
+                        .status("ATTACHED")
+                        .version(3L)
+                        .contentType("image/jpeg")
+                        .sizeBytes(1024L)
+                        .attachedAt(Instant.parse("2026-05-14T00:00:02Z"))
+                        .photoUrl(PHOTO_URL)
+                        .thumbnailUrl(PHOTO_URL)
+                        .build()))
+            .build();
     when(markerService.list(INCIDENT_ID, OP_ID, "CLUE", null))
         .thenReturn(
             MarkerListServiceResponse.builder()

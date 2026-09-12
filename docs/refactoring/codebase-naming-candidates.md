@@ -30,7 +30,11 @@
 
 `MarkerType`·`MarkerStatus`·`MarkerSource`·`MarkerSupportRequestType`은 이름과 값을 유지하고 `Marker`와 같은 `domain/marker`로 옮겼다. 호출부·테스트·fixture의 import만 맞췄으며, Mapper XML과 업무 로직은 변경하지 않았다. `marker/domain/port/ReferenceMarkerSeed`는 사용 중이므로 남겨뒀다.
 
-다음 후보는 `MarkerQuery`·`MyBatisMarkerQuery`의 단일 인터페이스·구현 분리와 조회용 객체 구성이다. 상황판·인수인계·오프라인 패키지 등 기존 사용처를 확인한 뒤 단순화 범위를 정한다. `MarkerQueryMapperIntegrationTest`도 실제 `MarkerMapper`를 호출하므로 기존 `MarkerMapperTest`와 검증을 묶을 수 있는지 확인한다.
+마커 조회는 다음과 같이 정리했다.
+
+- `MarkerQuery`·`MyBatisMarkerQuery`를 제거하고 기존 [MarkerService.list()](../../backend/src/main/java/com/surimap/api/service/marker/MarkerService.java)로 통합했다. 상황판·인수인계·오프라인 패키지·수색 차수 비교도 같은 조회를 사용한다.
+- `MarkerView`·`MarkerPhotoSummary`는 [MarkerListServiceResponse](../../backend/src/main/java/com/surimap/api/service/marker/response/MarkerListServiceResponse.java) 내부의 `MarkerServiceResponse`·`MarkerPhotoServiceResponse` class로 옮겼다. 응답 변환은 도메인 `Marker`에서 응답 DTO로 옮기고, 중복 포장인 `MarkerQueryResult`와 값 전달용 `MarkerQueryFilters`는 제거했다. 사진 SQL의 조회 컬럼은 `MarkerMapper.AttachedPhotoRow`로 유지한다.
+- `MarkerQueryMapperIntegrationTest`의 필터·정렬·첨부 사진 검증은 기존 [MarkerMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerMapperTest.java)에 합쳤다. `MarkerQueryServiceTest`의 클래스·SQL 문자열 검사는 제거했다. 사건 ID 필수 제약은 실제 DB에서, 응답 필드와 사진 URL 발급 실패 시 조회 유지는 기존 `MarkerServiceTest`·`MarkerControllerTest`에서 확인한다. SQL 조회 조건·정렬·공개 응답 필드는 유지했다.
 
 ## Backend — 나머지 Red 테스트
 
@@ -83,7 +87,6 @@
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
 | [GeometrySpatialMapperIntegrationTest](../../backend/src/test/java/com/surimap/maparea/geometry/validation/GeometrySpatialMapperIntegrationTest.java) | `GeometrySpatialMapperTest` |
-| [MarkerQueryMapperIntegrationTest](../../backend/src/test/java/com/surimap/marker/repository/MarkerQueryMapperIntegrationTest.java) | `MarkerMapperTest`로 조회 검증 통합 검토 |
 | [OpComparisonAnalysisMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonAnalysisMapperIntegrationTest.java) | `OpComparisonAnalysisMapperTest` |
 | [OpComparisonRegionFactMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonRegionFactMapperIntegrationTest.java) | `OpComparisonRegionFactMapperTest` |
 | [SearchHistorySummaryMapperIntegrationTest](../../backend/src/test/java/com/surimap/summary/SearchHistorySummaryMapperIntegrationTest.java) | `SearchHistorySummaryMapperTest` |

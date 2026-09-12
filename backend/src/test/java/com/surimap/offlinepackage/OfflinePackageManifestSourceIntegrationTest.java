@@ -6,6 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
@@ -20,9 +23,6 @@ import com.surimap.maparea.query.SearchAreaAssignmentQuery;
 import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryResult;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
@@ -95,7 +95,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
   @MockitoBean private SearchAreaAssignmentQuery assignmentQuery;
 
-  @MockitoBean private MarkerQuery markerQuery;
+  @MockitoBean private MarkerService markerService;
 
   @MockitoBean private EventHub eventHub;
 
@@ -340,43 +340,47 @@ class OfflinePackageManifestSourceIntegrationTest {
                     "ACTIVE",
                     6L)));
 
-    when(markerQuery.byIncident(eq(INCIDENT_ID), any()))
+    when(markerService.list(eq(INCIDENT_ID), any(), any(), any()))
         .thenReturn(
-            new MarkerQueryResult(
-                INCIDENT_ID,
-                List.of(
-                    new MarkerView(
-                        MARKER_ID,
-                        INCIDENT_ID,
-                        OP_ID,
-                        null,
-                        ACCOUNT_ID,
-                        POLICE_PHONE_ID,
-                        MarkerType.CLUE,
-                        null,
-                        MarkerSource.MOCK_SEED,
-                        MarkerStatus.ACTIVE,
-                        7L,
-                        jtsPoint("126.917", "35.162"),
-                        "동적 단서",
-                        NOW,
-                        List.of()),
-                    new MarkerView(
-                        APP_MARKER_ID,
-                        INCIDENT_ID,
-                        OP_ID,
-                        null,
-                        ACCOUNT_ID,
-                        POLICE_PHONE_ID,
-                        MarkerType.NOTE,
-                        null,
-                        MarkerSource.APP,
-                        MarkerStatus.ACTIVE,
-                        8L,
-                        jtsPoint("126.918", "35.163"),
-                        "현장 메모",
-                        NOW.plusSeconds(30),
-                        List.of()))));
+            MarkerListServiceResponse.builder()
+                .incidentId(INCIDENT_ID)
+                .markers(
+                    List.of(
+                        MarkerServiceResponse.builder()
+                            .id(MARKER_ID)
+                            .incidentId(INCIDENT_ID)
+                            .opId(OP_ID)
+                            .dutyShiftId(null)
+                            .accountId(ACCOUNT_ID)
+                            .policePhoneId(POLICE_PHONE_ID)
+                            .type(MarkerType.CLUE)
+                            .supportRequestType(null)
+                            .source(MarkerSource.MOCK_SEED)
+                            .status(MarkerStatus.ACTIVE)
+                            .version(7L)
+                            .location(jtsPoint("126.917", "35.162"))
+                            .memo("동적 단서")
+                            .occurredAt(NOW)
+                            .photoSummary(List.of())
+                            .build(),
+                        MarkerServiceResponse.builder()
+                            .id(APP_MARKER_ID)
+                            .incidentId(INCIDENT_ID)
+                            .opId(OP_ID)
+                            .dutyShiftId(null)
+                            .accountId(ACCOUNT_ID)
+                            .policePhoneId(POLICE_PHONE_ID)
+                            .type(MarkerType.NOTE)
+                            .supportRequestType(null)
+                            .source(MarkerSource.APP)
+                            .status(MarkerStatus.ACTIVE)
+                            .version(8L)
+                            .location(jtsPoint("126.918", "35.163"))
+                            .memo("현장 메모")
+                            .occurredAt(NOW.plusSeconds(30))
+                            .photoSummary(List.of())
+                            .build()))
+                .build());
   }
 
   private void givenFixtureSourceRows() {
@@ -458,27 +462,30 @@ class OfflinePackageManifestSourceIntegrationTest {
                     "ACTIVE",
                     6L)));
 
-    when(markerQuery.byIncident(eq(incidentId), any()))
+    when(markerService.list(eq(incidentId), any(), any(), any()))
         .thenReturn(
-            new MarkerQueryResult(
-                incidentId,
-                List.of(
-                    new MarkerView(
-                        markerId,
-                        incidentId,
-                        opId,
-                        null,
-                        ACCOUNT_ID,
-                        POLICE_PHONE_ID,
-                        MarkerType.CLUE,
-                        null,
-                        MarkerSource.MOCK_SEED,
-                        MarkerStatus.ACTIVE,
-                        7L,
-                        jtsPoint("126.917", "35.162"),
-                        "fixture 동적 단서",
-                        NOW,
-                        List.of()))));
+            MarkerListServiceResponse.builder()
+                .incidentId(incidentId)
+                .markers(
+                    List.of(
+                        MarkerServiceResponse.builder()
+                            .id(markerId)
+                            .incidentId(incidentId)
+                            .opId(opId)
+                            .dutyShiftId(null)
+                            .accountId(ACCOUNT_ID)
+                            .policePhoneId(POLICE_PHONE_ID)
+                            .type(MarkerType.CLUE)
+                            .supportRequestType(null)
+                            .source(MarkerSource.MOCK_SEED)
+                            .status(MarkerStatus.ACTIVE)
+                            .version(7L)
+                            .location(jtsPoint("126.917", "35.162"))
+                            .memo("fixture 동적 단서")
+                            .occurredAt(NOW)
+                            .photoSummary(List.of())
+                            .build()))
+                .build());
   }
 
   private static GeoJsonPolygon polygon(

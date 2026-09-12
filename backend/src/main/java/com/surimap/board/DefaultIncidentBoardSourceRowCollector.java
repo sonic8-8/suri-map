@@ -1,5 +1,8 @@
 package com.surimap.board;
 
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.api.service.path.response.SearchPathExcludedPointServiceResponse;
@@ -22,10 +25,6 @@ import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.query.MarkerPhotoSummary;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
@@ -67,7 +66,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery;
   private final ObjectProvider<SearchPathService> searchPathService;
   private final ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery;
-  private final MarkerQuery markerQuery;
+  private final MarkerService markerService;
   private final PackageBadgeBoardAssembler packageBadgeBoardAssembler;
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final HandoverMemoQuery handoverMemoQuery;
@@ -82,7 +81,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
@@ -91,7 +90,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchAreaQuery,
         searchPathService,
         policePhoneFreshnessQuery,
-        markerQuery,
+        markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
@@ -107,7 +106,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
@@ -120,7 +119,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchAreaQuery,
         searchPathService,
         policePhoneFreshnessQuery,
-        markerQuery,
+        markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
@@ -137,7 +136,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
@@ -151,7 +150,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchAreaQuery,
         searchPathService,
         policePhoneFreshnessQuery,
-        markerQuery,
+        markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
@@ -169,7 +168,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
@@ -184,7 +183,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.searchAreaAssignmentQuery = searchAreaAssignmentQuery;
     this.searchPathService = searchPathService;
     this.policePhoneFreshnessQuery = policePhoneFreshnessQuery;
-    this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
+    this.markerService = Objects.requireNonNull(markerService, "markerService must not be null");
     this.packageBadgeBoardAssembler =
         new PackageBadgeBoardAssembler(
             Objects.requireNonNull(
@@ -314,17 +313,14 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       return;
     }
     if (selectedOpIds.isEmpty()) {
-      markerQuery.byIncident(context.incidentId(), MarkerQueryFilters.empty()).markers().stream()
+      markerService.list(context.incidentId(), null, null, null).getMarkers().stream()
           .map(this::markerRow)
           .forEach(rows::add);
       return;
     }
     selectedOpIds.forEach(
         opId ->
-            markerQuery
-                .byIncident(context.incidentId(), new MarkerQueryFilters(opId, null, null))
-                .markers()
-                .stream()
+            markerService.list(context.incidentId(), opId, null, null).getMarkers().stream()
                 .map(this::markerRow)
                 .forEach(rows::add));
   }
@@ -741,32 +737,33 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
-  private BoardSourceRow markerRow(MarkerView row) {
-    String status = row.status().name();
+  private BoardSourceRow markerRow(MarkerServiceResponse row) {
+    String status = row.getStatus().name();
     Map<String, Object> payload = new LinkedHashMap<>();
-    putUuid(payload, "opId", row.opId());
-    putUuid(payload, "accountId", row.accountId());
-    putUuid(payload, "policePhoneId", row.policePhoneId());
-    payload.put("markerType", row.type().name());
-    if (row.supportRequestType() != null) {
-      payload.put("supportRequestType", row.supportRequestType().name());
+    putUuid(payload, "opId", row.getOpId());
+    putUuid(payload, "accountId", row.getAccountId());
+    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
+    payload.put("markerType", row.getType().name());
+    if (row.getSupportRequestType() != null) {
+      payload.put("supportRequestType", row.getSupportRequestType().name());
     }
-    payload.put("source", row.source().name());
-    payload.put("memo", row.memo());
-    payload.put("occurredAt", row.occurredAt());
-    payload.put("geometryHash", sourceHash("marker", row.id().toString(), row.version(), status));
-    payload.put("geometry", MarkerGeoJsonPoint.from(row.location()));
+    payload.put("source", row.getSource().name());
+    payload.put("memo", row.getMemo());
+    payload.put("occurredAt", row.getOccurredAt());
     payload.put(
-        "photoSummary", row.photoSummary().stream().map(this::photoSummaryPayload).toList());
+        "geometryHash", sourceHash("marker", row.getId().toString(), row.getVersion(), status));
+    payload.put("geometry", MarkerGeoJsonPoint.from(row.getLocation()));
+    payload.put(
+        "photoSummary", row.getPhotoSummary().stream().map(this::photoSummaryPayload).toList());
     return sourceRow(
         "marker",
         "S5",
-        row.id().toString(),
-        "board-marker-" + row.id(),
+        row.getId().toString(),
+        "board-marker-" + row.getId(),
         status,
-        row.version(),
-        row.version(),
-        eventId("S5", "marker", row.id().toString(), row.version()),
+        row.getVersion(),
+        row.getVersion(),
+        eventId("S5", "marker", row.getId().toString(), row.getVersion()),
         String.valueOf(payload.get("geometryHash")),
         payload);
   }
@@ -994,16 +991,16 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return payload;
   }
 
-  private Map<String, Object> photoSummaryPayload(MarkerPhotoSummary photo) {
+  private Map<String, Object> photoSummaryPayload(MarkerPhotoServiceResponse photo) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("photoId", photo.photoId().toString());
-    payload.put("status", photo.status());
-    payload.put("version", photo.version());
-    payload.put("contentType", photo.contentType());
-    payload.put("sizeBytes", photo.sizeBytes());
-    payload.put("attachedAt", photo.attachedAt());
-    payload.put("photoUrl", photo.photoUrl());
-    payload.put("thumbnailUrl", photo.thumbnailUrl());
+    payload.put("photoId", photo.getPhotoId().toString());
+    payload.put("status", photo.getStatus());
+    payload.put("version", photo.getVersion());
+    payload.put("contentType", photo.getContentType());
+    payload.put("sizeBytes", photo.getSizeBytes());
+    payload.put("attachedAt", photo.getAttachedAt());
+    payload.put("photoUrl", photo.getPhotoUrl());
+    payload.put("thumbnailUrl", photo.getThumbnailUrl());
     return payload;
   }
 

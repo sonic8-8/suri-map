@@ -2,11 +2,17 @@ package com.surimap.board;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
@@ -37,10 +43,6 @@ import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerQueryResult;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.operationalperiod.query.CurrentOpResult;
@@ -67,6 +69,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 
 class IncidentBoardSourceRowCollectorIntegrationTest {
@@ -105,14 +108,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   @DisplayName("여러 상황판 슬롯을 요청하면, 각 조회 결과와 마커 알림 정보를 모아 반환한다")
   void collects_available_source_owner_rows_for_board_slots() {
     // given: 각 슬롯의 조회 결과와 마커 알림 조회 결과를 준비한다.
-    CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
+    MarkerService markerService = createMarkerService();
     MarkerNotificationMapper notificationMapper = createNotificationMapper();
     DefaultIncidentBoardSourceRowCollector collector =
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            markerQuery,
+            markerService,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -147,7 +150,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(snapshot.activeOpId()).isEqualTo(OP_ID);
     assertThat(snapshot.selectedOpIds()).containsExactly(OP_ID);
     assertThat(snapshot.geometryHash()).isNotBlank();
-    assertThat(markerQuery.filters()).extracting(MarkerQueryFilters::opId).containsExactly(OP_ID);
+    assertQueriedMarkerOpIds(markerService, OP_ID);
     assertThat(snapshot.sourceRows())
         .extracting(BoardSourceRow::slot)
         .contains(
@@ -275,7 +278,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            new CapturingMarkerQuery(),
+            createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -318,7 +321,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            new CapturingMarkerQuery(),
+            createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -344,14 +347,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   @Test
   @DisplayName("uses includeSlots before reading optional slot sources")
   void uses_include_slots_before_reading_optional_slot_sources() {
-    CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
+    MarkerService markerService = createMarkerService();
     CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
     DefaultIncidentBoardSourceRowCollector collector =
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            markerQuery,
+            markerService,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -365,7 +368,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(snapshot.sourceRows())
         .extracting(BoardSourceRow::slot)
         .containsOnly("marker", "package_badge");
-    assertThat(markerQuery.filters()).extracting(MarkerQueryFilters::opId).containsExactly(OP_ID);
+    assertQueriedMarkerOpIds(markerService, OP_ID);
     assertThat(searchAreaQuery.overallCalls()).isZero();
     assertThat(searchAreaQuery.byIncidentCalls()).isZero();
   }
@@ -379,7 +382,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchAreaQuery),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            new CapturingMarkerQuery(),
+            createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -406,7 +409,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchAreaQuery),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            new CapturingMarkerQuery(),
+            createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -426,13 +429,13 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
       "default board scope keeps routes and areas on current OP while accumulating markers through current OP")
   void default_board_scope_accumulates_markers_only_through_current_op() {
     CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
-    CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
+    MarkerService markerService = createMarkerService();
     DefaultIncidentBoardSourceRowCollector collector =
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
             provider(new FakePolicePhoneFreshnessQuery()),
-            markerQuery,
+            markerService,
             new FakePackageQuery(),
             new MultiOpOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -442,9 +445,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new BoardSourceRowContext(INCIDENT_ID, List.of(), List.of("area", "path", "marker"), null));
 
     assertThat(searchAreaQuery.byOpIds()).containsExactly(OP_ID);
-    assertThat(markerQuery.filters())
-        .extracting(MarkerQueryFilters::opId)
-        .containsExactly(PREVIOUS_OP_ID, OP_ID);
+    assertQueriedMarkerOpIds(markerService, PREVIOUS_OP_ID, OP_ID);
   }
 
   @Test
@@ -478,7 +479,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(null),
             provider(null),
             provider(new FakePolicePhoneFreshnessQuery()),
-            new CapturingMarkerQuery(),
+            createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
@@ -831,39 +832,47 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
   }
 
-  private static final class CapturingMarkerQuery implements MarkerQuery {
-    private final List<MarkerQueryFilters> filters = new ArrayList<>();
+  private static MarkerService createMarkerService() {
+    MarkerService service = mock(MarkerService.class);
+    when(service.list(any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              UUID incidentId = invocation.getArgument(0);
+              return MarkerListServiceResponse.builder()
+                  .incidentId(incidentId)
+                  .markers(
+                      List.of(
+                          MarkerServiceResponse.builder()
+                              .id(MARKER_ID)
+                              .incidentId(incidentId)
+                              .opId(OP_ID)
+                              .accountId(ACCOUNT_ID)
+                              .policePhoneId(PHONE_ID)
+                              .type(MarkerType.CLUE)
+                              .source(MarkerSource.APP)
+                              .status(MarkerStatus.ACTIVE)
+                              .version(6L)
+                              .location(
+                                  new MarkerGeoJsonPoint(
+                                          "Point",
+                                          List.of(
+                                              new BigDecimal("126.911000"),
+                                              new BigDecimal("35.161000")))
+                                      .toPoint())
+                              .memo("clue memo")
+                              .occurredAt(STARTED_AT)
+                              .photoSummary(List.of())
+                              .build()))
+                  .build();
+            });
+    return service;
+  }
 
-    @Override
-    public MarkerQueryResult byIncident(UUID incidentId, MarkerQueryFilters filters) {
-      this.filters.add(filters);
-      return new MarkerQueryResult(
-          incidentId,
-          List.of(
-              new MarkerView(
-                  MARKER_ID,
-                  incidentId,
-                  OP_ID,
-                  null,
-                  ACCOUNT_ID,
-                  PHONE_ID,
-                  MarkerType.CLUE,
-                  null,
-                  MarkerSource.APP,
-                  MarkerStatus.ACTIVE,
-                  6L,
-                  new MarkerGeoJsonPoint(
-                          "Point",
-                          List.of(new BigDecimal("126.911000"), new BigDecimal("35.161000")))
-                      .toPoint(),
-                  "clue memo",
-                  STARTED_AT,
-                  List.of())));
-    }
-
-    private List<MarkerQueryFilters> filters() {
-      return List.copyOf(filters);
-    }
+  private static void assertQueriedMarkerOpIds(MarkerService service, UUID... expectedOpIds) {
+    ArgumentCaptor<UUID> opIds = ArgumentCaptor.forClass(UUID.class);
+    verify(service, times(expectedOpIds.length))
+        .list(eq(INCIDENT_ID), opIds.capture(), isNull(), isNull());
+    assertThat(opIds.getAllValues()).containsExactly(expectedOpIds);
   }
 
   private static MarkerNotificationMapper createNotificationMapper() {
@@ -894,7 +903,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         provider(null),
         provider(null),
         provider(null),
-        new CapturingMarkerQuery(),
+        createMarkerService(),
         new FakePackageQuery(),
         new FakeOperationalPeriodQuery(),
         new FakeHandoverMemoQuery(),
