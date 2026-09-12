@@ -6,15 +6,15 @@ import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerNotification;
 import com.surimap.domain.marker.MarkerNotificationMapper;
+import com.surimap.domain.marker.MarkerNotificationStatus;
+import com.surimap.domain.marker.MarkerNotificationType;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.global.event.MarkerNotificationPayload;
 import com.surimap.incident.service.IncidentAssignmentView;
+import com.surimap.incident.service.IncidentAssignmentView.NotificationTargets;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.notification.domain.MarkerNotificationStatus;
-import com.surimap.marker.notification.domain.NotificationRecipients;
-import com.surimap.marker.notification.domain.NotificationType;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
@@ -83,8 +83,8 @@ public class MarkerNotificationService {
         .ifPresent(notificationType -> publishMarkerNotification(marker, notificationType));
   }
 
-  private void publishMarkerNotification(Marker marker, NotificationType notificationType) {
-    NotificationRecipients recipients =
+  private void publishMarkerNotification(Marker marker, MarkerNotificationType notificationType) {
+    NotificationTargets recipients =
         incidentAssignmentView.notificationTargets(
             marker.getIncidentId(), notificationType.getRecipientPolicy());
     UUID notificationId = UUID.randomUUID();
@@ -102,7 +102,7 @@ public class MarkerNotificationService {
             .id(notificationId)
             .markerId(marker.getId())
             .notificationType(notificationType)
-            .recipientRule(recipients.policy())
+            .recipientRule(notificationType.getRecipientPolicy())
             .recipientAccountIds(accountDbIds(recipients.accountIds()))
             .recipientPolicePhoneIds(policePhoneDbIds(recipients.policePhoneIds()))
             .notificationPayloadJson(serializeNotificationPayload(notificationType, payload))
@@ -119,10 +119,10 @@ public class MarkerNotificationService {
   }
 
   private MarkerNotificationPayload createNotificationPayload(
-      NotificationType notificationType,
+      MarkerNotificationType notificationType,
       UUID notificationId,
       Marker marker,
-      NotificationRecipients recipients,
+      NotificationTargets recipients,
       MarkerNotificationStatus status,
       long notificationVersion) {
     Objects.requireNonNull(notificationType, "notificationType must not be null");
@@ -139,7 +139,7 @@ public class MarkerNotificationService {
         .status(status.name())
         .version(notificationVersion)
         .type(notificationType.name())
-        .recipientPolicy(recipients.policy().name())
+        .recipientPolicy(notificationType.getRecipientPolicy().name())
         .recipientAccountIds(recipients.accountIds())
         .recipientPolicePhoneIds(recipients.policePhoneIds())
         .markerType(marker.getMarkerType())
@@ -150,7 +150,7 @@ public class MarkerNotificationService {
   }
 
   private String serializeNotificationPayload(
-      NotificationType notificationType, MarkerNotificationPayload payload) {
+      MarkerNotificationType notificationType, MarkerNotificationPayload payload) {
     Objects.requireNonNull(notificationType, "notificationType must not be null");
     Objects.requireNonNull(payload, "payload must not be null");
     Map<String, Object> fields = payload.toMap();
@@ -243,10 +243,10 @@ public class MarkerNotificationService {
         : tokenCiphertext;
   }
 
-  private Optional<NotificationType> notificationTypeFor(MarkerType markerType) {
+  private Optional<MarkerNotificationType> notificationTypeFor(MarkerType markerType) {
     return switch (markerType) {
-      case SUPPORT_REQUEST -> Optional.of(NotificationType.SUPPORT_REQUEST_CREATED);
-      case PERSON_FOUND -> Optional.of(NotificationType.PERSON_FOUND);
+      case SUPPORT_REQUEST -> Optional.of(MarkerNotificationType.SUPPORT_REQUEST_CREATED);
+      case PERSON_FOUND -> Optional.of(MarkerNotificationType.PERSON_FOUND);
       default -> Optional.empty();
     };
   }

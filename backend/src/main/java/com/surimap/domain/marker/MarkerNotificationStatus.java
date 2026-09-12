@@ -1,4 +1,4 @@
-package com.surimap.marker.notification.domain;
+package com.surimap.domain.marker;
 
 public enum MarkerNotificationStatus {
   SNAPSHOT_CREATED,

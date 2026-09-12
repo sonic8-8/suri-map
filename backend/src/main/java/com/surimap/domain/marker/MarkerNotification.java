@@ -1,8 +1,5 @@
 package com.surimap.domain.marker;
 
-import com.surimap.marker.notification.domain.MarkerNotificationStatus;
-import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
-import com.surimap.marker.notification.domain.NotificationType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -18,8 +15,8 @@ public class MarkerNotification {
 
   private UUID id;
   private UUID markerId;
-  private NotificationType notificationType;
-  private NotificationRecipientPolicy recipientRule;
+  private MarkerNotificationType notificationType;
+  private MarkerNotificationRecipientPolicy recipientRule;
   private List<String> recipientAccountIds;
   private List<String> recipientPolicePhoneIds;
   private String notificationPayloadJson;
@@ -31,8 +28,8 @@ public class MarkerNotification {
   private MarkerNotification(
       UUID id,
       UUID markerId,
-      NotificationType notificationType,
-      NotificationRecipientPolicy recipientRule,
+      MarkerNotificationType notificationType,
+      MarkerNotificationRecipientPolicy recipientRule,
       List<String> recipientAccountIds,
       List<String> recipientPolicePhoneIds,
       String notificationPayloadJson,
