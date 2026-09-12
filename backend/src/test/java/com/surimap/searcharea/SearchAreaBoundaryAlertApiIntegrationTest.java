@@ -6,9 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.notification.adapter.MockFcmDispatcher;
+import com.surimap.client.fcm.MockFcmDispatcher;
 import com.surimap.common.auth.Channel;
+import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.support.auth.WithMockAccount;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -37,11 +37,9 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
   private static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000004180");
   private static final UUID SEARCH_AREA_ID =
       UUID.fromString("72000000-0000-0000-0000-000000004180");
-  private static final UUID ASSIGNMENT_ID =
-      UUID.fromString("73000000-0000-0000-0000-000000004180");
+  private static final UUID ASSIGNMENT_ID = UUID.fromString("73000000-0000-0000-0000-000000004180");
   private static final UUID ACCOUNT_ID = UUID.fromString("62000000-0000-0000-0000-000000004180");
-  private static final UUID COMMANDER_ID =
-      UUID.fromString("63000000-0000-0000-0000-000000004180");
+  private static final UUID COMMANDER_ID = UUID.fromString("63000000-0000-0000-0000-000000004180");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-0000-0000-000000004180");
   private static final UUID INCIDENT_ASSIGNMENT_ID =
@@ -283,15 +281,15 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
             .getContentAsString();
 
     assertThat(extract(second, "id")).isEqualTo(extract(first, "id"));
-    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
         .isEqualTo(1);
     assertThat(mockFcmDispatcher.findByEventType("SEARCH_AREA_BOUNDARY_EXITED")).hasSize(1);
   }
 
   @Test
-  @WithMockAccount(
-      accountId = "62000000-0000-0000-0000-000000004180",
-      channel = Channel.WEB)
+  @WithMockAccount(accountId = "62000000-0000-0000-0000-000000004180", channel = Channel.WEB)
   @DisplayName("WEB POST /api/search-area-boundary-alerts는 channel_not_allowed로 거부한다")
   void web_channel_boundary_alert_is_rejected() throws Exception {
     mockMvc
@@ -305,7 +303,9 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));
 
-    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
         .isZero();
   }
 
@@ -327,7 +327,9 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("team_not_assigned")));
 
-    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM search_area_boundary_alert", Integer.class))
         .isZero();
   }
 

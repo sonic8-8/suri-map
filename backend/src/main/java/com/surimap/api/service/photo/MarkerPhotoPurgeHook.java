@@ -1,10 +1,10 @@
-package com.surimap.marker.purge;
+package com.surimap.api.service.photo;
 
 import com.surimap.retention.purge.PurgeHookResult;
 import java.time.Instant;
 import java.util.UUID;
 
-/** S5 marker/photo purge hook consumed by S1-3 retention orchestration. */
+/** 사건의 마커와 사진을 파기하도록 요청하는 내부 계약. */
 @FunctionalInterface
 public interface MarkerPhotoPurgeHook {
 

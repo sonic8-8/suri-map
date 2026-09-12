@@ -1,4 +1,4 @@
-package com.surimap.marker.purge;
+package com.surimap.api.service.photo;
 
 import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ID;
 import static org.assertj.core.api.Assertions.assertThat;

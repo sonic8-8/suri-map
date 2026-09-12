@@ -18,7 +18,7 @@
 
 `SupportRequestNotificationDispatchService`·`BoardToastEvidence`와 전용 테스트 2개는 서버에서 사용하지 않아 제거했다. 실제 알림 저장·전달 검증은 기존 `AppMarkerServiceTest`에 남아 있다. 미사용 코드의 Map 검사와 테스트용 표시 결과를 실제 서버·상황판 동작으로 옮기지는 않았다.
 
-`MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/marker/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
+`MarkerNotificationFcmDispatchService`의 토큰 조회·커밋 후 전송은 [MarkerNotificationService](../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)에 합쳤다. 별도 전송 클래스와 전용 테스트는 제거하고, 실제 DB 알림 저장·FCM 전달은 기존 `AppMarkerServiceTest`, 고정 이벤트 ID는 [MarkerEventIdsTest](../../backend/src/test/java/com/surimap/global/event/MarkerEventIdsTest.java)에서 검증한다. 다른 기능에서도 사용하는 Firebase 전송 구현은 유지했다.
 
 `MarkerNotificationToastQuery`를 제거하고 [MarkerNotificationMapper](../../backend/src/main/java/com/surimap/domain/marker/MarkerNotificationMapper.java)의 `findNotificationRowsByIncidentId`로 조회 선언을 모았다. 조회 결과는 Mapper 내부의 `NotificationRow` class로 옮겼다. 기존 알림 조회 테스트는 [MarkerNotificationMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerNotificationMapperTest.java)로 이름·위치를 정리했다. 상황판 슬롯 이름은 `marker_notification`을 사용한다.
 
@@ -28,7 +28,7 @@
 
 `NotificationType`·`NotificationRecipientPolicy`는 마커 알림 전용임이 드러나도록 `MarkerNotificationType`·`MarkerNotificationRecipientPolicy`로 바꾸고, `MarkerNotificationStatus`와 함께 `domain/marker`로 옮겼다. 조회 결과를 다시 감싸던 `NotificationRecipients`는 제거하고 기존 `IncidentAssignmentView.NotificationTargets`를 그대로 사용한다. 수신자 정책은 알림 종류에서 가져오며, 선정 규칙·목록 보호·DB 및 이벤트 값은 유지한다.
 
-`MarkerType`·`MarkerStatus`·`MarkerSource`·`MarkerSupportRequestType`은 이름과 값을 유지하고 `Marker`와 같은 `domain/marker`로 옮겼다. 호출부·테스트·fixture의 import만 맞췄으며, Mapper XML과 업무 로직은 변경하지 않았다. `marker/domain/port/ReferenceMarkerSeed`는 사용 중이므로 남겨뒀다.
+`MarkerType`·`MarkerStatus`·`MarkerSource`·`MarkerSupportRequestType`은 이름과 값을 유지하고 `Marker`와 같은 `domain/marker`로 옮겼다. 호출부·테스트·fixture의 import만 맞췄으며, Mapper XML과 업무 로직은 변경하지 않았다.
 
 마커 조회는 다음과 같이 정리했다.
 
@@ -45,9 +45,18 @@
 | `MarkerGeoJsonPoint.canonical()` | [GeoJsonPoint.roundToSixDecimals()](../../backend/src/main/java/com/surimap/global/geometry/GeoJsonPoint.java)로 변경. GeoJSON 필드·순서·반올림과 과거 요청 해시 비교 형식은 유지 |
 | 기준 마커의 중복 `ReferenceMarkerSeed`·어댑터·저장 서비스 | [ReferenceMarkerSeedService](../../backend/src/main/java/com/surimap/api/service/marker/ReferenceMarkerSeedService.java)에서 원천값 변환·좌표 검사·저장을 처리. 중간 입력·반환 객체와 반환용 재조회 제거 |
 
-사건 가져오기가 사용하는 `marker/domain/port/ReferenceMarkerSeed` 계약과 구현 부재 시 가져오기를 막는 처리는 유지했다. 기준 마커의 초기 등록은 요청 인증·사진·이벤트를 처리하는 웹 마커 수정과 준비 데이터·의존성이 달라 별도 서비스로 둔다. 기존 [ReferenceMarkerSeedServiceTest](../../backend/src/test/java/com/surimap/api/service/marker/ReferenceMarkerSeedServiceTest.java)는 실제 DB의 저장 내용·중복 방지·잘못된 좌표·최초 수색 차수 부재를 검증한다.
+사건 가져오기가 사용하는 [ReferenceMarkerSeed](../../backend/src/main/java/com/surimap/api/service/marker/ReferenceMarkerSeed.java) 계약은 저장 서비스 옆으로 옮겼다. 이름·입력 필드·구현 부재 시 가져오기를 막는 처리는 유지하며, 내부 입력 DTO `SeedMarker`는 Lombok 기반 class로 바꿨다. 기준 마커의 초기 등록은 웹 마커 수정과 준비 데이터·의존성이 달라 별도 서비스로 둔다. 기존 [ReferenceMarkerSeedServiceTest](../../backend/src/test/java/com/surimap/api/service/marker/ReferenceMarkerSeedServiceTest.java)는 실제 DB의 저장 내용·중복 방지·잘못된 좌표·최초 수색 차수 부재를 검증한다.
 
-FCM 외부 연동·지원 배정 서비스와 실제 SSE 수신·브라우저 표시 검증은 별도 작업으로 남아 있다.
+남은 운영 파일도 정리해 `src/main/java/com/surimap/marker` 디렉터리를 제거했다(2026-09-13).
+
+| 대상 | 이동 위치와 유지한 동작 |
+|---|---|
+| FCM 전송 계약·Firebase 및 Mock 구현 6개 | `client/fcm`. 마커·지원 배정·사건 종료·수색구역 알림이 공유하며 전송·실패 처리 정책은 유지 |
+| Firebase 설정 2개 | `config/fcm`. 설정 키·인증 정보 로딩·빈 등록 조건은 유지 |
+| `ReferenceMarkerSeed` | `api/service/marker`. 사건 가져오기 내부 계약을 유지하고 DTO 접근을 getter로 변경 |
+| `MarkerPhotoPurgeHook`·`MarkerPhotoPurgeHookAdapter` | `api/service/photo`. 요청 전달만 유지. 실제 삭제 구현과 빈 등록은 별도 작업 |
+
+전송·파기 테스트 3개는 운영 파일 위치에 맞춰 옮겼다. `src/test/java/com/surimap/marker`에 남은 테스트·fixture까지 제거한 것은 아니다. FCM 실패 처리·지원 배정의 전송 시점과 실제 SSE 수신·브라우저 표시 검증은 후속 작업으로 남아 있다.
 
 ## Backend — 나머지 Red 테스트
 

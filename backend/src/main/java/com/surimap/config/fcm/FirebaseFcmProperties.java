@@ -1,4 +1,4 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.config.fcm;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

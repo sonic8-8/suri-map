@@ -1,6 +1,6 @@
 package com.surimap.incident.service;
 
-import com.surimap.marker.notification.port.FcmDispatcherPort;
+import com.surimap.client.fcm.FcmDispatcherPort;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.util.LinkedHashMap;
@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class IncidentAssignmentFcmDispatchService {
 
-  private static final Logger log = LoggerFactory.getLogger(IncidentAssignmentFcmDispatchService.class);
+  private static final Logger log =
+      LoggerFactory.getLogger(IncidentAssignmentFcmDispatchService.class);
 
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
@@ -33,7 +34,11 @@ public class IncidentAssignmentFcmDispatchService {
     }
     List<FcmTokenRow> tokens = fcmTokenQuery.activeByAccounts(accountIds);
     List<String> recipients =
-        tokens.stream().map(FcmTokenRow::tokenCiphertext).map(this::decryptToken).distinct().toList();
+        tokens.stream()
+            .map(FcmTokenRow::tokenCiphertext)
+            .map(this::decryptToken)
+            .distinct()
+            .toList();
     if (recipients.isEmpty()) {
       return;
     }
@@ -43,8 +48,11 @@ public class IncidentAssignmentFcmDispatchService {
     payload.put("status", result.status());
     payload.put("version", result.version());
     payload.put("recipientAccountIds", result.changedAccountIds());
-    payload.put("recipientPolicePhoneIds", tokens.stream().map(FcmTokenRow::policePhoneId).map(UUID::toString).toList());
-    String eventId = "fcm:INCIDENT_ASSIGNMENT_CHANGED:" + result.incidentId() + ":v" + result.version();
+    payload.put(
+        "recipientPolicePhoneIds",
+        tokens.stream().map(FcmTokenRow::policePhoneId).map(UUID::toString).toList());
+    String eventId =
+        "fcm:INCIDENT_ASSIGNMENT_CHANGED:" + result.incidentId() + ":v" + result.version();
     try {
       fcmDispatcher.send(recipients, payload, eventId);
     } catch (RuntimeException exception) {
@@ -53,10 +61,7 @@ public class IncidentAssignmentFcmDispatchService {
   }
 
   private List<UUID> parseAccountIds(List<String> accountIds) {
-    return accountIds.stream()
-        .map(this::parseUuidOrNull)
-        .filter(Objects::nonNull)
-        .toList();
+    return accountIds.stream().map(this::parseUuidOrNull).filter(Objects::nonNull).toList();
   }
 
   private UUID parseUuidOrNull(String value) {

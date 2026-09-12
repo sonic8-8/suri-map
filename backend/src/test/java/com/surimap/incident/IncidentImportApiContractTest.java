@@ -17,6 +17,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.api.service.marker.ReferenceMarkerSeed;
+import com.surimap.api.service.marker.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -31,8 +33,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.incident.event.IncidentCreatedEvent;
 import com.surimap.incident.event.IncidentEventPublisher;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.operationalperiod.command.InitialOperationalPeriodCreator;
 import com.surimap.operationalperiod.command.InitialOperationalPeriodResult;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
@@ -47,6 +47,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -153,10 +154,11 @@ class IncidentImportApiContractTest {
                 "INCIDENT_CREATED",
                 "%\"status\":\"OPEN\"%"))
         .isEqualTo(1);
-    verify(referenceMarkerSeed)
-        .createForIncident(
-            eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
+    ArgumentCaptor<List<SeedMarker>> seedMarkers = ArgumentCaptor.captor();
+    verify(referenceMarkerSeed).createForIncident(eq(INCIDENT_ID), seedMarkers.capture());
+    assertThat(seedMarkers.getValue())
+        .usingRecursiveFieldByFieldElementComparator()
+        .containsExactly(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631));
   }
 
   @Test
@@ -264,10 +266,11 @@ class IncidentImportApiContractTest {
     assertThat(count("event_dispatch_job", "event_type = ?", "INCIDENT_CREATED")).isEqualTo(1);
     verify(externalIncidentAdapter, times(1)).fetchIncident(SOURCE_INCIDENT_ID);
     verify(initialOperationalPeriodCreator, times(1)).createOp1(INCIDENT_ID);
-    verify(referenceMarkerSeed, times(1))
-        .createForIncident(
-            eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
+    ArgumentCaptor<List<SeedMarker>> seedMarkers = ArgumentCaptor.captor();
+    verify(referenceMarkerSeed, times(1)).createForIncident(eq(INCIDENT_ID), seedMarkers.capture());
+    assertThat(seedMarkers.getValue())
+        .usingRecursiveFieldByFieldElementComparator()
+        .containsExactly(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631));
     verify(incidentEventPublisher, times(1))
         .publishIncidentCreated(any(IncidentCreatedEvent.class));
   }

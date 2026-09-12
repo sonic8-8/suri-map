@@ -5,7 +5,6 @@ import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
 import java.nio.charset.StandardCharsets;
@@ -70,9 +69,9 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
         .id(createMarkerId(incidentId, seed, index))
         .incidentId(incidentId)
         .operationalPeriodId(opId)
-        .markerType(MarkerType.valueOf(seed.type()))
-        .location(createPoint(seed.lon(), seed.lat()))
-        .memo(seed.memo())
+        .markerType(MarkerType.valueOf(seed.getType()))
+        .location(createPoint(seed.getLon(), seed.getLat()))
+        .memo(seed.getMemo())
         .occurredAt(resolveOccurredAt(incidentId))
         .createdByAccountId(PRECINCT_FIRST_CREATED_BY_ACCOUNT_ID)
         .markerSource(MarkerSource.MOCK_SEED)
@@ -92,11 +91,11 @@ public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
             + ":"
             + index
             + ":"
-            + seed.type()
+            + seed.getType()
             + ":"
-            + seed.lon()
+            + seed.getLon()
             + ":"
-            + seed.lat();
+            + seed.getLat();
     return UUID.nameUUIDFromBytes(seedValue.getBytes(StandardCharsets.UTF_8));
   }
 

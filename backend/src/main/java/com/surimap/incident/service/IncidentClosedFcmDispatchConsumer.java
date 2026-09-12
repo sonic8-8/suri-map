@@ -1,9 +1,9 @@
 package com.surimap.incident.service;
 
+import com.surimap.client.fcm.FcmDispatcherPort;
 import com.surimap.eventhub.consumer.DomainEventConsumer;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.incident.repository.IncidentMapper;
-import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.util.LinkedHashMap;
@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
 public class IncidentClosedFcmDispatchConsumer implements DomainEventConsumer {
 
   private static final String INCIDENT_CLOSED = "INCIDENT_CLOSED";
-  private static final Logger log = LoggerFactory.getLogger(IncidentClosedFcmDispatchConsumer.class);
+  private static final Logger log =
+      LoggerFactory.getLogger(IncidentClosedFcmDispatchConsumer.class);
 
   private final IncidentMapper incidentMapper;
   private final FcmTokenQuery fcmTokenQuery;
@@ -39,14 +40,19 @@ public class IncidentClosedFcmDispatchConsumer implements DomainEventConsumer {
 
   @Override
   public void consume(PublishRequest event) {
-    List<UUID> accountIds = parseAccountIds(incidentMapper.findActiveAssignmentAccountIds(event.incidentId()));
+    List<UUID> accountIds =
+        parseAccountIds(incidentMapper.findActiveAssignmentAccountIds(event.incidentId()));
     if (accountIds.isEmpty()) {
       return;
     }
 
     List<FcmTokenRow> tokens = fcmTokenQuery.activeByAccounts(accountIds);
     List<String> recipients =
-        tokens.stream().map(FcmTokenRow::tokenCiphertext).map(this::decryptToken).distinct().toList();
+        tokens.stream()
+            .map(FcmTokenRow::tokenCiphertext)
+            .map(this::decryptToken)
+            .distinct()
+            .toList();
     if (recipients.isEmpty()) {
       return;
     }
@@ -57,9 +63,12 @@ public class IncidentClosedFcmDispatchConsumer implements DomainEventConsumer {
     payload.put("status", stringPayload(event, "status", "CLOSED"));
     payload.put("version", stringPayload(event, "version", ""));
     payload.put("closedAt", stringPayload(event, "closedAt", event.occurredAt().toString()));
-    payload.put("writeDisabledReason", stringPayload(event, "writeDisabledReason", "incident_closed"));
+    payload.put(
+        "writeDisabledReason", stringPayload(event, "writeDisabledReason", "incident_closed"));
     payload.put("recipientAccountIds", accountIds.stream().map(UUID::toString).toList());
-    payload.put("recipientPolicePhoneIds", tokens.stream().map(FcmTokenRow::policePhoneId).map(UUID::toString).toList());
+    payload.put(
+        "recipientPolicePhoneIds",
+        tokens.stream().map(FcmTokenRow::policePhoneId).map(UUID::toString).toList());
 
     String eventId = event.eventId().toString();
     try {
@@ -81,10 +90,7 @@ public class IncidentClosedFcmDispatchConsumer implements DomainEventConsumer {
     if (accountIds == null) {
       return List.of();
     }
-    return accountIds.stream()
-        .map(this::parseUuidOrNull)
-        .filter(Objects::nonNull)
-        .toList();
+    return accountIds.stream().map(this::parseUuidOrNull).filter(Objects::nonNull).toList();
   }
 
   private UUID parseUuidOrNull(String value) {

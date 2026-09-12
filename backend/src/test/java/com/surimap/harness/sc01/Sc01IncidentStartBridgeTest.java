@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.api.service.marker.ReferenceMarkerSeed;
+import com.surimap.api.service.marker.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -22,8 +24,6 @@ import com.surimap.external.ExternalIncident;
 import com.surimap.external.ExternalIncidentAdapter;
 import com.surimap.external.ExternalMissingPerson;
 import com.surimap.external.ExternalSeedMarker;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -103,10 +103,11 @@ class Sc01IncidentStartBridgeTest {
 
     assertThat(count("operational_period", "incident_id = ? AND sequence_number = 1", INCIDENT_ID))
         .isEqualTo(1);
-    verify(referenceMarkerSeed)
-        .createForIncident(
-            eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
+    ArgumentCaptor<List<SeedMarker>> seedMarkers = ArgumentCaptor.captor();
+    verify(referenceMarkerSeed).createForIncident(eq(INCIDENT_ID), seedMarkers.capture());
+    assertThat(seedMarkers.getValue())
+        .usingRecursiveFieldByFieldElementComparator()
+        .containsExactly(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631));
 
     ArgumentCaptor<PublishRequest> publishCaptor = ArgumentCaptor.forClass(PublishRequest.class);
     verify(eventHub, times(2)).publish(publishCaptor.capture());
