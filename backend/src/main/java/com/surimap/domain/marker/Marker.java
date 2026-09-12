@@ -2,7 +2,6 @@ package com.surimap.domain.marker;
 
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.seed.SeedMarker;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -73,25 +72,6 @@ public class Marker {
       throw new IllegalArgumentException("version must be positive");
     }
     this.version = version;
-  }
-
-  public static Marker fromSeed(UUID incidentId, SeedMarker seed) {
-    return builder()
-        .id(seed.id())
-        .incidentId(incidentId)
-        .operationalPeriodId(seed.operationalPeriodId())
-        .dutyShiftId(seed.dutyShiftId())
-        .markerType(seed.markerType())
-        .supportRequestType(seed.supportRequestType())
-        .location(seed.location())
-        .memo(seed.memo())
-        .occurredAt(seed.occurredAt())
-        .createdByAccountId(seed.createdByAccountId())
-        .policePhoneId(seed.policePhoneId())
-        .markerSource(MarkerSource.MOCK_SEED)
-        .status(MarkerStatus.ACTIVE)
-        .version(1L)
-        .build();
   }
 
   public boolean isFieldMarkerCreatedBy(UUID accountId) {

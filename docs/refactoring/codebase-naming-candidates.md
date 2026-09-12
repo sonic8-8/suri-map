@@ -36,6 +36,19 @@
 - `MarkerView`·`MarkerPhotoSummary`는 [MarkersServiceResponse](../../backend/src/main/java/com/surimap/api/service/marker/response/MarkersServiceResponse.java) 내부의 `MarkerServiceResponse`·`MarkerPhotoServiceResponse` class로 옮겼다. 응답 변환은 도메인 `Marker`에서 응답 DTO로 옮기고, 중복 포장인 `MarkerQueryResult`와 값 전달용 `MarkerQueryFilters`는 제거했다. 사진 SQL의 조회 컬럼은 `MarkerMapper.AttachedPhotoRow`로 유지한다.
 - `MarkerQueryMapperIntegrationTest`의 필터·정렬·첨부 사진 검증은 기존 [MarkerMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerMapperTest.java)에 합쳤다. `MarkerQueryServiceTest`의 클래스·SQL 문자열 검사는 제거했다. 사건 ID 필수 제약은 실제 DB에서, 응답 필드와 사진 URL 발급 실패 시 조회 유지는 기존 `MarkerServiceTest`·`MarkerControllerTest`에서 확인한다. SQL 조회 조건·정렬·공개 응답 필드는 유지했다.
 
+마커의 나머지 요청·좌표·초기 등록 흐름도 정리했다.
+
+| 이전 구성 | 정리 결과 |
+|---|---|
+| `MarkerApiException`·`MarkerExceptionHandler` | 기존 `BusinessException`·`ErrorCode`·`GlobalExceptionHandler`로 통합. HTTP 상태와 오류 코드는 유지 |
+| `MarkerRequestContext`·`MarkerRequestContextResolver` | ServiceRequest가 인증 정보와 멱등키를 직접 전달. 해석기는 [MarkerAuthenticationResolver](../../backend/src/main/java/com/surimap/global/auth/MarkerAuthenticationResolver.java)로 변경 |
+| `MarkerGeoJsonPoint.canonical()` | [GeoJsonPoint.roundToSixDecimals()](../../backend/src/main/java/com/surimap/global/geometry/GeoJsonPoint.java)로 변경. GeoJSON 필드·순서·반올림과 과거 요청 해시 비교 형식은 유지 |
+| 기준 마커의 중복 `ReferenceMarkerSeed`·어댑터·저장 서비스 | [ReferenceMarkerSeedService](../../backend/src/main/java/com/surimap/api/service/marker/ReferenceMarkerSeedService.java)에서 원천값 변환·좌표 검사·저장을 처리. 중간 입력·반환 객체와 반환용 재조회 제거 |
+
+사건 가져오기가 사용하는 `marker/domain/port/ReferenceMarkerSeed` 계약과 구현 부재 시 가져오기를 막는 처리는 유지했다. 기준 마커의 초기 등록은 요청 인증·사진·이벤트를 처리하는 웹 마커 수정과 준비 데이터·의존성이 달라 별도 서비스로 둔다. 기존 [ReferenceMarkerSeedServiceTest](../../backend/src/test/java/com/surimap/api/service/marker/ReferenceMarkerSeedServiceTest.java)는 실제 DB의 저장 내용·중복 방지·잘못된 좌표·최초 수색 차수 부재를 검증한다.
+
+FCM 외부 연동·지원 배정 서비스와 실제 SSE 수신·브라우저 표시 검증은 별도 작업으로 남아 있다.
+
 ## Backend — 나머지 Red 테스트
 
 `Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상의 처리 내역은 위 절에 있다.

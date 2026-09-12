@@ -90,8 +90,7 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
   void insertSeed_referenceMarker_loadsSavedPoint() {
     // given: 사전 등록할 마커를 준비한다.
     // when: 저장한 뒤 같은 ID로 조회한다.
-    markerMapper.insertSeed(
-        Marker.fromSeed(MarkerSeedFixtures.INCIDENT_ID, MarkerSeedFixtures.referenceClueSeed()));
+    markerMapper.insertSeed(MarkerSeedFixtures.referenceClueMarker());
 
     List<Marker> records = markerMapper.findByIds(List.of(MARKER_ID));
 
