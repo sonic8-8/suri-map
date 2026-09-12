@@ -1,4 +1,4 @@
-package com.surimap.marker.domain;
+package com.surimap.domain.marker;
 
 /** marker.status values. */
 public enum MarkerStatus {

@@ -1,7 +1,7 @@
 package com.surimap.marker.seed;
 
-import com.surimap.marker.domain.MarkerSupportRequestType;
-import com.surimap.marker.domain.MarkerType;
+import com.surimap.domain.marker.MarkerSupportRequestType;
+import com.surimap.domain.marker.MarkerType;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;

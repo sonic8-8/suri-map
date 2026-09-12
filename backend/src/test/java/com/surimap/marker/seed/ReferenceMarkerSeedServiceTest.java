@@ -7,12 +7,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.marker.MarkerSource;
+import com.surimap.domain.marker.MarkerStatus;
+import com.surimap.domain.marker.MarkerType;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.domain.MarkerSource;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;

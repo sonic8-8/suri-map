@@ -1,4 +1,4 @@
-package com.surimap.marker.domain;
+package com.surimap.domain.marker;
 
 /** marker.marker_type values. */
 public enum MarkerType {

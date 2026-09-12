@@ -1,7 +1,7 @@
 package com.surimap.marker.seed.fixture;
 
+import com.surimap.domain.marker.MarkerType;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.seed.SeedMarker;
 import java.time.Instant;
 import java.util.UUID;

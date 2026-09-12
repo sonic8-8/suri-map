@@ -2,10 +2,6 @@ package com.surimap.domain.marker;
 
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.domain.MarkerSource;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerSupportRequestType;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.query.MarkerPhotoSummary;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.seed.SeedMarker;

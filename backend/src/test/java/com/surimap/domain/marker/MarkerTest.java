@@ -7,9 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.domain.MarkerSource;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import java.time.Instant;
 import java.util.UUID;

@@ -28,6 +28,10 @@
 
 `NotificationType`·`NotificationRecipientPolicy`는 마커 알림 전용임이 드러나도록 `MarkerNotificationType`·`MarkerNotificationRecipientPolicy`로 바꾸고, `MarkerNotificationStatus`와 함께 `domain/marker`로 옮겼다. 조회 결과를 다시 감싸던 `NotificationRecipients`는 제거하고 기존 `IncidentAssignmentView.NotificationTargets`를 그대로 사용한다. 수신자 정책은 알림 종류에서 가져오며, 선정 규칙·목록 보호·DB 및 이벤트 값은 유지한다.
 
+`MarkerType`·`MarkerStatus`·`MarkerSource`·`MarkerSupportRequestType`은 이름과 값을 유지하고 `Marker`와 같은 `domain/marker`로 옮겼다. 호출부·테스트·fixture의 import만 맞췄으며, Mapper XML과 업무 로직은 변경하지 않았다. `marker/domain/port/ReferenceMarkerSeed`는 사용 중이므로 남겨뒀다.
+
+다음 후보는 `MarkerQuery`·`MyBatisMarkerQuery`의 단일 인터페이스·구현 분리와 조회용 객체 구성이다. 상황판·인수인계·오프라인 패키지 등 기존 사용처를 확인한 뒤 단순화 범위를 정한다. `MarkerQueryMapperIntegrationTest`도 실제 `MarkerMapper`를 호출하므로 기존 `MarkerMapperTest`와 검증을 묶을 수 있는지 확인한다.
+
 ## Backend — 나머지 Red 테스트
 
 `Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상의 처리 내역은 위 절에 있다.

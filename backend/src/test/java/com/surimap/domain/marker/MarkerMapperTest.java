@@ -4,9 +4,6 @@ import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.MARKER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.domain.MarkerSource;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import java.time.Instant;

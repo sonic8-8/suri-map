@@ -1,9 +1,9 @@
 package com.surimap.marker.query;
 
-import com.surimap.marker.domain.MarkerSource;
-import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.MarkerSupportRequestType;
-import com.surimap.marker.domain.MarkerType;
+import com.surimap.domain.marker.MarkerSource;
+import com.surimap.domain.marker.MarkerStatus;
+import com.surimap.domain.marker.MarkerSupportRequestType;
+import com.surimap.domain.marker.MarkerType;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
