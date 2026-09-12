@@ -17,12 +17,12 @@ import com.surimap.domain.marker.MarkerSupportRequestType;
 import com.surimap.domain.marker.MarkerType;
 import com.surimap.domain.marker.MarkerWriteAccessData;
 import com.surimap.domain.marker.MarkerWriteAccessValidator;
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.MarkerEventPayload;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
@@ -69,12 +69,12 @@ public class AppMarkerService {
   @Transactional
   public MarkerCreateServiceResponse create(MarkerCreateServiceRequest request) {
     requireRequest(request);
-    MarkerRequestContext context = request.getContext();
-    requireAppContext(context);
+    SuriMapAuthentication authentication = request.getAuthentication();
+    requireAppAuthentication(authentication, request.getIdempotencyKey());
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
           "POST /api/markers",
-          context.idempotencyKey(),
+          request.getIdempotencyKey(),
           request,
           () -> MarkerCreateLegacyRequestBody.format(request),
           201,
@@ -86,10 +86,10 @@ public class AppMarkerService {
   }
 
   private MarkerCreateServiceResponse createNewMarker(MarkerCreateServiceRequest request) {
-    MarkerRequestContext context = request.getContext();
+    SuriMapAuthentication authentication = request.getAuthentication();
     MarkerWriteAccessData accessData =
         markerAccessMapper.findWriteAccessData(
-            request.getIncidentId(), request.getOpId(), context.authentication().accountId());
+            request.getIncidentId(), request.getOpId(), authentication.accountId());
     markerWriteAccessValidator.validateCreateAccess(accessData, request.getOpId());
     UUID dutyShiftId = accessData.getActiveDutyShiftId();
 
@@ -115,8 +115,8 @@ public class AppMarkerService {
             .location(location)
             .memo(request.getMemo())
             .occurredAt(request.getClientTs())
-            .createdByAccountId(context.authentication().accountId())
-            .policePhoneId(context.authentication().policePhoneId())
+            .createdByAccountId(authentication.accountId())
+            .policePhoneId(authentication.policePhoneId())
             .markerSource(MarkerSource.APP)
             .status(MarkerStatus.ACTIVE)
             .version(INITIAL_VERSION)
@@ -128,7 +128,7 @@ public class AppMarkerService {
             .id(markerId)
             .incidentId(request.getIncidentId())
             .opId(opId)
-            .policePhoneId(context.authentication().policePhoneId())
+            .policePhoneId(authentication.policePhoneId())
             .status(MarkerStatus.ACTIVE.name())
             .version(INITIAL_VERSION)
             .type(markerType.name())
@@ -144,7 +144,7 @@ public class AppMarkerService {
             .id(markerId)
             .incidentId(request.getIncidentId())
             .opId(opId)
-            .policePhoneId(context.authentication().policePhoneId())
+            .policePhoneId(authentication.policePhoneId())
             .status(marker.getStatus())
             .version(marker.getVersion())
             .photos(photos)
@@ -175,14 +175,15 @@ public class AppMarkerService {
     }
   }
 
-  private void requireAppContext(MarkerRequestContext context) {
-    if (context == null || context.authentication() == null) {
+  private void requireAppAuthentication(
+      SuriMapAuthentication authentication, String idempotencyKey) {
+    if (authentication == null) {
       throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
-    if (!"APP".equals(context.authentication().channel())) {
+    if (!"APP".equals(authentication.channel())) {
       throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
     }
-    if (context.idempotencyKey() == null || context.idempotencyKey().isBlank()) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
@@ -210,12 +211,12 @@ public class AppMarkerService {
   public MarkerMutationServiceResponse update(MarkerUpdateServiceRequest request) {
     requireMarkerId(request == null ? null : request.getMarkerId());
     requireRequestVersion(request.getVersion());
-    MarkerRequestContext context = request.getContext();
-    requireAppContext(context);
+    SuriMapAuthentication authentication = request.getAuthentication();
+    requireAppAuthentication(authentication, request.getIdempotencyKey());
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
           "PATCH /api/markers/" + request.getMarkerId(),
-          context.idempotencyKey(),
+          request.getIdempotencyKey(),
           request,
           () ->
               MarkerMutationLegacyRequestBody.formatUpdate(
@@ -234,7 +235,7 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = requireMutationAccess(markerId, request.getContext());
+    Marker current = requireMutationAccess(markerId, request.getAuthentication());
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
@@ -245,7 +246,7 @@ public class AppMarkerService {
 
     MarkerEventPayload eventPayload =
         createPublishPayload(
-            request.getContext().authentication().policePhoneId(),
+            request.getAuthentication().policePhoneId(),
             current,
             MarkerStatus.UPDATED,
             current.getVersion(),
@@ -260,12 +261,12 @@ public class AppMarkerService {
   public MarkerMutationServiceResponse delete(MarkerDeleteServiceRequest request) {
     requireMarkerId(request == null ? null : request.getMarkerId());
     requireRequestVersion(request.getVersion());
-    MarkerRequestContext context = request.getContext();
-    requireAppContext(context);
+    SuriMapAuthentication authentication = request.getAuthentication();
+    requireAppAuthentication(authentication, request.getIdempotencyKey());
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
           "DELETE /api/markers/" + request.getMarkerId(),
-          context.idempotencyKey(),
+          request.getIdempotencyKey(),
           request,
           () ->
               MarkerMutationLegacyRequestBody.formatDelete(
@@ -280,14 +281,14 @@ public class AppMarkerService {
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
     UUID markerId = request.getMarkerId();
-    Marker current = requireMutationAccess(markerId, request.getContext());
+    Marker current = requireMutationAccess(markerId, request.getAuthentication());
     current.delete(request.getVersion());
     int updated = markerMapper.deleteMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
 
     MarkerEventPayload eventPayload =
         createPublishPayload(
-            request.getContext().authentication().policePhoneId(),
+            request.getAuthentication().policePhoneId(),
             current,
             MarkerStatus.DELETED,
             current.getVersion(),
@@ -298,8 +299,8 @@ public class AppMarkerService {
     return MarkerMutationServiceResponse.from(current);
   }
 
-  private Marker requireMutationAccess(UUID markerId, MarkerRequestContext context) {
-    if (context.authentication().policePhoneId() == null) {
+  private Marker requireMutationAccess(UUID markerId, SuriMapAuthentication authentication) {
+    if (authentication.policePhoneId() == null) {
       throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
     }
     Marker marker =
@@ -307,7 +308,7 @@ public class AppMarkerService {
             .findById(markerId)
             .filter(saved -> !saved.isDeleted())
             .orElseThrow(() -> new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED));
-    UUID accountId = context.authentication().accountId();
+    UUID accountId = authentication.accountId();
     MarkerWriteAccessData accessData =
         markerAccessMapper.findWriteAccessData(
             marker.getIncidentId(), marker.getOperationalPeriodId(), accountId);

@@ -3,8 +3,8 @@ package com.surimap.app.controller.marker.request;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import com.surimap.app.service.marker.request.MarkerCreateServiceRequest;
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
@@ -54,7 +54,8 @@ public class MarkerCreateRequest {
     this.photos = photos == null ? List.of() : List.copyOf(photos);
   }
 
-  public MarkerCreateServiceRequest toServiceRequest(MarkerRequestContext context) {
+  public MarkerCreateServiceRequest toServiceRequest(
+      SuriMapAuthentication authentication, String idempotencyKey) {
     return MarkerCreateServiceRequest.builder()
         .id(id)
         .incidentId(incidentId)
@@ -66,7 +67,8 @@ public class MarkerCreateRequest {
         .clientTs(clientTs)
         .clockOffsetMs(clockOffsetMs)
         .photos(photos.stream().map(MarkerCreatePhotoRequest::toServiceRequest).toList())
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(idempotencyKey)
         .build();
   }
 }

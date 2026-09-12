@@ -1,23 +1,20 @@
-package com.surimap.marker.controller;
+package com.surimap.global.auth;
 
-import com.surimap.global.auth.SuriMapAuthentication;
-import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.service.MarkerRequestContext;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MarkerRequestContextResolver {
+public class MarkerAuthenticationResolver {
 
   private final SuriMapAuthenticationResolver authenticationResolver;
 
-  public MarkerRequestContextResolver(SuriMapAuthenticationResolver authenticationResolver) {
+  public MarkerAuthenticationResolver(SuriMapAuthenticationResolver authenticationResolver) {
     this.authenticationResolver = authenticationResolver;
   }
 
-  public MarkerRequestContext resolve(
+  public SuriMapAuthentication resolveForAppWrite(
       String authorization, String channel, String policePhoneId, String idempotencyKey) {
     requireAppChannel(channel);
     requireIdempotencyKey(idempotencyKey);
@@ -27,12 +24,12 @@ public class MarkerRequestContextResolver {
     SuriMapAuthentication authentication = authenticationResolver.resolve(authorization, channel);
     requireMatchingPolicePhone(authentication, headerPolicePhoneId);
 
-    return new MarkerRequestContext(authentication, idempotencyKey);
+    return authentication;
   }
 
-  public MarkerRequestContext resolveFieldOrWebWrite(
+  public SuriMapAuthentication resolveForAppOrWebWrite(
       String authorization, String channel, String policePhoneId, String idempotencyKey) {
-    requireFieldOrWebWriteChannel(channel);
+    requireAppOrWebChannel(channel);
     requireIdempotencyKey(idempotencyKey);
     requireAuthorization(authorization);
 
@@ -46,7 +43,7 @@ public class MarkerRequestContextResolver {
       requireMatchingPolicePhone(authentication, headerPolicePhoneId);
     }
 
-    return new MarkerRequestContext(authentication, idempotencyKey);
+    return authentication;
   }
 
   private void requireAppChannel(String channel) {
@@ -56,7 +53,7 @@ public class MarkerRequestContextResolver {
     throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
   }
 
-  private void requireFieldOrWebWriteChannel(String channel) {
+  private void requireAppOrWebChannel(String channel) {
     if ("APP".equals(channel) || "WEB".equals(channel)) {
       return;
     }

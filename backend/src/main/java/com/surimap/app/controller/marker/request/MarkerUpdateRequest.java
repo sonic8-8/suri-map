@@ -1,8 +1,8 @@
 package com.surimap.app.controller.marker.request;
 
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
+import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.util.UUID;
@@ -27,14 +27,16 @@ public class MarkerUpdateRequest {
     this.type = type;
   }
 
-  public MarkerUpdateServiceRequest toServiceRequest(UUID markerId, MarkerRequestContext context) {
+  public MarkerUpdateServiceRequest toServiceRequest(
+      UUID markerId, SuriMapAuthentication authentication, String idempotencyKey) {
     return MarkerUpdateServiceRequest.builder()
         .markerId(markerId)
         .version(version)
         .location(location)
         .memo(memo)
         .type(type)
-        .context(context)
+        .authentication(authentication)
+        .idempotencyKey(idempotencyKey)
         .build();
   }
 }
