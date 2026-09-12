@@ -3,7 +3,7 @@ package com.surimap.api.controller.marker.response;
 import com.surimap.api.service.marker.response.MarkersServiceResponse;
 import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerPhotoServiceResponse;
 import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +45,7 @@ public class MarkersResponse {
     private String source;
     private String status;
     private long version;
-    private MarkerGeoJsonPoint location;
+    private GeoJsonPoint location;
     private String memo;
     private Instant occurredAt;
     private List<MarkerPhotoSummaryResponse> photoSummary;
@@ -62,7 +62,7 @@ public class MarkersResponse {
         String source,
         String status,
         long version,
-        MarkerGeoJsonPoint location,
+        GeoJsonPoint location,
         String memo,
         Instant occurredAt,
         List<MarkerPhotoSummaryResponse> photoSummary) {
@@ -95,7 +95,7 @@ public class MarkersResponse {
           .source(marker.getSource().name())
           .status(marker.getStatus().name())
           .version(marker.getVersion())
-          .location(MarkerGeoJsonPoint.from(marker.getLocation()))
+          .location(GeoJsonPoint.from(marker.getLocation()))
           .memo(marker.getMemo())
           .occurredAt(marker.getOccurredAt())
           .photoSummary(

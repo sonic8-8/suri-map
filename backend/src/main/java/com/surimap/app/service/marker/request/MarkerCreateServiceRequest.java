@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.surimap.app.service.photo.request.MarkerCreatePhotoServiceRequest;
 import com.surimap.global.auth.SuriMapAuthentication;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +32,7 @@ public class MarkerCreateServiceRequest {
   private UUID incidentId;
   private UUID opId;
   private String type;
-  private MarkerGeoJsonPoint location;
+  private GeoJsonPoint location;
   private String supportRequestType;
   private String memo;
   private Instant clientTs;
@@ -49,7 +49,7 @@ public class MarkerCreateServiceRequest {
       UUID incidentId,
       UUID opId,
       String type,
-      MarkerGeoJsonPoint location,
+      GeoJsonPoint location,
       String supportRequestType,
       String memo,
       Instant clientTs,

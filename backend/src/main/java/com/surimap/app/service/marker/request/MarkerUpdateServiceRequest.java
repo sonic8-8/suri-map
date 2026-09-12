@@ -3,7 +3,7 @@ package com.surimap.app.service.marker.request;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.surimap.global.auth.SuriMapAuthentication;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,7 +19,7 @@ public class MarkerUpdateServiceRequest {
   @JsonIgnore private SuriMapAuthentication authentication;
   @JsonIgnore private String idempotencyKey;
   private Long version;
-  private MarkerGeoJsonPoint location;
+  private GeoJsonPoint location;
   private String memo;
   private String type;
 
@@ -29,7 +29,7 @@ public class MarkerUpdateServiceRequest {
       SuriMapAuthentication authentication,
       String idempotencyKey,
       Long version,
-      MarkerGeoJsonPoint location,
+      GeoJsonPoint location,
       String memo,
       String type) {
     this.markerId = markerId;

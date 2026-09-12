@@ -37,7 +37,7 @@ import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.error.GlobalExceptionHandler;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.support.auth.WithMockAccount;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -279,8 +279,8 @@ class AppMarkerControllerTest {
     assertThat(captured.getMemo()).isEqualTo("S14P31C106-71 field clue");
     assertThat(captured.getClientTs()).isEqualTo(CLIENT_TS);
     assertThat(captured.getClockOffsetMs()).isZero();
-    assertThat(captured.getLocation().type()).isEqualTo("Point");
-    assertThat(captured.getLocation().coordinates())
+    assertThat(captured.getLocation().getType()).isEqualTo("Point");
+    assertThat(captured.getLocation().getCoordinates())
         .containsExactly(new BigDecimal("126.913400"), new BigDecimal("35.163100"));
     assertThat(captured.getPhotos()).isEmpty();
     assertThat(captured.getAuthentication().accountId()).isEqualTo(ACCOUNT_ID);
@@ -310,7 +310,7 @@ class AppMarkerControllerTest {
             .opId(OP_ID)
             .type("CLUE")
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))))
             .clientTs(CLIENT_TS)
             .photos(List.of(photo))
@@ -483,7 +483,7 @@ class AppMarkerControllerTest {
             .markerId(MARKER_ID)
             .version(1L)
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))))
             .memo("S3-2 detail panel memo")
             .type("NOTE")

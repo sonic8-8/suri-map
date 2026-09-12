@@ -4,7 +4,7 @@ import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -102,13 +102,13 @@ public class MarkerEventPublisher {
     return values;
   }
 
-  private static Map<String, Object> locationPayload(MarkerGeoJsonPoint location) {
+  private static Map<String, Object> locationPayload(GeoJsonPoint location) {
     if (location == null) {
       return null;
     }
     Map<String, Object> values = new LinkedHashMap<>();
-    values.put("type", location.type());
-    values.put("coordinates", location.coordinates());
+    values.put("type", location.getType());
+    values.put("coordinates", location.getCoordinates());
     return values;
   }
 

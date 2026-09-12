@@ -2,7 +2,7 @@ package com.surimap.app.controller.marker.request;
 
 import com.surimap.app.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.global.auth.SuriMapAuthentication;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.util.UUID;
@@ -15,12 +15,12 @@ import lombok.NoArgsConstructor;
 public class MarkerUpdateRequest {
 
   @NotNull @Positive private Long version;
-  private MarkerGeoJsonPoint location;
+  private GeoJsonPoint location;
   private String memo;
   private String type;
 
   @Builder
-  private MarkerUpdateRequest(Long version, MarkerGeoJsonPoint location, String memo, String type) {
+  private MarkerUpdateRequest(Long version, GeoJsonPoint location, String memo, String type) {
     this.version = version;
     this.location = location;
     this.memo = memo;

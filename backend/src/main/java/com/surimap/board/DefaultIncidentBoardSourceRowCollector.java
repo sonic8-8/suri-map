@@ -12,6 +12,7 @@ import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.domain.marker.MarkerNotificationMapper;
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.dutyshift.DutyShiftMapper;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.incident.domain.IncidentRecord;
@@ -24,7 +25,6 @@ import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
@@ -752,7 +752,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("occurredAt", row.getOccurredAt());
     payload.put(
         "geometryHash", sourceHash("marker", row.getId().toString(), row.getVersion(), status));
-    payload.put("geometry", MarkerGeoJsonPoint.from(row.getLocation()));
+    payload.put("geometry", GeoJsonPoint.from(row.getLocation()));
     payload.put(
         "photoSummary", row.getPhotoSummary().stream().map(this::photoSummaryPayload).toList());
     return sourceRow(

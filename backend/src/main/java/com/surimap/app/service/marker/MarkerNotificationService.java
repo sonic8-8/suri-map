@@ -12,9 +12,9 @@ import com.surimap.domain.marker.MarkerType;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.global.event.MarkerNotificationPayload;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.incident.service.IncidentAssignmentView.NotificationTargets;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
@@ -163,9 +163,9 @@ public class MarkerNotificationService {
   }
 
   private String formatLocationLabel(Marker marker) {
-    MarkerGeoJsonPoint location = MarkerGeoJsonPoint.from(marker.getLocation());
-    BigDecimal lon = location.coordinates().get(0);
-    BigDecimal lat = location.coordinates().get(1);
+    GeoJsonPoint location = GeoJsonPoint.from(marker.getLocation());
+    BigDecimal lon = location.getCoordinates().get(0);
+    BigDecimal lat = location.getCoordinates().get(1);
     return lon.toPlainString() + "," + lat.toPlainString();
   }
 
