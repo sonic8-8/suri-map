@@ -26,9 +26,9 @@ import com.surimap.domain.marker.MarkerType;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -470,8 +470,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerUpdateServiceRequest request =
         updateRequest().toBuilder()
             .location(
-                new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.9"), new BigDecimal("91"))))
+                new GeoJsonPoint("Point", List.of(new BigDecimal("126.9"), new BigDecimal("91"))))
             .build();
 
     // when: 실제 서비스에서 좌표 검증에 실패한다.

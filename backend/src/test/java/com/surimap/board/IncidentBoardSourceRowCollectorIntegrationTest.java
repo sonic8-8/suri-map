@@ -28,6 +28,7 @@ import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.incident.domain.IncidentRecord;
@@ -42,7 +43,6 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.operationalperiod.query.CurrentOpResult;
@@ -853,7 +853,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                               .status(MarkerStatus.ACTIVE)
                               .version(6L)
                               .location(
-                                  new MarkerGeoJsonPoint(
+                                  new GeoJsonPoint(
                                           "Point",
                                           List.of(
                                               new BigDecimal("126.911000"),

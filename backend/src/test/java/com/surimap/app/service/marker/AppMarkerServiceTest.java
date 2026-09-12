@@ -42,9 +42,9 @@ import com.surimap.domain.photo.PhotoStatus;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -265,7 +265,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .opId(OP1_ID)
             .type("CLUE")
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.9134007"), new BigDecimal("35.1631007"))))
             .memo("precision-over-6dp")
             .clientTs(CLIENT_TS)
@@ -529,7 +529,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         createRequest("CLUE", null).toBuilder()
             .id(MARKER_ID)
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal(longitude), new BigDecimal(latitude))))
             .build();
 
@@ -608,7 +608,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .opId(OP1_ID)
             .type("CLUE")
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("35.163100"))))
             .memo("outside overall search area")
             .clientTs(CLIENT_TS)
@@ -737,7 +737,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
             .type(markerType)
             .supportRequestType(supportRequestType)
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.9134004"), new BigDecimal("35.1631004"))))
             .build();
 
@@ -1136,8 +1136,8 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         .build();
   }
 
-  private static MarkerGeoJsonPoint createMarkerLocation() {
-    return new MarkerGeoJsonPoint(
+  private static GeoJsonPoint createMarkerLocation() {
+    return new GeoJsonPoint(
         "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")));
   }
 
@@ -1332,7 +1332,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     MarkerUpdateServiceRequest request =
         updateRequest().toBuilder()
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.9137007"), new BigDecimal("35.1634007"))))
             .memo("updated clue memo")
             .type("NOTE")
@@ -1894,7 +1894,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         updateRequest().toBuilder()
             .type("UNKNOWN")
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "LineString", List.of(new BigDecimal("126.9"), new BigDecimal("35.1"))))
             .build();
 

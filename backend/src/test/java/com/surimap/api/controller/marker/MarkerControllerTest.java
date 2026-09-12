@@ -44,7 +44,7 @@ import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.error.GlobalExceptionHandler;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.retention.purge.RecordLocationAccessAspect;
 import com.surimap.support.auth.WithMockAccount;
@@ -219,7 +219,7 @@ class MarkerControllerTest {
             .status(MarkerStatus.ACTIVE)
             .version(7L)
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                         "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
                     .toPoint())
             .memo("등산로 입구 제보")
@@ -284,7 +284,7 @@ class MarkerControllerTest {
     // then: 좌표는 소수점 6자리로 정규화된 표현을 유지한다.
     MarkersResponse response =
         objectMapper.readValue(result.getResponse().getContentAsString(), MarkersResponse.class);
-    assertThat(response.getMarkers().get(0).getLocation().coordinates())
+    assertThat(response.getMarkers().get(0).getLocation().getCoordinates())
         .extracting(BigDecimal::toPlainString)
         .containsExactly("126.913400", "35.163100");
 
@@ -411,7 +411,7 @@ class MarkerControllerTest {
             .markerId(MARKER_ID)
             .version(1L)
             .location(
-                new MarkerGeoJsonPoint(
+                new GeoJsonPoint(
                     "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))))
             .memo("S3-2 detail panel memo")
             .type("NOTE")

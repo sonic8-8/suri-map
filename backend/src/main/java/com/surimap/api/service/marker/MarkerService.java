@@ -21,7 +21,7 @@ import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.MarkerEventPayload;
 import com.surimap.global.event.MarkerEventPublisher;
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
@@ -95,7 +95,7 @@ public class MarkerService {
     // 기존 오류 우선순위인 버전 → 유형 → 좌표 → 메모 순서를 유지한다.
     current.requireVersion(request.getVersion());
     Marker.validateType(request.getType());
-    MarkerGeoJsonPoint location = resolveUpdateLocation(current, request);
+    GeoJsonPoint location = resolveUpdateLocation(current, request);
     current.update(request.getVersion(), request.getType(), location.toPoint(), request.getMemo());
     int updated = markerMapper.updateMarker(current, request.getVersion());
     requireSingleRowUpdated(updated);
@@ -193,15 +193,14 @@ public class MarkerService {
     }
   }
 
-  private MarkerGeoJsonPoint resolveUpdateLocation(
-      Marker current, MarkerUpdateServiceRequest request) {
+  private GeoJsonPoint resolveUpdateLocation(Marker current, MarkerUpdateServiceRequest request) {
     if (request.getLocation() == null) {
-      return MarkerGeoJsonPoint.from(current.getLocation());
+      return GeoJsonPoint.from(current.getLocation());
     }
-    MarkerGeoJsonPoint canonicalLocation = request.getLocation().canonical();
-    Point location = canonicalLocation.toPoint();
+    GeoJsonPoint roundedLocation = request.getLocation().roundToSixDecimals();
+    Point location = roundedLocation.toPoint();
     Marker.validateLocation(location);
-    return canonicalLocation;
+    return roundedLocation;
   }
 
   private void requireSingleRowUpdated(int updated) {
@@ -216,7 +215,7 @@ public class MarkerService {
       MarkerStatus status,
       long version,
       String markerType,
-      MarkerGeoJsonPoint location) {
+      GeoJsonPoint location) {
     return MarkerEventPayload.builder()
         .id(marker.getId())
         .incidentId(marker.getIncidentId())

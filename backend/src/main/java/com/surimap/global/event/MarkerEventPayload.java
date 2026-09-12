@@ -1,6 +1,6 @@
 package com.surimap.global.event;
 
-import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.global.geometry.GeoJsonPoint;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Builder;
@@ -18,7 +18,7 @@ public class MarkerEventPayload implements MarkerPublishPayload {
   private String status;
   private long version;
   private String type;
-  private MarkerGeoJsonPoint location;
+  private GeoJsonPoint location;
   private Instant clientTs;
   private Instant serverTs;
 
@@ -31,7 +31,7 @@ public class MarkerEventPayload implements MarkerPublishPayload {
       String status,
       long version,
       String type,
-      MarkerGeoJsonPoint location,
+      GeoJsonPoint location,
       Instant clientTs,
       Instant serverTs) {
     this.id = id;
