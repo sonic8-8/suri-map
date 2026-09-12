@@ -1,5 +1,9 @@
-package com.surimap.incident.adapter;
+package com.surimap.api.service.marker;
 
+import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.marker.MarkerSource;
+import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
 import com.surimap.marker.domain.port.ReferenceMarkerSeed;
 import com.surimap.operationalperiod.OperationalPeriod;
@@ -13,11 +17,12 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-/** S1-1 import의 간단한 mock 112 marker seed를 S5 ReferenceMarkerSeed payload로 변환한다. */
-@Component
-public class ReferenceMarkerSeedAdapter implements ReferenceMarkerSeed {
+/** 사건 가져오기의 원천 마커에 식별자와 최초 수색 차수를 부여해 기준 마커로 저장한다. */
+@Service
+public class ReferenceMarkerSeedService implements ReferenceMarkerSeed {
 
   private static final int SRID = 4326;
   private static final int OP1_SEQUENCE = 1;
@@ -32,47 +37,52 @@ public class ReferenceMarkerSeedAdapter implements ReferenceMarkerSeed {
   private static final GeometryFactory GEOMETRY_FACTORY =
       new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), SRID);
 
-  private final com.surimap.marker.seed.ReferenceMarkerSeed delegate;
+  private final MarkerMapper markerMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
 
-  public ReferenceMarkerSeedAdapter(
-      com.surimap.marker.seed.ReferenceMarkerSeed delegate,
-      OperationalPeriodMapper operationalPeriodMapper) {
-    this.delegate = delegate;
+  public ReferenceMarkerSeedService(
+      MarkerMapper markerMapper, OperationalPeriodMapper operationalPeriodMapper) {
+    this.markerMapper = markerMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
   }
 
   @Override
+  @Transactional
   public void createForIncident(UUID incidentId, List<ReferenceMarkerSeed.SeedMarker> seedMarkers) {
     OperationalPeriod op =
         operationalPeriodMapper
             .findByIncidentAndSequence(incidentId, OP1_SEQUENCE)
             .orElseThrow(() -> new IllegalStateException("op1_not_found_for_reference_marker"));
 
-    List<com.surimap.marker.seed.SeedMarker> converted = new ArrayList<>();
+    List<Marker> markers = new ArrayList<>();
     for (int index = 0; index < seedMarkers.size(); index++) {
       ReferenceMarkerSeed.SeedMarker seed = seedMarkers.get(index);
-      converted.add(toSeedMarker(incidentId, op.getId(), seed, index));
+      markers.add(createReferenceMarker(incidentId, op.getId(), seed, index));
     }
-    delegate.createForIncident(incidentId, converted);
+    // 한 좌표라도 잘못되면 일부 마커만 저장되지 않도록 전체 묶음을 먼저 검사한다.
+    markers.forEach(marker -> Marker.validateLocation(marker.getLocation()));
+    markers.forEach(markerMapper::insertSeed);
   }
 
-  private com.surimap.marker.seed.SeedMarker toSeedMarker(
+  private Marker createReferenceMarker(
       UUID incidentId, UUID opId, ReferenceMarkerSeed.SeedMarker seed, int index) {
-    return new com.surimap.marker.seed.SeedMarker(
-        markerIdFor(incidentId, seed, index),
-        opId,
-        null,
-        MarkerType.valueOf(seed.type()),
-        null,
-        point(seed.lon(), seed.lat()),
-        seed.memo(),
-        occurredAtFor(incidentId),
-        PRECINCT_FIRST_CREATED_BY_ACCOUNT_ID,
-        null);
+    return Marker.builder()
+        .id(createMarkerId(incidentId, seed, index))
+        .incidentId(incidentId)
+        .operationalPeriodId(opId)
+        .markerType(MarkerType.valueOf(seed.type()))
+        .location(createPoint(seed.lon(), seed.lat()))
+        .memo(seed.memo())
+        .occurredAt(resolveOccurredAt(incidentId))
+        .createdByAccountId(PRECINCT_FIRST_CREATED_BY_ACCOUNT_ID)
+        .markerSource(MarkerSource.MOCK_SEED)
+        .status(MarkerStatus.ACTIVE)
+        .version(1L)
+        .build();
   }
 
-  private static UUID markerIdFor(UUID incidentId, ReferenceMarkerSeed.SeedMarker seed, int index) {
+  private static UUID createMarkerId(
+      UUID incidentId, ReferenceMarkerSeed.SeedMarker seed, int index) {
     if (PRECINCT_FIRST_INCIDENT_ID.equals(incidentId) && index == 0) {
       return PRECINCT_FIRST_MARKER_ID;
     }
@@ -90,14 +100,14 @@ public class ReferenceMarkerSeedAdapter implements ReferenceMarkerSeed {
     return UUID.nameUUIDFromBytes(seedValue.getBytes(StandardCharsets.UTF_8));
   }
 
-  private static Instant occurredAtFor(UUID incidentId) {
+  private static Instant resolveOccurredAt(UUID incidentId) {
     if (PRECINCT_FIRST_INCIDENT_ID.equals(incidentId)) {
       return PRECINCT_FIRST_MARKER_OCCURRED_AT;
     }
     return Instant.now();
   }
 
-  private static Point point(double lon, double lat) {
+  private static Point createPoint(double lon, double lat) {
     Point point = GEOMETRY_FACTORY.createPoint(new Coordinate(lon, lat));
     point.setSRID(SRID);
     return point;

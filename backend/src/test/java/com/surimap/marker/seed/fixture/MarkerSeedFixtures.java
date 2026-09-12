@@ -1,8 +1,10 @@
 package com.surimap.marker.seed.fixture;
 
+import com.surimap.domain.marker.Marker;
+import com.surimap.domain.marker.MarkerSource;
+import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
-import com.surimap.marker.seed.SeedMarker;
 import java.time.Instant;
 import java.util.UUID;
 import org.locationtech.jts.geom.Coordinate;
@@ -30,18 +32,20 @@ public final class MarkerSeedFixtures {
 
   private MarkerSeedFixtures() {}
 
-  public static SeedMarker referenceClueSeed() {
-    return new SeedMarker(
-        MARKER_ID,
-        OP1_ID,
-        null,
-        MarkerType.CLUE,
-        null,
-        REFERENCE_POINT,
-        MEMO,
-        OCCURRED_AT,
-        ACCOUNT_ID,
-        null);
+  public static Marker referenceClueMarker() {
+    return Marker.builder()
+        .id(MARKER_ID)
+        .incidentId(INCIDENT_ID)
+        .operationalPeriodId(OP1_ID)
+        .markerType(MarkerType.CLUE)
+        .location(REFERENCE_POINT)
+        .memo(MEMO)
+        .occurredAt(OCCURRED_AT)
+        .createdByAccountId(ACCOUNT_ID)
+        .markerSource(MarkerSource.MOCK_SEED)
+        .status(MarkerStatus.ACTIVE)
+        .version(1L)
+        .build();
   }
 
   private static Point point(String lon, String lat) {
