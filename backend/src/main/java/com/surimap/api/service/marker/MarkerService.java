@@ -3,10 +3,14 @@ package com.surimap.api.service.marker;
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerMapper;
+import com.surimap.domain.marker.MarkerMapper.AttachedPhotoRow;
 import com.surimap.domain.marker.MarkerMutationLegacyRequestBody;
 import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
@@ -18,15 +22,19 @@ import com.surimap.global.event.MarkerEventPayload;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.locationtech.jts.geom.Point;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,17 +49,17 @@ public class MarkerService {
   private final Clock clock;
   private final IdempotentResponseCache idempotentResponseCache;
 
-  private final MarkerQuery markerQuery;
+  private final ObjectProvider<ObjectStoragePort> objectStoragePort;
 
   public MarkerService(
-      MarkerQuery markerQuery,
+      ObjectProvider<ObjectStoragePort> objectStoragePort,
       MarkerMapper markerMapper,
       MarkerAccessMapper markerAccessMapper,
       MarkerWriteAccessValidator markerWriteAccessValidator,
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
-    this.markerQuery = markerQuery;
+    this.objectStoragePort = objectStoragePort;
     this.markerMapper = markerMapper;
     this.markerAccessMapper = markerAccessMapper;
     this.markerWriteAccessValidator = markerWriteAccessValidator;
@@ -240,9 +248,51 @@ public class MarkerService {
 
   @Transactional(readOnly = true)
   public MarkerListServiceResponse list(UUID incidentId, UUID opId, String type, String status) {
-    return MarkerListServiceResponse.from(
-        markerQuery.byIncident(
-            incidentId, new MarkerQueryFilters(opId, parseType(type), parseStatus(status))));
+    MarkerType markerType = parseType(type);
+    MarkerStatus markerStatus = parseStatus(status);
+    Objects.requireNonNull(incidentId, "incidentId must not be null");
+    List<Marker> markers = markerMapper.findByIncident(incidentId, opId, markerType, markerStatus);
+    if (markers.isEmpty()) {
+      return MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build();
+    }
+
+    Map<UUID, List<MarkerPhotoServiceResponse>> photosByMarkerId = loadAttachedPhotos(markers);
+    return MarkerListServiceResponse.builder()
+        .incidentId(incidentId)
+        .markers(
+            markers.stream()
+                .map(
+                    marker ->
+                        MarkerServiceResponse.from(
+                            marker, photosByMarkerId.getOrDefault(marker.getId(), List.of())))
+                .toList())
+        .build();
+  }
+
+  private Map<UUID, List<MarkerPhotoServiceResponse>> loadAttachedPhotos(List<Marker> markers) {
+    List<UUID> markerIds = markers.stream().map(Marker::getId).toList();
+    List<AttachedPhotoRow> photos = markerMapper.findAttachedPhotoSummariesByMarkerIds(markerIds);
+    Map<UUID, List<MarkerPhotoServiceResponse>> photosByMarkerId = new HashMap<>();
+    for (AttachedPhotoRow photo : photos) {
+      photosByMarkerId
+          .computeIfAbsent(photo.markerId(), ignored -> new ArrayList<>())
+          .add(MarkerPhotoServiceResponse.from(photo, generatePhotoViewUrl(photo.objectKey())));
+    }
+    return photosByMarkerId;
+  }
+
+  private String generatePhotoViewUrl(String objectKey) {
+    ObjectStoragePort storagePort = objectStoragePort.getIfAvailable();
+    if (storagePort == null) {
+      return null;
+    }
+    try {
+      return storagePort
+          .generatePresignedViewUrl(objectKey, ObjectStoragePort.DEFAULT_VIEW_TTL)
+          .orElse(null);
+    } catch (RuntimeException ignored) {
+      return null;
+    }
   }
 
   private MarkerType parseType(String value) {

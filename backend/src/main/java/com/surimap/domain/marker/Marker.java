@@ -2,11 +2,8 @@ package com.surimap.domain.marker;
 
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
-import com.surimap.marker.query.MarkerPhotoSummary;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.seed.SeedMarker;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -95,25 +92,6 @@ public class Marker {
         .status(MarkerStatus.ACTIVE)
         .version(1L)
         .build();
-  }
-
-  public MarkerView toView(List<MarkerPhotoSummary> photos) {
-    return new MarkerView(
-        id,
-        incidentId,
-        operationalPeriodId,
-        dutyShiftId,
-        createdByAccountId,
-        policePhoneId,
-        MarkerType.valueOf(markerType),
-        supportRequestType == null ? null : MarkerSupportRequestType.valueOf(supportRequestType),
-        MarkerSource.valueOf(markerSource),
-        MarkerStatus.valueOf(status),
-        version,
-        location,
-        memo,
-        occurredAt,
-        photos);
   }
 
   public boolean isFieldMarkerCreatedBy(UUID accountId) {

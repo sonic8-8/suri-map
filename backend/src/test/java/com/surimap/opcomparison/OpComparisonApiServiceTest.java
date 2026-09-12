@@ -12,6 +12,9 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.opcomparison.request.CreateOpComparisonRequest;
 import com.surimap.api.controller.opcomparison.response.OpComparisonResponse;
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.opcomparison.OpComparisonApiException;
 import com.surimap.api.service.opcomparison.OpComparisonApiService;
 import com.surimap.api.service.path.SearchPathService;
@@ -23,10 +26,6 @@ import com.surimap.eventhub.port.EventHub;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerQueryResult;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
 import java.time.Clock;
@@ -56,7 +55,7 @@ class OpComparisonApiServiceTest {
       org.mockito.Mockito.mock(OperationalPeriodMapper.class);
   private final SearchPathService searchPathService =
       org.mockito.Mockito.mock(SearchPathService.class);
-  private final MarkerQuery markerQuery = org.mockito.Mockito.mock(MarkerQuery.class);
+  private final MarkerService markerService = org.mockito.Mockito.mock(MarkerService.class);
   private final HandoverMemoQuery handoverMemoQuery =
       org.mockito.Mockito.mock(HandoverMemoQuery.class);
   private final OpComparisonRegionFactMapper regionFactMapper =
@@ -76,8 +75,9 @@ class OpComparisonApiServiceTest {
     when(operationalPeriodMapper.findAllByIncidentOrderBySequence(INCIDENT_ID))
         .thenReturn(List.of(op(OP1_ID, 1), op(OP2_ID, 2)));
     when(searchPathService.findAll()).thenReturn(List.of());
-    when(markerQuery.byIncident(eq(INCIDENT_ID), any(MarkerQueryFilters.class)))
-        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of()));
+    when(markerService.list(eq(INCIDENT_ID), any(), any(), any()))
+        .thenReturn(
+            MarkerListServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
     when(handoverMemoQuery.byContext(eq(INCIDENT_ID), any(), eq(null), eq(null)))
         .thenReturn(List.of());
     when(regionFactMapper.findRegionFacts(any(), any(), any())).thenReturn(List.of());
@@ -91,7 +91,7 @@ class OpComparisonApiServiceTest {
 
     OpComparisonSourceCollector sourceCollector =
         new OpComparisonSourceCollector(
-            operationalPeriodMapper, searchPathService, markerQuery, handoverMemoQuery);
+            operationalPeriodMapper, searchPathService, markerService, handoverMemoQuery);
     service =
         new OpComparisonApiService(
             analysisMapper,
@@ -172,8 +172,12 @@ class OpComparisonApiServiceTest {
   @Test
   @DisplayName("significant deterministic facts call narrative port and persist READY narrative")
   void createsReadyNarrativeWhenThresholdFactsExist() {
-    when(markerQuery.byIncident(eq(INCIDENT_ID), eq(new MarkerQueryFilters(OP2_ID, null, null))))
-        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
+    when(markerService.list(INCIDENT_ID, OP2_ID, null, null))
+        .thenReturn(
+            MarkerListServiceResponse.builder()
+                .incidentId(INCIDENT_ID)
+                .markers(List.of(marker(1), marker(2), marker(3)))
+                .build());
     when(narrativePort.generate(any()))
         .thenReturn(
             OpComparisonNarrativeResult.ready(
@@ -205,8 +209,12 @@ class OpComparisonApiServiceTest {
   @DisplayName(
       "narrative failure keeps deterministic comparison ready and persists granular reason")
   void keepsDeterministicReadyWhenNarrativeFails() {
-    when(markerQuery.byIncident(eq(INCIDENT_ID), eq(new MarkerQueryFilters(OP2_ID, null, null))))
-        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
+    when(markerService.list(INCIDENT_ID, OP2_ID, null, null))
+        .thenReturn(
+            MarkerListServiceResponse.builder()
+                .incidentId(INCIDENT_ID)
+                .markers(List.of(marker(1), marker(2), marker(3)))
+                .build());
     when(narrativePort.generate(any()))
         .thenReturn(
             OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID));
@@ -262,23 +270,24 @@ class OpComparisonApiServiceTest {
         NOW);
   }
 
-  private static MarkerView marker(int index) {
-    return new MarkerView(
-        UUID.fromString("cccccccc-cccc-4ccc-8ccc-cccccccc57%02d".formatted(index)),
-        INCIDENT_ID,
-        OP2_ID,
-        null,
-        ACCOUNT_ID,
-        null,
-        MarkerType.NOTE,
-        null,
-        MarkerSource.APP,
-        MarkerStatus.ACTIVE,
-        index,
-        null,
-        "memo",
-        NOW.plusSeconds(index),
-        List.of());
+  private static MarkerServiceResponse marker(int index) {
+    return MarkerServiceResponse.builder()
+        .id(UUID.fromString("cccccccc-cccc-4ccc-8ccc-cccccccc57%02d".formatted(index)))
+        .incidentId(INCIDENT_ID)
+        .opId(OP2_ID)
+        .dutyShiftId(null)
+        .accountId(ACCOUNT_ID)
+        .policePhoneId(null)
+        .type(MarkerType.NOTE)
+        .supportRequestType(null)
+        .source(MarkerSource.APP)
+        .status(MarkerStatus.ACTIVE)
+        .version(index)
+        .location(null)
+        .memo("memo")
+        .occurredAt(NOW.plusSeconds(index))
+        .photoSummary(List.of())
+        .build();
   }
 
   private static CreateOpComparisonRequest request(UUID firstOpId, UUID secondOpId) {

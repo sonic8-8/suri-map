@@ -1,7 +1,6 @@
 package com.surimap.domain.marker;
 
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.repository.MarkerPhotoSummaryRow;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,8 +29,21 @@ public interface MarkerMapper {
   int deleteMarker(@Param("marker") Marker marker, @Param("expectedVersion") long expectedVersion);
 
   List<Marker> findByIncident(
-      @Param("incidentId") UUID incidentId, @Param("filters") MarkerQueryFilters filters);
+      @Param("incidentId") UUID incidentId,
+      @Param("opId") UUID opId,
+      @Param("type") MarkerType type,
+      @Param("status") MarkerStatus status);
 
-  List<MarkerPhotoSummaryRow> findAttachedPhotoSummariesByMarkerIds(
+  List<AttachedPhotoRow> findAttachedPhotoSummariesByMarkerIds(
       @Param("markerIds") List<UUID> markerIds);
+
+  record AttachedPhotoRow(
+      UUID markerId,
+      UUID photoId,
+      String objectKey,
+      String status,
+      Long version,
+      String contentType,
+      Long sizeBytes,
+      Instant attachedAt) {}
 }

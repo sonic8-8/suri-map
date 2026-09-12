@@ -21,7 +21,7 @@
         <result property="version" column="version"/>
     </resultMap>
 
-    <resultMap id="markerPhotoSummaryRowMap" type="com.surimap.marker.repository.MarkerPhotoSummaryRow">
+    <resultMap id="markerPhotoSummaryRowMap" type="com.surimap.domain.marker.MarkerMapper$AttachedPhotoRow">
         <constructor>
             <arg column="marker_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="photo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -174,15 +174,15 @@
             version
         FROM marker
         WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-        <if test="filters.opId != null">
-          AND operational_period_id = #{filters.opId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="opId != null">
+          AND operational_period_id = #{opId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         </if>
-        <if test="filters.type != null">
-          AND marker_type = #{filters.type}
+        <if test="type != null">
+          AND marker_type = #{type}
         </if>
         <choose>
-          <when test="filters.status != null">
-            AND status = #{filters.status}
+          <when test="status != null">
+            AND status = #{status}
           </when>
           <otherwise>
             AND status IN ('ACTIVE', 'UPDATED')

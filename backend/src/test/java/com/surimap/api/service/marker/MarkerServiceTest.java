@@ -4,6 +4,7 @@ import static com.surimap.account.AccountIdentityCatalog.PRECINCT_TEAM_ID;
 import static com.surimap.policephone.PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,6 +12,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
 import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.client.storage.ObjectStoragePort;
@@ -18,6 +21,7 @@ import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
+import com.surimap.domain.marker.MarkerSupportRequestType;
 import com.surimap.domain.marker.MarkerType;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
@@ -26,8 +30,6 @@ import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.query.MarkerPhotoSummary;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
@@ -123,19 +125,128 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 저장된 마커와 사진 정보, 사진 조회 주소를 반환한다.
     assertThat(response.getIncidentId()).isEqualTo(INCIDENT_ID);
     assertThat(response.getMarkers()).hasSize(1);
-    MarkerView marker = response.getMarkers().get(0);
-    assertThat(marker.id()).isEqualTo(MARKER_ID);
-    assertThat(marker.type().name()).isEqualTo("CLUE");
-    assertThat(marker.status().name()).isEqualTo("ACTIVE");
-    assertThat(marker.location().getSRID()).isEqualTo(4326);
-    assertThat(marker.location().getX()).isEqualTo(126.9134);
-    assertThat(marker.location().getY()).isEqualTo(35.1631);
-    assertThat(marker.photoSummary())
-        .extracting(MarkerPhotoSummary::photoId)
+    MarkerServiceResponse marker = response.getMarkers().get(0);
+    assertThat(marker.getId()).isEqualTo(MARKER_ID);
+    assertThat(marker.getIncidentId()).isEqualTo(INCIDENT_ID);
+    assertThat(marker.getOpId()).isEqualTo(OP_ID);
+    assertThat(marker.getDutyShiftId()).isNull();
+    assertThat(marker.getAccountId()).isEqualTo(ACCOUNT_ID);
+    assertThat(marker.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
+    assertThat(marker.getType().name()).isEqualTo("CLUE");
+    assertThat(marker.getSupportRequestType()).isNull();
+    assertThat(marker.getSource()).isEqualTo(MarkerSource.APP);
+    assertThat(marker.getStatus().name()).isEqualTo("ACTIVE");
+    assertThat(marker.getVersion()).isEqualTo(7L);
+    assertThat(marker.getMemo()).isEqualTo("등산로 입구 제보");
+    assertThat(marker.getOccurredAt()).isEqualTo(OCCURRED_AT);
+    assertThat(marker.getLocation().getSRID()).isEqualTo(4326);
+    assertThat(marker.getLocation().getX()).isEqualTo(126.9134);
+    assertThat(marker.getLocation().getY()).isEqualTo(35.1631);
+    assertThat(marker.getPhotoSummary())
+        .extracting(MarkerPhotoServiceResponse::getPhotoId)
         .containsExactly(PHOTO_ID);
-    assertThat(marker.photoSummary())
-        .extracting(MarkerPhotoSummary::photoUrl)
+    assertThat(marker.getPhotoSummary())
+        .extracting(MarkerPhotoServiceResponse::getPhotoUrl)
         .containsExactly(PHOTO_URL);
+    MarkerPhotoServiceResponse photo = marker.getPhotoSummary().get(0);
+    assertThat(photo.getThumbnailUrl()).isEqualTo(PHOTO_URL);
+    assertThat(photo.getStatus()).isEqualTo("ATTACHED");
+    assertThat(photo.getVersion()).isEqualTo(3L);
+    assertThat(photo.getContentType()).isEqualTo("image/jpeg");
+    assertThat(photo.getSizeBytes()).isEqualTo(1024L);
+    assertThat(photo.getAttachedAt()).isEqualTo(ATTACHED_AT);
+  }
+
+  @Test
+  @DisplayName("지원 요청 마커에 근무 교대와 요청 유형이 있으면, 조회 결과에도 해당 값을 유지한다")
+  void listMarkers_supportRequestWithDutyShift_preservesContext() {
+    // given: 근무 교대와 드론 지원 요청이 기록된 마커다.
+    UUID dutyShiftId = UUID.randomUUID();
+    jdbcTemplate.update(
+        "UPDATE marker SET duty_shift_id = ?, marker_type = 'SUPPORT_REQUEST',"
+            + " support_request_type = 'DRONE' WHERE id = ?",
+        dutyShiftId,
+        MARKER_ID);
+
+    // when: 마커를 조회한다.
+    MarkerServiceResponse marker =
+        markerService.list(INCIDENT_ID, OP_ID, "SUPPORT_REQUEST", null).getMarkers().get(0);
+
+    // then: 선택 항목도 응답 변환에서 빠지지 않는다.
+    assertThat(marker.getType()).isEqualTo(MarkerType.SUPPORT_REQUEST);
+    assertThat(marker.getSupportRequestType()).isEqualTo(MarkerSupportRequestType.DRONE);
+    assertThat(marker.getDutyShiftId()).isEqualTo(dutyShiftId);
+  }
+
+  @Test
+  @DisplayName("사진 조회 URL이 없으면, 마커와 첨부 사진 정보는 반환하고 URL만 비워 둔다")
+  void listMarkers_photoViewUrlUnavailable_preservesMarkerAndPhoto() {
+    // given: 저장소에서 첨부 사진의 조회 URL을 발급하지 못한다.
+    when(objectStorage.generatePresignedViewUrl(
+            PHOTO_OBJECT_KEY, ObjectStoragePort.DEFAULT_VIEW_TTL))
+        .thenReturn(Optional.empty());
+
+    // when: 마커와 첨부 사진을 조회한다.
+    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+
+    // then: 조회 결과는 유지하고 사진 URL만 null로 반환한다.
+    assertThat(response.getMarkers())
+        .extracting(MarkerServiceResponse::getId)
+        .containsExactly(MARKER_ID);
+    assertThat(response.getMarkers().get(0).getPhotoSummary())
+        .singleElement()
+        .satisfies(
+            photo -> {
+              assertThat(photo.getPhotoId()).isEqualTo(PHOTO_ID);
+              assertThat(photo.getPhotoUrl()).isNull();
+              assertThat(photo.getThumbnailUrl()).isNull();
+            });
+  }
+
+  @Test
+  @DisplayName("사진 URL 발급 중 예외가 발생해도, 마커와 첨부 사진 조회는 실패하지 않는다")
+  void listMarkers_photoViewUrlThrows_preservesMarkerAndPhoto() {
+    // given: 외부 저장소 연동에서 예외가 발생한다.
+    when(objectStorage.generatePresignedViewUrl(
+            PHOTO_OBJECT_KEY, ObjectStoragePort.DEFAULT_VIEW_TTL))
+        .thenThrow(new IllegalStateException("storage unavailable"));
+
+    // when: 마커와 첨부 사진을 조회한다.
+    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+
+    // then: 기존 동작대로 마커·사진 정보는 반환하고 URL만 비워 둔다.
+    assertThat(response.getMarkers())
+        .extracting(MarkerServiceResponse::getId)
+        .containsExactly(MARKER_ID);
+    assertThat(response.getMarkers().get(0).getPhotoSummary())
+        .singleElement()
+        .satisfies(
+            photo -> {
+              assertThat(photo.getPhotoId()).isEqualTo(PHOTO_ID);
+              assertThat(photo.getPhotoUrl()).isNull();
+              assertThat(photo.getThumbnailUrl()).isNull();
+            });
+  }
+
+  @Test
+  @DisplayName("첨부가 끝나지 않은 사진만 있으면, 마커의 사진 목록은 비우고 URL도 발급하지 않는다")
+  void listMarkers_withoutAttachedPhotos_returnsMarkerWithEmptyPhotos() {
+    // given: 사진 업로드가 아직 끝나지 않은 마커다.
+    jdbcTemplate.update(
+        "UPDATE photo SET status = 'PENDING_UPLOAD', attached_at = NULL WHERE id = ?", PHOTO_ID);
+
+    // when: 마커를 조회한다.
+    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+
+    // then: 사진이 없어도 마커를 반환하며 외부 저장소는 호출하지 않는다.
+    assertThat(response.getMarkers())
+        .singleElement()
+        .satisfies(
+            marker -> {
+              assertThat(marker.getId()).isEqualTo(MARKER_ID);
+              assertThat(marker.getPhotoSummary()).isEmpty();
+            });
+    verifyNoInteractions(objectStorage);
   }
 
   @ParameterizedTest
@@ -162,6 +273,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 조회한 사건 ID와 빈 목록을 반환한다.
     assertThat(response.getIncidentId()).isEqualTo(incidentId);
     assertThat(response.getMarkers()).isEmpty();
+    verifyNoInteractions(objectStorage);
   }
 
   @ParameterizedTest

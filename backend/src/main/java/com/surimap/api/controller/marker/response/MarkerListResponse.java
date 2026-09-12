@@ -1,9 +1,9 @@
 package com.surimap.api.controller.marker.response;
 
 import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.query.MarkerPhotoSummary;
-import com.surimap.marker.query.MarkerView;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -82,24 +82,24 @@ public class MarkerListResponse {
       this.photoSummary = photoSummary;
     }
 
-    static MarkerResponse from(MarkerView marker) {
+    static MarkerResponse from(MarkerServiceResponse marker) {
       return MarkerResponse.builder()
-          .id(marker.id())
-          .incidentId(marker.incidentId())
-          .opId(marker.opId())
-          .accountId(marker.accountId())
-          .policePhoneId(marker.policePhoneId())
-          .type(marker.type().name())
+          .id(marker.getId())
+          .incidentId(marker.getIncidentId())
+          .opId(marker.getOpId())
+          .accountId(marker.getAccountId())
+          .policePhoneId(marker.getPolicePhoneId())
+          .type(marker.getType().name())
           .supportRequestType(
-              marker.supportRequestType() == null ? null : marker.supportRequestType().name())
-          .source(marker.source().name())
-          .status(marker.status().name())
-          .version(marker.version())
-          .location(MarkerGeoJsonPoint.from(marker.location()))
-          .memo(marker.memo())
-          .occurredAt(marker.occurredAt())
+              marker.getSupportRequestType() == null ? null : marker.getSupportRequestType().name())
+          .source(marker.getSource().name())
+          .status(marker.getStatus().name())
+          .version(marker.getVersion())
+          .location(MarkerGeoJsonPoint.from(marker.getLocation()))
+          .memo(marker.getMemo())
+          .occurredAt(marker.getOccurredAt())
           .photoSummary(
-              marker.photoSummary().stream().map(MarkerPhotoSummaryResponse::from).toList())
+              marker.getPhotoSummary().stream().map(MarkerPhotoSummaryResponse::from).toList())
           .build();
     }
   }
@@ -137,16 +137,16 @@ public class MarkerListResponse {
       this.thumbnailUrl = thumbnailUrl;
     }
 
-    static MarkerPhotoSummaryResponse from(MarkerPhotoSummary photo) {
+    static MarkerPhotoSummaryResponse from(MarkerPhotoServiceResponse photo) {
       return MarkerPhotoSummaryResponse.builder()
-          .photoId(photo.photoId())
-          .status(photo.status())
-          .version(photo.version())
-          .contentType(photo.contentType())
-          .sizeBytes(photo.sizeBytes())
-          .attachedAt(photo.attachedAt())
-          .photoUrl(photo.photoUrl())
-          .thumbnailUrl(photo.thumbnailUrl())
+          .photoId(photo.getPhotoId())
+          .status(photo.getStatus())
+          .version(photo.getVersion())
+          .contentType(photo.getContentType())
+          .sizeBytes(photo.getSizeBytes())
+          .attachedAt(photo.getAttachedAt())
+          .photoUrl(photo.getPhotoUrl())
+          .thumbnailUrl(photo.getThumbnailUrl())
           .build();
     }
   }

@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.api.controller.handover.HandoverTimelineController;
 import com.surimap.api.service.handover.HandoverTimelineApiService;
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
@@ -27,10 +30,6 @@ import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerQueryResult;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import com.surimap.support.auth.GuardPortTestStubs;
@@ -74,7 +73,7 @@ class HandoverTimelineApiContractTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private SearchPathService searchPathService;
-  @MockitoBean private MarkerQuery markerQuery;
+  @MockitoBean private MarkerService markerService;
   @MockitoBean private HandoverMemoQuery handoverMemoQuery;
   @MockitoBean private SearchHistorySummaryMapper searchHistorySummaryMapper;
   @MockitoBean private DutyShiftMapper dutyShiftMapper;
@@ -88,8 +87,12 @@ class HandoverTimelineApiContractTest {
   @DisplayName("APP/WEB reads timeline evidence without exposing accountId or policePhoneId")
   void readsTimelineEvidenceWithoutPiiIdentifiers() throws Exception {
     when(searchPathService.findAll()).thenReturn(List.of(path()));
-    when(markerQuery.byIncident(INCIDENT_ID, new MarkerQueryFilters(OP_ID, null, null)))
-        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker())));
+    when(markerService.list(INCIDENT_ID, OP_ID, null, null))
+        .thenReturn(
+            MarkerListServiceResponse.builder()
+                .incidentId(INCIDENT_ID)
+                .markers(List.of(marker()))
+                .build());
     when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of(memo()));
     when(searchHistorySummaryMapper.findByOp(OP_ID, INCIDENT_ID, "OP", OP_ID, null, null))
         .thenReturn(List.of(summary()));
@@ -124,7 +127,7 @@ class HandoverTimelineApiContractTest {
         .doesNotContain(
             "accountId", "policePhoneId", ACCOUNT_ID.toString(), POLICE_PHONE_ID.toString());
 
-    verify(markerQuery).byIncident(INCIDENT_ID, new MarkerQueryFilters(OP_ID, null, null));
+    verify(markerService).list(INCIDENT_ID, OP_ID, null, null);
     verify(handoverMemoQuery).byContext(INCIDENT_ID, OP_ID, null, null);
   }
 
@@ -137,8 +140,9 @@ class HandoverTimelineApiContractTest {
   @DisplayName("legacy segment event uses persisted time while path points remain empty")
   void legacySegmentEventUsesPersistedTimeWithoutSyntheticPoints() throws Exception {
     when(searchPathService.findAll()).thenReturn(List.of(legacyPath()));
-    when(markerQuery.byIncident(INCIDENT_ID, new MarkerQueryFilters(OP_ID, null, null)))
-        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of()));
+    when(markerService.list(INCIDENT_ID, OP_ID, null, null))
+        .thenReturn(
+            MarkerListServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
     when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of());
     when(searchHistorySummaryMapper.findByOp(OP_ID, INCIDENT_ID, "OP", OP_ID, null, null))
         .thenReturn(List.of());
@@ -220,23 +224,24 @@ class HandoverTimelineApiContractTest {
         .build();
   }
 
-  private static MarkerView marker() {
-    return new MarkerView(
-        MARKER_ID,
-        INCIDENT_ID,
-        OP_ID,
-        null,
-        ACCOUNT_ID,
-        POLICE_PHONE_ID,
-        MarkerType.CLUE,
-        null,
-        MarkerSource.APP,
-        MarkerStatus.ACTIVE,
-        1L,
-        GEOMETRY_FACTORY.createPoint(new Coordinate(126.9143, 35.16236)),
-        "족적 발견",
-        Instant.parse("2026-05-18T00:00:07Z"),
-        List.of());
+  private static MarkerServiceResponse marker() {
+    return MarkerServiceResponse.builder()
+        .id(MARKER_ID)
+        .incidentId(INCIDENT_ID)
+        .opId(OP_ID)
+        .dutyShiftId(null)
+        .accountId(ACCOUNT_ID)
+        .policePhoneId(POLICE_PHONE_ID)
+        .type(MarkerType.CLUE)
+        .supportRequestType(null)
+        .source(MarkerSource.APP)
+        .status(MarkerStatus.ACTIVE)
+        .version(1L)
+        .location(GEOMETRY_FACTORY.createPoint(new Coordinate(126.9143, 35.16236)))
+        .memo("족적 발견")
+        .occurredAt(Instant.parse("2026-05-18T00:00:07Z"))
+        .photoSummary(List.of())
+        .build();
   }
 
   private static HandoverMemoRow memo() {

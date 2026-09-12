@@ -1,13 +1,12 @@
 package com.surimap.opcomparison;
 
+import com.surimap.api.service.marker.MarkerService;
+import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.opcomparison.OpComparisonApiException;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
-import com.surimap.marker.query.MarkerQuery;
-import com.surimap.marker.query.MarkerQueryFilters;
-import com.surimap.marker.query.MarkerView;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
 import java.nio.charset.StandardCharsets;
@@ -28,17 +27,17 @@ public class OpComparisonSourceCollector {
 
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final SearchPathService searchPathService;
-  private final MarkerQuery markerQuery;
+  private final MarkerService markerService;
   private final HandoverMemoQuery handoverMemoQuery;
 
   public OpComparisonSourceCollector(
       OperationalPeriodMapper operationalPeriodMapper,
       SearchPathService searchPathService,
-      MarkerQuery markerQuery,
+      MarkerService markerService,
       HandoverMemoQuery handoverMemoQuery) {
     this.operationalPeriodMapper = operationalPeriodMapper;
     this.searchPathService = searchPathService;
-    this.markerQuery = markerQuery;
+    this.markerService = markerService;
     this.handoverMemoQuery = handoverMemoQuery;
   }
 
@@ -70,21 +69,22 @@ public class OpComparisonSourceCollector {
     List<OpComparisonMetricsSource> metricsSources = new ArrayList<>();
     for (OperationalPeriod op : selectedOps) {
       List<SearchPath> paths = pathsForOp(incidentPaths, op.getId());
-      List<MarkerView> markers =
-          markerQuery
-              .byIncident(incidentId, new MarkerQueryFilters(op.getId(), null, null))
-              .markers();
+      List<MarkerServiceResponse> markers =
+          markerService.list(incidentId, op.getId(), null, null).getMarkers();
       List<HandoverMemoRow> memos = handoverMemoQuery.byContext(incidentId, op.getId(), null, null);
 
       fingerprintParts.add("op:%s:%s:%d".formatted(op.getId(), op.getStatus(), op.getVersion()));
       paths.stream()
           .sorted(Comparator.comparing(SearchPath::getId))
-          .forEach(path -> fingerprintParts.add("path:%s:%d".formatted(path.getId(), path.getVersion())));
+          .forEach(
+              path ->
+                  fingerprintParts.add("path:%s:%d".formatted(path.getId(), path.getVersion())));
       markers.stream()
-          .sorted(Comparator.comparing(MarkerView::id))
+          .sorted(Comparator.comparing(MarkerServiceResponse::getId))
           .forEach(
               marker ->
-                  fingerprintParts.add("marker:%s:%d".formatted(marker.id(), marker.version())));
+                  fingerprintParts.add(
+                      "marker:%s:%d".formatted(marker.getId(), marker.getVersion())));
       memos.stream()
           .sorted(Comparator.comparing(HandoverMemoRow::memoId))
           .forEach(
@@ -110,8 +110,7 @@ public class OpComparisonSourceCollector {
         sha256(String.join("|", fingerprintParts)));
   }
 
-  private static List<SearchPath> pathsForOp(
-      List<SearchPath> paths, UUID operationalPeriodId) {
+  private static List<SearchPath> pathsForOp(List<SearchPath> paths, UUID operationalPeriodId) {
     return paths.stream().filter(path -> operationalPeriodId.equals(path.getOpId())).toList();
   }
 
