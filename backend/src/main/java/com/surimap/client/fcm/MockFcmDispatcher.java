@@ -1,6 +1,5 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.client.fcm;
 
-import com.surimap.marker.notification.port.FcmDispatcherPort;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

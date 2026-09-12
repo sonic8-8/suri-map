@@ -1,13 +1,13 @@
 package com.surimap.app.service.searcharea;
 
 import com.surimap.app.service.searcharea.request.SearchAreaBoundaryAlertServiceRequest;
+import com.surimap.client.fcm.FcmDispatcherPort;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.maparea.boundary.SearchAreaBoundaryAlertContextRow;
 import com.surimap.maparea.boundary.SearchAreaBoundaryAlertMapper;
 import com.surimap.maparea.boundary.SearchAreaBoundaryAlertPersistenceRecord;
-import com.surimap.marker.notification.port.FcmDispatcherPort;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;

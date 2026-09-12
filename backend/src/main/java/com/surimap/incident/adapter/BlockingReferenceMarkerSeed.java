@@ -1,6 +1,6 @@
 package com.surimap.incident.adapter;
 
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
+import com.surimap.api.service.marker.ReferenceMarkerSeed;
 import java.util.List;
 import java.util.UUID;
 

@@ -1,10 +1,10 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.client.fcm;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.surimap.marker.notification.adapter.MockFcmDispatcher.CapturedDispatch;
+import com.surimap.client.fcm.FcmDispatcherPort.DispatchResult;
+import com.surimap.client.fcm.MockFcmDispatcher.CapturedDispatch;
 import com.surimap.marker.notification.fixture.NotificationFixtures;
-import com.surimap.marker.notification.port.FcmDispatcherPort.DispatchResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

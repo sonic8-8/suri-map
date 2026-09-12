@@ -1,8 +1,8 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.client.fcm;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.marker.notification.port.FcmDispatcherPort;
+import com.surimap.config.fcm.FirebaseFcmProperties;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

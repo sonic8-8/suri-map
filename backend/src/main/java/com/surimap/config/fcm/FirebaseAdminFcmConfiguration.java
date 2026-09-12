@@ -1,4 +1,4 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.config.fcm;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;

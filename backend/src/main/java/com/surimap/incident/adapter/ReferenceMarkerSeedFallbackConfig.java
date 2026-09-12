@@ -1,6 +1,6 @@
 package com.surimap.incident.adapter;
 
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
+import com.surimap.api.service.marker.ReferenceMarkerSeed;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

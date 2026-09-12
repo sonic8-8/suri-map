@@ -1,4 +1,4 @@
-package com.surimap.marker.notification.port;
+package com.surimap.client.fcm;
 
 import java.util.List;
 import java.util.Map;

@@ -6,6 +6,7 @@ import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.api.service.marker.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerMapper;
 import com.surimap.domain.marker.MarkerSource;
@@ -14,7 +15,6 @@ import com.surimap.domain.marker.MarkerType;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import java.util.List;
 import java.util.UUID;

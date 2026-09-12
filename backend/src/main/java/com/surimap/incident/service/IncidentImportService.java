@@ -1,6 +1,8 @@
 package com.surimap.incident.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.api.service.marker.ReferenceMarkerSeed;
+import com.surimap.api.service.marker.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.ExternalIncident;
 import com.surimap.external.ExternalIncidentAdapter;
@@ -15,8 +17,6 @@ import com.surimap.incident.exception.IncidentApiException;
 import com.surimap.incident.exception.IncidentImportDependencyException;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.repository.IncidentMapper;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed;
-import com.surimap.marker.domain.port.ReferenceMarkerSeed.SeedMarker;
 import com.surimap.operationalperiod.command.InitialOperationalPeriodCreator;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -103,7 +103,8 @@ public class IncidentImportService {
     }
 
     reserveIdempotency(command, now);
-    ExternalIncident externalIncident = fetchExternalIncident(command.sourceIncidentId().toString());
+    ExternalIncident externalIncident =
+        fetchExternalIncident(command.sourceIncidentId().toString());
     UUID sourceIncidentId = sourceIncidentId(command, externalIncident);
     UUID incidentId = incidentIdFor(sourceIncidentId);
 
@@ -308,8 +309,7 @@ public class IncidentImportService {
     return incident.assignments();
   }
 
-  private UUID sourceIncidentId(
-      IncidentImportCommand command, ExternalIncident externalIncident) {
+  private UUID sourceIncidentId(IncidentImportCommand command, ExternalIncident externalIncident) {
     String sourceIncidentId = externalIncident.sourceIncidentId();
     if (sourceIncidentId == null || sourceIncidentId.isBlank()) {
       return command.sourceIncidentId();

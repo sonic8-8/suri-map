@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.surimap.client.fcm.MockFcmDispatcher;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.incident.service.IncidentClosedFcmDispatchConsumer;
-import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.policephone.FcmTokenStatus;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
@@ -24,7 +24,8 @@ class IncidentClosedFcmDispatchConsumerTest {
   private static final UUID EVENT_ID = UUID.fromString("aaaaaaaa-0000-4000-8000-000000000012");
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110002");
-  private static final UUID POLICE_PHONE_ID = UUID.fromString("22222222-2222-2222-2222-222222220001");
+  private static final UUID POLICE_PHONE_ID =
+      UUID.fromString("22222222-2222-2222-2222-222222220001");
   private static final String CLOSED_AT = "2026-05-20T06:16:39.613400Z";
 
   @Test

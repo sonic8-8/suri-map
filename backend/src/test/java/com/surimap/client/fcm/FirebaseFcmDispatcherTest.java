@@ -1,10 +1,11 @@
-package com.surimap.marker.notification.adapter;
+package com.surimap.client.fcm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.marker.notification.port.FcmDispatcherPort.DispatchResult;
+import com.surimap.client.fcm.FcmDispatcherPort.DispatchResult;
+import com.surimap.config.fcm.FirebaseFcmProperties;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
