@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import com.surimap.marker.notification.domain.MarkerNotificationStatus;
+import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
+import com.surimap.marker.notification.domain.NotificationType;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -33,6 +36,39 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
   @BeforeEach
   void cleanTables() {
     jdbcTemplate.execute("TRUNCATE TABLE event_dispatch_job, marker_notification, marker");
+  }
+
+  @Test
+  @DisplayName("같은 마커에 다른 ID의 알림을 저장하려 하면, 추가하거나 덮어쓰지 않고 기존 알림을 유지한다")
+  void insertIfAbsent_existingMarker_preservesStoredNotification() {
+    // given: 수신자·내용·버전이 이미 저장된 마커 알림에 다른 ID와 내용으로 저장을 시도한다.
+    insertMarker(MARKER_ID, INCIDENT_ID);
+    insertNotification(NOTIFICATION_ID, MARKER_ID, CREATED_AT);
+    String selectNotificationsSql =
+        "SELECT to_jsonb(n)::text FROM marker_notification n WHERE marker_id = ?";
+    String storedNotificationJson =
+        jdbcTemplate.queryForObject(selectNotificationsSql, String.class, MARKER_ID);
+    MarkerNotification notificationForSameMarker =
+        MarkerNotification.builder()
+            .id(UUID.fromString("54000000-0000-4000-8000-000000002932"))
+            .markerId(MARKER_ID)
+            .notificationType(NotificationType.SUPPORT_REQUEST_CREATED)
+            .recipientRule(NotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
+            .recipientAccountIds(List.of())
+            .recipientPolicePhoneIds(List.of())
+            .notificationPayloadJson("{\"type\":\"SUPPORT_REQUEST_CREATED\"}")
+            .status(MarkerNotificationStatus.SNAPSHOT_CREATED)
+            .version(4L)
+            .createdAt(CREATED_AT.plusSeconds(1))
+            .build();
+
+    // when: 멱등성 응답 캐시를 거치지 않고 실제 Mapper에 같은 마커의 알림 저장을 요청한다.
+    int insertedRows = mapper.insertIfAbsent(notificationForSameMarker);
+
+    // then: 저장 건수는 0이며, DB에는 원래 알림 한 건의 모든 값이 그대로 남는다.
+    assertThat(insertedRows).isZero();
+    assertThat(jdbcTemplate.queryForList(selectNotificationsSql, String.class, MARKER_ID))
+        .containsExactly(storedNotificationJson);
   }
 
   @Test

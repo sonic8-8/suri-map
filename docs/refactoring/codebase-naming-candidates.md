@@ -24,13 +24,11 @@
 
 `Sc02SupportAssignmentFcmHarnessRunner`·`Sc02SupportAssignmentFcmHarnessRedTest`는 테스트 안에서 배정·수신자 선택을 재구현하고 DB와 무관한 카운터를 검사하므로 제거했다. 기존 `Sc02HandoverSupportAssignmentIntegrationTest`는 [IncidentHandoverSupportAssignmentScenarioTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentScenarioTest.java)로 옮겼다. 실제 배정 서비스가 DB 토큰을 조회해 호출한 FCM 기록과 `marker_notification` 미저장을 검증한다. 테스트가 직접 만드는 FCM payload·수신자 목록은 제거했다. 남은 SSE 직접 호출·고정 자료의 상황판 조립·probe 행 검사는 실제 자동 전달·화면 표시·경로 보존 검증과 구분한다.
 
-| 현재 이름 | 변경 후보 |
-|---|---|
-| [MarkerNotificationContractTest](../../backend/src/test/java/com/surimap/marker/notification/MarkerNotificationContractTest.java) | 검증 범위 확인 후 결정 |
+`MarkerNotificationContractTest`의 SQL 문자열 검사는 제거했다. 저장 필드는 기존 `AppMarkerServiceTest`가 실제 DB에서 검증한다. 같은 마커에 다른 ID의 알림을 저장해도 추가하거나 덮어쓰지 않는지는 기존 [MarkerNotificationMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerNotificationMapperTest.java)에 보강했다. 마이그레이션 SQL은 변경하지 않았다.
 
 ## Backend — 나머지 Red 테스트
 
-`Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상은 위 표에 있다.
+`Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상의 처리 내역은 위 절에 있다.
 
 | 영역 | 변경 대상 |
 |---|---|
