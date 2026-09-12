@@ -11,10 +11,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
@@ -119,7 +119,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
   void listMarkers_matchingFilters_returnsMarkerAndAttachedPhoto() {
     // given: 사진이 첨부된 활성 마커가 실제 DB에 저장되어 있다.
     // when: 소문자 유형을 포함한 조회 조건으로 마커를 조회한다.
-    MarkerListServiceResponse response =
+    MarkersServiceResponse response =
         markerService.list(INCIDENT_ID, OP_ID, " clue ", " active ");
 
     // then: 저장된 마커와 사진 정보, 사진 조회 주소를 반환한다.
@@ -187,7 +187,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .thenReturn(Optional.empty());
 
     // when: 마커와 첨부 사진을 조회한다.
-    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+    MarkersServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
 
     // then: 조회 결과는 유지하고 사진 URL만 null로 반환한다.
     assertThat(response.getMarkers())
@@ -212,7 +212,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .thenThrow(new IllegalStateException("storage unavailable"));
 
     // when: 마커와 첨부 사진을 조회한다.
-    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+    MarkersServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
 
     // then: 기존 동작대로 마커·사진 정보는 반환하고 URL만 비워 둔다.
     assertThat(response.getMarkers())
@@ -236,7 +236,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         "UPDATE photo SET status = 'PENDING_UPLOAD', attached_at = NULL WHERE id = ?", PHOTO_ID);
 
     // when: 마커를 조회한다.
-    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+    MarkersServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
 
     // then: 사진이 없어도 마커를 반환하며 외부 저장소는 호출하지 않는다.
     assertThat(response.getMarkers())
@@ -268,7 +268,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
       String condition, UUID incidentId, UUID opId, String type, String status) {
     // given: 저장된 마커와 한 가지 조건이 다른 조회 요청이다.
     // when: 해당 조건으로 마커 목록을 조회한다.
-    MarkerListServiceResponse response = markerService.list(incidentId, opId, type, status);
+    MarkersServiceResponse response = markerService.list(incidentId, opId, type, status);
 
     // then: 조회한 사건 ID와 빈 목록을 반환한다.
     assertThat(response.getIncidentId()).isEqualTo(incidentId);
@@ -284,7 +284,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update("UPDATE marker SET status = ? WHERE id = ?", status, MARKER_ID);
 
     // when: 사건 외에 수색 차수·유형·상태 조건은 지정하지 않는다.
-    MarkerListServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
+    MarkersServiceResponse response = markerService.list(INCIDENT_ID, null, null, null);
 
     // then: 기본 조회에는 활성·수정 상태만 포함한다.
     assertThat(response.getMarkers()).hasSize(expectedCount);

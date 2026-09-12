@@ -1,6 +1,6 @@
 package com.surimap.marker.seed;
 
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import java.util.List;
 import java.util.UUID;
 

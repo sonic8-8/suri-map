@@ -2,8 +2,8 @@ package com.surimap.api.controller.marker;
 
 import com.surimap.api.controller.marker.request.MarkerDeleteRequest;
 import com.surimap.api.controller.marker.request.MarkerUpdateRequest;
-import com.surimap.api.controller.marker.response.MarkerListResponse;
 import com.surimap.api.controller.marker.response.MarkerMutationResponse;
+import com.surimap.api.controller.marker.response.MarkersResponse;
 import com.surimap.api.service.marker.MarkerService;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.common.auth.Channel;
@@ -47,13 +47,13 @@ public class MarkerController {
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequireIncidentAccess
   @RecordLocationAccess(accessPurpose = "MARKER_READ")
-  public ResponseEntity<MarkerListResponse> list(
+  public ResponseEntity<MarkersResponse> list(
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
       @RequestParam(required = false) String type,
       @RequestParam(required = false) String status) {
     return ResponseEntity.ok(
-        MarkerListResponse.from(markerService.list(incidentId, opId, type, status)));
+        MarkersResponse.from(markerService.list(incidentId, opId, type, status)));
   }
 
   // APP는 AppMarkerController로 보낸다. 헤더 누락·오류는 기존 guard와 resolver에서 거부한다.

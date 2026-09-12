@@ -1,8 +1,8 @@
 package com.surimap.api.controller.marker.response;
 
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import java.time.Instant;
 import java.util.List;
@@ -13,19 +13,19 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class MarkerListResponse {
+public class MarkersResponse {
 
   private UUID incidentId;
   private List<MarkerResponse> markers;
 
   @Builder
-  private MarkerListResponse(UUID incidentId, List<MarkerResponse> markers) {
+  private MarkersResponse(UUID incidentId, List<MarkerResponse> markers) {
     this.incidentId = incidentId;
     this.markers = markers;
   }
 
-  public static MarkerListResponse from(MarkerListServiceResponse response) {
-    return MarkerListResponse.builder()
+  public static MarkersResponse from(MarkersServiceResponse response) {
+    return MarkersResponse.builder()
         .incidentId(response.getIncidentId())
         .markers(response.getMarkers().stream().map(MarkerResponse::from).toList())
         .build();

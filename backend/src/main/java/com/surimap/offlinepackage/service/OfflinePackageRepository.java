@@ -2,8 +2,8 @@ package com.surimap.offlinepackage.service;
 
 import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
@@ -392,7 +392,7 @@ public class OfflinePackageRepository {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     List<SearchAreaRow> assignedAreas =
         assignedAreaIds.stream().map(areasById::get).filter(Objects::nonNull).toList();
-    MarkerListServiceResponse markerResult = markerService.list(incidentId, null, null, null);
+    MarkersServiceResponse markerResult = markerService.list(incidentId, null, null, null);
     List<MarkerServiceResponse> markers =
         markerResult == null ? List.of() : markerResult.getMarkers();
 

@@ -33,7 +33,7 @@
 마커 조회는 다음과 같이 정리했다.
 
 - `MarkerQuery`·`MyBatisMarkerQuery`를 제거하고 기존 [MarkerService.list()](../../backend/src/main/java/com/surimap/api/service/marker/MarkerService.java)로 통합했다. 상황판·인수인계·오프라인 패키지·수색 차수 비교도 같은 조회를 사용한다.
-- `MarkerView`·`MarkerPhotoSummary`는 [MarkerListServiceResponse](../../backend/src/main/java/com/surimap/api/service/marker/response/MarkerListServiceResponse.java) 내부의 `MarkerServiceResponse`·`MarkerPhotoServiceResponse` class로 옮겼다. 응답 변환은 도메인 `Marker`에서 응답 DTO로 옮기고, 중복 포장인 `MarkerQueryResult`와 값 전달용 `MarkerQueryFilters`는 제거했다. 사진 SQL의 조회 컬럼은 `MarkerMapper.AttachedPhotoRow`로 유지한다.
+- `MarkerView`·`MarkerPhotoSummary`는 [MarkersServiceResponse](../../backend/src/main/java/com/surimap/api/service/marker/response/MarkersServiceResponse.java) 내부의 `MarkerServiceResponse`·`MarkerPhotoServiceResponse` class로 옮겼다. 응답 변환은 도메인 `Marker`에서 응답 DTO로 옮기고, 중복 포장인 `MarkerQueryResult`와 값 전달용 `MarkerQueryFilters`는 제거했다. 사진 SQL의 조회 컬럼은 `MarkerMapper.AttachedPhotoRow`로 유지한다.
 - `MarkerQueryMapperIntegrationTest`의 필터·정렬·첨부 사진 검증은 기존 [MarkerMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerMapperTest.java)에 합쳤다. `MarkerQueryServiceTest`의 클래스·SQL 문자열 검사는 제거했다. 사건 ID 필수 제약은 실제 DB에서, 응답 필드와 사진 URL 발급 실패 시 조회 유지는 기존 `MarkerServiceTest`·`MarkerControllerTest`에서 확인한다. SQL 조회 조건·정렬·공개 응답 필드는 유지했다.
 
 ## Backend — 나머지 Red 테스트

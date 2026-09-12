@@ -9,7 +9,7 @@ import com.surimap.api.controller.handover.response.HandoverTimelineResponse.Poi
 import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ScopeResponse;
 import com.surimap.api.controller.summary.response.SearchHistorySummaryItemResponse;
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;

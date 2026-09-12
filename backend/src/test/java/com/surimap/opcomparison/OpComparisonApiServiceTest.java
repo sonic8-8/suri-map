@@ -13,8 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.opcomparison.request.CreateOpComparisonRequest;
 import com.surimap.api.controller.opcomparison.response.OpComparisonResponse;
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.opcomparison.OpComparisonApiException;
 import com.surimap.api.service.opcomparison.OpComparisonApiService;
 import com.surimap.api.service.path.SearchPathService;
@@ -77,7 +77,7 @@ class OpComparisonApiServiceTest {
     when(searchPathService.findAll()).thenReturn(List.of());
     when(markerService.list(eq(INCIDENT_ID), any(), any(), any()))
         .thenReturn(
-            MarkerListServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
+            MarkersServiceResponse.builder().incidentId(INCIDENT_ID).markers(List.of()).build());
     when(handoverMemoQuery.byContext(eq(INCIDENT_ID), any(), eq(null), eq(null)))
         .thenReturn(List.of());
     when(regionFactMapper.findRegionFacts(any(), any(), any())).thenReturn(List.of());
@@ -174,7 +174,7 @@ class OpComparisonApiServiceTest {
   void createsReadyNarrativeWhenThresholdFactsExist() {
     when(markerService.list(INCIDENT_ID, OP2_ID, null, null))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(INCIDENT_ID)
                 .markers(List.of(marker(1), marker(2), marker(3)))
                 .build());
@@ -211,7 +211,7 @@ class OpComparisonApiServiceTest {
   void keepsDeterministicReadyWhenNarrativeFails() {
     when(markerService.list(INCIDENT_ID, OP2_ID, null, null))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(INCIDENT_ID)
                 .markers(List.of(marker(1), marker(2), marker(3)))
                 .build());

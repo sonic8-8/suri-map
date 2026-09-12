@@ -7,8 +7,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
@@ -342,7 +342,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     when(markerService.list(eq(INCIDENT_ID), any(), any(), any()))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(INCIDENT_ID)
                 .markers(
                     List.of(
@@ -464,7 +464,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     when(markerService.list(eq(incidentId), any(), any(), any()))
         .thenReturn(
-            MarkerListServiceResponse.builder()
+            MarkersServiceResponse.builder()
                 .incidentId(incidentId)
                 .markers(
                     List.of(

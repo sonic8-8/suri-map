@@ -2,10 +2,10 @@ package com.surimap.api.service.marker;
 
 import com.surimap.api.service.marker.request.MarkerDeleteServiceRequest;
 import com.surimap.api.service.marker.request.MarkerUpdateServiceRequest;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerPhotoServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.marker.response.MarkerMutationServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerPhotoServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.client.storage.ObjectStoragePort;
 import com.surimap.domain.marker.Marker;
 import com.surimap.domain.marker.MarkerAccessMapper;
@@ -247,17 +247,17 @@ public class MarkerService {
   }
 
   @Transactional(readOnly = true)
-  public MarkerListServiceResponse list(UUID incidentId, UUID opId, String type, String status) {
+  public MarkersServiceResponse list(UUID incidentId, UUID opId, String type, String status) {
     MarkerType markerType = parseType(type);
     MarkerStatus markerStatus = parseStatus(status);
     Objects.requireNonNull(incidentId, "incidentId must not be null");
     List<Marker> markers = markerMapper.findByIncident(incidentId, opId, markerType, markerStatus);
     if (markers.isEmpty()) {
-      return MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build();
+      return MarkersServiceResponse.builder().incidentId(incidentId).markers(List.of()).build();
     }
 
     Map<UUID, List<MarkerPhotoServiceResponse>> photosByMarkerId = loadAttachedPhotos(markers);
-    return MarkerListServiceResponse.builder()
+    return MarkersServiceResponse.builder()
         .incidentId(incidentId)
         .markers(
             markers.stream()

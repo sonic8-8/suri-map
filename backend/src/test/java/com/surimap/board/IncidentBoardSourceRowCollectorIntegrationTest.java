@@ -11,8 +11,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse.MarkerServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
 import com.surimap.api.service.path.SearchPathService;
 import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
@@ -838,7 +838,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .thenAnswer(
             invocation -> {
               UUID incidentId = invocation.getArgument(0);
-              return MarkerListServiceResponse.builder()
+              return MarkersServiceResponse.builder()
                   .incidentId(incidentId)
                   .markers(
                       List.of(

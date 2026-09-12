@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.surimap.api.service.marker.MarkerService;
-import com.surimap.api.service.marker.response.MarkerListServiceResponse;
+import com.surimap.api.service.marker.response.MarkersServiceResponse;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.incident.domain.IncidentRecord;
@@ -163,7 +163,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     when(assignmentQuery.byOp(opId)).thenReturn(List.of());
     when(markerService.list(eq(incidentId), any(), any(), any()))
         .thenReturn(
-            MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
+            MarkersServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
 
     OfflinePackageManifestResponse manifest =
         repository.manifest(incidentId.toString(), OfflinePackageRepository.POLICE_PHONE_ID);
@@ -288,7 +288,7 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
                     1L)));
     when(markerService.list(eq(incidentId), any(), any(), any()))
         .thenReturn(
-            MarkerListServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
+            MarkersServiceResponse.builder().incidentId(incidentId).markers(List.of()).build());
 
     OfflinePackageManifestResponse manifest =
         repository.manifest(incidentId.toString(), phoneId.toString());
