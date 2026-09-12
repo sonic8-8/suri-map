@@ -1,9 +1,8 @@
 package com.surimap.incident.service;
 
+import com.surimap.domain.marker.MarkerNotificationRecipientPolicy;
 import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
-import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
-import com.surimap.marker.notification.domain.NotificationRecipients;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -38,14 +37,12 @@ public class IncidentAssignmentView {
   }
 
   @Transactional(readOnly = true)
-  public NotificationRecipients notificationTargets(
-      UUID incidentId, NotificationRecipientPolicy recipientPolicy) {
-    NotificationTargets targets = notificationTargets(incidentId, targetPolicyFor(recipientPolicy));
-    return new NotificationRecipients(
-        recipientPolicy, targets.accountIds(), targets.policePhoneIds());
+  public NotificationTargets notificationTargets(
+      UUID incidentId, MarkerNotificationRecipientPolicy recipientPolicy) {
+    return notificationTargets(incidentId, targetPolicyFor(recipientPolicy));
   }
 
-  private static String targetPolicyFor(NotificationRecipientPolicy recipientPolicy) {
+  private static String targetPolicyFor(MarkerNotificationRecipientPolicy recipientPolicy) {
     return switch (Objects.requireNonNull(recipientPolicy, "recipientPolicy must not be null")) {
       case COMMANDERS_AND_FIELD_COMMANDERS -> SUPPORT_REQUEST;
       case ALL_INCIDENT_ASSIGNED -> PERSON_FOUND;

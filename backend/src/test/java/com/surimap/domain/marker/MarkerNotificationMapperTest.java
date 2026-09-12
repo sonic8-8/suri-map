@@ -4,9 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
-import com.surimap.marker.notification.domain.MarkerNotificationStatus;
-import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
-import com.surimap.marker.notification.domain.NotificationType;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -52,8 +49,8 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
         MarkerNotification.builder()
             .id(UUID.fromString("54000000-0000-4000-8000-000000002932"))
             .markerId(MARKER_ID)
-            .notificationType(NotificationType.SUPPORT_REQUEST_CREATED)
-            .recipientRule(NotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
+            .notificationType(MarkerNotificationType.SUPPORT_REQUEST_CREATED)
+            .recipientRule(MarkerNotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
             .recipientAccountIds(List.of())
             .recipientPolicePhoneIds(List.of())
             .notificationPayloadJson("{\"type\":\"SUPPORT_REQUEST_CREATED\"}")

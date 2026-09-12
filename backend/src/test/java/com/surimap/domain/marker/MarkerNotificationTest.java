@@ -4,9 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.marker.notification.domain.MarkerNotificationStatus;
-import com.surimap.marker.notification.domain.NotificationRecipientPolicy;
-import com.surimap.marker.notification.domain.NotificationType;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -111,8 +108,8 @@ class MarkerNotificationTest {
     return MarkerNotification.builder()
         .id(UUID.randomUUID())
         .markerId(UUID.randomUUID())
-        .notificationType(NotificationType.SUPPORT_REQUEST_CREATED)
-        .recipientRule(NotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
+        .notificationType(MarkerNotificationType.SUPPORT_REQUEST_CREATED)
+        .recipientRule(MarkerNotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
         .recipientAccountIds(List.of())
         .recipientPolicePhoneIds(List.of())
         .notificationPayloadJson("{}")

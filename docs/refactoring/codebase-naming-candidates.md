@@ -26,6 +26,8 @@
 
 `MarkerNotificationContractTest`의 SQL 문자열 검사는 제거했다. 저장 필드는 기존 `AppMarkerServiceTest`가 실제 DB에서 검증한다. 같은 마커에 다른 ID의 알림을 저장해도 추가하거나 덮어쓰지 않는지는 기존 [MarkerNotificationMapperTest](../../backend/src/test/java/com/surimap/domain/marker/MarkerNotificationMapperTest.java)에 보강했다. 마이그레이션 SQL은 변경하지 않았다.
 
+`NotificationType`·`NotificationRecipientPolicy`는 마커 알림 전용임이 드러나도록 `MarkerNotificationType`·`MarkerNotificationRecipientPolicy`로 바꾸고, `MarkerNotificationStatus`와 함께 `domain/marker`로 옮겼다. 조회 결과를 다시 감싸던 `NotificationRecipients`는 제거하고 기존 `IncidentAssignmentView.NotificationTargets`를 그대로 사용한다. 수신자 정책은 알림 종류에서 가져오며, 선정 규칙·목록 보호·DB 및 이벤트 값은 유지한다.
+
 ## Backend — 나머지 Red 테스트
 
 `Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상의 처리 내역은 위 절에 있다.
