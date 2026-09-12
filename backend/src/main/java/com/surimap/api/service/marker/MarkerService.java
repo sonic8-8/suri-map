@@ -21,7 +21,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.MarkerEventPayload;
 import com.surimap.global.event.MarkerEventPublisher;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -35,7 +34,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -159,8 +157,7 @@ public class MarkerService {
         markerMapper
             .findById(markerId)
             .filter(saved -> !saved.isDeleted())
-            .orElseThrow(
-                () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
+            .orElseThrow(() -> new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED));
     MarkerWriteAccessData accessData =
         markerAccessMapper.findWriteAccessData(
             marker.getIncidentId(),
@@ -168,7 +165,7 @@ public class MarkerService {
             context.authentication().accountId());
     markerWriteAccessValidator.validateIncidentAccess(accessData);
     if (!marker.isReferenceMarker()) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
     return marker;
   }
@@ -187,10 +184,10 @@ public class MarkerService {
 
   private void requireWebContext(MarkerRequestContext context) {
     if (context == null || context.authentication() == null) {
-      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
     if (!"WEB".equals(context.authentication().channel())) {
-      throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+      throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
     }
     if (context.idempotencyKey() == null || context.idempotencyKey().isBlank()) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
@@ -317,7 +314,7 @@ public class MarkerService {
     }
   }
 
-  private MarkerApiException invalidFilter() {
-    return new MarkerApiException("invalid_marker_filter", HttpStatus.BAD_REQUEST);
+  private BusinessException invalidFilter() {
+    return new BusinessException(ErrorCode.INVALID_MARKER_FILTER);
   }
 }

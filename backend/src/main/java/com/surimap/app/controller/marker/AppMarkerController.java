@@ -12,8 +12,9 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -56,7 +57,7 @@ public class AppMarkerController {
     MarkerRequestContext context =
         contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
     if (validation.hasErrors()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerCreateServiceResponse response =
         appMarkerService.create(request.toServiceRequest(context));
@@ -80,7 +81,7 @@ public class AppMarkerController {
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
         appMarkerService.update(request.toServiceRequest(markerId, context));
@@ -103,7 +104,7 @@ public class AppMarkerController {
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
         appMarkerService.delete(request.toServiceRequest(markerId, context));

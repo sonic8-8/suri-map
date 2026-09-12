@@ -42,10 +42,9 @@ import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.global.error.GlobalExceptionHandler;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
-import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.retention.purge.RecordLocationAccessAspect;
@@ -63,7 +62,6 @@ import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -73,7 +71,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @WebMvcTest({MarkerController.class, AppMarkerController.class})
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
-  MarkerExceptionHandler.class,
+  GlobalExceptionHandler.class,
   MarkerRequestContextResolver.class,
   GuardConfig.class,
   AopAutoConfiguration.class,
@@ -353,7 +351,7 @@ class MarkerControllerTest {
   void listMarkers_invalidFilter_returnsBadRequestWithoutLocationAccessRecord() throws Exception {
     // given: 서비스가 지원하지 않는 마커 유형을 거부한다.
     when(markerService.list(INCIDENT_ID, null, "bad-type", null))
-        .thenThrow(new MarkerApiException("invalid_marker_filter", HttpStatus.BAD_REQUEST));
+        .thenThrow(new BusinessException(ErrorCode.INVALID_MARKER_FILTER));
 
     // when & then: 오류 응답을 반환하고 성공한 위치 조회로 기록하지 않는다.
     mockMvc

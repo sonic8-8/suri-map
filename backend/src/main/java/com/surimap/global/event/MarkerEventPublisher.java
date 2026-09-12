@@ -2,14 +2,14 @@ package com.surimap.global.event;
 
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /** Publishes S5 marker events into the shared S4 event outbox. */
@@ -28,10 +28,10 @@ public class MarkerEventPublisher {
 
   public void publish(String eventType, MarkerPublishPayload payload) {
     if (eventType == null || payload == null) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     if (payload.getId() == null || payload.getIncidentId() == null || payload.getVersion() <= 0) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
 
     eventHub.publish(

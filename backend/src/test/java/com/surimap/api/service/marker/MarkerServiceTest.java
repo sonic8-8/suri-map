@@ -29,7 +29,6 @@ import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
 import java.math.BigDecimal;
@@ -119,8 +118,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
   void listMarkers_matchingFilters_returnsMarkerAndAttachedPhoto() {
     // given: 사진이 첨부된 활성 마커가 실제 DB에 저장되어 있다.
     // when: 소문자 유형을 포함한 조회 조건으로 마커를 조회한다.
-    MarkersServiceResponse response =
-        markerService.list(INCIDENT_ID, OP_ID, " clue ", " active ");
+    MarkersServiceResponse response = markerService.list(INCIDENT_ID, OP_ID, " clue ", " active ");
 
     // then: 저장된 마커와 사진 정보, 사진 조회 주소를 반환한다.
     assertThat(response.getIncidentId()).isEqualTo(INCIDENT_ID);
@@ -256,8 +254,8 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // given: 지원하지 않는 마커 유형 또는 상태를 조회 조건으로 지정한다.
     // when & then: 조회 요청을 기존 오류 코드로 거부한다.
     assertThatThrownBy(() -> markerService.list(INCIDENT_ID, OP_ID, type, status))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("invalid_marker_filter");
   }
 
@@ -369,13 +367,13 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // when & then: 실제 DB의 마커 출처로 수정·삭제 권한을 판단한다.
     assertThatThrownBy(
             () -> markerService.update(updateRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertThatThrownBy(
             () -> markerService.delete(deleteRequest().toBuilder().context(requestContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("incident_access_denied");
     assertUnchangedMarker();
   }
@@ -389,12 +387,12 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
 
     // when & then: 버전 충돌 검사에 앞서 기존 권한 오류로 수정·삭제를 거부한다.
     assertThatThrownBy(() -> markerService.update(updateRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
     assertThatThrownBy(() -> markerService.delete(deleteRequest()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error", "status")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error", "errorCode.status")
         .containsExactly("incident_access_denied", HttpStatus.FORBIDDEN);
     Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("DELETED");
@@ -529,13 +527,13 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // when & then: 저장된 응답을 반환하기 전에 서비스의 채널 경계를 검사한다.
     assertThatThrownBy(
             () -> markerService.update(updateRequest().toBuilder().context(appContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThatThrownBy(
             () -> markerService.delete(deleteRequest().toBuilder().context(appContext).build()))
-        .isInstanceOf(MarkerApiException.class)
-        .extracting("error")
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode.error")
         .isEqualTo("channel_not_allowed");
     assertThat(markerMapper.findById(MUTATION_MARKER_ID).orElseThrow().getVersion()).isEqualTo(2L);
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");

@@ -11,13 +11,13 @@ import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.marker.controller.MarkerRequestContextResolver;
-import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.service.MarkerRequestContext;
 import com.surimap.retention.purge.RecordLocationAccess;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -73,7 +73,7 @@ public class MarkerController {
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
         markerService.update(request.toServiceRequest(markerId, context));
@@ -96,7 +96,7 @@ public class MarkerController {
         contextResolver.resolveFieldOrWebWrite(
             authorization, channel, policePhoneId, idempotencyKey);
     if (request == null || validation.hasErrors()) {
-      throw new MarkerApiException("write_conflict", HttpStatus.CONFLICT);
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
     MarkerMutationServiceResponse response =
         markerService.delete(request.toServiceRequest(markerId, context));
