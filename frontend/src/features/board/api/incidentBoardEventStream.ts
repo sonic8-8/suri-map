@@ -74,13 +74,13 @@ async function consumeIncidentBoardEventStream(
     const response = await fetchImpl(
       buildIncidentBoardEventStreamUrl(options.baseUrl ?? getApiBaseUrl(), options.incidentId),
       {
-        headers: requestHeaders(options),
+        headers: buildRequestHeaders(options),
         signal,
       },
     );
 
     if (response.status === 409) {
-      options.onRefetchRequired?.({ reason: await refetchReason(response) });
+      options.onRefetchRequired?.({ reason: await readRefetchReason(response) });
       return;
     }
 
@@ -107,7 +107,7 @@ async function consumeIncidentBoardEventStream(
   }
 }
 
-function requestHeaders(options: OpenIncidentBoardEventStreamOptions): Headers {
+function buildRequestHeaders(options: OpenIncidentBoardEventStreamOptions): Headers {
   const headers = new Headers();
   headers.set('Accept', 'text/event-stream');
   headers.set('X-Client-Channel', 'WEB');
@@ -123,7 +123,7 @@ function requestHeaders(options: OpenIncidentBoardEventStreamOptions): Headers {
   return headers;
 }
 
-async function refetchReason(response: Response): Promise<BoardEventRefetchRequired['reason']> {
+async function readRefetchReason(response: Response): Promise<BoardEventRefetchRequired['reason']> {
   const body = await response.json().catch(() => undefined);
   if (isErrorBody(body) && body.error === 'gone_refetch_required') {
     return 'gone_refetch_required';
