@@ -98,7 +98,7 @@ export function useSituationBoardData(
     let cancelled = false;
     let activeSubscription: { close(): void } | null = null;
 
-    const connect = () => {
+    const connectToIncidentBoardEventStream = () => {
       if (cancelled) return;
 
       const accessToken = getStoredAccessToken();
@@ -124,12 +124,12 @@ export function useSituationBoardData(
       // 연결 종료 시 재연결 (3초 후)
       void subscription.closed.then(() => {
         if (!cancelled) {
-          setTimeout(connect, 3_000);
+          setTimeout(connectToIncidentBoardEventStream, 3_000);
         }
       });
     };
 
-    connect();
+    connectToIncidentBoardEventStream();
 
     return () => {
       cancelled = true;

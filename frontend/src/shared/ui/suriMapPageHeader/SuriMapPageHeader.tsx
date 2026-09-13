@@ -20,7 +20,7 @@ export type MarkerNotification = {
   markerType: string;
   reporter: string;
   areaLabel: string;
-  receivedAtLabel: string;
+  markerRecordedAtLabel: string;
   coordinateLabel: string;
 };
 
@@ -310,7 +310,7 @@ export function SuriMapPageHeader({
             <b className={styles.markerPopupType}>{activeMarkerNotification.markerType}</b>
             {activeMarkerNotification.reporter}
             <br />
-            {activeMarkerNotification.areaLabel} / {activeMarkerNotification.receivedAtLabel}
+            {activeMarkerNotification.areaLabel} / 기록 시각 {activeMarkerNotification.markerRecordedAtLabel}
             {activeMarkerNotification.coordinateLabel ? (
               <>
                 <br />

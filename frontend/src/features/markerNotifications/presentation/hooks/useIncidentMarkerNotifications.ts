@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { openIncidentEventStream, type EventStreamMessage } from '../../../../shared/api/eventStream';
 import type { MarkerNotification } from '../../../../shared/ui';
@@ -11,55 +11,55 @@ type UseIncidentMarkerNotificationsOptions = {
 
 const NOTIFICATION_EVENT_TYPES = new Set(['SUPPORT_REQUEST_CREATED', 'PERSON_FOUND']);
 const RECONNECT_DELAY_MS = 3_000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// 서버의 사건 ID와 같은 표기 형식을 검사하고 UUID 버전·variant는 제한하지 않는다.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function useIncidentMarkerNotifications({
   incidentId,
   enabled,
   onNotification,
 }: UseIncidentMarkerNotificationsOptions) {
-  const lastEventIdRef = useRef<string | null>(null);
-  const appliedEventIdsRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     if (!enabled || !incidentId || !UUID_PATTERN.test(incidentId)) return;
 
     const controller = new AbortController();
     let reconnectTimerId: number | null = null;
-    lastEventIdRef.current = null;
-    appliedEventIdsRef.current = new Set();
+    // 현재 서버는 SSE id에 사건별 이벤트 순번(sequence)을 문자열로 담는다.
+    // 재연결 시 Last-Event-ID로 그대로 보내는 값이며, data.eventId(UUID)와는 다르다.
+    let lastReceivedSseEventId: string | null = null;
+    const receivedNotificationEventIds = new Set<string>();
 
-    const connect = () => {
+    const connectToIncidentEventStream = () => {
       void openIncidentEventStream({
         incidentId,
-        lastEventId: lastEventIdRef.current,
+        lastEventId: lastReceivedSseEventId,
         signal: controller.signal,
         onMessage: (message) => {
           if (message.id) {
-            lastEventIdRef.current = message.id;
+            lastReceivedSseEventId = message.id;
           }
 
           const eventId = message.data.eventId;
-          if (eventId && appliedEventIdsRef.current.has(eventId)) {
+          if (eventId && receivedNotificationEventIds.has(eventId)) {
             return;
           }
 
           const notification = toMarkerNotification(message);
           if (notification) {
             if (eventId) {
-              appliedEventIdsRef.current.add(eventId);
+              receivedNotificationEventIds.add(eventId);
             }
             onNotification(notification);
           }
         },
       }).catch(() => {
         if (!controller.signal.aborted) {
-          reconnectTimerId = window.setTimeout(connect, RECONNECT_DELAY_MS);
+          reconnectTimerId = window.setTimeout(connectToIncidentEventStream, RECONNECT_DELAY_MS);
         }
       });
     };
 
-    connect();
+    connectToIncidentEventStream();
 
     return () => {
       controller.abort();
@@ -82,7 +82,7 @@ function toMarkerNotification(message: EventStreamMessage): MarkerNotification |
     message.data.sourceEntityId ??
     readString(payload, 'id') ??
     eventId;
-  const occurredAt = readString(message.data, 'occurredAt') ?? readString(message.data, 'serverTs');
+  const markerRecordedAt = readString(payload, 'clientTs');
   const markerType = readString(payload, 'markerType') ?? eventType;
   const policePhoneId = readString(payload, 'policePhoneId');
   const policePhoneName =
@@ -95,15 +95,15 @@ function toMarkerNotification(message: EventStreamMessage): MarkerNotification |
   return {
     id: eventId ?? `${eventType}:${markerId ?? Date.now()}`,
     title: eventType === 'PERSON_FOUND' ? '발견 마커 수신' : '지원 요청 마커 수신',
-    markerType: markerTypeLabel(markerType, eventType),
-    reporter: policePhoneName?.trim() || knownPolicePhoneName(policePhoneId) || '작성 단말 확인 불가',
+    markerType: formatMarkerTypeLabel(markerType, eventType),
+    reporter: policePhoneName?.trim() || lookupKnownPolicePhoneName(policePhoneId) || '작성 단말 확인 불가',
     areaLabel: opId ? `OP ${opId}` : 'OP 확인 불가',
-    receivedAtLabel: occurredAt ? formatTimeLabel(new Date(occurredAt)) : '시각 확인 불가',
+    markerRecordedAtLabel: markerRecordedAt ? formatTimeLabel(new Date(markerRecordedAt)) : '확인 불가',
     coordinateLabel: '',
   };
 }
 
-function markerTypeLabel(markerType: string, eventType: string) {
+function formatMarkerTypeLabel(markerType: string, eventType: string) {
   if (eventType === 'PERSON_FOUND' || markerType === 'PERSON_FOUND') return '발견';
   if (eventType === 'SUPPORT_REQUEST_CREATED' || markerType === 'SUPPORT_REQUEST') return '지원 요청';
   if (markerType === 'CLUE') return '단서';
@@ -112,13 +112,13 @@ function markerTypeLabel(markerType: string, eventType: string) {
   return markerType;
 }
 
-function knownPolicePhoneName(policePhoneId: string | null) {
+function lookupKnownPolicePhoneName(policePhoneId: string | null) {
   if (!policePhoneId) return null;
   return KNOWN_POLICE_PHONE_NAMES_BY_ID[policePhoneId] ?? null;
 }
 
 function formatTimeLabel(date: Date) {
-  if (Number.isNaN(date.getTime())) return '시각 확인 불가';
+  if (Number.isNaN(date.getTime())) return '확인 불가';
 
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',

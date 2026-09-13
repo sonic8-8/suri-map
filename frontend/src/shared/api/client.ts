@@ -97,7 +97,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     path: string,
     requestOptions: ApiRequestOptions<TBody> = {},
   ): Promise<TResponse> {
-    const headers = requestHeaders(options.getAccessToken, requestOptions);
+    const headers = buildRequestHeaders(options.getAccessToken, requestOptions);
     const hasBody = requestOptions.body !== undefined;
     if (hasBody && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
@@ -157,7 +157,7 @@ export async function apiRequest<TResponse>(path: string, options: ApiRequestOpt
   }
 }
 
-function requestHeaders<TBody>(
+function buildRequestHeaders<TBody>(
   getAccessToken: ApiClientOptions['getAccessToken'],
   options: ApiRequestOptions<TBody>,
 ): Headers {
