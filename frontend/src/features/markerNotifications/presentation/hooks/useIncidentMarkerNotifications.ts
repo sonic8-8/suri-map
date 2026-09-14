@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { ApiHttpError } from '../../../../shared/api/client';
 import { openIncidentEventStream, type EventStreamMessage } from '../../../../shared/api/eventStream';
 import type { MarkerNotification } from '../../../../shared/ui';
 
@@ -30,33 +31,48 @@ export function useIncidentMarkerNotifications({
     const receivedNotificationEventIds = new Set<string>();
 
     const connectToIncidentEventStream = () => {
+      if (controller.signal.aborted) return;
       void openIncidentEventStream({
         incidentId,
         lastEventId: lastReceivedSseEventId,
         signal: controller.signal,
         onMessage: (message) => {
-          if (message.id) {
-            lastReceivedSseEventId = message.id;
+          if (controller.signal.aborted) return;
+          const eventType = message.data.type ?? message.event;
+          if (eventType === 'INCIDENT_CLOSED' || eventType === 'INCIDENT_PURGED') {
+            controller.abort();
+            return;
           }
-
           const eventId = message.data.eventId;
           if (eventId && receivedNotificationEventIds.has(eventId)) {
+            if (message.id) lastReceivedSseEventId = message.id;
             return;
           }
 
           const notification = toMarkerNotification(message);
           if (notification) {
+            onNotification(notification);
             if (eventId) {
               receivedNotificationEventIds.add(eventId);
             }
-            onNotification(notification);
           }
+          if (message.id) lastReceivedSseEventId = message.id;
         },
-      }).catch(() => {
-        if (!controller.signal.aborted) {
-          reconnectTimerId = window.setTimeout(connectToIncidentEventStream, RECONNECT_DELAY_MS);
-        }
-      });
+      })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          if (error instanceof ApiHttpError && (error.status === 401 || error.status === 403)) {
+            controller.abort();
+          }
+          if (error instanceof ApiHttpError && error.status === 409 && error.code === 'gone_refetch_required') {
+            lastReceivedSseEventId = null;
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            reconnectTimerId = window.setTimeout(connectToIncidentEventStream, RECONNECT_DELAY_MS);
+          }
+        });
     };
 
     connectToIncidentEventStream();
