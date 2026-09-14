@@ -1,0 +1,176 @@
+package com.surimap.eventhub.stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import com.surimap.eventhub.dto.PublishRequest;
+import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+class SseStreamSessionRegistryTest {
+
+  private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
+  private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110003");
+  private final SseStreamSessionRegistry registry = new SseStreamSessionRegistry();
+  private final SseEventFrame frame =
+      new SseEventFrame(
+          "901",
+          "PERSON_FOUND",
+          new PublishRequest(
+              UUID.fromString("40000000-0000-4000-8000-000000000901"),
+              INCIDENT_ID,
+              "PERSON_FOUND",
+              1,
+              "marker",
+              UUID.fromString("30000000-0000-4000-8000-000000000501"),
+              Instant.parse("2026-05-08T00:00:00Z"),
+              Map.of()));
+
+  @ParameterizedTest(name = "구독 대상: {0}")
+  @ValueSource(strings = {"incident", "account"})
+  @DisplayName("종료된 연결이 남아 있으면, 그 연결을 제거하고 정상 연결에는 계속 전송한다")
+  void send_when_emitter_has_completed_removes_failed_connection_and_sends_to_healthy_connection(
+      String subscription) {
+    // given: 실제 Spring emitter가 오류로 종료됐지만 연결 목록에는 아직 남아 있다.
+    var emitter = new SseEmitter(0L);
+    emitter.completeWithError(
+        new AsyncRequestNotUsableException("Response not usable after response errors."));
+    var disconnected = spy(new SseEmitterLiveEventSink(emitter));
+    var connected = mock(SseLiveEventSink.class);
+    register(subscription, disconnected);
+    register(subscription, connected);
+
+    // when: 같은 구독 대상의 연결에 이벤트를 전송한다.
+    send(subscription);
+    send(subscription);
+
+    // then: 종료된 연결은 첫 실패 뒤 제외되며 정상 연결은 두 번 모두 수신한다.
+    verify(disconnected).send(frame);
+    verify(connected, times(2)).send(frame);
+    if (subscription.equals("incident")) {
+      assertThat(registry.sinks(INCIDENT_ID)).containsExactly(connected);
+    }
+  }
+
+  @ParameterizedTest(name = "구독 대상: {0}")
+  @ValueSource(strings = {"incident", "account"})
+  @DisplayName("쓰기 중 I/O 오류가 나면, 해당 연결을 제외하고 HTTP 정리는 컨테이너에 맡긴다")
+  void send_when_io_fails_removes_connection_without_completing_emitter(String subscription)
+      throws IOException {
+    // given: 실제 전송 경계에서 응답 쓰기가 실패하는 연결이 먼저 등록돼 있다.
+    var emitter = mock(SseEmitter.class);
+    doThrow(new IOException("private-network-details"))
+        .when(emitter)
+        .send(any(SseEmitter.SseEventBuilder.class));
+    register(subscription, new SseEmitterLiveEventSink(emitter));
+    var connected = mock(SseLiveEventSink.class);
+    register(subscription, connected);
+
+    // when: 연결 목록으로 두 번 전송한다.
+    send(subscription);
+    send(subscription);
+
+    // then: 실패한 연결은 재사용하지 않고, 정상 연결은 계속 수신한다.
+    verify(emitter).send(any(SseEmitter.SseEventBuilder.class));
+    verify(emitter, never()).complete();
+    verify(emitter, never()).completeWithError(any());
+    verify(connected, times(2)).send(frame);
+  }
+
+  @Test
+  @DisplayName("실패한 연결의 종료 처리도 실패하면, 정상 연결의 전송은 계속한다")
+  void send_when_failed_connection_cannot_close_still_sends_to_healthy_connection() {
+    // given: 전송과 종료에서 모두 예외를 던지는 연결이다.
+    var disconnected = mock(SseLiveEventSink.class);
+    doThrow(new IllegalStateException("completed")).when(disconnected).send(frame);
+    doThrow(new IllegalStateException("already closed")).when(disconnected).close();
+    var connected = mock(SseLiveEventSink.class);
+    registry.register(INCIDENT_ID, disconnected);
+    registry.register(INCIDENT_ID, connected);
+
+    // when: 사건 이벤트를 전송한다.
+    registry.send(INCIDENT_ID, frame);
+
+    // then: 정리 실패가 다시 전송 순회를 중단시키지 않는다.
+    verify(connected).send(frame);
+    assertThat(registry.sinks(INCIDENT_ID)).containsExactly(connected);
+  }
+
+  @Test
+  @DisplayName("연결 종료 중 하나가 실패하면, 나머지도 닫고 사건의 연결 목록을 비운다")
+  void release_when_one_close_fails_closes_remaining_connections() {
+    // given: 먼저 닫을 연결의 종료 처리가 실패한다.
+    var disconnected = mock(SseLiveEventSink.class);
+    doThrow(new IllegalStateException("already closed")).when(disconnected).close();
+    var connected = mock(SseLiveEventSink.class);
+    registry.register(INCIDENT_ID, disconnected);
+    registry.register(INCIDENT_ID, connected);
+
+    // when: 사건 연결을 모두 종료한다.
+    registry.release(INCIDENT_ID);
+
+    // then: 뒤에 있는 연결도 종료되고 등록은 남지 않는다.
+    verify(connected).close();
+    assertThat(registry.sinks(INCIDENT_ID)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("메시지 변환 실패가 IllegalStateException으로 감싸지면, 연결 종료로 무시하지 않는다")
+  void send_when_message_conversion_fails_propagates_failure() throws IOException {
+    // given: Spring은 메시지 변환 등의 내부 오류를 원인 예외와 함께 감싼다.
+    var emitter = mock(SseEmitter.class);
+    var failure =
+        new IllegalStateException(
+            "Failed to send", new HttpMessageNotWritableException("conversion failed"));
+    doThrow(failure).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
+    registry.register(INCIDENT_ID, new SseEmitterLiveEventSink(emitter));
+
+    // when / then: 전송 작업이 내부 오류를 실패로 기록할 수 있도록 전달한다.
+    assertThatThrownBy(() -> registry.send(INCIDENT_ID, frame)).isSameAs(failure);
+  }
+
+  @Test
+  @DisplayName("잘못된 입력으로 IllegalArgumentException이 발생하면, 호출부에 실패를 전달한다")
+  void send_when_invalid_argument_occurs_propagates_failure() {
+    // given: 전송 구현에서 예상하지 못한 입력 오류가 발생한다.
+    var sink = mock(SseLiveEventSink.class);
+    var failure = new IllegalArgumentException("invalid event");
+    doThrow(failure).when(sink).send(frame);
+    registry.register(INCIDENT_ID, sink);
+
+    // when / then: 상위 전송 작업에서 실패를 처리할 수 있어야 한다.
+    assertThatThrownBy(() -> registry.send(INCIDENT_ID, frame)).isSameAs(failure);
+  }
+
+  private void register(String subscription, SseLiveEventSink sink) {
+    if (subscription.equals("account")) {
+      registry.registerAccount(ACCOUNT_ID, sink);
+    } else {
+      registry.register(INCIDENT_ID, sink);
+    }
+  }
+
+  private void send(String subscription) {
+    if (subscription.equals("account")) {
+      registry.sendToAccount(ACCOUNT_ID, frame);
+    } else {
+      registry.send(INCIDENT_ID, frame);
+    }
+  }
+}
