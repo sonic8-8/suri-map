@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import { ApiHttpError } from '../../../../shared/api/client';
 import { openIncidentEventStream, type EventStreamMessage } from '../../../../shared/api/eventStream';
 import { useIncidentMarkerNotifications } from './useIncidentMarkerNotifications';
 
@@ -12,6 +13,147 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.resetAllMocks();
+});
+
+test('서버가 스트림을 정상 종료하면, 3초 뒤 다시 구독한다', async () => {
+  // given: 첫 연결은 오류 없이 끝나고 다음 연결은 열린 상태로 유지된다.
+  vi.useFakeTimers();
+  const openStream = vi.mocked(openIncidentEventStream);
+  openStream.mockImplementation(() => new Promise<void>(() => {})).mockResolvedValueOnce();
+  const onNotification = vi.fn();
+  renderHook(() =>
+    useIncidentMarkerNotifications({
+      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      enabled: true,
+      onNotification,
+    }),
+  );
+
+  // when: 기존 재연결 대기 시간인 3초가 지난다.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3_000);
+  });
+
+  // then: 구독을 다시 시작한다.
+  expect(openStream).toHaveBeenCalledTimes(2);
+});
+
+test.each([401, 403])('서버가 HTTP %s로 구독을 거부하면, 재연결을 중단한다', async (status) => {
+  // given: 인증 또는 사건 접근 권한이 없다.
+  vi.useFakeTimers();
+  const openStream = vi.mocked(openIncidentEventStream);
+  openStream.mockRejectedValue(new ApiHttpError(status, 'access_denied', null));
+  const onNotification = vi.fn();
+  renderHook(() =>
+    useIncidentMarkerNotifications({
+      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      enabled: true,
+      onNotification,
+    }),
+  );
+
+  // when: 재연결 대기 시간이 여러 번 지난다.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(9_000);
+  });
+
+  // then: 같은 권한으로 구독을 반복하지 않는다.
+  expect(openStream).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+test.each(['INCIDENT_CLOSED', 'INCIDENT_PURGED'])(
+  '%s를 수신하면, 연결을 닫고 후속 알림과 재연결을 막는다',
+  async (eventType) => {
+    // given: 구독 중인 사건에 종료 이벤트가 도착한다.
+    vi.useFakeTimers();
+    const openStream = vi.mocked(openIncidentEventStream);
+    openStream.mockResolvedValue();
+    const onNotification = vi.fn();
+    renderHook(() =>
+      useIncidentMarkerNotifications({
+        incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+        enabled: true,
+        onNotification,
+      }),
+    );
+    const connection = openStream.mock.calls[0][0];
+
+    // when: 종료 직후 같은 응답에 뒤따르는 알림 프레임도 전달된다.
+    connection.onMessage({ id: '901', event: eventType, data: { type: eventType } });
+    connection.onMessage({ id: '902', event: 'PERSON_FOUND', data: { type: 'PERSON_FOUND' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+
+    // then: 연결과 알림 처리가 모두 중단된다.
+    expect(connection.signal.aborted).toBe(true);
+    expect(onNotification).not.toHaveBeenCalled();
+    expect(openStream).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('재연결 대기 중 화면을 떠나면, 예약된 타이머를 제거한다', async () => {
+  // given: 연결 실패로 재연결을 기다리는 화면이다.
+  vi.useFakeTimers();
+  const openStream = vi.mocked(openIncidentEventStream);
+  openStream.mockRejectedValue(new Error('connection_lost'));
+  const onNotification = vi.fn();
+  const { unmount } = renderHook(() =>
+    useIncidentMarkerNotifications({
+      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      enabled: true,
+      onNotification,
+    }),
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(vi.getTimerCount()).toBe(1);
+
+  // when: 화면에서 알림 구독을 해제한다.
+  unmount();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(9_000);
+  });
+
+  // then: 예약 작업과 추가 연결이 남지 않는다.
+  expect(vi.getTimerCount()).toBe(0);
+  expect(openStream).toHaveBeenCalledTimes(1);
+});
+
+test('재전송할 수 없는 순번이면, 순번만 초기화하고 이미 표시한 알림은 유지한다', async () => {
+  // given: 표시한 알림 뒤로 재연결을 요청했지만 서버가 재전송 불가를 응답한다.
+  vi.useFakeTimers();
+  const openStream = vi.mocked(openIncidentEventStream);
+  openStream
+    .mockImplementation(() => new Promise<void>(() => {}))
+    .mockRejectedValueOnce(new ApiHttpError(409, 'gone_refetch_required', null));
+  const onNotification = vi.fn();
+  renderHook(() =>
+    useIncidentMarkerNotifications({
+      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      enabled: true,
+      onNotification,
+    }),
+  );
+  const message: EventStreamMessage = {
+    id: '901',
+    event: 'PERSON_FOUND',
+    data: { eventId: 'evt-001', type: 'PERSON_FOUND' },
+  };
+  openStream.mock.calls[0][0].onMessage(message);
+
+  // when: 재연결 뒤 같은 알림이 도착한다.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3_000);
+  });
+  const reconnected = openStream.mock.calls[1][0];
+  reconnected.onMessage({ ...message, id: '902' });
+
+  // then: 유효하지 않은 순번을 반복 전송하거나 알림을 다시 표시하지 않는다.
+  expect(reconnected.lastEventId).toBeNull();
+  expect(onNotification).toHaveBeenCalledTimes(1);
 });
 
 test.each(['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '10000000-0000-4000-8000-000000000001'])(

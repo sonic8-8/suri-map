@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import { getStoredAccessToken } from '../../../../shared/api/client';
+import { ApiHttpError, getStoredAccessToken } from '../../../../shared/api/client';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import {
   useIncidentBoardQuery,
@@ -54,7 +54,6 @@ export function useSituationBoardData(
   refreshVersion = 0,
 ): SituationBoardDataState {
   const queryClient = useQueryClient();
-  const lastEventIdRef = useRef<string | null>(null);
   const prevRefreshVersionRef = useRef(refreshVersion);
 
   const fallbackBoard = useMemo(() => createIncidentScopedFallbackBoard(incidentId), [incidentId]);
@@ -97,6 +96,10 @@ export function useSituationBoardData(
 
     let cancelled = false;
     let activeSubscription: { close(): void } | null = null;
+    let reconnectTimerId: number | null = null;
+    // SSE id는 사건별 순번이다. 다른 사건의 연결에는 이전 순번을 보내지 않는다.
+    let lastReceivedSseEventId: string | null = null;
+    const receivedEventIds = new Set<string>();
 
     const connectToIncidentBoardEventStream = () => {
       if (cancelled) return;
@@ -108,14 +111,34 @@ export function useSituationBoardData(
       const subscription = openIncidentBoardEventStream({
         incidentId,
         accessToken,
-        lastEventId: lastEventIdRef.current,
-        onEvent: (_event, meta) => {
-          lastEventIdRef.current = meta.lastEventId;
+        lastEventId: lastReceivedSseEventId,
+        onOpen: () => {
+          // 최초 조회 또는 재전송 복구 이후, 연결이 열리기 전까지의 변경도 반영한다.
+          if (!cancelled) void queryClient.invalidateQueries({ queryKey });
+        },
+        onEvent: (event, meta) => {
+          if (cancelled) return;
+          if (receivedEventIds.has(event.eventId)) {
+            if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
+            return;
+          }
+          void queryClient.invalidateQueries({ queryKey });
+          receivedEventIds.add(event.eventId);
+          if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
+          if (meta.eventType === 'INCIDENT_CLOSED' || meta.eventType === 'INCIDENT_PURGED') {
+            cancelled = true;
+            activeSubscription?.close();
+          }
+        },
+        onRefetchRequired: ({ reason }) => {
+          if (cancelled) return;
+          if (reason === 'gone_refetch_required') lastReceivedSseEventId = null;
           void queryClient.invalidateQueries({ queryKey });
         },
-        onRefetchRequired: () => {
-          lastEventIdRef.current = null;
-          void queryClient.invalidateQueries({ queryKey });
+        onError: (error) => {
+          if (error instanceof ApiHttpError && (error.status === 401 || error.status === 403)) {
+            cancelled = true;
+          }
         },
       });
 
@@ -124,7 +147,7 @@ export function useSituationBoardData(
       // 연결 종료 시 재연결 (3초 후)
       void subscription.closed.then(() => {
         if (!cancelled) {
-          setTimeout(connectToIncidentBoardEventStream, 3_000);
+          reconnectTimerId = window.setTimeout(connectToIncidentBoardEventStream, 3_000);
         }
       });
     };
@@ -134,12 +157,12 @@ export function useSituationBoardData(
     return () => {
       cancelled = true;
       activeSubscription?.close();
+      if (reconnectTimerId !== null) window.clearTimeout(reconnectTimerId);
     };
   }, [incidentId, queryClient, hasApiBoard, shouldSubscribeEvents]);
 
   useEffect(() => {
     stableApiBoardRef.current = null;
-    lastEventIdRef.current = null;
   }, [incidentId]);
 
   const board = useMemo<SituationBoardFallbackData>(() => {
