@@ -2,49 +2,39 @@
 
 Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGENTS.md`를 먼저 따른다.
 
-## 기준 문서
+## 확인 위치
 
-| 관심사 | 기준 |
+| 확인할 내용 | 위치 |
 |---|---|
-| Public API | `../docs/api/api-spec.md` |
-| Spec/Lane ownership | `../docs/spec/boundaries.md` |
-| DB entity 의미 | `../docs/db-design/db-design-readable.md` |
-| Persistence 결정 | `../docs/adr.md` ADR-0033 |
-| Current stack | `build.gradle` |
-
-## 현재 스택
-
-현재 backend stack은 Java 17, Spring Boot 3.5.x, Spring MVC, Spring Security, MyBatis, Flyway, PostgreSQL/PostGIS, JTS, Actuator/Micrometer다.
+| 의존성·버전·빌드 작업 | `build.gradle` |
+| 런타임 설정 | `src/main/resources/application.yml` |
+| HTTP 입력·출력·업무 흐름 | `src/main/java/com/surimap/api/`, `src/main/java/com/surimap/app/`의 Controller·DTO·Service와 관련 테스트 |
+| 저장·조회·DB schema | `src/main/resources/mapper/`, `src/main/resources/db/migration/`와 관련 Mapper |
+| 검증 범위 | `src/test/`의 실제 연결 구성·검증 내용 |
 
 ## 프로젝트 / 플랫폼 개요
 
 - Backend는 REST JSON API, SSE endpoint, domain write transaction, MyBatis mapper, Flyway migration, event staging, purge/audit internal port를 구현한다.
-- Android Room entity, Web 상황판 layout, FCM 외부 adapter 세부 구현, tileserver 운영은 각 owner 규칙을 따른다.
-- 다른 Spec의 entity/API/event payload를 바꾸려면 `../docs/spec/boundaries.md §1.2` owner LGTM이 필요하다.
+- Android·Web·외부 연동에 영향을 주는 변경은 실제 소비자까지 확인하고 루트의 변경 범위·호환성 규칙을 따른다.
 - "프로젝트 전반" 정책은 root `AGENTS.md`에 둔다. 이 파일에는 backend 구현 규칙만 둔다.
 
 ## 핵심 규칙
 
-- 기존 AGENTS의 `api/controller`, `api/service` 기준을 유지하고 Android 현장 앱 전용 `app/controller`, `app/service`를 추가한다.
-- Web/프론트엔드 상황판 관련 controller/request DTO는 기존 `api`에, Android 현장 앱 관련 controller/request DTO는 `app`에 둔다.
 - 패키지명 `api`는 URL prefix `/api`와 다르다. `app` 패키지 controller도 public JSON endpoint이면 `/api` prefix를 사용한다.
-- Service 계층도 소비 채널 기준으로 나눈다. Web/프론트엔드 use case는 `api/service`, Android 앱 use case는 `app/service`에 둔다.
 - Domain model, mapper, SQL, 핵심 정책은 채널별로 복제하지 않는다. 공통 로직은 `domain` 기준으로 공유한다.
-- `SuriMapApplication`은 `com.surimap` 루트에 둔다. 같은 레벨의 최상위 패키지는 `api`, `app`, `domain`, `client`, `config`, 기존 공용 기반인 `common`을 사용한다.
 - Controller는 HTTP 요청 수신, 입력 검증, channel/principal 해석, Service 호출, Response DTO 반환만 담당한다.
 - Service는 도메인 객체의 메서드·Mapper·외부 연동을 사용해 업무 흐름, transaction, 권한 검사 순서, event staging을 조율한다.
 - Mapper는 SQL 실행과 row/DTO mapping만 담당한다. domain 판단과 transaction 흐름을 넣지 않는다.
 - Public response로 DB row나 domain object를 직접 반환하지 않는다. API 계약에 맞는 Response DTO로 변환한다.
 - 보호 API를 추가하거나 보안 설정을 바꿀 때는 request parameter보다 인증 principal과 `SecurityContext` 기반 해석을 우선한다.
-- 이름은 `Controller`, `Service`, `QueryService`, `CommandService`, `Mapper`, `Request`, `ServiceRequest`, `Response`, `Config`, `Test`, `TestSupport` 접미사를 사용한다.
+- 이름은 `Controller`, `Service`, `Mapper`, `Request`, `ServiceRequest`, `Response`, `Config`, `Test`, `TestSupport`처럼 역할을 드러낸다. `QueryService`·`CommandService`는 아래 Service 분리 기준을 충족할 때만 사용한다.
 - 이벤트를 조립·발행하는 클래스는 `MarkerEventPublisher`처럼 `{Domain}EventPublisher`로 이름짓고, 실제로 여러 구현을 구분해야 할 때만 `EventHub...Publisher` 같은 구현 방식 접두사를 붙인다.
 - `Reader`, `Provider`, `Manager` 같은 넓은 추상화는 구현 교체 필요나 외부 시스템 경계가 분명할 때만 도입한다.
 
 ## 패키지 설계 원칙
 
-- 이름: `채널별 adapter + 도메인 중심 패키징 + 전역 기반 패키지 분리`
 - `SuriMapApplication`은 `com.surimap` 루트에 둔다. 신규 최상위 패키지는 `api`, `app`, `client`, `config`, `domain`, `global`만 사용한다.
-- 새 도메인 패키지는 Spec/Lane 경계가 드러나게 둔다. 예: `incident`, `account`, `policephone`, `event`, `searcharea`, `path`, `sync`, `marker`, `notification`, `board`, `offline`, `op`, `handover`.
+- 새 도메인 패키지는 실제 업무 대상과 책임이 드러나게 둔다.
 - Web/프론트엔드 controller와 request DTO는 `api/controller/{domain}/...`에 둔다.
 - Android 앱 controller와 request DTO는 `app/controller/{domain}/...`에 둔다.
 - Web/프론트엔드 service와 Service Request/Response DTO는 `api/service/{domain}/...`에 둔다.
@@ -64,13 +54,13 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 
 좋은 예시:
 
-- `api/controller/searcharea/SearchAreaCommandController`
+- `api/controller/searcharea/SearchAreaController`
 - `api/controller/searcharea/request/CreateSearchAreaRequest`
 - `api/controller/board/IncidentBoardController`
 - `app/controller/path/AppSearchPathController`
 - `app/controller/path/request/StartSearchPathRequest`
 - `app/controller/marker/AppMarkerController`
-- `api/service/searcharea/SearchAreaCommandService`
+- `api/service/searcharea/SearchAreaService`
 - `app/service/path/AppSearchPathService`
 - `app/service/path/request/StartSearchPathServiceRequest`
 - `domain/searcharea/SearchArea`, `domain/searcharea/SearchAreaMapper`
@@ -89,16 +79,14 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 ## 예외 처리 기준
 
 - 비즈니스 규칙 위반은 `global/error/BusinessException` 하나로 표현하고, 세부 내용은 `global/error/ErrorCode`로 분류한다.
-- `ErrorCode`는 HTTP status와 API error code를 함께 가진다. 응답 body는 `docs/api/api-spec.md` 기준에 맞춰 `{ "error": "<code>" }` 형태를 유지한다.
+- `ErrorCode`는 HTTP status와 API error code를 함께 가진다. 응답 body는 `{ "error": "<code>" }` 기본형과 기존 소비자 호환성을 유지한다.
 - `GlobalExceptionHandler`는 `BusinessException`을 공통으로 처리한다. controller 또는 도메인마다 같은 모양의 exception handler를 새로 만들지 않는다.
 - 특정 도메인 예외 타입은 catch 타입을 다르게 잡아 복구해야 하는 실제 이유가 있을 때만 추가한다.
 - 예상하지 못한 시스템 예외, DB 장애, 외부 API 장애는 `BusinessException`으로 감싸지 않는다.
 
 ## Persistence
 
-- MyBatis 단일 persistence layer를 사용한다. JPA, Hibernate, Spring Data JPA를 새로 도입하지 않는다.
-- 이유: PostGIS geometry, outbox/idempotency, board query, event staging은 명시적 SQL과 mapper 경계가 더 적합하다.
-- 예외가 필요하면 새 ADR을 작성하고 팀 합의를 받은 뒤 반영한다.
+- Persistence 기술 선택은 루트의 MyBatis 방침을 따른다.
 - Mapper interface + XML mapper를 기본으로 한다.
 - Transaction boundary는 기본적으로 Service layer `@Transactional`에 둔다.
 - 사진 첨부 거부 후에도 실패 상태를 남기는 `PhotoService.failPendingPhoto()`는 예외적으로 `TransactionTemplate`과 `REQUIRES_NEW`를 사용한다. 같은 클래스 내부 호출에서도 실패 상태만 독립 저장하고, 마커·이벤트·요청 처리 기록은 기존 트랜잭션에서 롤백한다.
@@ -106,15 +94,6 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - geometry 컬럼에는 GIST index를 둔다.
 - Geometry 변환은 공용 MyBatis TypeHandler 또는 명시적 mapper DTO 변환으로 처리한다.
 - Flyway migration은 `V{n}__name.sql`, forward-only, expand-and-contract 원칙을 따른다.
-
-Do / Don't:
-
-| Do | Don't |
-|---|---|
-| MyBatis mapper test | JPA slice test |
-| `geometry(Point,4326)` / `geometry(Polygon,4326)` | SRID 없는 geometry |
-| Service `@Transactional` | Mapper에서 transaction 흐름 숨기기 |
-| XML mapper에서 명시적 SQL | ORM entity 전제 추가 |
 
 ## DTO / Layer
 
@@ -125,11 +104,11 @@ Do / Don't:
 - Service는 Controller 패키지의 Request/Response DTO를 import하지 않는다.
 - Service Response DTO는 domain object, mapper row, 조회 결과를 Service 반환 형태로 변환한다.
 - Controller Response DTO는 `from(ServiceResponse)`으로 Public API 응답을 만든다. Service Response를 HTTP 응답으로 직접 반환하지 않는다.
-- DTO는 API fixture field 이름을 보존한다. 하네스 필드명을 임의로 축약하거나 재명명하지 않는다.
+- DTO의 공개 필드명은 실제 소비자·Controller 테스트·fixture와 대조한다. 승인 없이 축약하거나 재명명하지 않는다.
 - 새로 작성하거나 리팩토링하는 DTO는 기본적으로 `class`와 Lombok `@Getter`, `@NoArgsConstructor`, `@Builder`를 사용한다. `@Setter`는 사용하지 않는다. 단순 projection에만 `record`를 예외적으로 사용할 수 있다.
 - Request/Response 이름은 `도메인 + 동작 + 역할` 순서로 짓는다. 예: `SearchPathStartRequest`, `SearchPathStartServiceRequest`, `SearchPathStartResponse`.
 - Controller 응답은 `ResponseEntity<계약 Response DTO>`를 기본으로 사용한다. 공통 `ApiResponse`
-  wrapper를 만들거나 사용하지 않는다. 응답 body는 `docs/api/api-spec.md`의 JSON shape와 직접 일치해야 한다.
+  wrapper를 만들거나 사용하지 않는다. 응답 body는 합의한 계약을 따르며 소비자 코드와 Controller 테스트로 검증한다.
 
 ```java
 @PostMapping("/api/search-paths")
@@ -147,6 +126,8 @@ ResponseEntity<SearchPathStartResponse> start(
 ## 테스트 기준
 
 - 테스트 클래스명은 `<검증 대상>Test`로 작성한다. 예: `MarkerControllerTest`, `MarkerServiceTest`, `MarkerMapperTest`, `MarkerTest`, `SseConnectionRegistryTest`.
+- 클래스의 검증 대상은 클래스명으로 드러내고, `@DisplayName`은 테스트 메서드에 한글로 작성한다. 조건과 기대 결과를 표현하되 `[A할 경우, B한다]` 같은 문장 형식을 강제하지 않는다.
+- 테스트 메서드명은 영어로 작성하고 밑줄로 조건·동작·결과를 구분한다. given/when/then 주석의 설명은 한글로 작성한다.
 - 클래스명은 실제 대상이나 업무 동작으로 구분한다. TDD 단계(`Red`, `Failing`)나 테스트 분류(`Unit`, `Integration`, `Scenario`, `E2E`)를 접미사로 덧붙이지 않는다.
 - 단위·통합·E2E의 검증 범위는 실제 연결한 구성 요소, 대역 사용 여부와 검증 내용으로 판단한다. 이름 정리를 이유로 필요한 통합·전체 흐름 검증을 생략하지 않는다.
 - Domain 규칙은 Spring 없이 단위 테스트로 확인한다. 예: 계산, 상태 변경, 값 검증.
@@ -158,6 +139,10 @@ ResponseEntity<SearchPathStartResponse> start(
 - `HarnessTest`, `HarnessRunner`는 테스트 종류나 최종 테스트 클래스 이름으로 사용하지 않는다. 테스트 지원 코드가 필요하면 `FixtureLoader`, `ScenarioDriver`, `ApiClient`처럼 실제 역할이 드러나는 이름을 사용한다.
 - Service Test는 Controller를 호출하지 않고 Mapper와 DB를 Fake나 Mock으로 바꾸지 않는다. Mapper Test도 Service를 호출하지 않는다.
 - 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 실제 역할을 드러낸다.
+- 테스트는 기존 JUnit 5·AssertJ·Spring Security Test·MyBatis 테스트 구성을 사용한다. Controller는 channel/role guard·validation·오류 응답도 확인한다.
+- Event/SSE는 envelope·Last-Event-ID 재전송·`gone_refetch_required`를 검증한다. Parser·변환·정책처럼 순수 로직은 Spring 없이 검증한다.
+- PostGIS 통합 테스트는 기존 `PostGisIntegrationTestSupport`를 재사용한다. 도메인마다 별도 컨테이너 기반 클래스를 만들지 않는다.
+- Spring REST Docs와 `ValidationMessages.properties`는 현재 의존성 기준 강제하지 않는다.
 
 ## Service 분리 기준
 
@@ -169,7 +154,7 @@ ResponseEntity<SearchPathStartResponse> start(
 
 ## API / Transaction Rule
 
-모든 domain write는 `../docs/spec/boundaries.md §4.3` 순서를 따른다.
+domain write에서 지켜야 할 순서다. 각 호출부가 실제로 지키는지는 코드와 테스트로 확인한다.
 
 1. authorization
 2. incident lifecycle guard
@@ -185,33 +170,15 @@ ResponseEntity<SearchPathStartResponse> start(
 - Tileserver는 Spring Boot JSON API가 아니므로 `/tiles`를 사용한다.
 - SSE endpoint는 `text/event-stream` 계약을 따르며 `SseEmitter` 또는 스트림 전용 응답을 쓸 수 있다.
 - Error response 기본형은 `{ "error": "incident_closed" }`다.
-- Validation 상세 응답을 확장하려면 API spec과 테스트를 먼저 맞춘다.
+- Validation 상세 응답을 확장하려면 소비자 영향을 확인하고 응답 형식을 합의한 뒤 테스트로 검증한다.
 - Controller는 `Idempotency-Key`와 인증 정보를 Service Request에 담아 전달한다. 요청 해시 생성, 응답 재사용, 임시 `Map` 관리는 Service와 `IdempotentResponseCache` 경계에서 처리한다.
 - 멱등성 요청 해시는 DTO의 `toString()`이 아니라 구조화된 JSON 직렬화 결과로 계산한다.
 
 ## Guard / Security
 
 - Channel은 `X-Client-Channel` 기준으로 `APP`, `WEB`, `INTERNAL`을 구분한다.
-- Guard 의미는 `../docs/spec/boundaries.md §4.6` Channel/Role Matrix와 §9 API 표를 따른다.
+- 권한 검사는 `config/SecurityConfig`와 해당 Controller·Service의 실제 검증 경로를 확인한다. 문서에 적힌 검사만으로 보호되고 있다고 판단하지 않는다.
 - `@RequireIncidentAccess`, `@RequireRole`, `@RequireChannel`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned`, `@RequireOpenIncident`, `@RequireCurrentOp`, `@IdempotentWrite`의 책임을 섞지 않는다.
 - 앱 전용 write를 웹에서 허용하지 않는다. 웹 전용 command를 앱에서 허용하지 않는다.
 - 위치 데이터 조회 API는 `@RecordLocationAccess` 적용 여부를 확인한다.
 - 경로 기록 주체는 개인 `accountId`다. `PolicePhone`은 앱 단말 인증, 배정 guard, 전송 컨텍스트로만 함께 남긴다.
-
-## Test
-
-- 기본 검증: `./gradlew test`
-- 테스트는 JUnit 5, AssertJ, Spring Security Test, MyBatis Spring Boot Test 기준으로 작성한다.
-- Controller: channel/role guard, request/response, error body를 검증한다.
-- Mapper: MyBatis mapper test와 PostGIS geometry 변환을 검증한다.
-- Service: transaction rule, idempotency, event staging, rollback을 검증한다.
-- Event/SSE: envelope, Last-Event-ID replay, `gone_refetch_required`를 검증한다.
-- Parser, mapper DTO 변환, policy처럼 순수 로직 중심 클래스는 Spring 컨텍스트 없이 unit test를 우선한다.
-- PostGIS 통합 테스트는 기존 `PostGisIntegrationTestSupport`와 Testcontainers 구성을 재사용한다. 도메인마다 별도 컨테이너 기반 클래스를 만들지 않는다.
-- Spring REST Docs와 `ValidationMessages.properties`는 현재 의존성 기준 강제하지 않는다.
-- RED test는 기준 문서의 API, event, error, fixture ID를 문자열 그대로 사용한다.
-
-## Commit
-
-- 커밋 메시지와 area tag는 `../docs/tasks/index.md`를 따른다.
-- Backend 단독 변경은 `[BE]`, Backend와 다른 영역을 함께 바꾸면 `[BE/FE/Android/Infra]`처럼 slash 구분 area tag를 사용한다.
