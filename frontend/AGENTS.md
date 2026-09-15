@@ -2,18 +2,14 @@
 
 Suri-Map Web 상황판 전용 규칙이다. 저장소 공통 규칙은 `../AGENTS.md`를 먼저 따른다.
 
-## 기준 문서
+## 확인 위치
 
-| 관심사 | 기준 |
+| 확인할 내용 | 위치 |
 |---|---|
-| Public API | `../docs/api/api-spec.md` |
-| Board slot / SSE contract | `../docs/spec/boundaries.md §9` |
-| Harness scenario | `../docs/spec/harness-scenarios.md` |
-| Current stack | `package.json` |
-
-## 현재 스택
-
-현재 frontend stack은 React 19, TypeScript, Vite, MapLibre GL JS, TanStack Query, Zustand, lucide-react다. Routing, HTTP client, DI, styling library는 `package.json`에 실제 존재하는 의존성 기준으로만 결정한다.
+| 의존성·빌드 명령 | `package.json` |
+| HTTP·SSE 수신 | `src/shared/api/`와 각 feature의 API 호출부 |
+| 상황판 조립·슬롯 | `src/features/situationBoard/`와 Backend 상황판 응답 |
+| 마커 알림 표시 | `src/features/markerNotifications/`와 관련 테스트 |
 
 ## 프로젝트 / 플랫폼 개요
 
@@ -79,8 +75,8 @@ src/
 
 ## Board / Map
 
-- Board shell, slot mounting, shared state wiring은 S3-2 경계를 따른다.
-- Slot 이름은 `../docs/spec/boundaries.md §9.2`를 그대로 사용한다: `overall_search_area`, `area`, `path`, `police_phone_freshness`, `marker`, `package_badge`, `op_toggle`, `handover_memo`, `search_history_summary`, `incident_terminal` 등.
+- 상황판 전체 조립과 개별 슬롯의 책임을 구분한다.
+- Slot 이름과 데이터 형식은 Backend 응답, 프론트엔드 타입·처리 코드, 관련 테스트를 대조한다. 변경 시 양쪽 소비자 호환성을 검증한다.
 - MapLibre source/layer id는 slot과 entity가 드러나게 정한다.
 - `search_area.area_level = OVERALL`은 초기 viewport와 package 범위 기준이다. 자동 누락 판단 기준으로 쓰지 않는다.
 - PolicePhone freshness는 색, 외곽선, 라벨 같은 시각 인코딩으로만 표현하고 별도 알림으로 만들지 않는다.
@@ -88,7 +84,8 @@ src/
 ## Realtime
 
 - Web 실시간은 SSE `GET /api/incidents/{incidentId}/events`를 사용한다.
-- SSE payload는 refetch signal이다. 별도 board read-model DB나 클라이언트 단독 truth를 만들지 않는다.
+- 상황판 데이터 갱신을 위한 재조회와 SSE 이벤트를 이용한 알림 표시를 구분한다. 상황판 재조회가 놓친 알림까지 복구한다고 가정하지 않는다.
+- 별도 board read-model DB나 클라이언트 단독 truth를 만들지 않는다.
 - `eventId`로 중복 적용을 막고, replay가 불가능하면 board API를 재조회한다.
 - WebSocket을 추가하지 않는다.
 
@@ -101,11 +98,6 @@ src/
 - CSS는 component와 가까운 위치에 두고, class name은 역할이 드러나게 한다.
 - Inline style은 MapLibre overlay, dynamic geometry, CSS 변수 주입처럼 런타임 값이 필요한 경우에만 사용한다.
 - 자동 판단, 추천, 위험도 판정처럼 제품 범위를 넘는 문구를 넣지 않는다.
-
-## 빌드 / 테스트 명령
-
-- Type check: `npm run typecheck`
-- Build: `npm run build`
 
 ## 테스트 지침
 

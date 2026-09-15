@@ -6,7 +6,7 @@
 
 - L1-B01 산출물. 모든 Lane(L1~L6)이 SC-01/02/10/12 fixture를 같은 ID로 소비할 수 있게 한다.
 - 본 카탈로그가 가리키는 mock-112 seed가 변경되면 §6과 일관되게 유지하는 책임은 L1 Lane owner에게 있다.
-- §6 자체를 수정하려면 `.agents/scripts/check-fixture-contract.py` 가드와 owner LGTM 경로를 따른다 (`AGENTS.md`, `docs/tasks/review-guide.md` 참조).
+- fixture 변경의 범위와 승인 절차는 루트 `AGENTS.md`를 따른다.
 
 ## 1. 사건 / 실종자
 
@@ -91,6 +91,6 @@ S5 소유의 SC-06/08용 marker fixture (`mk-precinct-support-001`, `mk-precinct
 
 ## 7. 변경 / 확장 절차
 
-1. §6에 새 fixture ID 추가가 필요하면 먼저 영향 Lane owner LGTM을 받고 `ALLOW_FIXTURE_ID_CHANGE=1`로 `check-fixture-contract.py` 통과 후 §6 수정.
-2. §6이 갱신되면 본 카탈로그를 같은 MR에서 동기화한다.
+1. fixture ID 추가·변경이 필요하면 실제 seed·테스트 사용처를 확인하고 영향과 변경 범위를 합의한다.
+2. §6이 갱신되면 본 카탈로그를 같은 변경에서 동기화한다.
 3. mock-112 seed JSON 또는 schema 변경 시 본 카탈로그의 §1~§4 매핑이 깨지지 않는지 검증한다 (`mock-112` 모듈 unit test로 권장).

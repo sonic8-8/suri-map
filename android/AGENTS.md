@@ -2,18 +2,14 @@
 
 Suri-Map Android 현장 앱 전용 규칙이다. 저장소 공통 규칙은 `../AGENTS.md`를 먼저 따른다.
 
-## 기준 문서
+## 확인 위치
 
-| 관심사 | 기준 |
+| 확인할 내용 | 위치 |
 |---|---|
-| Android stack | `gradle/libs.versions.toml`, `app/build.gradle.kts` |
-| Offline sync / path contract | `../docs/spec/boundaries.md` S3-1, S6 |
-| Package / tile contract | `../docs/spec/boundaries.md` S7 |
-| Marker/photo contract | `../docs/spec/boundaries.md` S5 |
-
-## 현재 스택
-
-현재 Android stack은 Kotlin, Jetpack Compose, Room, WorkManager, MapLibre Native Android, AGP/Kotlin/KSP 버전 catalog 기준이다.
+| 의존성·버전·빌드 | `gradle/libs.versions.toml`, `app/build.gradle.kts` |
+| 로컬 저장·동기화 | `app/src/main/java/com/surimap/core/database/`, `app/src/main/java/com/surimap/core/sync/` |
+| 위치 수집·경로 기록 | `app/src/main/java/com/surimap/core/location/`, `app/src/main/java/com/surimap/feature/search/data/` |
+| 서버와의 계약 | 실제 API 요청·응답 변환 코드, Backend Controller·DTO와 관련 테스트 |
 
 ## 프로젝트 / 플랫폼 개요
 
@@ -63,16 +59,16 @@ app/src/main/java/com/surimap/
 
 ## Offline-first
 
-- Room/local DB를 앱의 source of truth로 둔다.
+- 앱 화면의 데이터 기준은 Room/local DB로 둔다.
 - 현장 write는 로컬 저장을 먼저 하고 Outbox replay로 서버 동기화한다.
-- 서버 write payload에는 spec 기준 idempotency key를 보존한다.
+- 서버 write를 재시도할 때 같은 요청의 idempotency key를 보존한다.
 - 서버 전송 실패를 로컬 기록 실패로 취급하지 않는다.
 - 서버 ack 전 로컬 원본을 삭제하지 않는다.
 - WorkManager는 네트워크 복구, retry, purge cleanup을 담당한다.
 - Partial success를 표현하고 성공 항목만 ack 처리한다.
 - 사건 종료 후에는 새 flush/requeue를 시작하지 않고, acked 항목만 purge 대상으로 삼는다.
 
-Outbox 상태는 S6 기준을 따른다: `PENDING`, `SENDING`, `ACKED`, `FAILED_RETRYABLE`, `FAILED_FINAL`, `PURGED`.
+Outbox 상태와 전이 조건은 `app/src/main/java/com/surimap/core/sync/OutboxStateMachine.kt`와 관련 테스트에서 확인한다.
 
 ## PolicePhone / Path
 
@@ -80,13 +76,13 @@ Outbox 상태는 S6 기준을 따른다: `PENDING`, `SENDING`, `ACKED`, `FAILED_
 - `PolicePhone`은 앱 단말 인증, 배정 guard, outbox 전송 컨텍스트로 유지한다.
 - 모든 현장 write는 현재 `incidentId`, `opId`, `accountId`, `policePhoneId`, 필요 시 `dutyShiftId`에 귀속된다.
 - SearchPath는 수색 시작부터 종료까지의 경로 단위다. 기록 종료 후 다시 시작하면 새 SearchPath다.
-- GPS 수집은 5초, 서버 전송은 10초 batch 기준이다.
+- GPS 수집 주기, 좌표 묶음 조건, HTTP 전송 간격을 구분한다. 각각 `LocationRecorder.kt`, `SearchPathGpsBatchRecorder.kt`, `OutboxWorker.kt`와 호출·설정 경로에서 확인한다. 묶음 조건을 고정 전송 간격으로 해석하거나 부하테스트 가정을 제품 설정으로 취급하지 않는다.
 - 차량/도보 자동 분류 결과는 표시할 수 있지만, 수동 보정 command는 웹 전용이다.
 
 ## Marker / Photo
 
 - 현장 마커 생성은 앱 전용이다.
-- Marker type은 spec 기준을 사용한다: `CLUE`, `PERSON_FOUND`, `FIELD_CONDITION`, `SUPPORT_REQUEST`, `NOTE`.
+- Marker type은 서버·앱이 함께 사용하는 값을 보존한다: `CLUE`, `PERSON_FOUND`, `FIELD_CONDITION`, `SUPPORT_REQUEST`, `NOTE`.
 - 지원 요청 type은 `DRONE`, `POLICE_DOG`, `OTHER`만 사용한다.
 - 사진은 마커 생성/첨부 흐름에서만 다룬다. 업로드 성공 전 로컬 원본을 삭제하지 않는다.
 - 사진 제한은 마커당 10장, 파일당 10MB 기준이다.
@@ -107,17 +103,12 @@ Outbox 상태는 S6 기준을 따른다: `PENDING`, `SENDING`, `ACKED`, `FAILED_
 
 ## Error
 
-- 서버 error code는 `../docs/spec/boundaries.md §4.1` 값을 그대로 사용한다.
+- 서버 error code는 실제 오류 응답과 앱의 변환·재시도 처리 코드를 대조하고, 변경 시 양쪽 호환성을 검증한다.
 - `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_closed`, `op_mismatch`, `idempotency_mismatch`는 재시도 가능 여부를 구분한다.
 - 문자열 error를 UI에 직접 흘리지 말고 domain/UI state로 변환한다.
-
-## 빌드 / 테스트 명령
-
-- Build: `./gradlew :app:assembleDebug`
-- 테스트 추가 후: `./gradlew test`
 
 ## 테스트 지침
 
 - Unit test는 Android framework 없이 가능한 domain/usecase/mapper부터 작성한다.
 - Room, Outbox state transition, WorkManager retry, partial success, ack-before-delete를 우선 검증한다.
-- Harness fixture ID와 API path는 `../docs/spec/harness-scenarios.md`, `../docs/api/api-spec.md`를 그대로 사용한다.
+- fixture ID와 API path는 실제 사용처를 확인하며 승인 없이 바꾸지 않는다. 테스트가 읽는 문서·JSON 파일을 설명 자료로 오인해 삭제하지 않는다.
