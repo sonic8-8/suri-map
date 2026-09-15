@@ -56,7 +56,7 @@ public class SecurityConfig {
                         "/mock-upload/**")
                     .permitAll()
                     .anyRequest()
-                    .access(SecurityConfig::hasSuriMapAuthentication))
+                    .access(SecurityConfig::checkSuriMapAuthentication))
         .exceptionHandling(
             exceptionHandling ->
                 exceptionHandling.authenticationEntryPoint(
@@ -126,7 +126,7 @@ public class SecurityConfig {
         .toList();
   }
 
-  private static AuthorizationDecision hasSuriMapAuthentication(
+  private static AuthorizationDecision checkSuriMapAuthentication(
       Supplier<Authentication> authentication, RequestAuthorizationContext context) {
     var current = authentication.get();
     return new AuthorizationDecision(

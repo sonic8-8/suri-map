@@ -52,7 +52,7 @@
 
 ### 연결별 오류 처리: 실패한 연결을 제외하고 나머지 전송을 계속
 
-[SseStreamSessionRegistry.java](../../../backend/src/main/java/com/surimap/eventhub/stream/SseStreamSessionRegistry.java)의 사건·계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송·종료는 계속합니다. 전송 실패 로그에는 이벤트 ID·순번·예외 타입을 남깁니다.
+[SseConnectionRegistry.java](../../../backend/src/main/java/com/surimap/eventhub/stream/SseConnectionRegistry.java)의 사건·계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송·종료는 계속합니다. 전송 실패 로그에는 이벤트 ID·순번·예외 타입을 남깁니다.
 
 [SseEmitterLiveEventSink.java](../../../backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 `IOException`을 `UncheckedIOException`으로 전달해 연결 목록에서 실패를 처리하도록 변경했습니다. I/O 오류 이후 HTTP 연결을 완료하는 처리는 Servlet 컨테이너에 맡기고, 직접 호출하던 `completeWithError()`는 제거했습니다. 이는 [Spring MVC의 스트리밍 오류 처리 지침](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-async.html#mvc-ann-async-objects)에 따른 변경입니다.
 
@@ -66,8 +66,8 @@
 
 | 검증 대상 | 확인한 동작 | 결과 |
 |---|---|---|
-| [연결 관리 테스트](../../../backend/src/test/java/com/surimap/eventhub/stream/SseStreamSessionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
-| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobSseFanoutIntegrationTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
+| [연결 관리 테스트](../../../backend/src/test/java/com/surimap/eventhub/stream/SseConnectionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
+| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobDispatcherTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
 | 전체 Backend 테스트 | `./gradlew test` | 1,227개 통과, 222개 클래스, 실패·오류·건너뜀 0건 |
 
 전체 테스트는 3분 29초가 걸렸습니다. 변경 Java 파일 4개의 포맷과 공백 검사도 통과했습니다. 테스트 종료 중 닫힌 DB 커넥션 경고 1건이 있었으며 테스트 실패는 없었습니다. 통합 테스트에서 확인한 `COMPLETED`는 서버의 전송 처리 완료이지, 실제 브라우저의 알림 표시 확인은 아닙니다.
@@ -76,8 +76,8 @@
 
 ```bash
 ./gradlew test \
-  --tests 'com.surimap.eventhub.stream.SseStreamSessionRegistryTest' \
-  --tests 'com.surimap.eventhub.EventDispatchJobSseFanoutIntegrationTest'
+  --tests 'com.surimap.eventhub.stream.SseConnectionRegistryTest' \
+  --tests 'com.surimap.eventhub.EventDispatchJobDispatcherTest'
 ```
 
 최초 Smoke Test는 격리된 로컬 PostGIS DB, 현재 Backend·Frontend 개발 서버와 실제 브라우저를 연결해 수행했습니다. 업무폰 요청은 `APP` 헤더를 넣은 직접 HTTP 요청으로 대체했으며 실제 Android 앱이나 합성 SSE 프레임은 사용하지 않았습니다. [당시 실행 기록](../../../_workspace/marker-sse-smoke-20260914.yJUQJb/RESULTS.md)에 준비 방법과 관측 결과가 있습니다. `_workspace` 자료는 로컬 전용이며 Git에는 포함되지 않습니다.
@@ -108,3 +108,13 @@
 `Access Denied`는 이미 끊어진 SSE 요청의 비동기 종료 처리에서 인증 정보가 사라지는 문제로 분리했습니다. 진단 실험과 남은 수정 범위는 [로컬 이슈 3](3-authenticated-sse-access-denied-on-disconnect.md)에 기록했습니다. 임시 인증 코드와 진단 로그는 모두 제거했으며, 현재 제품 코드에는 해당 오류가 남아 있습니다.
 
 [후속 검증 기록](../../../_workspace/marker-sse-recheck-20260914.3ZVoue/RESULTS.md)에 실행 조건·로그·화면을 보관했습니다. 이 자료와 이미지는 로컬 전용입니다. 이번에는 자동 테스트 전체를 다시 실행하거나 GitHub 등록·푸시·배포·부하테스트를 진행하지 않았습니다.
+
+### 2026-09-15 재검증: 전송 완료 후 알림 창 누락은 남음
+
+[로컬 이슈 3](3-authenticated-sse-access-denied-on-disconnect.md)의 요청 범위 인증 보관을 수정한 뒤 다시 확인했습니다. 직접 연결 종료 재현 3회에서 접근 거부 예외는 0건이었습니다. 다만 첫 접속·새로고침·화면 복귀·소켓 종료 후 재연결을 2회씩 실행한 결과, 8회 중 2회는 새 이벤트와 상황판 데이터가 도착해도 알림 창을 찾지 못했습니다.
+
+누락된 마커 2개의 `MARKER_CREATED`·`PERSON_FOUND` 전송 작업 4개는 모두 `COMPLETED`였습니다. 이 증상을 실패한 연결이 다른 전송을 중단하던 최초 문제와 같은 원인으로 보지는 않습니다. 전체 브라우저 검증은 미완료로 두고, 알림 대기열 처리와 검증 타이밍을 이어서 확인합니다.
+
+![SSE와 상황판 데이터는 수신했지만 알림 창이 나타나지 않은 첫 접속 화면](../../../_workspace/sse-refactor-auth-20260915.eJs7yN/initial-popup-missing.png)
+
+[이번 검증의 로그·화면·미확정 사항](../../../_workspace/sse-refactor-auth-20260915.eJs7yN/RESULTS.md)에 상세 내용을 보관했습니다. 이미지와 진단 자료는 로컬 전용이며, 이번에 Frontend 제품 코드를 추가로 수정하지는 않았습니다.

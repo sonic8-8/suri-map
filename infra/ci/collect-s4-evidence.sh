@@ -21,7 +21,7 @@ SC09_PAYLOAD_ID="30000000-0000-4000-8000-000000000501"
 SC09_TYPE="PATH_APPENDED"
 
 REPLAY_CLASS="com.surimap.eventhub.SseSequenceEnvelopeReplayTest"
-FANOUT_CLASS="com.surimap.eventhub.LiveSseFanoutRedTest"
+FANOUT_CLASS="com.surimap.eventhub.SseStreamServiceTest"
 
 mkdir -p "${S4_EVIDENCE_ARTIFACT_DIR}"
 
@@ -95,9 +95,9 @@ What was tested:
   - Last-Event-ID replay ordering: SSE id line carries incident-scoped
     replay_sequence; events after the given Last-Event-ID are returned
     in ascending replay_sequence order.
-  - Duplicate dedup: the same eventId is never sent twice; duplicate
-    publish attempts produce a single event_dispatch_job row and a
-    single sse_replay_event row enforced by unique constraints.
+  - Repeated append of the same eventId keeps one in-memory replay event
+    and reuses its sequence. These tests do not verify database uniqueness
+    constraints or persistence across server restarts.
   - Replay only emits events with replay_sequence > Last-Event-ID cursor.
 EOF
 
@@ -115,15 +115,13 @@ Test Class : ${FANOUT_CLASS}
 Status     : ${FANOUT_STATUS}
 
 What was tested:
-  - Durable replay append before emitter delivery: SSE_REPLAY target is
-    appended once per eventId before LIVE_SSE delivery is attempted.
-  - Live fanout convergence: all connected SSE consumers for the incident
-    receive the envelope within the fanout pass; consumer count 1/1 (100%).
-  - Fanout idempotency: event_dispatch_target rows keyed by
-    (event_dispatch_job_id, target_type, target_identifier) prevent
-    duplicate delivery on retry paths.
-  - FCM target with empty recipients is recorded as SKIPPED without
-    blocking SSE_REPLAY or LIVE_SSE fanout targets.
+  - The in-memory replay event exists before the capturing SSE sink
+    receives the matching sequence and payload.
+  - Duplicate event dispatch stores and sends the event only once.
+  - Incident closure removes live connections; incident purge removes
+    replay data and rejects later replay and new event dispatch.
+  - The captured consumer is a test sink. These tests do not verify
+    database dispatch targets, FCM, network delivery or browser rendering.
 EOF
 
 # --- Write s4-release-note.txt ---

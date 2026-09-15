@@ -14,17 +14,17 @@ public class SseStreamService {
 
   private final SseReplayService replayService;
   private final SseReplayEventStore replayEventStore;
-  private final SseStreamSessionRegistry sessionRegistry;
+  private final SseConnectionRegistry connectionRegistry;
 
   public SseStreamService(
       SseReplayService replayService,
       SseReplayEventStore replayEventStore,
-      SseStreamSessionRegistry sessionRegistry) {
+      SseConnectionRegistry connectionRegistry) {
     this.replayService = Objects.requireNonNull(replayService, "replayService must not be null");
     this.replayEventStore =
         Objects.requireNonNull(replayEventStore, "replayEventStore must not be null");
-    this.sessionRegistry =
-        Objects.requireNonNull(sessionRegistry, "sessionRegistry must not be null");
+    this.connectionRegistry =
+        Objects.requireNonNull(connectionRegistry, "connectionRegistry must not be null");
   }
 
   public SseEmitter openStream(UUID incidentId, String lastEventId) {
@@ -37,7 +37,7 @@ public class SseStreamService {
       return emitter;
     }
 
-    AutoCloseable registration = sessionRegistry.register(incidentId, sink);
+    AutoCloseable registration = connectionRegistry.registerForIncident(incidentId, sink);
 
     emitter.onCompletion(() -> closeQuietly(registration));
     emitter.onTimeout(() -> closeQuietly(registration));
@@ -56,7 +56,7 @@ public class SseStreamService {
   public SseEmitter openAccountStream(UUID accountId) {
     var emitter = new SseEmitter(0L);
     var sink = new SseEmitterLiveEventSink(emitter);
-    AutoCloseable registration = sessionRegistry.registerAccount(accountId, sink);
+    AutoCloseable registration = connectionRegistry.registerForAccount(accountId, sink);
 
     emitter.onCompletion(() -> closeQuietly(registration));
     emitter.onTimeout(() -> closeQuietly(registration));
@@ -71,14 +71,15 @@ public class SseStreamService {
     var append = replayEventStore.append(eventDispatchJobId, request);
     if (append.isNew()) {
       SseEventFrame frame = replayService.frameOf(append.event());
-      sessionRegistry.send(request.incidentId(), frame);
-      assignedAccountIds(request).forEach(accountId -> sessionRegistry.sendToAccount(accountId, frame));
+      connectionRegistry.sendToIncident(request.incidentId(), frame);
+      assignedAccountIds(request)
+          .forEach(accountId -> connectionRegistry.sendToAccount(accountId, frame));
     }
     if (append.isNew() && INCIDENT_CLOSED.equals(request.type())) {
-      sessionRegistry.release(request.incidentId());
+      connectionRegistry.closeIncidentConnections(request.incidentId());
     }
     if (append.isNew() && INCIDENT_PURGED.equals(request.type())) {
-      sessionRegistry.release(request.incidentId());
+      connectionRegistry.closeIncidentConnections(request.incidentId());
       replayEventStore.purgeIncident(request.incidentId());
     }
     return append;
