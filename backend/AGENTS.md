@@ -146,15 +146,15 @@ ResponseEntity<SearchPathStartResponse> start(
 
 ## 테스트 기준
 
-- 테스트 이름에 `Red`, `RED`, `Failing`처럼 TDD 진행 단계를 남기지 않는다. TDD 단계는 작업 과정이고, 최종 테스트 이름은 검증하는 동작을 설명해야 한다.
+- 테스트 클래스명은 `<검증 대상>Test`로 작성한다. 예: `MarkerControllerTest`, `MarkerServiceTest`, `MarkerMapperTest`, `MarkerTest`, `SseConnectionRegistryTest`.
+- 클래스명은 실제 대상이나 업무 동작으로 구분한다. TDD 단계(`Red`, `Failing`)나 테스트 분류(`Unit`, `Integration`, `Scenario`, `E2E`)를 접미사로 덧붙이지 않는다.
+- 단위·통합·E2E의 검증 범위는 실제 연결한 구성 요소, 대역 사용 여부와 검증 내용으로 판단한다. 이름 정리를 이유로 필요한 통합·전체 흐름 검증을 생략하지 않는다.
 - Domain 규칙은 Spring 없이 단위 테스트로 확인한다. 예: 계산, 상태 변경, 값 검증.
 - `*MapperTest`는 `SpringBootTest`로 실제 MyBatis mapper, PostgreSQL/PostGIS, SQL result mapping을 확인한다.
 - `*ServiceTest`는 `SpringBootTest`로 실제 mapper, DB, transaction, event staging이 함께 동작하는지 확인한다.
 - `*ControllerTest`는 `WebMvcTest`로 HTTP request/response, header, validation, status code, error body를 확인한다. 이 레이어에서는 service mocking을 허용한다.
-- 일반 기능 테스트는 Domain Test, `*MapperTest`, `*ServiceTest`, `*ControllerTest` 네 종류를 기본으로 한다. API 계약은 Controller Test, DB 매핑은 Mapper Test, 업무 흐름과 이벤트 저장은 Service Test에서 확인한다.
-- 여러 기능을 하나의 사용자 또는 업무 흐름으로 연결해 확인해야 할 때만 `*ScenarioTest`를 사용한다. 네 종류의 테스트로 나눠도 같은 내용을 명확히 확인할 수 있다면 별도 Scenario Test를 만들지 않는다.
-- 실제 실행 환경의 공개 API부터 DB, 이벤트, 외부 연동처럼 사용자가 확인할 수 있는 최종 결과까지 검증할 때만 `*E2ETest`를 사용한다. Spring Context를 띄우거나 MockMvc를 사용한다는 이유만으로 E2E Test라고 부르지 않는다.
-- 회귀 테스트는 별도 테스트 종류가 아니다. 고친 문제가 다시 발생하지 않는지 해당 레이어의 테스트 또는 Scenario/E2E Test에서 확인하고, `*RegressionTest`라는 클래스 이름은 사용하지 않는다.
+- API 계약은 Controller Test, DB 매핑은 Mapper Test, 업무 흐름과 이벤트 저장은 Service Test에서 확인한다.
+- 버그 재발 검증은 해당 동작을 담당하는 대상의 테스트에 포함한다. 회귀 여부를 기준으로 별도 테스트 종류나 클래스 이름을 만들지 않는다.
 - `HarnessTest`, `HarnessRunner`는 테스트 종류나 최종 테스트 클래스 이름으로 사용하지 않는다. 테스트 지원 코드가 필요하면 `FixtureLoader`, `ScenarioDriver`, `ApiClient`처럼 실제 역할이 드러나는 이름을 사용한다.
 - Service Test는 Controller를 호출하지 않고 Mapper와 DB를 Fake나 Mock으로 바꾸지 않는다. Mapper Test도 Service를 호출하지 않는다.
 - 테스트에서 이벤트를 기록만 하는 구현은 `Capturing...Publisher`처럼 실제 역할을 드러낸다.

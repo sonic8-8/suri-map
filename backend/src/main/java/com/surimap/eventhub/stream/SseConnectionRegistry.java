@@ -9,25 +9,25 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SseStreamSessionRegistry {
+public class SseConnectionRegistry {
 
-  private static final Logger log = LoggerFactory.getLogger(SseStreamSessionRegistry.class);
+  private static final Logger log = LoggerFactory.getLogger(SseConnectionRegistry.class);
 
   private final ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> sinksByIncident =
       new ConcurrentHashMap<>();
   private final ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> sinksByAccount =
       new ConcurrentHashMap<>();
 
-  public AutoCloseable register(UUID incidentId, SseLiveEventSink sink) {
+  public AutoCloseable registerForIncident(UUID incidentId, SseLiveEventSink sink) {
     sinksByIncident.computeIfAbsent(incidentId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
     return () -> unregister(sinksByIncident, incidentId, sink);
   }
 
-  public void send(UUID incidentId, SseEventFrame frame) {
+  public void sendToIncident(UUID incidentId, SseEventFrame frame) {
     sendToRegisteredSinks(sinksByIncident, incidentId, frame);
   }
 
-  public AutoCloseable registerAccount(UUID accountId, SseLiveEventSink sink) {
+  public AutoCloseable registerForAccount(UUID accountId, SseLiveEventSink sink) {
     sinksByAccount.computeIfAbsent(accountId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
     return () -> unregister(sinksByAccount, accountId, sink);
   }
@@ -36,7 +36,7 @@ public class SseStreamSessionRegistry {
     sendToRegisteredSinks(sinksByAccount, accountId, frame);
   }
 
-  public void release(UUID incidentId) {
+  public void closeIncidentConnections(UUID incidentId) {
     var sinks = sinksByIncident.remove(incidentId);
     if (sinks == null) {
       return;
@@ -50,9 +50,9 @@ public class SseStreamSessionRegistry {
 
   private void sendToRegisteredSinks(
       ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> registeredSinks,
-      UUID subscriptionId,
+      UUID subscriptionTargetId,
       SseEventFrame frame) {
-    var sinks = registeredSinks.get(subscriptionId);
+    var sinks = registeredSinks.get(subscriptionTargetId);
     if (sinks == null) {
       return;
     }
@@ -64,7 +64,7 @@ public class SseStreamSessionRegistry {
         if (exception instanceof IllegalStateException && exception.getCause() != null) {
           throw exception;
         }
-        unregister(registeredSinks, subscriptionId, sink);
+        unregister(registeredSinks, subscriptionTargetId, sink);
         log.warn(
             "SSE connection removed after send failure. eventId={}, sequence={}, failureType={}",
             frame.data().eventId(),
@@ -88,15 +88,15 @@ public class SseStreamSessionRegistry {
 
   private void unregister(
       ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> registeredSinks,
-      UUID subscriptionId,
+      UUID subscriptionTargetId,
       SseLiveEventSink sink) {
-    var sinks = registeredSinks.get(subscriptionId);
+    var sinks = registeredSinks.get(subscriptionTargetId);
     if (sinks == null) {
       return;
     }
     sinks.remove(sink);
     if (sinks.isEmpty()) {
-      registeredSinks.remove(subscriptionId, sinks);
+      registeredSinks.remove(subscriptionTargetId, sinks);
     }
   }
 }

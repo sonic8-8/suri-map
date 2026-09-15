@@ -8,10 +8,10 @@ SSE는 클라이언트와 서버 사이의 HTTP 연결을 오래 유지한다. �
 
 ## 확인한 코드 흐름
 
-- `SseStreamService.openStream(...)`에서 사건별 SSE sink를 `SseStreamSessionRegistry`에 등록한다.
+- `SseStreamService.openStream(...)`에서 사건별 SSE sink를 `SseConnectionRegistry`에 등록한다.
 - `SseEmitter`의 completion, timeout, error callback에서 등록 해제 handle을 호출한다.
-- `SseStreamSessionRegistry`는 incident id별 sink 목록을 `ConcurrentHashMap`과 `CopyOnWriteArrayList`로 관리한다.
-- `INCIDENT_CLOSED` 이벤트가 dispatch되면 `sessionRegistry.release(incidentId)`로 해당 사건의 sink를 닫고 registry에서 제거한다.
+- `SseConnectionRegistry`는 incident id별 sink 목록을 `ConcurrentHashMap`과 `CopyOnWriteArrayList`로 관리한다.
+- `INCIDENT_CLOSED` 이벤트가 dispatch되면 `connectionRegistry.closeIncidentConnections(incidentId)`로 해당 사건의 sink를 닫고 registry에서 제거한다.
 
 ## 검증한 내용
 
@@ -19,14 +19,14 @@ SSE는 클라이언트와 서버 사이의 HTTP 연결을 오래 유지한다. �
 
 테스트:
 
-- `SseStreamLifecycleEvidenceTest.repeatedRegisterAndCloseRemovesIncidentSink`
+- `SseConnectionRegistryTest.repeatedly_registering_and_closing_connection_leaves_no_registration`
 
 확인:
 
 - 같은 사건 id로 SSE sink를 등록한다.
-- 등록 직후 `sessionRegistry.sinks(incidentId)`가 1개인지 확인한다.
+- 등록 직후 `connectionRegistry.sinks(incidentId)`가 1개인지 확인한다.
 - registration을 close한다.
-- close 이후 `sessionRegistry.sinks(incidentId)`가 비어 있는지 확인한다.
+- close 이후 `connectionRegistry.sinks(incidentId)`가 비어 있는지 확인한다.
 - 이 과정을 100회 반복한다.
 
 의미:
@@ -37,15 +37,15 @@ SSE는 클라이언트와 서버 사이의 HTTP 연결을 오래 유지한다. �
 
 테스트:
 
-- `SseStreamLifecycleEvidenceTest.releaseClosesAndRemovesIncidentSinks`
-- 기존 `SseIncidentClosureReplayStopTest`의 사건 종료 SSE 검증
+- `SseConnectionRegistryTest.close_incident_connections_closes_connection_and_removes_registration`
+- `SseStreamServiceTest.dispatch_closed_incident_without_previous_event_sends_terminal_event_and_closes_connection`
 
 확인:
 
 - 사건에 sink를 등록한다.
-- `sessionRegistry.release(incidentId)`를 호출한다.
+- `connectionRegistry.closeIncidentConnections(incidentId)`를 호출한다.
 - 등록된 sink의 `close()`가 호출되는지 확인한다.
-- release 이후 `sessionRegistry.sinks(incidentId)`가 비어 있는지 확인한다.
+- 연결 종료 이후 `connectionRegistry.sinks(incidentId)`가 비어 있는지 확인한다.
 
 의미:
 

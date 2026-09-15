@@ -23,11 +23,11 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-class SseStreamSessionRegistryTest {
+class SseConnectionRegistryTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110003");
-  private final SseStreamSessionRegistry registry = new SseStreamSessionRegistry();
+  private final SseConnectionRegistry registry = new SseConnectionRegistry();
   private final SseEventFrame frame =
       new SseEventFrame(
           "901",
@@ -42,28 +42,60 @@ class SseStreamSessionRegistryTest {
               Instant.parse("2026-05-08T00:00:00Z"),
               Map.of()));
 
+  @Test
+  @DisplayName("사건 연결을 100회 등록하고 해제해도, 연결 목록에 남지 않는다")
+  void repeatedly_registering_and_closing_connection_leaves_no_registration() throws Exception {
+    // given: 전송하지 않고 등록·해제만 반복할 연결이다.
+    var sink = mock(SseLiveEventSink.class);
+    for (int count = 0; count < 100; count++) {
+      var registration = registry.registerForIncident(INCIDENT_ID, sink);
+      assertThat(registry.sinks(INCIDENT_ID)).containsExactly(sink);
+
+      // when: 반환받은 등록을 해제한다.
+      registration.close();
+
+      // then: 매번 사건의 연결 목록이 비워진다.
+      assertThat(registry.sinks(INCIDENT_ID)).isEmpty();
+    }
+  }
+
+  @Test
+  @DisplayName("사건 연결을 종료하면, 연결을 닫고 목록에서 제거한다")
+  void close_incident_connections_closes_connection_and_removes_registration() {
+    // given: 정상 연결이 사건에 등록돼 있다.
+    var sink = mock(SseLiveEventSink.class);
+    registry.registerForIncident(INCIDENT_ID, sink);
+
+    // when: 사건의 연결을 종료한다.
+    registry.closeIncidentConnections(INCIDENT_ID);
+
+    // then: 연결 종료가 호출되고 등록도 남지 않는다.
+    verify(sink).close();
+    assertThat(registry.sinks(INCIDENT_ID)).isEmpty();
+  }
+
   @ParameterizedTest(name = "구독 대상: {0}")
   @ValueSource(strings = {"incident", "account"})
   @DisplayName("종료된 연결이 남아 있으면, 그 연결을 제거하고 정상 연결에는 계속 전송한다")
   void send_when_emitter_has_completed_removes_failed_connection_and_sends_to_healthy_connection(
-      String subscription) {
+      String subscriptionType) {
     // given: 실제 Spring emitter가 오류로 종료됐지만 연결 목록에는 아직 남아 있다.
     var emitter = new SseEmitter(0L);
     emitter.completeWithError(
         new AsyncRequestNotUsableException("Response not usable after response errors."));
     var disconnected = spy(new SseEmitterLiveEventSink(emitter));
     var connected = mock(SseLiveEventSink.class);
-    register(subscription, disconnected);
-    register(subscription, connected);
+    register(subscriptionType, disconnected);
+    register(subscriptionType, connected);
 
     // when: 같은 구독 대상의 연결에 이벤트를 전송한다.
-    send(subscription);
-    send(subscription);
+    send(subscriptionType);
+    send(subscriptionType);
 
     // then: 종료된 연결은 첫 실패 뒤 제외되며 정상 연결은 두 번 모두 수신한다.
     verify(disconnected).send(frame);
     verify(connected, times(2)).send(frame);
-    if (subscription.equals("incident")) {
+    if (subscriptionType.equals("incident")) {
       assertThat(registry.sinks(INCIDENT_ID)).containsExactly(connected);
     }
   }
@@ -71,20 +103,20 @@ class SseStreamSessionRegistryTest {
   @ParameterizedTest(name = "구독 대상: {0}")
   @ValueSource(strings = {"incident", "account"})
   @DisplayName("쓰기 중 I/O 오류가 나면, 해당 연결을 제외하고 HTTP 정리는 컨테이너에 맡긴다")
-  void send_when_io_fails_removes_connection_without_completing_emitter(String subscription)
+  void send_when_io_fails_removes_connection_without_completing_emitter(String subscriptionType)
       throws IOException {
     // given: 실제 전송 경계에서 응답 쓰기가 실패하는 연결이 먼저 등록돼 있다.
     var emitter = mock(SseEmitter.class);
     doThrow(new IOException("private-network-details"))
         .when(emitter)
         .send(any(SseEmitter.SseEventBuilder.class));
-    register(subscription, new SseEmitterLiveEventSink(emitter));
+    register(subscriptionType, new SseEmitterLiveEventSink(emitter));
     var connected = mock(SseLiveEventSink.class);
-    register(subscription, connected);
+    register(subscriptionType, connected);
 
     // when: 연결 목록으로 두 번 전송한다.
-    send(subscription);
-    send(subscription);
+    send(subscriptionType);
+    send(subscriptionType);
 
     // then: 실패한 연결은 재사용하지 않고, 정상 연결은 계속 수신한다.
     verify(emitter).send(any(SseEmitter.SseEventBuilder.class));
@@ -101,11 +133,11 @@ class SseStreamSessionRegistryTest {
     doThrow(new IllegalStateException("completed")).when(disconnected).send(frame);
     doThrow(new IllegalStateException("already closed")).when(disconnected).close();
     var connected = mock(SseLiveEventSink.class);
-    registry.register(INCIDENT_ID, disconnected);
-    registry.register(INCIDENT_ID, connected);
+    registry.registerForIncident(INCIDENT_ID, disconnected);
+    registry.registerForIncident(INCIDENT_ID, connected);
 
     // when: 사건 이벤트를 전송한다.
-    registry.send(INCIDENT_ID, frame);
+    registry.sendToIncident(INCIDENT_ID, frame);
 
     // then: 정리 실패가 다시 전송 순회를 중단시키지 않는다.
     verify(connected).send(frame);
@@ -114,16 +146,16 @@ class SseStreamSessionRegistryTest {
 
   @Test
   @DisplayName("연결 종료 중 하나가 실패하면, 나머지도 닫고 사건의 연결 목록을 비운다")
-  void release_when_one_close_fails_closes_remaining_connections() {
+  void close_incident_connections_when_one_close_fails_closes_remaining_connections() {
     // given: 먼저 닫을 연결의 종료 처리가 실패한다.
     var disconnected = mock(SseLiveEventSink.class);
     doThrow(new IllegalStateException("already closed")).when(disconnected).close();
     var connected = mock(SseLiveEventSink.class);
-    registry.register(INCIDENT_ID, disconnected);
-    registry.register(INCIDENT_ID, connected);
+    registry.registerForIncident(INCIDENT_ID, disconnected);
+    registry.registerForIncident(INCIDENT_ID, connected);
 
     // when: 사건 연결을 모두 종료한다.
-    registry.release(INCIDENT_ID);
+    registry.closeIncidentConnections(INCIDENT_ID);
 
     // then: 뒤에 있는 연결도 종료되고 등록은 남지 않는다.
     verify(connected).close();
@@ -139,10 +171,10 @@ class SseStreamSessionRegistryTest {
         new IllegalStateException(
             "Failed to send", new HttpMessageNotWritableException("conversion failed"));
     doThrow(failure).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
-    registry.register(INCIDENT_ID, new SseEmitterLiveEventSink(emitter));
+    registry.registerForIncident(INCIDENT_ID, new SseEmitterLiveEventSink(emitter));
 
     // when / then: 전송 작업이 내부 오류를 실패로 기록할 수 있도록 전달한다.
-    assertThatThrownBy(() -> registry.send(INCIDENT_ID, frame)).isSameAs(failure);
+    assertThatThrownBy(() -> registry.sendToIncident(INCIDENT_ID, frame)).isSameAs(failure);
   }
 
   @Test
@@ -152,25 +184,25 @@ class SseStreamSessionRegistryTest {
     var sink = mock(SseLiveEventSink.class);
     var failure = new IllegalArgumentException("invalid event");
     doThrow(failure).when(sink).send(frame);
-    registry.register(INCIDENT_ID, sink);
+    registry.registerForIncident(INCIDENT_ID, sink);
 
     // when / then: 상위 전송 작업에서 실패를 처리할 수 있어야 한다.
-    assertThatThrownBy(() -> registry.send(INCIDENT_ID, frame)).isSameAs(failure);
+    assertThatThrownBy(() -> registry.sendToIncident(INCIDENT_ID, frame)).isSameAs(failure);
   }
 
-  private void register(String subscription, SseLiveEventSink sink) {
-    if (subscription.equals("account")) {
-      registry.registerAccount(ACCOUNT_ID, sink);
+  private void register(String subscriptionType, SseLiveEventSink sink) {
+    if (subscriptionType.equals("account")) {
+      registry.registerForAccount(ACCOUNT_ID, sink);
     } else {
-      registry.register(INCIDENT_ID, sink);
+      registry.registerForIncident(INCIDENT_ID, sink);
     }
   }
 
-  private void send(String subscription) {
-    if (subscription.equals("account")) {
+  private void send(String subscriptionType) {
+    if (subscriptionType.equals("account")) {
       registry.sendToAccount(ACCOUNT_ID, frame);
     } else {
-      registry.send(INCIDENT_ID, frame);
+      registry.sendToIncident(INCIDENT_ID, frame);
     }
   }
 }

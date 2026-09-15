@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
+import com.surimap.eventhub.stream.SseConnectionRegistry;
 import com.surimap.eventhub.stream.SseEventFrame;
 import com.surimap.eventhub.stream.SseLiveEventSink;
 import com.surimap.eventhub.stream.SseReplayEventStore;
 import com.surimap.eventhub.stream.SseStreamService;
-import com.surimap.eventhub.stream.SseStreamSessionRegistry;
+import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,57 +18,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
-@SpringBootTest
-@ActiveProfiles("test")
 @TestPropertySource(
     properties = {
       "surimap.eventhub.dispatch.enabled=true",
       "surimap.eventhub.dispatch.polling-enabled=false"
     })
-@Testcontainers(disabledWithoutDocker = true)
-@DisplayName("S14P31C106-453 event_dispatch_job SSE fanout")
-class EventDispatchJobSseFanoutIntegrationTest {
-
-  private static final DockerImageName POSTGIS_IMAGE =
-      DockerImageName.parse("postgis/postgis:16-3.5").asCompatibleSubstituteFor("postgres");
+class EventDispatchJobDispatcherTest extends PostGisIntegrationTestSupport {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
   private static final UUID EVENT_ID = UUID.fromString("40000000-0000-4000-8000-000000000953");
 
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(POSTGIS_IMAGE)
-          .withDatabaseName("surimap")
-          .withUsername("surimap")
-          .withPassword("surimap");
-
-  @DynamicPropertySource
-  static void registerDataSourceProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-    registry.add("spring.flyway.locations", () -> "classpath:db/migration");
-  }
-
   @Autowired private EventHub eventHub;
-  @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private PlatformTransactionManager txManager;
   @Autowired private SseReplayEventStore replayStore;
-  @Autowired private SseStreamSessionRegistry sessionRegistry;
+  @Autowired private SseConnectionRegistry connectionRegistry;
   @Autowired private SseStreamService streamService;
 
   @BeforeEach
@@ -77,22 +45,25 @@ class EventDispatchJobSseFanoutIntegrationTest {
   }
 
   @Test
-  @DisplayName("committed event_dispatch_job is dispatched to live SSE and marked completed")
-  void committedEventDispatchJobIsDispatchedToLiveSseAndMarkedCompleted() throws Exception {
+  @DisplayName("이벤트 저장을 커밋하면, 등록된 전송 대상으로 전달하고 작업을 완료한다")
+  void committed_event_is_sent_and_dispatch_job_is_completed() throws Exception {
+    // given: 사건 이벤트를 받을 전송 대상이 등록돼 있다.
     CapturingSink sink = new CapturingSink();
-    AutoCloseable registration = sessionRegistry.register(INCIDENT_ID, sink);
+    AutoCloseable registration = connectionRegistry.registerForIncident(INCIDENT_ID, sink);
 
     try {
+      // when: 실제 트랜잭션으로 경로 추가 이벤트를 저장하고 커밋한다.
       new TransactionTemplate(txManager)
-          .executeWithoutResult(status -> eventHub.publish(pathEvent()));
+          .executeWithoutResult(status -> eventHub.publish(createPathAppendedEvent()));
 
+      // then: 전송 대상 호출·재전송 저장·전송 작업 완료를 확인한다.
       assertThat(sink.frames()).hasSize(1);
       SseEventFrame frame = sink.frames().get(0);
       assertThat(frame.event()).isEqualTo("PATH_APPENDED");
       assertThat(frame.data().eventId()).isEqualTo(EVENT_ID);
       assertThat(frame.data().payload().get("status")).isEqualTo("RECORDING");
       assertThat(replayStore.findByEventId(EVENT_ID)).isPresent();
-      assertThat(dispatchStatus()).isEqualTo("COMPLETED");
+      assertThat(getDispatchStatus()).isEqualTo("COMPLETED");
     } finally {
       registration.close();
     }
@@ -106,7 +77,7 @@ class EventDispatchJobSseFanoutIntegrationTest {
     var disconnected = streamService.openStream(INCIDENT_ID, null);
     disconnected.completeWithError(new IllegalStateException("response already unusable"));
     var connected = new CapturingSink();
-    try (var registration = sessionRegistry.register(INCIDENT_ID, connected)) {
+    try (var registration = connectionRegistry.registerForIncident(INCIDENT_ID, connected)) {
       // when: 실제 트랜잭션으로 발견 알림을 저장하고 커밋 후 전송한다.
       new TransactionTemplate(txManager)
           .executeWithoutResult(status -> eventHub.publish(createPersonFoundEvent()));
@@ -115,12 +86,12 @@ class EventDispatchJobSseFanoutIntegrationTest {
       assertThat(connected.frames()).hasSize(1);
       assertThat(connected.frames().get(0).event()).isEqualTo("PERSON_FOUND");
       assertThat(connected.frames().get(0).data().eventId()).isEqualTo(EVENT_ID);
-      assertThat(sessionRegistry.sinks(INCIDENT_ID)).containsExactly(connected);
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).containsExactly(connected);
       assertThat(replayStore.findByEventId(EVENT_ID)).isPresent();
       // COMPLETED는 서버 전송 처리의 완료이며 브라우저 표시 확인이 아니다.
-      assertThat(dispatchStatus()).isEqualTo("COMPLETED");
+      assertThat(getDispatchStatus()).isEqualTo("COMPLETED");
     } finally {
-      sessionRegistry.release(INCIDENT_ID);
+      connectionRegistry.closeIncidentConnections(INCIDENT_ID);
     }
   }
 
@@ -130,7 +101,7 @@ class EventDispatchJobSseFanoutIntegrationTest {
     // given: 파기된 사건은 재전송 저장소에 새 이벤트를 저장할 수 없다.
     replayStore.purgeIncident(INCIDENT_ID);
     var connected = new CapturingSink();
-    try (var registration = sessionRegistry.register(INCIDENT_ID, connected)) {
+    try (var registration = connectionRegistry.registerForIncident(INCIDENT_ID, connected)) {
       // when: 저장이 거부될 발견 알림의 전송 작업을 처리한다.
       new TransactionTemplate(txManager)
           .executeWithoutResult(status -> eventHub.publish(createPersonFoundEvent()));
@@ -138,7 +109,7 @@ class EventDispatchJobSseFanoutIntegrationTest {
       // then: 연결 하나의 실패와 달리 저장 실패는 전송 작업의 실패로 남는다.
       assertThat(connected.frames()).isEmpty();
       assertThat(replayStore.findByEventId(EVENT_ID)).isEmpty();
-      assertThat(dispatchStatus()).isEqualTo("FAILED");
+      assertThat(getDispatchStatus()).isEqualTo("FAILED");
     }
   }
 
@@ -155,7 +126,7 @@ class EventDispatchJobSseFanoutIntegrationTest {
         Map.of("id", markerId.toString(), "status", "ACTIVE", "version", 1));
   }
 
-  private PublishRequest pathEvent() {
+  private PublishRequest createPathAppendedEvent() {
     return EventStreamTestFixtures.publishRequest(
         EVENT_ID,
         INCIDENT_ID,
@@ -165,7 +136,7 @@ class EventDispatchJobSseFanoutIntegrationTest {
         3L);
   }
 
-  private String dispatchStatus() {
+  private String getDispatchStatus() {
     return jdbcTemplate.queryForObject(
         "SELECT dispatch_status FROM event_dispatch_job WHERE event_id = ?",
         String.class,

@@ -19,15 +19,15 @@ public class EventStreamConfig {
   }
 
   @Bean
-  SseStreamSessionRegistry sseStreamSessionRegistry() {
-    return new SseStreamSessionRegistry();
+  SseConnectionRegistry sseConnectionRegistry() {
+    return new SseConnectionRegistry();
   }
 
   @Bean
   SseStreamService sseStreamService(
       SseReplayService sseReplayService,
       SseReplayEventStore sseReplayEventStore,
-      SseStreamSessionRegistry sseStreamSessionRegistry) {
-    return new SseStreamService(sseReplayService, sseReplayEventStore, sseStreamSessionRegistry);
+      SseConnectionRegistry sseConnectionRegistry) {
+    return new SseStreamService(sseReplayService, sseReplayEventStore, sseConnectionRegistry);
   }
 }

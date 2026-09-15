@@ -58,6 +58,33 @@
 
 전송·파기 테스트 3개는 운영 파일 위치에 맞춰 옮겼다. `src/test/java/com/surimap/marker`에 남은 테스트·fixture까지 제거한 것은 아니다. FCM 실패 처리·지원 배정의 전송 시점과 실제 SSE 수신·브라우저 표시 검증은 후속 작업으로 남아 있다.
 
+## SSE·인증 — 승인한 이름 반영
+
+2026-09-15 먼저 이름과 테스트 설명을 정리했다. 이 명명 변경에서는 인증 보관·전송·재시도 동작과 공개 계약을 바꾸지 않았다.
+
+| 이전 이름 | 반영한 이름 |
+|---|---|
+| `SseStreamSessionRegistry`·동명 테스트 | `SseConnectionRegistry`·`SseConnectionRegistryTest` |
+| `register`·`registerAccount`·`send`·`release` | `registerForIncident`·`registerForAccount`·`sendToIncident`·`closeIncidentConnections` |
+| 공용 전송의 `subscriptionId`·테스트의 `subscription` | `subscriptionTargetId`·`subscriptionType` |
+| 인증 필터의 `accessToken`·`isJwt` | `extractBearerToken`·`hasThreeTokenSegments` |
+| `hasSuriMapAuthentication` | `checkSuriMapAuthentication` |
+| `SecurityFilterBaselineTest`·`AuthHarnessController`·`AuthHarnessResponse` | `SecurityConfigTest`·`SecurityTestController`·`AuthenticationResponse` |
+| 전송 테스트의 `pathEvent`·`dispatchStatus` | `createPathAppendedEvent`·`getDispatchStatus` |
+
+2026-09-15 사용자 승인으로 [Backend 테스트 명명 기준](../../backend/AGENTS.md#테스트-기준)을 정리했다. `ScenarioTest`·`E2ETest`를 별도 이름 분류로 두던 규칙은 제거했다. 이어서 승인된 SSE 테스트를 검증 대상별로 모았다.
+
+| 이전 테스트 | 정리 결과 |
+|---|---|
+| `EventDispatchJobSseFanoutIntegrationTest` | [EventDispatchJobDispatcherTest](../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobDispatcherTest.java). 실제 DB 커밋 후 전달·연결 실패 격리·저장 실패의 3개 검증을 유지하고 기존 PostGIS 테스트 지원 클래스를 사용 |
+| `SseStreamLifecycleEvidenceTest` | 기존 [SseConnectionRegistryTest](../../backend/src/test/java/com/surimap/eventhub/stream/SseConnectionRegistryTest.java)에 연결 반복 등록·해제와 사건 연결 종료 2개를 통합 |
+| `LiveSseFanoutRedTest`·`SseTerminalStreamReleaseRedTest`·`SseIncidentClosureReplayStopTest` | [SseStreamServiceTest](../../backend/src/test/java/com/surimap/eventhub/SseStreamServiceTest.java)에 저장 후 전송·중복 방지·사건 종료·파기 7개를 통합 |
+| `SseFailureInjectionTest` | [SseReplayServiceTest](../../backend/src/test/java/com/surimap/eventhub/SseReplayServiceTest.java)에 순서 복원·순번 누락 2개를 이동 |
+
+Service 테스트는 실제 Spring 빈과 현재 운영 구현인 메모리 재전송 저장소를 사용한다. DB 내구성·네트워크 수신·브라우저 표시는 이 테스트의 검증 범위가 아니다. 시작 상태가 다른 종료·파기 검증은 유지했다. 명명·통합 후 관련 88개 검증은 그대로 통과했고, 클래스는 32개에서 29개로 줄었다. 메서드는 밑줄 이름, 한글 `DisplayName`과 given/when/then 설명으로 정리했다.
+
+그다음 진행한 요청 범위 인증 보관 수정과 추가 회귀 테스트는 [로컬 이슈 3](../issues/local/3-authenticated-sse-access-denied-on-disconnect.md)에 별도로 기록했다.
+
 ## Backend — 나머지 Red 테스트
 
 `Red`를 제거하고 실제 검증 대상에 맞춰 이름을 정한다. 마커·알림 대상의 처리 내역은 위 절에 있다.
@@ -80,9 +107,7 @@
 | eventhub | [EventDispatchJobTransactionRedTest](../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobTransactionRedTest.java) |
 | eventhub | [EventHubHarnessRunnerRedTest](../../backend/src/test/java/com/surimap/eventhub/EventHubHarnessRunnerRedTest.java) |
 | eventhub | [EventStreamControllerRedTest](../../backend/src/test/java/com/surimap/eventhub/EventStreamControllerRedTest.java) |
-| eventhub | [LiveSseFanoutRedTest](../../backend/src/test/java/com/surimap/eventhub/LiveSseFanoutRedTest.java) |
 | eventhub | [OwnerPayloadSchemaValidationRedTest](../../backend/src/test/java/com/surimap/eventhub/OwnerPayloadSchemaValidationRedTest.java) |
-| eventhub | [SseTerminalStreamReleaseRedTest](../../backend/src/test/java/com/surimap/eventhub/SseTerminalStreamReleaseRedTest.java) |
 | handover | [HandoverMemoContextBindingRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoContextBindingRedTest.java) |
 | handover | [HandoverMemoCreatePublishRequestRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoCreatePublishRequestRedTest.java) |
 | harness/sc09 | [Sc07Sc09OfflineReplayHarnessRedTest](../../backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRedTest.java) |
