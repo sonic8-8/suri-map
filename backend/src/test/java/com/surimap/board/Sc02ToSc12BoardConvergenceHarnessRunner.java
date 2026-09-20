@@ -26,17 +26,17 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
           "SC-12");
 
   BoardApiAssemblyCoverageReport boardApiAssemblyCoverage() throws IOException {
-    JsonNode s32 = fixture("docs/spec/specs/S3-2.json");
-    JsonNode base = s32.at("/harness_fixtures/board_api_base");
-    List<BoardSourceRow> sourceRows = s32SlotRows(s32);
+    JsonNode confirmed = fixture("test-fixtures/common-fixtures.json").path("confirmed");
+    JsonNode boardFixture = confirmed.path("boardAssembly");
+    List<BoardSourceRow> sourceRows = slotRows(boardFixture);
     BoardDTO board =
         new BoardAssembler()
             .assemble(
                 new BoardAssemblyRequest(
-                    text(base, "incidentId"),
-                    text(base, "boardResponseId"),
-                    number(base, "boardResponseVersion"),
-                    OffsetDateTime.parse(text(base, "serverTs")),
+                    text(confirmed.path("incidentSeed"), "incidentId"),
+                    text(boardFixture, "boardResponseId"),
+                    number(boardFixture, "boardResponseVersion"),
+                    OffsetDateTime.parse(text(boardFixture, "serverTs")),
                     ACTIVE_OP_ID,
                     SELECTED_OP_IDS,
                     GEOMETRY_HASH,
@@ -123,9 +123,9 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
     return Collections.unmodifiableMap(frozen);
   }
 
-  private static List<BoardSourceRow> s32SlotRows(JsonNode s32) {
+  private static List<BoardSourceRow> slotRows(JsonNode boardFixture) {
     List<BoardSourceRow> rows = new ArrayList<>();
-    for (JsonNode row : s32.at("/harness_fixtures/slot_rows")) {
+    for (JsonNode row : boardFixture.path("slotRows")) {
       rows.add(sourceRow(row));
     }
     return rows;
@@ -171,7 +171,7 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
 
   private static Path repositoryRoot() {
     Path userDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-    if (Files.exists(userDir.resolve("docs/spec/specs/S3-2.json"))) {
+    if (Files.exists(userDir.resolve("test-fixtures/common-fixtures.json"))) {
       return userDir;
     }
     return userDir.getParent();

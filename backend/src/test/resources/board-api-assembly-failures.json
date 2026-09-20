@@ -1,0 +1,47 @@
+{
+  "duplicate_event": {
+    "eventId": "evt-s5-support-request-001",
+    "slot": "marker_notification",
+    "entityId": "support-request-precinct-001",
+    "expectedLedgerStatus": "DUPLICATE",
+    "expectedBoardRowCount": 1
+  },
+  "stale_lower_version": {
+    "eventId": "evt-s3-path-appended-stale-001",
+    "slot": "path",
+    "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "version": 1,
+    "sequence": 501,
+    "currentVersion": 2,
+    "currentSequence": 502,
+    "expectedLedgerStatus": "STALE",
+    "entityAlias": "path-precinct-mixed-001"
+  },
+  "missing_predecessor": {
+    "eventId": "evt-s3-path-appended-gap-003",
+    "slot": "path",
+    "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "sequence": 505,
+    "cursorLastSequence": 502,
+    "expectedLedgerStatus": "REFETCH_REQUIRED",
+    "expectedReloadReason": "MISSING_PREDECESSOR",
+    "entityAlias": "path-precinct-mixed-001"
+  },
+  "gone_refetch_required": {
+    "lastEventId": "evt-s4-gap-before-800",
+    "sseResponse": "409 gone_refetch_required",
+    "expectedCursorState": "REFETCH_REQUIRED",
+    "expectedReloadReason": "GONE_REFETCH_REQUIRED"
+  },
+  "delayed_refetch_trigger": {
+    "eventId": "evt-s2-area-state-001",
+    "slot": "area",
+    "entityId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
+    "sourceResponseVersion": 3,
+    "sourceResponseSequence": 403,
+    "staleResponseVersion": 2,
+    "expectedUiState": "STALE_REFETCH",
+    "expectedAfterReload": "BoardDTO row version >= 3 and sequence >= 403",
+    "entityAlias": "area-precinct-a1"
+  }
+}

@@ -1,13 +1,15 @@
 # Suri-Map API 명세
 
-이 문서는 `docs/spec`의 API 계약을 public HTTP API 기준으로 정리한 기준 문서다. 구현 상세의 원천은 `docs/spec/specs/*.json`이고, 이 문서는 클라이언트와 백엔드가 합의할 canonical URL, channel/guard, request, response, error를 한곳에 모은다.
+공개 HTTP API의 URL·요청·응답·오류를 정리한 참고 문서다. 기존 Spec에서 옮긴 계획과 구현 후 갱신한 내용이 섞여 있으므로, 실제 동작은 Controller·DTO·보안 설정과 Frontend·Android 소비자 코드로 대조한다. 문서에만 있는 동작은 구현 완료로 보지 않고 사용자와 확인한다.
 
-## 1. 작성 기준
+`ApiImplementationStatusCoverageTest`가 아래 API 제목을 읽는다. 문서 정리에서도 API 제목·경로는 유지하며, 공개 계약 변경은 [AGENTS.md](../../AGENTS.md)의 호환성 기준을 따른다.
+
+## 1. 표기 기준과 기존 계약
 
 - 공개 JSON API의 기본 prefix는 `/api`다.
-- 별도 URL version prefix는 두지 않는다. breaking change가 실제로 필요해지는 시점에 ADR로 `/api/vN` 도입 여부를 다시 결정한다.
-- `docs/spec/boundaries.md`와 `docs/spec/specs/*.json`의 prefix 없는 path는 app-relative path로 보고, 이 문서가 canonical public URL을 제공한다.
-- URL segment는 기존 PRD/spec의 도메인 용어를 우선하고 kebab-case를 사용한다. REST 원칙 때문에 기존 문서에 없는 새 resource 이름을 만들지 않는다.
+- 기존 API에는 별도 URL version prefix를 두지 않았다. 호환성이 깨지는 변경이 필요하면 소비자 영향과 전환 방식을 먼저 합의한다.
+- 옛 Spec의 prefix 없는 path는 app-relative path였다. 삭제한 경계·Spec의 원문은 [검증 흐름의 출처](../tasks/scenario-exit-criteria.md#과거-문서의-차이와-복원)와 기능별 문서에서 확인한다. 이 문서의 공개 URL도 실제 Controller·소비자와 대조한다.
+- URL segment는 kebab-case를 사용한다. 기존 URL을 바꾸거나 새 resource를 추가할 때는 실제 소비자와 합의한 요구를 확인한다.
 - Path variable은 가능한 한 entity가 드러나게 쓴다. 예: `{areaId}`보다 `{searchAreaId}`, `{opId}`보다 `{operationalPeriodId}`.
 - DTO field는 기존 spec/harness fixture와 맞추기 위해 `opId`, `pathId`처럼 이미 굳어진 이름을 유지한다. 이 문서는 URL canonicalization을 우선한다.
 - tileserver 경로는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 않는다.
@@ -539,6 +541,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 ### 4.8 Operational Period / Duty Shift / Handover
 
+기존 요구·현재 구현·테스트 입력의 차이는 [수색 차수와 인수인계](../handover.md)에서 확인한다. 아래 형식은 구현·검증 완료를 뜻하지 않는다.
+
 #### POST `/api/operational-periods`
 
 - Owner: S8
@@ -592,7 +596,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `opId`, `policePhoneId`, `clientTs`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version}`
 - Errors: S8/S1-2 write-common errors
-- Gap: `docs/spec/specs/S8.json`에는 상세 `api_contracts`가 아직 없다. `boundaries.md`와 DB 설계 기준으로 유지한다.
 
 #### PATCH `/api/duty-shifts/{dutyShiftId}`
 
@@ -605,7 +608,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `action`, `clientTs`, optional `memo`
 - Response: `200 {id, status, version, endedAt}`
 - Errors: S8/S1-2 write-common errors
-- Gap: `docs/spec/specs/S8.json`에는 상세 `api_contracts`가 아직 없다.
 
 #### GET `/api/duty-shifts`
 
@@ -618,7 +620,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Query: `incidentId`, optional `opId`, `policePhoneId`, `accountId(UUID)`, `status`
 - Response: `200 {items[{id, incidentId, opId, policePhoneId, policePhoneLabel, status, startedAt, endedAt, version}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
-- Gap: `docs/spec/specs/S8.json`에는 상세 `api_contracts`가 아직 없다.
 
 #### POST `/api/handover-memos`
 
@@ -730,7 +731,7 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 ## 5. Public API 제외 항목
 
-`docs/spec/specs/S1-3.json`의 아래 계약은 public HTTP API가 아니다.
+옛 S1-3의 아래 계약은 public HTTP API가 아니다. 필요한 요구와 실제 연결 여부는 [사건 데이터 파기와 접근기록](../data-retention.md)에서 구분한다.
 
 - `PurgeCoordinator.closeIncident(incidentId)`
 - `PurgeCoordinator.purgeIncident(incidentId)`
@@ -773,8 +774,8 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 ## 7. docs/spec 반영 상태
 
-- `docs/spec/specs/S2.json`: `POST /search-areas/{searchAreaId}/assignments` 상세 contract와 `SEARCH_AREA_ASSIGNMENT_CHANGED` 소유권을 반영했다.
-- `docs/spec/specs/S8.json`: `POST/PATCH/GET /duty-shifts` 상세 contract와 `search_history_summary` APP/WEB read 계약을 반영하고, `search_area_assignment`는 S2 read-only 소비로 정리했다.
+- [옛 S2 출처](../search-area.md#화면-반영과-테스트-입력): `POST /search-areas/{searchAreaId}/assignments` 상세 contract와 `SEARCH_AREA_ASSIGNMENT_CHANGED` 소유권을 반영했다.
+- 옛 S8의 근무 교대·수색 이력 요약 요구와 원문 출처는 [수색 차수와 인수인계](../handover.md)에 남겼다. 요청 형식은 이 문서에 임시 보존하며 실제 Controller·소비자와 대조한다.
 - `docs/spec/boundaries.md`, `docs/spec/harness-scenarios.md`: canonical URL과 photo `upload-url`/`attach` 표현을 반영했다.
 - `docs/tasks/*.md`: 구현 산출물 endpoint 문자열을 canonical URL로 반영했다.
 

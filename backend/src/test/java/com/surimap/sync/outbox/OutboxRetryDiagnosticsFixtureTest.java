@@ -3,6 +3,7 @@ package com.surimap.sync.outbox;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class OutboxRetryDiagnosticsFixtureTest {
@@ -120,6 +121,52 @@ class OutboxRetryDiagnosticsFixtureTest {
         .isEqualTo(packageReplay.asText());
     assertThat(OutboxRetryDiagnosticsFixtures.PARTIAL_FAILURE_REQUEUE.reason())
         .isEqualTo("PARTIAL_FAILURE");
+  }
+
+  @Test
+  @DisplayName("공용 재전송 fixture는 작업 식별자와 경로·패키지 유형을 유지한다")
+  void replay_fixtures_keep_operation_ids_and_dependency_groups() {
+    // given: 공용 재전송 fixture를 준비한다.
+    JsonNode replay = commonFixtureOutboxReplay();
+
+    // when: 경로·마커·사진·패키지의 재전송 입력을 읽는다.
+    JsonNode path = CommonFixtureJson.required(replay, "sc05PathReplay");
+    JsonNode markerPhoto = CommonFixtureJson.required(replay, "sc06MarkerPhotoReplay");
+    JsonNode packageReplay = CommonFixtureJson.required(replay, "sc09PackageReplay");
+
+    // then: 기존 작업 식별자와 의존 그룹·대상 유형이 유지된다.
+    assertThat(CommonFixtureJson.required(path, "dependencyGroup").asText()).isEqualTo("PATH");
+    assertThat(CommonFixtureJson.required(markerPhoto, "markerOperationAlias").asText())
+        .isEqualTo("op-outbox-marker-001");
+    assertThat(CommonFixtureJson.required(markerPhoto, "markerOperationId").asText())
+        .isEqualTo("66666666-0000-4000-8000-000000000601");
+    assertThat(CommonFixtureJson.required(markerPhoto, "photoOperationAlias").asText())
+        .isEqualTo("op-outbox-photo-001");
+    assertThat(CommonFixtureJson.required(markerPhoto, "photoOperationId").asText())
+        .isEqualTo("66666666-0000-4000-8000-000000000602");
+    assertThat(CommonFixtureJson.required(packageReplay, "dependencyGroup").asText())
+        .isEqualTo("PACKAGE_INSTALLATION");
+    assertThat(
+            CommonFixtureJson.required(
+                    CommonFixtureJson.required(packageReplay, "writeOperation"), "entityType")
+                .asText())
+        .isEqualTo("offline_package_installation");
+  }
+
+  @Test
+  @DisplayName("공용 fixture의 오프라인 쓰기 실패는 로컬·전송 대기 상태로 남는다")
+  void offline_write_fixture_keeps_local_and_send_pending_states() {
+    // given: 공용 네트워크 fixture를 준비한다.
+    JsonNode networkScripts = CommonFixtureJson.required(commonFixtureRoot(), "networkScripts");
+
+    // when: 오프라인 쓰기의 기대 상태를 읽는다.
+    JsonNode expectations = CommonFixtureJson.required(networkScripts, "domainWriteExpectations");
+
+    // then: 로컬 기록과 전송 요청이 각각 대기 상태를 유지한다.
+    assertThat(CommonFixtureJson.required(expectations, "offlineFailureLocalStatus").asText())
+        .isEqualTo("PENDING_LOCAL");
+    assertThat(CommonFixtureJson.required(expectations, "offlineFailureOutboxStatus").asText())
+        .isEqualTo("PENDING_SEND");
   }
 
   private JsonNode commonFixtureRoot() {

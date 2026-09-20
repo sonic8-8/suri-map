@@ -1,5 +1,7 @@
 # 구역 편집 화면 (W3) 설계 결정 문서
 
+구역 편집 화면의 과거 설계 결정·근거·미결 항목을 보존한 기록이다. 아래 Mock 상태와 구현 계획은 현재 연동 여부를 보증하지 않는다. 변경 시 실제 화면·API와 대조하고 [AGENTS.md](../../AGENTS.md)에 따라 범위를 합의한다.
+
 > 작성일: 2026-05-08  
 > 브랜치: feature/S14P31C106-84-screen-design-docs  
 > 관련 명세: `docs/screen-design/wireframes.md` W3, `docs/screen-design/screen-state-matrix.md` §3.5

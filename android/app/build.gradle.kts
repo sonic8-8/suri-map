@@ -191,7 +191,7 @@ android {
 
     sourceSets {
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
-        getByName("test").resources.srcDir("$rootDir/../docs/spec/fixtures")
+        getByName("test").resources.srcDir("$rootDir/../test-fixtures")
     }
 
     testOptions {

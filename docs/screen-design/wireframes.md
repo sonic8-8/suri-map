@@ -1,29 +1,29 @@
 # Wireframes — 계약 기준 화면 IA
 
-상태: 3차 (2026-05-10). 각 화면 = IA 명세 + ASCII 박스 wireframe. 폴리폰 P1~P7은 low-fi HTML 1차 산출물로 옮겼다.
+작성 당시 상태: 3차 (2026-05-10). 각 화면 = IA 명세 + ASCII 박스 wireframe. 폴리폰 P1~P7은 low-fi HTML 1차 산출물로 옮겼다. 아래 권한·계정·기기 가정은 설계 당시 기록이며 현재 제품 동작을 보증하지 않는다.
 
 ## 목적
 
-Hero 3개는 HTML mock(`artifacts/lo/`)으로 정교화. 나머지 화면은 이 문서에 **IA 명세 + ASCII 박스 다이어그램**으로 표현한다. 본 개발 또는 추가 low-fi 생성 전에 이 문서를 먼저 계약 기준으로 정렬한다.
+당시 핵심 화면 3개는 HTML mock(`artifacts/lo/`)으로, 나머지는 이 문서의 IA 명세와 ASCII 다이어그램으로 검토했다. 현재 작업에서는 수정할 화면에 해당하는 자료만 실제 동작·요구와 대조한다.
 
-베스트 프랙티스:
+당시 산출물 구성:
 - **Hero 3-5개**: 정체성·핵심 패턴 검증을 위한 정교한 HTML mock
 - **나머지**: ASCII wireframe + 텍스트 명세
 - **재사용**: nonHero 화면은 Hero 패턴 재사용으로 빠르게 구현
 
-## 계약 기준
+## 작성 당시 참고 문서
 
-화면 설계는 다음 기준 문서를 우선한다. 화면 문서와 기준 문서가 충돌하면 화면 문서를 수정한다.
+다음은 이 화면을 설계할 때 참고한 문서다. 현재 요구사항·구현과 다르면 [AGENTS.md](../../AGENTS.md)에 따라 차이를 확인하고 변경 범위를 합의한다.
 
 | 관심사 | 기준 |
 |---|---|
 | Public HTTP URL, request/response, error | `docs/api/api-spec.md` |
-| Spec/Lane 소유권, entity/event/slot, channel/role matrix | `docs/spec/boundaries.md` |
-| 하네스 SC, fixture ID, e2e red test | `docs/spec/harness-scenarios.md` |
+| 과거 Spec/Lane 소유권, entity/event/slot, channel/role matrix | [경계 원문](https://github.com/sonic8-8/suri-map/blob/28f8d4dfc13096295142e3b807e1bc869ad268cf/docs/spec/boundaries.md). 현재 슬롯·권한은 [상황판](../situation-board.md)·[인증](../authentication.md)과 코드 대조 |
+| 과거 하네스 SC와 현재 실행 입력 | [검증 흐름·Git 원문](../tasks/scenario-exit-criteria.md), [공용 입력](../../test-fixtures/README.md) |
 | Spec별 owns/provides/consumes 실행 계약 | `docs/spec/specs/*.json` |
 | DB 엔티티·관계·컬럼 의미 | `docs/db-design/db-design-readable.md` |
 | 제품 배경과 권한 | `docs/prd.md` |
-| Lane/Phase와 산출물 규칙 | `docs/tasks/index.md` |
+| 현재 작업·검증 규칙 | [AGENTS.md](../../AGENTS.md) |
 
 ### Android / Web 경계
 
@@ -91,7 +91,7 @@ Android 화면에 Web 지휘 흐름을 넣지 않는다. Web 화면에는 Androi
 
 각 화면당 다음 항목:
 
-- **연결 SC**: harness-scenarios.md
+- **연결 SC**: [검증 흐름·과거 하네스 출처](../tasks/scenario-exit-criteria.md)
 - **주 사용자**: PRD §8.4 권한 매트릭스
 - **IA**: 화면 영역 구성 (한 줄)
 - **핵심 행동 1-3개**: 사용자가 이 화면에서 하는 일
@@ -538,7 +538,7 @@ Android 폴리폰 화면은 현장 입력과 로컬 상태 확인에 집중한�
 
 ## P1. 인증 / 폴리폰 접속
 
-- **운영 전제**: 폴리폰은 팀 단위(팀 업무폰) 또는 순찰차 단위(순찰차 업무폰) 1대 지급(PRD §0.1, §8.4)이며, 삼성 Knox 위에서 운영되는 관리 단말이다. 단말 ↔ 팀 계정 또는 순찰차 계정은 1:1 매핑(L5-03-auth-contract.md §4.2 fixture)이고, "팀 계정 또는 순찰차 계정 장기 로그인 유지"가 PRD §8.4와 boundaries.md §S1-2 §282에서 이미 보장되어 있다. 따라서 앱 화면에 ID/PW 또는 바인딩 폼을 노출하지 않는다. 세션 발급·복구는 managed configuration, 장기 세션, 내부 bootstrap을 통해 앱 내부에서 처리한다.
+- **설계 당시 운영 가정**: 팀·순찰차에 지급한 폴리폰을 Knox로 관리하고 공유 계정의 장기 세션·내부 bootstrap으로 접속한다고 가정해, ID/PW·바인딩 폼을 화면에서 제외했다. 이 가정은 현재 계정·인증 구현과 Knox 실연결을 확인한 결과가 아니다. 관련 실기기 기록과 실제 인증 흐름을 별도로 대조해야 한다.
 - **연결 SC**: — (인증)
 - **주 사용자**: 모든 폴리폰 계정
 - **결정**:

@@ -15,12 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /** Test-local SC-03 package/tile harness closure runner. */
 public class Sc03PackageTileHarnessRunner {
@@ -68,7 +66,7 @@ public class Sc03PackageTileHarnessRunner {
         tileManifest.manifestId(),
         mockedSourceContracts(manifest, tileManifest, styleProbe, sourceConstants),
         packageManifest(manifest),
-        localTileProbe(tileManifest, styleProbe, sourceConstants),
+        localTileProbe(tileManifest, styleProbe),
         tileFixtureExactnessReport(tileManifest, sourceConstants));
   }
 
@@ -133,14 +131,12 @@ public class Sc03PackageTileHarnessRunner {
             && Objects.equals(
                 sourceConstants.commonOutboxEntityType(), "offline_package_installation"));
     evidence.put(
-        "S3-2:package_badge",
-        Objects.equals(sourceConstants.commonBoardSlot(), "package_badge"));
+        "S3-2:package_badge", Objects.equals(sourceConstants.commonBoardSlot(), "package_badge"));
     evidence.put(
         "S7:mock_tile_catalog",
-        Objects.equals(tileManifest.manifestId(), sourceConstants.s7TileManifestId())
-            && Objects.equals(tileManifest.blobUriTemplate(), sourceConstants.s7BlobUriTemplate())
-            && tileManifest.tiles().stream()
-                .allMatch(tile -> sourceConstants.s7TileChecksums().containsKey(tile.itemKey())));
+        Objects.equals(tileManifest.manifestId(), sourceConstants.commonFixturesTileManifestId())
+            && Objects.equals(
+                tileManifest.blobUriTemplate(), sourceConstants.commonFixturesBlobUriTemplate()));
     evidence.put(
         "S7:mock_tile_server_adapter",
         !styleProbe.externalTileHostCalled()
@@ -152,10 +148,7 @@ public class Sc03PackageTileHarnessRunner {
             && Objects.equals(styleProbe.tilePathTemplate(), "/tiles/osm-local/{z}/{x}/{y}.pbf"));
 
     List<String> present =
-        evidence.entrySet().stream()
-            .filter(Map.Entry::getValue)
-            .map(Map.Entry::getKey)
-            .toList();
+        evidence.entrySet().stream().filter(Map.Entry::getValue).map(Map.Entry::getKey).toList();
     return new MockedSourceContractsReport(
         present,
         present.containsAll(MOCKED_SOURCE_CONTRACTS)
@@ -176,17 +169,15 @@ public class Sc03PackageTileHarnessRunner {
         manifest.initialMarkers().get(0).markerId(),
         manifest.overallSearchArea().areaId(),
         manifest.tileItems().stream()
-            .map(TileItem::url)
-            .allMatch(OfflinePackageManifestFixtures::isLocalTileUri)
+                .map(TileItem::url)
+                .allMatch(OfflinePackageManifestFixtures::isLocalTileUri)
             ? manifest.manifestId()
             : "");
   }
 
-  private LocalTileProbeReport localTileProbe(
-      TileManifest tileManifest, StyleProbe styleProbe, SourceConstants sourceConstants) {
+  private LocalTileProbeReport localTileProbe(TileManifest tileManifest, StyleProbe styleProbe) {
     boolean tileBlobUsesLocalFixture =
-        tileManifest.tiles().stream()
-            .allMatch(tile -> tileBlobMatchesFixtureItem(tile, sourceConstants));
+        tileManifest.tiles().stream().allMatch(this::tileBlobMatchesFixtureItem);
     boolean matchesS7HarnessConstants =
         Objects.equals(tileManifest.manifestId(), OfflinePackageManifestFixtures.MANIFEST_ID)
             && tileManifest.tileKeyRange().minZ() == OfflinePackageManifestFixtures.MIN_Z
@@ -210,8 +201,7 @@ public class Sc03PackageTileHarnessRunner {
   private TileFixtureExactnessReport tileFixtureExactnessReport(
       TileManifest tileManifest, SourceConstants sourceConstants) {
     String zoomRange =
-        "%d..%d"
-            .formatted(tileManifest.tileKeyRange().minZ(), tileManifest.tileKeyRange().maxZ());
+        "%d..%d".formatted(tileManifest.tileKeyRange().minZ(), tileManifest.tileKeyRange().maxZ());
     String tileKeyRange =
         "z=%d..%d,x=%d..%d,y=%d..%d"
             .formatted(
@@ -222,38 +212,24 @@ public class Sc03PackageTileHarnessRunner {
                 tileManifest.tileKeyRange().minY(),
                 tileManifest.tileKeyRange().maxY());
     List<String> localTileUris = tileManifest.tiles().stream().map(TileItem::url).toList();
-    boolean alignedWithHarnessScenarios =
-        Objects.equals(
-                tileManifest.manifestId(), sourceConstants.harnessScenariosTileManifestId())
-            && Objects.equals(zoomRange, sourceConstants.harnessScenariosZoomRange())
-            && Objects.equals(tileKeyRange, sourceConstants.harnessScenariosTileKeyRange())
-            && Objects.equals(
-                tileManifest.blobUriTemplate(),
-                sourceConstants.harnessScenariosBlobUriTemplate());
-    boolean alignedWithS7 =
-        Objects.equals(tileManifest.manifestId(), sourceConstants.s7TileManifestId())
-            && Objects.equals(zoomRange, sourceConstants.s7ZoomRange())
-            && Objects.equals(tileKeyRange, sourceConstants.s7TileKeyRange())
-            && Objects.equals(
-                tileManifest.blobUriTemplate(), sourceConstants.s7BlobUriTemplate())
-            && tileManifest.tiles().size() <= MAX_TILE_ITEMS
-            && tileManifest.failureKeys().equals(OfflinePackageManifestFixtures.FAILURE_KEYS);
     boolean alignedWithCommonFixtures =
         Objects.equals(tileManifest.manifestId(), sourceConstants.commonFixturesTileManifestId())
             && Objects.equals(zoomRange, sourceConstants.commonFixturesZoomRange())
             && Objects.equals(tileKeyRange, sourceConstants.commonFixturesTileKeyRange())
             && Objects.equals(
                 tileManifest.blobUriTemplate(), sourceConstants.commonFixturesBlobUriTemplate())
+            && tileManifest.tiles().size() <= MAX_TILE_ITEMS
+            && tileManifest.failureKeys().equals(OfflinePackageManifestFixtures.FAILURE_KEYS)
             && tileManifest.tiles().stream()
-            .allMatch(
-                tile ->
-                    tile.z() >= OfflinePackageManifestFixtures.MIN_Z
-                        && tile.z() <= OfflinePackageManifestFixtures.MAX_Z
-                        && tile.x() >= OfflinePackageManifestFixtures.MIN_X
-                        && tile.x() <= OfflinePackageManifestFixtures.MAX_X
-                        && tile.y() >= OfflinePackageManifestFixtures.MIN_Y
-                        && tile.y() <= OfflinePackageManifestFixtures.MAX_Y
-                        && OfflinePackageManifestFixtures.isLocalTileUri(tile.url()));
+                .allMatch(
+                    tile ->
+                        tile.z() >= OfflinePackageManifestFixtures.MIN_Z
+                            && tile.z() <= OfflinePackageManifestFixtures.MAX_Z
+                            && tile.x() >= OfflinePackageManifestFixtures.MIN_X
+                            && tile.x() <= OfflinePackageManifestFixtures.MAX_X
+                            && tile.y() >= OfflinePackageManifestFixtures.MIN_Y
+                            && tile.y() <= OfflinePackageManifestFixtures.MAX_Y
+                            && OfflinePackageManifestFixtures.isLocalTileUri(tile.url()));
 
     return new TileFixtureExactnessReport(
         tileManifest.manifestId(),
@@ -262,17 +238,7 @@ public class Sc03PackageTileHarnessRunner {
         tileManifest.blobUriTemplate(),
         localTileUris,
         List.copyOf(tileManifest.failureKeys()),
-        alignedWithHarnessScenarios,
-        alignedWithS7,
         alignedWithCommonFixtures,
-        sourceConstants.harnessScenariosTileManifestId(),
-        sourceConstants.harnessScenariosZoomRange(),
-        sourceConstants.harnessScenariosTileKeyRange(),
-        sourceConstants.harnessScenariosBlobUriTemplate(),
-        sourceConstants.s7TileManifestId(),
-        sourceConstants.s7ZoomRange(),
-        sourceConstants.s7TileKeyRange(),
-        sourceConstants.s7BlobUriTemplate(),
         sourceConstants.commonFixturesTileManifestId(),
         sourceConstants.commonFixturesZoomRange(),
         sourceConstants.commonFixturesTileKeyRange(),
@@ -314,22 +280,18 @@ public class Sc03PackageTileHarnessRunner {
         || OfflinePackageManifestFixtures.isExternalTileUrlRejected(tileUrl);
   }
 
-  private boolean tileBlobMatchesFixtureItem(TileItem tile, SourceConstants sourceConstants) {
-    TileBlobResponse blob =
-        localTileService.getTile(tile.styleId(), tile.z(), tile.x(), tile.y());
+  private boolean tileBlobMatchesFixtureItem(TileItem tile) {
+    TileBlobResponse blob = localTileService.getTile(tile.styleId(), tile.z(), tile.x(), tile.y());
     String actualChecksum = sha256(blob.bytes());
-    String documentedChecksum = sourceConstants.s7TileChecksums().get(tile.itemKey());
     return blob.bytes().length == tile.bytes()
-        && Objects.equals(tile.checksum(), documentedChecksum)
-        && Objects.equals(actualChecksum, documentedChecksum)
+        && Objects.equals(actualChecksum, tile.checksum())
         && OfflinePackageManifestFixtures.isLocalTileUri(tile.url());
   }
 
   private static String sha256(byte[] bytes) {
     try {
       return "sha256:"
-          + java.util.HexFormat.of()
-              .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+          + java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 digest is unavailable", exception);
     }
@@ -339,14 +301,6 @@ public class Sc03PackageTileHarnessRunner {
       String tilePathTemplate, boolean styleUsesLocalTileSource, boolean externalTileHostCalled) {}
 
   private record SourceConstants(
-      String harnessScenariosTileManifestId,
-      String harnessScenariosZoomRange,
-      String harnessScenariosTileKeyRange,
-      String harnessScenariosBlobUriTemplate,
-      String s7TileManifestId,
-      String s7ZoomRange,
-      String s7TileKeyRange,
-      String s7BlobUriTemplate,
       String commonFixturesTileManifestId,
       String commonFixturesZoomRange,
       String commonFixturesTileKeyRange,
@@ -356,39 +310,20 @@ public class Sc03PackageTileHarnessRunner {
       String commonPackageEventIncidentId,
       String commonOutboxDependencyGroup,
       String commonOutboxEntityType,
-      String commonBoardSlot,
-      Map<String, String> s7TileChecksums) {
+      String commonBoardSlot) {
 
     static SourceConstants load() {
       try {
         Path root = repoRoot();
-        String harnessScenarios =
-            Files.readString(root.resolve("docs/spec/harness-scenarios.md"));
-        JsonNode s7 =
-            OBJECT_MAPPER
-                .readTree(root.resolve("docs/spec/specs/S7.json").toFile())
-                .at("/harness_fixtures/tile_manifest_fixture");
         JsonNode commonRoot =
-            OBJECT_MAPPER.readTree(root.resolve("docs/spec/fixtures/common-fixtures.json").toFile());
-        JsonNode commonFixtures =
-            commonRoot.at("/confirmed/tileManifest");
-        JsonNode packageReplay =
-            commonRoot.at("/confirmed/outboxReplay/sc09PackageReplay");
+            OBJECT_MAPPER.readTree(root.resolve("test-fixtures/common-fixtures.json").toFile());
+        JsonNode commonFixtures = commonRoot.at("/confirmed/tileManifest");
+        JsonNode packageReplay = commonRoot.at("/confirmed/outboxReplay/sc09PackageReplay");
         JsonNode expectedS4Event = packageReplay.path("expectedS4Event");
         JsonNode writeOperation = packageReplay.path("writeOperation");
         JsonNode expectedBoardProbe = packageReplay.path("expectedBoardProbe");
 
         return new SourceConstants(
-            extract(harnessScenarios, "tileManifestId=([^`,]+)"),
-            extractZoomRange(harnessScenarios),
-            extractTileKeyRange(harnessScenarios),
-            extract(harnessScenarios, "blob URI `([^`]+)`"),
-            s7.path("manifestId").asText(),
-            zoomRange(
-                s7.path("zoomRange").path("min").asInt(),
-                s7.path("zoomRange").path("max").asInt()),
-            tileKeyRange(s7.path("tileKeyRange")),
-            s7.path("blobUriTemplate").asText(),
             commonFixtures.path("manifestId").asText(),
             zoomRange(
                 commonFixtures.path("tileKeyRange").path("minZ").asInt(),
@@ -400,8 +335,7 @@ public class Sc03PackageTileHarnessRunner {
             expectedS4Event.path("incidentId").asText(),
             packageReplay.path("dependencyGroup").asText(),
             writeOperation.path("entityType").asText(),
-            expectedBoardProbe.path("slot").asText(),
-            tileChecksums(s7.path("tiles")));
+            expectedBoardProbe.path("slot").asText());
       } catch (IOException exception) {
         throw new UncheckedIOException("Failed to read SC-03 source constants", exception);
       }
@@ -413,27 +347,6 @@ public class Sc03PackageTileHarnessRunner {
         return cwd;
       }
       return cwd.getParent();
-    }
-
-    private static String extract(String text, String regex) {
-      var matcher = Pattern.compile(regex).matcher(text);
-      if (!matcher.find()) {
-        throw new IllegalStateException("Missing source document value for regex: " + regex);
-      }
-      return matcher.group(1);
-    }
-
-    private static String extractZoomRange(String harnessScenarios) {
-      return extract(harnessScenarios, "z=(\\d+\\.\\.\\d+)");
-    }
-
-    private static String extractTileKeyRange(String harnessScenarios) {
-      return "z="
-          + extract(harnessScenarios, "z=(\\d+\\.\\.\\d+)")
-          + ",x="
-          + extract(harnessScenarios, "x=(\\d+\\.\\.\\d+)")
-          + ",y="
-          + extract(harnessScenarios, "y=(\\d+\\.\\.\\d+)");
     }
 
     private static String zoomRange(int min, int max) {
@@ -449,14 +362,6 @@ public class Sc03PackageTileHarnessRunner {
               tileKeyRange.path("maxX").asInt(),
               tileKeyRange.path("minY").asInt(),
               tileKeyRange.path("maxY").asInt());
-    }
-
-    private static Map<String, String> tileChecksums(JsonNode tiles) {
-      Map<String, String> checksums = new LinkedHashMap<>();
-      for (JsonNode tile : tiles) {
-        checksums.put(tile.path("itemKey").asText(), tile.path("checksum").asText());
-      }
-      return Map.copyOf(checksums);
     }
   }
 
@@ -500,17 +405,7 @@ public class Sc03PackageTileHarnessRunner {
       String blobUriTemplate,
       List<String> localTileUris,
       List<String> failureKeys,
-      boolean alignedWithHarnessScenarios,
-      boolean alignedWithS7,
       boolean alignedWithCommonFixtures,
-      String harnessScenariosTileManifestId,
-      String harnessScenariosZoomRange,
-      String harnessScenariosTileKeyRange,
-      String harnessScenariosBlobUriTemplate,
-      String s7TileManifestId,
-      String s7ZoomRange,
-      String s7TileKeyRange,
-      String s7BlobUriTemplate,
       String commonFixturesTileManifestId,
       String commonFixturesZoomRange,
       String commonFixturesTileKeyRange,

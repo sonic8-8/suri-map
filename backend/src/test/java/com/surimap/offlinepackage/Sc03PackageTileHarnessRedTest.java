@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -108,8 +107,6 @@ class Sc03PackageTileHarnessRedTest {
             "local://tiles/inc-precinct-first-001/16/55870/25920.pbf");
     assertThat(listValue(report, "failureKeys"))
         .containsExactlyInAnyOrderElementsOf(OfflinePackageManifestFixtures.FAILURE_KEYS);
-    assertThat(booleanValue(report, "alignedWithHarnessScenarios")).isTrue();
-    assertThat(booleanValue(report, "alignedWithS7")).isTrue();
     assertThat(booleanValue(report, "alignedWithCommonFixtures")).isTrue();
   }
 
@@ -140,26 +137,16 @@ class Sc03PackageTileHarnessRedTest {
   }
 
   @Test
-  @DisplayName("exactness report exposes source-document constants behind alignment booleans")
-  void alignmentEvidenceComesFromHarnessS7AndCommonFixtureSources() throws IOException {
+  @DisplayName("타일 검사 결과에 비교 기준인 공용 fixture의 값이 포함된다")
+  void alignment_evidence_comes_from_common_fixture() throws IOException {
+    // given: 비교 기준인 공용 fixture를 읽는다.
     SourceConstants constants = SourceConstants.load();
+
+    // when: 패키지·타일 검사를 실행한다.
     Object result = run("runPackageTileClosure");
     Object report = call(result, "tileFixtureExactnessReport");
 
-    assertThat(value(report, "harnessScenariosTileManifestId"))
-        .isEqualTo(constants.harnessScenariosTileManifestId());
-    assertThat(value(report, "harnessScenariosZoomRange"))
-        .isEqualTo(constants.harnessScenariosZoomRange());
-    assertThat(value(report, "harnessScenariosTileKeyRange"))
-        .isEqualTo(constants.harnessScenariosTileKeyRange());
-    assertThat(value(report, "harnessScenariosBlobUriTemplate"))
-        .isEqualTo(constants.harnessScenariosBlobUriTemplate());
-
-    assertThat(value(report, "s7TileManifestId")).isEqualTo(constants.s7TileManifestId());
-    assertThat(value(report, "s7ZoomRange")).isEqualTo(constants.s7ZoomRange());
-    assertThat(value(report, "s7TileKeyRange")).isEqualTo(constants.s7TileKeyRange());
-    assertThat(value(report, "s7BlobUriTemplate")).isEqualTo(constants.s7BlobUriTemplate());
-
+    // then: 식별자·좌표 범위·주소가 공용 fixture와 일치한다.
     assertThat(value(report, "commonFixturesTileManifestId"))
         .isEqualTo(constants.commonFixturesTileManifestId());
     assertThat(value(report, "commonFixturesZoomRange"))
@@ -265,14 +252,6 @@ class Sc03PackageTileHarnessRedTest {
   }
 
   private record SourceConstants(
-      String harnessScenariosTileManifestId,
-      String harnessScenariosZoomRange,
-      String harnessScenariosTileKeyRange,
-      String harnessScenariosBlobUriTemplate,
-      String s7TileManifestId,
-      String s7ZoomRange,
-      String s7TileKeyRange,
-      String s7BlobUriTemplate,
       String commonFixturesTileManifestId,
       String commonFixturesZoomRange,
       String commonFixturesTileKeyRange,
@@ -282,28 +261,12 @@ class Sc03PackageTileHarnessRedTest {
 
     static SourceConstants load() throws IOException {
       Path root = repoRoot();
-      String harness =
-          Files.readString(root.resolve("docs/spec/harness-scenarios.md"));
-      JsonNode s7 =
-          OBJECT_MAPPER
-              .readTree(root.resolve("docs/spec/specs/S7.json").toFile())
-              .at("/harness_fixtures/tile_manifest_fixture");
       JsonNode common =
           OBJECT_MAPPER
-              .readTree(root.resolve("docs/spec/fixtures/common-fixtures.json").toFile())
+              .readTree(root.resolve("test-fixtures/common-fixtures.json").toFile())
               .at("/confirmed/tileManifest");
 
       return new SourceConstants(
-          extract(harness, "tileManifestId=([^`,]+)"),
-          extractZoomRange(harness),
-          extractTileKeyRange(harness),
-          extract(harness, "blob URI `([^`]+)`"),
-          s7.path("manifestId").asText(),
-          zoomRange(
-              s7.path("zoomRange").path("min").asInt(),
-              s7.path("zoomRange").path("max").asInt()),
-          tileKeyRange(s7.path("tileKeyRange")),
-          s7.path("blobUriTemplate").asText(),
           common.path("manifestId").asText(),
           zoomRange(
               common.path("tileKeyRange").path("minZ").asInt(),
@@ -318,25 +281,6 @@ class Sc03PackageTileHarnessRedTest {
         return cwd;
       }
       return cwd.getParent();
-    }
-
-    private static String extract(String text, String regex) {
-      var matcher = Pattern.compile(regex).matcher(text);
-      assertThat(matcher.find()).as("source document regex: %s", regex).isTrue();
-      return matcher.group(1);
-    }
-
-    private static String extractZoomRange(String harness) {
-      return extract(harness, "z=(\\d+\\.\\.\\d+)");
-    }
-
-    private static String extractTileKeyRange(String harness) {
-      return "z="
-          + extract(harness, "z=(\\d+\\.\\.\\d+)")
-          + ",x="
-          + extract(harness, "x=(\\d+\\.\\.\\d+)")
-          + ",y="
-          + extract(harness, "y=(\\d+\\.\\.\\d+)");
     }
 
     private static String zoomRange(int min, int max) {

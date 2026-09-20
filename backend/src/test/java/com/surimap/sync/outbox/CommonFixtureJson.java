@@ -11,7 +11,7 @@ final class CommonFixtureJson {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Path COMMON_FIXTURES =
-      Path.of("..", "docs", "spec", "fixtures", "common-fixtures.json").normalize();
+      Path.of("..", "test-fixtures", "common-fixtures.json").normalize();
 
   private CommonFixtureJson() {}
 

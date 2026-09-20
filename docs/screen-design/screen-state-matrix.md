@@ -220,7 +220,7 @@ INCIDENT_CLOSED FCM 수신은 **모든 사건 컨텍스트 폴리폰 화면**(P3
 
 ### 3.11 폴리폰 인증 / 폴리폰 접속
 
-- **운영 전제**: 폴리폰 = 팀 단위/순찰차 단위 1대 지급(PRD §0.1, §8.4) + 단말 ↔ 팀/순찰차 계정 1:1 매핑(L5-03 §4.2) + 장기 세션 유지(PRD §8.4, boundaries.md §S1-2 §282) + 삼성 Knox 위 관리 단말. 정상 운영 첫 화면은 관리 폴리폰 자동 확인 전환 상태이며, 사용자가 ID/PW나 바인딩 코드를 직접 입력하지 않는다.
+- **당시 운영 가정**: 폴리폰 = 팀 단위/순찰차 단위 1대 지급 + 단말·공유 계정 1:1 매핑 + 장기 세션 + Knox 관리 단말을 전제했다. 첫 화면은 ID/PW·바인딩 코드 입력 없이 관리 폴리폰을 자동 확인하는 설계였다. 현재 개인·공유 계정과 등록 단말의 구분은 [인증 기록](../authentication.md#계정과-인증-정보)·코드와 다시 대조한다.
 - **default = managed_phone_checking → internal_network_ok**: 2단계 progress bar. 단계 통과 시 chip `확인`, 진행 중 chip `확인 중`. 모두 통과하면 **사건 선택(P2)으로 자동 이동** — 배정 사건 0건이든 N건이든 P2가 처리. 단계명에 `Knox`/`MDM` 노출하지 않는다 (사용자 문구는 `관리 폴리폰`/`내부망`).
 - **loading**: 단계별 progress 진행. 사용자 입력 요구 없음.
 - **not_managed_phone**: 관리 폴리폰 검증 실패 → "관리 단말이 아닙니다. IT 부서 문의". 사용자 재시도 CTA 없음. 인증 전 화면에 사건명·OP·배정 사건 노출 금지.
@@ -373,11 +373,11 @@ INCIDENT_CLOSED FCM 수신은 **모든 사건 컨텍스트 폴리폰 화면**(P3
 
 ## 4. board_shell_slots 정렬
 
-웹 상황판 화면은 spec(`boundaries.md`) §9.2 `board_shell_slots` 계약과 정렬되어야 한다. 화면 설계 산출물의 slot 명명·소유는 spec을 따른다.
+아래는 옛 경계·하네스 문서에 맞춰 작성한 화면 배치 초안이다. 현재 슬롯과 소비자는 [상황판 기록](../situation-board.md#화면과-관측에서-남은-요구)·코드와 대조한다. 표의 `toast`는 과거 이름이며 현재 알림 데이터 슬롯은 `marker_notification`이다. Lane별 UI 납품 규칙은 현재 작업 범위를 제한하지 않는다.
 
 ### 화면 × slot 매핑 (초안)
 
-slot 13종 (boundaries.md §9.2): `overall_search_area`, `area`, `path`, `police_phone_freshness`, `marker`, `toast`, `package_badge`, `op_toggle`, `op_history`, `handover_memo`, `handover_status`, `search_history_summary`, `incident_terminal`.
+당시 slot 13종: `overall_search_area`, `area`, `path`, `police_phone_freshness`, `marker`, `toast`, `package_badge`, `op_toggle`, `op_history`, `handover_memo`, `handover_status`, `search_history_summary`, `incident_terminal`.
 
 | 화면 | 사용 slot |
 |---|---|
@@ -389,7 +389,7 @@ slot 13종 (boundaries.md §9.2): `overall_search_area`, `area`, `path`, `police
 | 오프라인 패키지 상태 | `package_badge` |
 | 사건 종료 / 파기 상태 | `incident_terminal`, `package_badge` |
 
-> 위 매핑은 harness-scenarios.md `board_merge` 컬럼을 기반으로 한 초안. 각 화면이 owns가 아니라 mounted by S3-2임을 잊지 않는다 (spec). 화면 설계 산출물은 slot-scoped renderer만 납품한다.
+> 당시 `board_merge` 표와 소유권은 [과거 문서 출처](../tasks/scenario-exit-criteria.md#과거-문서의-차이와-복원)에서 확인한다. 이 매핑만으로 실제 화면 연결·동작을 판단하지 않는다.
 
 ## 5. 변경 시 영향
 

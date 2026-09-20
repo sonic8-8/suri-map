@@ -57,7 +57,7 @@
 
 ## Phase 2. Backend fixture / 내부망 시뮬레이션 준비
 
-- [ ] `docs/spec/fixtures/common-fixtures.json`의 fixture ID를 그대로 사용한다.
+- [ ] `test-fixtures/common-fixtures.json`의 fixture ID를 그대로 사용한다.
 - [ ] 최소 fixture backend 흐름을 준비한다.
   - `POST /api/police-phones/{policePhoneId}/heartbeat`
   - `GET /api/incidents`
