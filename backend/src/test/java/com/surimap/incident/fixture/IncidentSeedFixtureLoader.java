@@ -13,7 +13,7 @@ import java.util.List;
 public final class IncidentSeedFixtureLoader {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final String COMMON_FIXTURES_REL_PATH = "docs/spec/fixtures/common-fixtures.json";
+  private static final String COMMON_FIXTURES_REL_PATH = "test-fixtures/common-fixtures.json";
 
   private IncidentSeedFixtureLoader() {}
 

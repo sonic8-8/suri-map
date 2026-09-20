@@ -12,12 +12,13 @@ import java.util.List;
 public final class IncidentLifecycleFixtureLoader {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final String COMMON_FIXTURES_REL_PATH = "docs/spec/fixtures/common-fixtures.json";
+  private static final String COMMON_FIXTURES_REL_PATH = "test-fixtures/common-fixtures.json";
 
   private IncidentLifecycleFixtureLoader() {}
 
   public static IncidentLifecycleFixtureStates loadTerminalStateRules() {
-    JsonNode terminalStateRules = required(required(readCommonFixtures(), "confirmed"), "terminalStateRules");
+    JsonNode terminalStateRules =
+        required(required(readCommonFixtures(), "confirmed"), "terminalStateRules");
     JsonNode requeue = required(terminalStateRules, "sc12CloseRequeue");
 
     return new IncidentLifecycleFixtureStates(

@@ -15,7 +15,8 @@ Suri-Map Web 상황판 전용 규칙이다. 저장소 공통 규칙은 `../AGENT
 
 - Web은 현장 입력 앱이 아니라 지휘 상황판이다.
 - 전체/팀 수색 구역, PolicePhone 경로, 마커, OP 비교, 인수인계 메모, 수색 이력 요약, 오프라인 패키지 상태를 보여준다.
-- Web 전용 command: 사건 import/close, 전체 수색 구역 조정, 구역 분할/할당/완료, OP 생성, 차량/도보 구간 보정, 수색 이력 요약 생성.
+- Web 전용 command: 사건 import/close, 전체 수색 구역 조정, 구역 분할/할당/완료, OP 생성, 차량/도보 구간 보정, OP 비교 분석 생성.
+- 수색 이력 요약은 읽기 전용으로 표시한다. 생성·재시도는 서버 내부 처리이며, 기존 요구와 남은 연결은 `../docs/handover.md`에서 확인한다.
 - 앱 전용 write인 현장 마커 생성, 사진 업로드, GPS batch, SearchPath 시작/종료, package installation status write를 Web에서 구현하지 않는다.
 
 ## 구조 / 아키텍처

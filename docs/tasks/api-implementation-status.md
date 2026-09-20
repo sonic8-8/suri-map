@@ -5,7 +5,9 @@
 
 ## 목적
 
-`docs/api/api-spec.md`의 public API를 기준으로 현재 backend, frontend, Android 구현 상태를 대조한다. 이 문서는 source of truth가 아니며, 후속 Jira 분할과 검증 범위를 줄이기 위한 작업 현황표다.
+표시된 갱신일에 API 문서와 Backend·Frontend·Android를 대조한 기록이다. 아래 판정과 환경 설명을 현재 상태로 대신하지 않는다. 현재 동작은 실제 Controller·소비자 코드·실행 결과로 확인한다.
+
+`ApiImplementationStatusCoverageTest`가 API 행과 상태 열을 읽어 Spring 경로의 존재를 검사한다. 표는 이 입력을 위해 유지하며, 테스트 통과가 개별 API의 응답·권한·DB 동작까지 검증한 결과는 아니다.
 
 ## 판정 기준
 
@@ -23,7 +25,7 @@
 | 미구현 | 기준 public contract를 처리하는 runtime 코드가 없다. |
 | 불일치 | 구현은 있으나 기준 문서와 header/path/용어가 충돌한다. |
 
-## 핵심 결론
+## 당시 확인 결과
 
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
 2. 백엔드는 S1-1 Incident, S2 SearchArea headless MVP, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles, S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary headless MVP가 구현되어 있다.

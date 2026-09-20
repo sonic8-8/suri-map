@@ -107,15 +107,15 @@ KRDS 원본 컬러 base + 도메인 컬러 추가. KRDS의 형식 톤(저채도�
 
 > 마커 5종은 색만이 아니라 **아이콘 모양**도 다르게 한다 (anti-patterns §3.1 색맹 친화). 예: 단서=사각, 발견=★, 지형=▲, 지원=◆, 운영 메모(NOTE)=●.
 
-#### 폴리폰 freshness 임계 (spec 인용)
+#### 폴리폰 freshness 임계 (과거 설계값)
 
-화면 설계가 임의 임계값을 사용하면 구현/하네스와 충돌하므로 **boundaries.md**의 정의를 따른다.
+아래는 옛 경계 문서에서 인용한 값이다. 현재 서버 수신 시각·표시 계산은 [업무폰 상태](../authentication.md#통신-최신성과-알림-토큰)와 구현을 대조한다. 현장에서 검증된 허용 지연으로 새로 확정한 값은 아니다.
 
 | 상태 | 임계 | 출처 |
 |---|---|---|
-| online | 동기화 60초 이내 | boundaries.md §폴리폰 freshness 표시 |
-| stale | 60초 이상 미동기 | boundaries.md §폴리폰 freshness 표시 |
-| lost | 5분 이상 위치 끊김 | boundaries.md §폴리폰 freshness 표시 |
+| online | 동기화 60초 이내 | [과거 경계 원문](../tasks/scenario-exit-criteria.md#과거-문서의-차이와-복원) |
+| stale | 60초 이상 미동기 | 같은 원문 |
+| lost | 5분 이상 위치 끊김 | 같은 원문 |
 
 화면 라벨은 영어 코드(`stale`/`lost`)가 아니라 한국어 경과 시간 중심으로 표기한다. screen-labels.md §3 상태 라벨 참조.
 

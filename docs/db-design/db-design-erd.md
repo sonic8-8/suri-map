@@ -1,10 +1,10 @@
 # Suri-Map DB Design ERD
 
-이 문서는 `db-design-readable.md`의 최종 엔티티 관계를 Mermaid ERD로 표현한다.
+`db-design-readable.md`에 기록된 설계 관계를 Mermaid ERD로 표현한 참고 자료다. 현재 구현과의 차이는 Flyway migration·Mapper SQL·대상 DB의 실제 schema로 확인한다.
 
-- 백엔드 PostgreSQL 엔티티 수: 26
+- 설계 당시 기재한 백엔드 PostgreSQL 엔티티 수: 26
 - Android Room 로컬 엔티티: `android_outbox`, `android_sync_status`는 백엔드 ERD에서 제외
-- 이 ERD는 팀 공유용 관계도이며, 상세 타입, nullable, 제약, 인덱스는 후속 Flyway migration 작성 시 이 문서와 spec 문서를 함께 기준으로 확정한다.
+- 상세 타입·nullable·제약·인덱스의 구현 여부를 이 관계도만으로 판단하지 않는다. 변경 기준은 [AGENTS.md](../../AGENTS.md)를 따른다.
 
 ```mermaid
 erDiagram

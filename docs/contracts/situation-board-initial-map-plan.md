@@ -1,5 +1,7 @@
 # Situation Board Initial Map Loading Plan
 
+초기 지도 표시의 과거 설계 기록이다. 아래 DTO·Query 이름과 상태별 동작은 현재 구현을 보증하지 않는다. 변경 전에는 실제 지도 hook·API 소비 흐름을 확인하고 [AGENTS.md](../../AGENTS.md)에 따라 사용자와 합의한다.
+
 ## Decision
 
 Situation board initial map loading must not assume that `overallSearchArea` already exists when an incident is first imported.

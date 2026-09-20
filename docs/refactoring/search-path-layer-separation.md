@@ -2,18 +2,13 @@
 
 ## 문서 목적
 
-이 문서는 수색 경로 리팩토링을 진행하면서 확정한 기준을 기록한다. 작업 도중 같은 내용을 다시 해석하거나, 합의하지 않은 구조를 새로 적용하는 일을 막는 것이 목적이다.
+수색 경로 리팩토링에서 선택한 구조와 그 이유를 보존한 기록이다. 아래 계획·완료 기준을 새 작업의 필수 절차로 적용하지 않는다.
 
-이 문서는 Public API나 DB 계약을 새로 정의하지 않는다. 계약이 충돌하면 다음 기준 문서를 우선한다.
-
-- Public API: `docs/api/api-spec.md`
-- 도메인과 Lane 경계: `docs/spec/boundaries.md`
-- DB 구조와 컬럼 의미: `docs/db-design/db-design-readable.md`
-- 백엔드 패키지와 테스트 기준: `backend/AGENTS.md`
+현재 구현은 Controller·Service·Mapper·migration과 테스트에서 확인한다. 변경할 동작은 사용자와 합의하며 [공통 규칙](../../AGENTS.md)과 [Backend 규칙](../../backend/AGENTS.md)을 따른다. 문서와 코드가 다르면 어느 한쪽에 자동으로 맞추지 않는다.
 
 GitHub Issue를 작성할 때는 이 문서에서 확정한 선택과 변경 범위를 참고할 수 있다. 다만 문제를 발견한 과정과 문제라고 판단한 근거, 실제 테스트 결과는 Issue와 댓글에 별도로 기록한다.
 
-## 현재 상태
+## 리팩토링 당시 정리한 구조
 
 수색 경로 코드는 `api`, `app`, `domain` 패키지로 나눠 정리했다. MyBatis는 별도의 Repository를 거치지 않고 `SearchPathMapper`가 `SearchPath`를 직접 저장하고 조회한다.
 

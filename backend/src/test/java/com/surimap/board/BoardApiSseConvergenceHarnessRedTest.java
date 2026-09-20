@@ -79,8 +79,7 @@ class BoardApiSseConvergenceHarnessRedTest {
   @Test
   @DisplayName("slot merge follows S3-2 api_assembly_failure_fixtures")
   void slot_merge_follows_s3_2_api_assembly_failure_fixtures() throws IOException {
-    JsonNode failures =
-        fixture("docs/spec/specs/S3-2.json").at("/harness_fixtures/api_assembly_failure_fixtures");
+    JsonNode failures = fixture("backend/src/test/resources/board-api-assembly-failures.json");
     BoardRefetchGuard guard = new BoardRefetchGuard();
     BoardAssemblyRequest current = currentMergeRequest();
 
@@ -203,52 +202,32 @@ class BoardApiSseConvergenceHarnessRedTest {
   }
 
   @Test
-  @DisplayName("S4/common outbox replay signal converges a path slot probe")
-  void s4_common_outbox_replay_signal_converges_path_slot_probe() throws IOException {
-    JsonNode s4Fixture =
-        fixture("docs/spec/specs/S4.json").at("/harness_fixtures/sc09_outbox_replay_convergence");
-    JsonNode commonFixture =
-        fixture("docs/spec/fixtures/common-fixtures.json")
+  @DisplayName("미전송 경로의 재전송 이벤트를 적용하면, 상황판 경로를 최신 버전으로 갱신한다")
+  void outbox_replay_signal_updates_path_slot() throws IOException {
+    // given: 공용 fixture에서 재전송 이벤트와 상황판의 기대 결과를 읽는다.
+    JsonNode replayFixture =
+        fixture("test-fixtures/common-fixtures.json")
             .at("/confirmed/eventFanout/sc09OutboxReplayConvergence");
-    JsonNode signalFixture = s4Fixture.at("/expectedRefetchSignal");
-    JsonNode boardProbeFixture = s4Fixture.at("/expectedBoardProbe");
-    JsonNode commonSignalFixture = commonFixture.at("/expectedRefetchSignal");
-    JsonNode commonBoardProbeFixture = commonFixture.at("/expectedBoardProbe");
+    JsonNode signalFixture = replayFixture.at("/expectedRefetchSignal");
+    JsonNode boardProbeFixture = replayFixture.at("/expectedBoardProbe");
 
-    assertThat(text(commonFixture, "operationId")).isEqualTo(text(s4Fixture, "operationId"));
-    assertThat(text(commonFixture, "idempotencyKey")).isEqualTo(text(s4Fixture, "idempotencyKey"));
-    assertThat(text(commonFixture, "eventId")).isEqualTo(text(s4Fixture, "eventId"));
-    assertThat(text(commonFixture, "type")).isEqualTo(text(s4Fixture, "type"));
-    assertThat(number(commonFixture, "sseSequence")).isEqualTo(number(s4Fixture, "sseSequence"));
-    assertThat(text(commonFixture.at("/payload"), "id"))
+    assertThat(text(replayFixture.at("/payload"), "id"))
         .isEqualTo(text(signalFixture, "payloadId"));
-    assertThat(text(commonFixture.at("/payload"), "status"))
+    assertThat(text(replayFixture.at("/payload"), "status"))
         .isEqualTo(text(signalFixture, "payloadStatus"));
-    assertThat(number(commonFixture.at("/payload"), "version"))
+    assertThat(number(replayFixture.at("/payload"), "version"))
         .isEqualTo(number(signalFixture, "payloadVersion"));
-    assertThat(text(commonSignalFixture, "eventId")).isEqualTo(text(signalFixture, "eventId"));
-    assertThat(text(commonSignalFixture, "incidentId"))
-        .isEqualTo(text(signalFixture, "incidentId"))
-        .isEqualTo(text(commonFixture, "incidentId"));
-    assertThat(number(commonSignalFixture, "replaySequence"))
-        .isEqualTo(number(signalFixture, "replaySequence"))
-        .isEqualTo(number(commonFixture, "sseSequence"));
-    assertThat(text(commonSignalFixture, "payloadId")).isEqualTo(text(signalFixture, "payloadId"));
-    assertThat(text(commonSignalFixture, "payloadStatus"))
-        .isEqualTo(text(signalFixture, "payloadStatus"));
-    assertThat(number(commonSignalFixture, "payloadVersion"))
-        .isEqualTo(number(signalFixture, "payloadVersion"));
-    assertThat(text(commonBoardProbeFixture, "latestEventId"))
-        .isEqualTo(text(boardProbeFixture, "latestEventId"))
-        .isEqualTo(text(commonFixture, "eventId"));
-    assertThat(number(commonBoardProbeFixture, "minimumVersion"))
-        .isEqualTo(number(boardProbeFixture, "minimumVersion"));
+    assertThat(text(signalFixture, "eventId")).isEqualTo(text(replayFixture, "eventId"));
+    assertThat(text(signalFixture, "incidentId")).isEqualTo(text(replayFixture, "incidentId"));
+    assertThat(number(signalFixture, "replaySequence"))
+        .isEqualTo(number(replayFixture, "sseSequence"));
+    assertThat(text(boardProbeFixture, "latestEventId")).isEqualTo(text(replayFixture, "eventId"));
 
     BoardRefetchSignal signal =
         new BoardRefetchSignal(
             text(signalFixture, "eventId"),
             text(signalFixture, "incidentId"),
-            text(commonFixture, "type"),
+            text(replayFixture, "type"),
             OffsetDateTime.parse("2026-04-28T10:30:00+09:00"),
             number(signalFixture, "replaySequence"),
             text(boardProbeFixture, "slot"),
@@ -263,11 +242,13 @@ class BoardApiSseConvergenceHarnessRedTest {
                 "status", text(signalFixture, "payloadStatus"),
                 "version", number(signalFixture, "payloadVersion")));
 
+    // when: 이전 버전의 경로가 있는 상황판에 재전송 이벤트를 적용한다.
     BoardRefetchResult result =
         new BoardRefetchGuard().apply(staleOutboxPathRequest(signal), List.of(signal));
 
+    // then: 이벤트와 상황판 경로의 식별자·버전·순번이 기대 결과와 일치한다.
     assertThat(result.convergenceProbe())
-        .as("S4 sc09_outbox_replay_convergence must drive the S3-2 path board probe")
+        .as("재전송 이벤트를 적용한 상황판 경로가 공용 fixture의 기대 결과와 일치해야 한다")
         .satisfies(
             probe -> {
               assertThat(probe.eventId()).isEqualTo(text(signalFixture, "eventId"));
@@ -289,8 +270,8 @@ class BoardApiSseConvergenceHarnessRedTest {
   @DisplayName("board API refetch lag marks STALE_REFETCH before reload convergence")
   void board_api_refetch_lag_marks_stale_refetch_before_reload_convergence() throws IOException {
     JsonNode delayed =
-        fixture("docs/spec/specs/S3-2.json")
-            .at("/harness_fixtures/api_assembly_failure_fixtures/delayed_refetch_trigger");
+        fixture("backend/src/test/resources/board-api-assembly-failures.json")
+            .path("delayed_refetch_trigger");
     BoardAssemblyRequest staleBoard = staleAreaRequest(number(delayed, "staleResponseVersion"));
     BoardRefetchSignal sourceSignal =
         new BoardRefetchSignal(
@@ -488,7 +469,7 @@ class BoardApiSseConvergenceHarnessRedTest {
 
   private static Path repositoryRoot() {
     Path userDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-    if (Files.exists(userDir.resolve("docs/spec/specs/S3-2.json"))) {
+    if (Files.exists(userDir.resolve("test-fixtures/common-fixtures.json"))) {
       return userDir;
     }
     return userDir.getParent();
