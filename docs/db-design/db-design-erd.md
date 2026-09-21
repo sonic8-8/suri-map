@@ -1,385 +1,67 @@
-# Suri-Map DB Design ERD
+# 주요 DB 관계
 
-`db-design-readable.md`에 기록된 설계 관계를 Mermaid ERD로 표현한 참고 자료다. 현재 구현과의 차이는 Flyway migration·Mapper SQL·대상 DB의 실제 schema로 확인한다.
+업무 기록이 어떻게 연결되는지 빠르게 찾기 위한 관계도다. 2026-09-21의 migration·Mapper를 대조했으며, 모든 테이블·컬럼을 펼친 물리 ERD나 실제 배포 DB의 추출 결과는 아니다.
 
-- 설계 당시 기재한 백엔드 PostgreSQL 엔티티 수: 26
-- Android Room 로컬 엔티티: `android_outbox`, `android_sync_status`는 백엔드 ERD에서 제외
-- 상세 타입·nullable·제약·인덱스의 구현 여부를 이 관계도만으로 판단하지 않는다. 변경 기준은 [AGENTS.md](../../AGENTS.md)를 따른다.
+선은 코드에서 사용하는 관계다. **외래 키 제약이 모두 있다는 뜻은 아니다.** 타입·제약은 [migration](../../backend/src/main/resources/db/migration/), 업무 의미와 설계·구현 차이는 [읽기 문서](./db-design-readable.md)에서 확인한다.
+
+## 사건·배정·근무 구간
+
+`||`는 하나, `o|`는 없거나 하나, `o{`는 없거나 여러 개를 뜻한다. 근무 구간의 업무폰 맥락과 경로를 기록한 계정을 분리해서 읽는다.
 
 ```mermaid
 erDiagram
     incident ||--o| missing_person : has
-    incident ||--o{ incident_assignment : has
-    account ||--o{ incident_assignment : assigned
-    incident ||--o{ operational_period : has
+    incident ||--o{ incident_assignment : assigns
+    account ||--o{ incident_assignment : participates
+    incident ||--o{ operational_period : contains
 
-    account ||--o{ fcm_token : registers
-    police_phone ||--o{ fcm_token : owns
-
-    incident ||--o| incident_data_purge : schedules
-    incident ||--o{ location_data_access_audit : audits
-    account ||--o{ location_data_access_audit : accesses
-    police_phone ||--o{ location_data_access_audit : accesses
-
-    operational_period ||--o{ duty_shift : has
+    operational_period ||--o{ duty_shift : contains
     incident_assignment ||--o{ duty_shift : works
     police_phone ||--o{ duty_shift : used_in
+```
 
+## 현장 기록과 상세 데이터
+
+```mermaid
+erDiagram
     operational_period ||--o{ search_area : contains
-    search_area ||--o{ search_area : parent_of
-    search_area ||--o{ search_area_assignment : assigned
-    account ||--o{ search_area_assignment : receives
-    account ||--o{ search_area_assignment : assigns
+    search_area ||--o{ search_area_assignment : assigns
     search_area ||--o{ search_area_history : changes
-    account ||--o{ search_area_history : changes
 
-    duty_shift ||--o{ search_path : records
-    search_path ||--o{ search_path_segment : splits
+    operational_period ||--o{ duty_shift : contains
+    duty_shift ||--o{ search_path : contains
+    account ||--o{ search_path : records
+    search_path ||--o{ search_path_gps_point : stores
+    search_path ||--o{ search_path_segment : classifies
     search_path ||--o{ search_path_excluded_point : excludes
-    account ||--o{ search_path_segment : corrects
+    search_path ||--o{ search_path_lifecycle_event : changes
 
-    operational_period ||--o{ marker : has
-    duty_shift ||--o{ marker : creates
-    account ||--o{ marker : creates
-    police_phone ||--o{ marker : creates
-    marker ||--o{ photo : has
+    operational_period ||--o{ marker : contains
+    marker ||--o{ photo : attaches
     marker ||--o| marker_notification : derives
+```
 
-    operational_period ||--o{ handover_memo : has
-    duty_shift ||--o{ handover_memo : context
-    account ||--o{ handover_memo : writes
+- 사건 ID는 경로 행에 직접 있는 것이 아니라 `search_path → duty_shift → operational_period`로 조회한다.
+- 구역의 상위 구역·담당 계정, 마커의 작성 계정·근무 맥락은 선이 겹치지 않도록 생략했다. 해당 관계는 [본문](./db-design-readable.md)에 남겼다.
+- `photo`는 마커 생성 전에 업로드를 준비할 수도 있다. 위 연결을 이미 존재하는 마커 행의 FK 보장으로 해석하지 않는다.
+- 메모 대상과 비교 차수의 JSON 목록은 단일 대상의 FK 관계가 아니므로 그림에서 생략했다. [메모·요약·비교의 의미](./db-design-readable.md#마커사진인수인계)를 확인한다.
 
-    operational_period ||--o{ search_history_summary : has
-    duty_shift ||--o{ search_history_summary : summarizes
-    account ||--o{ search_history_summary : requests
+## 설치 상태와 파기 결과
 
-    incident ||--o{ idempotency_record : scopes
-    police_phone ||--o{ idempotency_record : sends
-
-    incident ||--o{ offline_package_manifest : has
-    operational_period ||--o{ offline_package_manifest : packages
-    search_area ||--o{ offline_package_manifest : overall_area
-    offline_package_manifest ||--o{ offline_package_installation : installed_as
+```mermaid
+erDiagram
+    incident ||--o{ offline_package_manifest : packages
+    offline_package_manifest ||--o{ offline_package_installation : reports
     police_phone ||--o{ offline_package_installation : installs
 
-    incident ||--o{ event_dispatch_job : emits
-    event_dispatch_job ||--o{ event_dispatch_target : targets
-    event_dispatch_job ||--o| sse_replay_event : stores
-
-    incident {
-        UUID id PK
-        UUID source_incident_id UK
-        VARCHAR title
-        VARCHAR status
-        TIMESTAMPTZ opened_at
-        TIMESTAMPTZ closed_at
-        UUID closed_by_account_id FK
-        BIGINT version
-    }
-
-    missing_person {
-        UUID incident_id PK,FK
-        VARCHAR display_name
-        TEXT photo_object_key
-        TEXT appearance_text
-        VARCHAR last_seen_location_text
-        TIMESTAMPTZ last_seen_at
-        TIMESTAMPTZ imported_at
-    }
-
-    incident_assignment {
-        UUID id PK
-        UUID incident_id FK
-        UUID account_id FK
-        VARCHAR incident_role
-        TIMESTAMPTZ assigned_at
-        TIMESTAMPTZ revoked_at
-    }
-
-    account {
-        UUID id PK
-        VARCHAR login_id UK
-        TEXT password_hash
-        VARCHAR display_name
-        VARCHAR account_type
-        VARCHAR organization_type
-        VARCHAR status
-    }
-
-    police_phone {
-        UUID id PK
-        VARCHAR phone_code UK
-        VARCHAR display_name
-        VARCHAR status
-        BOOLEAN registered
-        TIMESTAMPTZ last_heartbeat_at
-        TIMESTAMPTZ last_sync_at
-        BIGINT heartbeat_sequence
-        UUID last_heartbeat_event_id
-        BIGINT version
-    }
-
-    fcm_token {
-        UUID id PK
-        UUID account_id FK
-        UUID police_phone_id FK
-        VARCHAR app_instance_id
-        TEXT token_hash
-        TEXT token_ciphertext
-        VARCHAR status
-        BIGINT version
-    }
-
-    incident_data_purge {
-        UUID id PK
-        UUID incident_id FK
-        VARCHAR status
-        TIMESTAMPTZ closed_at
-        TIMESTAMPTZ purge_due_at
-        TIMESTAMPTZ completed_at
-    }
-
-    location_data_access_audit {
-        UUID id PK
-        UUID incident_id FK
-        UUID account_id FK
-        UUID police_phone_id FK
-        VARCHAR access_channel
-        VARCHAR access_purpose
-        TIMESTAMPTZ accessed_at
-        TIMESTAMPTZ retention_until
-    }
-
-    operational_period {
-        UUID id PK
-        UUID incident_id FK
-        INTEGER sequence_number
-        VARCHAR status
-        VARCHAR reason
-        TEXT reason_memo
-        UUID started_by_account_id FK
-        UUID ended_by_account_id FK
-        TIMESTAMPTZ started_at
-        TIMESTAMPTZ ended_at
-        BIGINT version
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
-    }
-
-    duty_shift {
-        UUID id PK
-        UUID operational_period_id FK
-        UUID incident_assignment_id FK
-        UUID police_phone_id FK
-        VARCHAR status
-        TIMESTAMPTZ started_at
-        TIMESTAMPTZ ended_at
-    }
-
-    search_area {
-        UUID id PK
-        UUID operational_period_id FK
-        UUID parent_search_area_id FK
-        VARCHAR name
-        VARCHAR area_level
-        GEOMETRY geometry
-        VARCHAR status
-        BIGINT version
-    }
-
-    search_area_assignment {
-        UUID id PK
-        UUID search_area_id FK
-        UUID assigned_account_id FK
-        UUID assigned_by_account_id FK
-        TIMESTAMPTZ assigned_at
-        TIMESTAMPTZ revoked_at
-        VARCHAR status
-    }
-
-    search_area_history {
-        UUID id PK
-        UUID search_area_id FK
-        VARCHAR change_type
-        VARCHAR previous_status
-        VARCHAR next_status
-        GEOMETRY previous_geometry
-        GEOMETRY next_geometry
-        UUID changed_by_account_id FK
-    }
-
-    search_path {
-        UUID id PK
-        UUID duty_shift_id FK
-        VARCHAR status
-        TIMESTAMPTZ started_at
-        TIMESTAMPTZ ended_at
-        GEOMETRY geometry
-        BIGINT version
-    }
-
-    search_path_gps_point {
-        UUID search_path_id PK, FK
-        INTEGER point_order PK
-        VARCHAR point_id
-        TIMESTAMPTZ client_ts
-        NUMERIC lon
-        NUMERIC lat
-        NUMERIC speed_mps
-        INTEGER horizontal_accuracy_m
-        VARCHAR location_provider
-        BIGINT elapsed_realtime_nanos
-        TIMESTAMPTZ created_at
-    }
-
-    search_path_segment {
-        UUID id PK
-        UUID search_path_id FK
-        VARCHAR movement_type
-        VARCHAR movement_type_source
-        GEOMETRY geometry
-        TIMESTAMPTZ started_at
-        TIMESTAMPTZ ended_at
-        UUID corrected_by_account_id FK
-        TIMESTAMPTZ corrected_at
-        BIGINT version
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
-    }
-
-    search_path_excluded_point {
-        UUID id PK
-        UUID search_path_id FK
-        VARCHAR point_id
-        VARCHAR reason
-        TIMESTAMPTZ client_ts
-        NUMERIC lon
-        NUMERIC lat
-        NUMERIC speed_mps
-        INTEGER horizontal_accuracy_m
-        VARCHAR location_provider
-        BIGINT elapsed_realtime_nanos
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
-    }
-
-    marker {
-        UUID id PK
-        UUID operational_period_id FK
-        UUID duty_shift_id FK
-        VARCHAR marker_type
-        VARCHAR support_request_type
-        GEOMETRY location
-        TEXT memo
-        TIMESTAMPTZ occurred_at
-        UUID created_by_account_id FK
-        UUID police_phone_id FK
-        VARCHAR marker_source
-        VARCHAR status
-        BIGINT version
-    }
-
-    photo {
-        UUID id PK
-        UUID marker_id FK
-        TEXT object_key UK
-        VARCHAR status
-        TIMESTAMPTZ attached_at
-        VARCHAR content_type
-        BIGINT size_bytes
-        CHAR checksum_sha256
-        TIMESTAMPTZ upload_url_expires_at
-        BIGINT version
-    }
-
-    marker_notification {
-        UUID id PK
-        UUID marker_id FK,UK
-        VARCHAR notification_type
-        VARCHAR recipient_rule
-        UUID_ARRAY recipient_account_ids
-        UUID_ARRAY recipient_police_phone_ids
-        JSONB notification_payload
-    }
-
-    handover_memo {
-        UUID id PK
-        UUID operational_period_id FK
-        VARCHAR memo_target_type
-        UUID memo_target_id
-        TEXT content
-        UUID created_by_account_id FK
-        UUID duty_shift_id FK
-    }
-
-    search_history_summary {
-        UUID id PK
-        UUID operational_period_id FK
-        UUID duty_shift_id FK
-        VARCHAR generation_status
-        TEXT content
-        CHAR source_data_hash
-        UUID requested_by_account_id FK
-        BIGINT version
-    }
-
-    idempotency_record {
-        UUID id PK
-        UUID client_operation_id
-        UUID incident_id FK
-        UUID police_phone_id FK
-        VARCHAR idempotency_key UK
-        CHAR request_body_hash
-        VARCHAR idempotency_status
-        TIMESTAMPTZ replay_expires_at
-    }
-
-    offline_package_manifest {
-        UUID id PK
-        UUID incident_id FK
-        INTEGER manifest_version
-        UUID operational_period_id FK
-        UUID overall_search_area_id FK
-        CHAR manifest_hash
-        JSONB manifest_payload
-    }
-
-    offline_package_installation {
-        UUID id PK
-        UUID offline_package_manifest_id FK
-        UUID police_phone_id FK
-        UUID last_reported_by_account_id FK
-        VARCHAR status
-        BIGINT version
-    }
-
-    event_dispatch_job {
-        UUID id PK
-        UUID event_id UK
-        UUID incident_id FK
-        VARCHAR event_type
-        JSONB payload
-        VARCHAR source_entity_type
-        UUID source_entity_id
-        VARCHAR dispatch_status
-    }
-
-    sse_replay_event {
-        UUID id PK
-        UUID event_dispatch_job_id FK,UK
-        UUID incident_id FK
-        BIGINT replay_sequence
-        JSONB envelope
-        VARCHAR replay_status
-    }
-
-    event_dispatch_target {
-        UUID id PK
-        UUID event_dispatch_job_id FK
-        VARCHAR target_type
-        TEXT target_identifier
-        BOOLEAN is_required
-        VARCHAR dispatch_status
-        INTEGER attempt_count
-    }
+    incident ||--o| incident_data_purge : tracks
+    incident_data_purge ||--o{ incident_data_purge_hook_step : records
 ```
+
+이 관계는 패키지 준비 성공이나 개인정보 파기 완료의 증거가 아니다. 서버 상태 보고·실제 단말 자료·대상별 처리 결과를 함께 확인한다.
+
+## 그림에서 제외한 옛 설계
+
+- `event_dispatch_job`은 실제 DB 테이블이지만 옛 그림의 `event_dispatch_target`·`sse_replay_event` 테이블은 구현되지 않았다. 메모리 재전송 이력과 DB 작업 상태의 차이는 [이벤트 전달 기록](../event-delivery.md)에 남겼다.
+- Android Room은 서버 DB와 별개다. 실제 `android_outbox_row`·`android_sync_status`와 추가 로컬 엔티티는 [로컬 저장 설명](./db-design-readable.md#android-로컬-저장)에서 확인한다.
+- 전체 컬럼 도식과 당시 표기는 [기존 ERD 원문](https://github.com/sonic8-8/suri-map/blob/3cd777752e2178ebb3470e6f749b1521ce404e7a/docs/db-design/db-design-erd.md)으로 복원한다. 생략된 관계가 불필요하다거나 기존 요구를 폐기했다는 뜻은 아니다.

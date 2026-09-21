@@ -1,147 +1,28 @@
-# Situation Board Initial Map Loading Plan
+# 상황판 최초 지도 범위의 설계 배경
 
-초기 지도 표시의 과거 설계 기록이다. 아래 DTO·Query 이름과 상태별 동작은 현재 구현을 보증하지 않는다. 변경 전에는 실제 지도 hook·API 소비 흐름을 확인하고 [AGENTS.md](../../AGENTS.md)에 따라 사용자와 합의한다.
+전체 수색 구역이 아직 없는 사건도 상황판에서 확인할 수 있어야 한다는 설계 기록이다. DTO 예시·요청 순서를 중복 관리하지 않고 의도와 구현 차이를 남긴다.
 
-## Decision
+## 당시 선택
 
-Situation board initial map loading must not assume that `overallSearchArea` already exists when an incident is first imported.
+최초 지도 범위는 다음 순서로 정하려 했다.
 
-For normal mock/seed incident import, the UI may treat initial reference markers as the expected first map anchor. The implementation must still handle an empty marker set defensively.
+1. 활성 전체 수색 구역의 bbox 또는 Polygon 범위
+2. 사건을 가져올 때 등록한 초기 기준 마커의 위치 범위
+3. 관할 지역 또는 기본 지도 범위
 
-Initial viewport priority:
+사건 상세의 실종자 위치 설명을 좌표로 간주하지 않는다. 기준 마커가 없어도 화면 전체를 실패시키지 않고 기본 지역을 보여준다. 마커 위치를 둘러싼 가상의 구역이나 현재 화면 범위를 공식 수색 구역으로 자동 저장하지 않는다.
 
-1. Active `overallSearchArea` bbox/geometry.
-2. Initial/reference marker points.
-3. Jurisdiction/default map fallback.
+전체 구역이 없으면 웹의 구역 지정 동선을 제공하되 자동 이동은 하지 않는 설계였다. 구역 분할·배정과 오프라인 준비 완료는 각각 [구역](../search-area.md)·[패키지](../offline-package.md)의 선행 조건을 확인한다. 지도 표시와 패키지 준비 완료는 같은 상태가 아니다.
 
-## Document Basis
+## 현재 코드와 차이
 
-- `GET /api/incidents/{incidentId}` returns incident metadata, missing person data, and incident assignments only. It does not include search area geometry.
-- Active overall search area is queried separately with:
+2026-09-21 정적 확인이며 타일·브라우저 동작을 새로 시험한 결과는 아니다.
 
-```http
-GET /api/search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE
-```
+- [getAssignedSearchAreaBounds / resolveInitialMapView](../../frontend/src/features/situationBoard/presentation/components/map/searchMapCanvasData.ts)는 전체 구역 Polygon → 다른 구역 Polygon → 전달받은 기본 범위 순으로 처리한다.
+- [SearchMapCanvas](../../frontend/src/features/situationBoard/presentation/components/map/SearchMapCanvas.tsx)는 기본 범위로 `GWANGJU_BBOX`를 전달한다. 이 초기 범위 결정 함수는 기준 마커를 입력으로 받지 않는다. 원문의 “기준 마커 우선 표시”가 구현됐다고 설명하지 않는다.
+- 기존 [상황판 요구](../situation-board.md)에는 “전체 범위 → 최근 활동 → 기본 지역” 표현도 있다. 기준 마커와 최근 활동 중 무엇을 우선할지는 같은 결정으로 단정하지 않고 지도 작업에서 확인한다.
+- 구역 부재와 권한·통신 실패를 구분하고, 재조회 실패가 이미 표시한 사건 맥락을 불필요하게 지우지 않는 요구를 남긴다.
 
-- Missing person data has `last_seen_location_text` and `last_seen_at`, but no coordinate field. It is not a viewport source.
-- S1-1 import consumes `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)` to create initial reference markers from mock 112 last confirmed location and reporter statement location.
-- S5 owns initial reference marker creation and `MarkerQuery.byIncident`.
-- S7 offline manifest includes `initialMarkers` and `overallSearchArea`, but manifest can fail with `overall_search_area_required` when the active overall area is missing.
+## 원문
 
-## UI States
-
-### Overall Area Ready
-
-Condition:
-
-- Active `areaLevel=OVERALL`, `status=ACTIVE` search area exists.
-
-Behavior:
-
-- Fit map to `overallSearchArea.bbox` when available.
-- If `bbox` is absent, compute bounds from GeoJSON `Polygon` coordinates.
-- Render the overall search polygon.
-- Enable UNIT/TEAM area creation, split, and assignment workflows.
-
-### Overall Area Required
-
-Condition:
-
-- Overall search area query returns `409 { "error": "overall_search_area_required" }`.
-
-Behavior:
-
-- Load initial/reference markers.
-- Fit map to marker bounds when one or more markers exist.
-- If no marker exists, use jurisdiction/default map fallback.
-- Show the "set overall search area" command flow.
-- Keep area split/assignment and offline package readiness actions disabled until the overall area is saved.
-
-### Load Error
-
-Condition:
-
-- Incident access, channel, network, or unexpected server error.
-
-Behavior:
-
-- Preserve incident context if loaded.
-- Show retry affordance for map source queries.
-- Do not silently create a search area or infer a polygon.
-
-## Data Shapes
-
-### Overall Search Area
-
-```ts
-type BBox = [minLon: number, minLat: number, maxLon: number, maxLat: number];
-
-type OverallSearchArea = {
-  id: string;
-  incidentId: string;
-  status: 'ACTIVE';
-  version: number;
-  geometry: {
-    type: 'Polygon';
-    coordinates: Array<Array<[lon: number, lat: number]>>;
-  };
-  bbox?: BBox;
-};
-```
-
-### Marker Anchor
-
-Use the S5 marker query shape. Coordinates are EPSG:4326 Point values in `[lon, lat]` order.
-
-```ts
-type MapAnchorMarker = {
-  id: string;
-  incidentId: string;
-  opId: string;
-  type: 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE';
-  status: 'ACTIVE' | 'UPDATED';
-  version: number;
-  location: {
-    type: 'Point';
-    coordinates: [lon: number, lat: number];
-  };
-  source?: 'APP' | 'WEB' | 'MOCK_SEED' | 'SYSTEM';
-  memo?: string | null;
-};
-```
-
-## Fetch Plan
-
-On situation board incident entry:
-
-1. Fetch incident detail or board shell context.
-2. Fetch active overall search area.
-3. Fetch board snapshot or marker slot data.
-4. Resolve initial viewport with:
-
-```ts
-if (overallSearchArea) {
-  fitOverallArea(overallSearchArea);
-} else if (initialMarkers.length > 0) {
-  fitMarkerBounds(initialMarkers);
-} else {
-  fitDefaultJurisdiction();
-}
-```
-
-## Implementation Notes
-
-- Do not add coordinates to `missingPerson` unless the API contract is updated first.
-- Do not create a synthetic overall polygon from marker points.
-- Do not treat current map viewport as the official search area until the user saves `areaLevel=OVERALL`.
-- Do not enable offline package ready/use state before active overall search area exists.
-- Marker absence should be treated as degraded seed data, not as a fatal page error.
-
-## Acceptance Checklist
-
-- Incident detail page does not expect search area fields from `GET /api/incidents/{incidentId}`.
-- Situation board opens on overall area when it exists.
-- Situation board opens on initial reference marker bounds when overall area is missing.
-- Situation board still opens with default fallback when both overall area and markers are missing.
-- Overall area required state clearly leads to the web command for drawing/saving the overall search area.
-- Area split/assignment actions are unavailable until active overall area exists.
+당시 API·DTO 예시와 상태별 상세는 [정리 전 원문](https://github.com/sonic8-8/suri-map/blob/3cd777752e2178ebb3470e6f749b1521ce404e7a/docs/contracts/situation-board-initial-map-plan.md)에 있다. 이 예시를 현재 공개 필드·enum·새 API의 근거로 사용하지 않는다.

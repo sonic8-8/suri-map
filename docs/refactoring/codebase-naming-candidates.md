@@ -274,6 +274,14 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [TileManifestFixtureExactnessTest](../../backend/src/test/java/com/surimap/offlinepackage/TileManifestFixtureExactnessTest.java) | 고정 시험 데이터의 값·참조를 검사한다. 실제 타일 준비·서빙 검증과 구분하고 필요한 검사·이름을 함께 정리 |
 | [OfflinePackageManifestSourceIntegrationTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestSourceIntegrationTest.java) | `Integration` 분류 대신 검증 대상에 맞춰 정리할 후보다. 사건·차수·구역·마커 조회와 이벤트가 대역인 구성을 실제 전체 연동 시험과 구분 |
 
+## DB 문서 대조 — 추가 후보
+
+2026-09-21 저장·조회 SQL과 연결 객체를 대조하며 발견했다. 실제 클래스·Mapper는 변경하지 않았다.
+
+| 후보 | 확인한 이유 |
+|---|---|
+| [EventDispatchJobRow](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobRow.java)·[EventDispatchJobDispatchRecord](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobDispatchRecord.java) | 같은 전송 작업의 동일한 9개 필드를 INSERT용·조회용 record로 나눴고 `Dispatch`도 중복된다. SSE 후속 정리에서 저장·조회 역할을 하나의 업무 객체로 합칠 수 있는지 확인한 뒤 이름을 정한다. |
+
 ## Backend — 기존 호환 이름
 
 | 현재 이름 | 확인할 점 |
@@ -292,6 +300,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [mockSituationBoard.ts](../../frontend/src/features/situationBoard/presentation/constants/mockSituationBoard.ts) | 실제 뷰모델 재수출 파일; `situationBoardViewModel` 직접 참조 검토 |
 | [assignedAreaIds / unassignedAreaCount](../../frontend/src/features/areaEdit/presentation/pages/AreaEditPage.tsx) | 담당자 배정이 아닌 구역 도형 작성 완료·미완료에 맞춰 명명 |
 | [unassignedPhoneCount](../../frontend/src/features/areaEdit/presentation/components/AreaHierarchyPanel.tsx) | `missingAreaGeometryCount` 후보 — 업무폰 수가 아닌 도형 미지정 구역 수 |
+| [resolveInitialMapView의 overall-ready·overallSearchArea](../../frontend/src/features/situationBoard/presentation/components/map/searchMapCanvasData.ts) | 전체 구역이 없어도 다른 Polygon 범위가 있으면 이 상태·필드로 반환한다. 실제 포함 구역과 초기 지도 표시 상태의 의미를 확인해 명명. 공개 API 필드 변경과 구분 |
 | [createDeviceTitle / createDeviceMeta](../../frontend/src/features/offlinePackage/presentation/model/offlinePackageStatusPageViewModel.ts) | `createPolicePhoneTitle` / `createPolicePhoneMeta` |
 | [errorCode()](../../frontend/src/shared/api/client.ts) | `resolveApiErrorCode` — 응답 본문 또는 HTTP 상태로 오류 코드 결정 |
 | [incidentBoardQueryKeyParams() / emptyCursor()](../../frontend/src/features/board/api/incidentBoardApi.ts) | `buildIncidentBoardQueryKeyParams` / `createEmptyBoardSourceCursor` |
