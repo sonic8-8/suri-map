@@ -417,11 +417,11 @@ HikariCP는 Backend가 PostgreSQL 커넥션을 재사용하기 위해 사용하�
 
 커넥션 10개가 모두 사용됐고 대기 요청이 최대 190개까지 늘었습니다. 따라서 이번 실행에서 가장 먼저 관찰된 포화 신호는 데이터베이스 커넥션 풀이었습니다. 다만 SQL별 실행 시간은 수집하지 않았고 전체 lock 지표도 대기 여부를 구분하지 못하므로, 특정 쿼리나 잠금을 원인으로 단정하지 않습니다. 이 병목은 [Issue #15](https://github.com/sonic8-8/suri-map/issues/15)에서 계속 추적합니다.
 
-[상세 측정 조건과 원본 자료의 SHA-256](https://github.com/sonic8-8/suri-map/blob/develop/docs/evidence/backend/issue-8-server-breakpoint-test.md)은 별도 검증 문서에 기록했습니다.
+[상세 측정 조건과 원본 자료의 SHA-256](https://github.com/sonic8-8/suri-map/blob/develop/docs/test-results/backend/issue-8-server-breakpoint-test.md)은 별도 검증 문서에 기록했습니다.
 
 검증 뒤 부하 테스트 전용 데이터와 인증 정보는 삭제했고, 원본 로그와 시험 전 데이터베이스 백업은 재검증 자료로 보존했습니다.
 
-![453 RPS 서버 Breakpoint Test의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-8-server-breakpoint-test.png)
+![453 RPS 서버 Breakpoint Test의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-8-server-breakpoint-test.png)
 
 ### 해결 범위: 서버 처리 한계 측정 완료, Issue #8 유지
 
@@ -458,11 +458,11 @@ HikariCP는 Backend가 PostgreSQL 커넥션을 재사용하기 위해 사용하�
 
 #### 혼합 복구 시험 지표
 
-![경로 저장 최적화 후 Issue #8 혼합 복구 시험의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-8-recovery-catch-up-after-path-storage-optimization.png)
+![경로 저장 최적화 후 Issue #8 혼합 복구 시험의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-8-recovery-catch-up-after-path-storage-optimization.png)
 
 #### 719 RPS 서버 처리 한계 시험 지표
 
-![경로 저장 최적화 후 Issue #8 719 RPS 서버 처리 한계 시험의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-8-breakpoint-after-path-storage-optimization.png)
+![경로 저장 최적화 후 Issue #8 719 RPS 서버 처리 한계 시험의 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-8-breakpoint-after-path-storage-optimization.png)
 
 ### 남은 범위: 데이터베이스 커넥션 대기와 조회 부하
 

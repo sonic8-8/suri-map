@@ -45,7 +45,7 @@ class ApiImplementationStatusCoverageTest {
     Map<String, String> implementationStatuses = implementationStatuses();
 
     assertThat(implementationStatuses.keySet())
-        .as("docs/tasks/api-implementation-status.md must track every public endpoint in api-spec")
+        .as("docs/api/api-implementation-status.md must track every public endpoint in api-spec")
         .containsAll(apiSpecEndpoints);
   }
 
@@ -78,7 +78,7 @@ class ApiImplementationStatusCoverageTest {
 
   private static Map<String, String> implementationStatuses() throws IOException {
     Map<String, String> statuses = new LinkedHashMap<>();
-    Path statusDoc = repoRoot().resolve("docs/tasks/api-implementation-status.md");
+    Path statusDoc = repoRoot().resolve("docs/api/api-implementation-status.md");
     for (String line : Files.readAllLines(statusDoc)) {
       String[] cells = line.split("\\|");
       if (cells.length < 4) {

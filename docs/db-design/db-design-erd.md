@@ -62,6 +62,6 @@ erDiagram
 
 ## 그림에서 제외한 옛 설계
 
-- `event_dispatch_job`은 실제 DB 테이블이지만 옛 그림의 `event_dispatch_target`·`sse_replay_event` 테이블은 구현되지 않았다. 메모리 재전송 이력과 DB 작업 상태의 차이는 [이벤트 전달 기록](../event-delivery.md)에 남겼다.
+- `event_dispatch_job`은 실제 DB 테이블이지만 옛 그림의 `event_dispatch_target`·`sse_replay_event` 테이블은 구현되지 않았다. 메모리 재전송 이력과 DB 작업 상태의 차이는 [이벤트 전달 기록](../features/event-delivery.md)에 남겼다.
 - Android Room은 서버 DB와 별개다. 실제 `android_outbox_row`·`android_sync_status`와 추가 로컬 엔티티는 [로컬 저장 설명](./db-design-readable.md#android-로컬-저장)에서 확인한다.
 - 전체 컬럼 도식과 당시 표기는 [기존 ERD 원문](https://github.com/sonic8-8/suri-map/blob/3cd777752e2178ebb3470e6f749b1521ce404e7a/docs/db-design/db-design-erd.md)으로 복원한다. 생략된 관계가 불필요하다거나 기존 요구를 폐기했다는 뜻은 아니다.

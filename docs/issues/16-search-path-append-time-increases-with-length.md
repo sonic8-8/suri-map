@@ -186,15 +186,15 @@ GPS 좌표 묶음 자체는 변경 전에도 한 번의 SQL로 저장했습니�
 
 **30분 경로**
 
-![Issue #16 30분 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-16-prepopulated-long-path-30m.png)
+![Issue #16 30분 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-16-prepopulated-long-path-30m.png)
 
 **8시간 경로**
 
-![Issue #16 8시간 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-16-prepopulated-long-path-8h.png)
+![Issue #16 8시간 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-16-prepopulated-long-path-8h.png)
 
 **24시간 경로**
 
-![Issue #16 24시간 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/evidence/backend/issue-16-prepopulated-long-path-24h.png)
+![Issue #16 24시간 경로 부하 테스트 Grafana 지표](https://raw.githubusercontent.com/sonic8-8/suri-map/develop/docs/test-results/backend/issue-16-prepopulated-long-path-24h.png)
 
 ### 저장 결과: 좌표 누락·중복과 커넥션 대기 0건
 

@@ -13,24 +13,25 @@
 
 ## 문서 사용
 
+- 문서를 찾거나 새 문서의 위치를 정할 때는 `docs/index.md`에서 읽는 목적에 맞는 자료를 선택한다. 프로젝트 소개용 루트 README와 문서 목차는 분리한다.
 - 제품 목적·핵심 기능·규칙은 `docs/prd.md`에서 확인한다. 과거 절·FR 번호를 대조할 때는 해당 문서의 원문 링크를 따른다.
 - 구성 요소·데이터 흐름·배포 설정의 위치를 찾을 때 `docs/architecture.md`를 확인하고 연결된 코드·설정과 대조한다. 이 요약은 실제 서버의 배포·검증 완료 기록이 아니다.
-- 구조의 선택 이유나 과거 ADR 번호를 찾을 때 `docs/adr/README.md`를 확인한다. 과거 구현 계획·시험 절차는 `docs/contracts/`, `docs/tasks/`에서 참고하되 현재 구현·작업 절차와 구분한다.
+- 구조의 선택 이유나 과거 ADR 번호를 찾을 때 `docs/adr/README.md`를 확인한다. 과거 계획은 각 문서의 상태와 원문 출처를 확인하고 현재 구현·작업 절차와 구분한다.
 - 화면의 설계 이유·옛 수치·권한 가정·시안·실기기 QA를 찾을 때 `docs/screen-design/README.md`에서 해당 자료를 선택한다. 시안의 가짜 상태와 디버그 화면 표시를 실제 API·동기화·현장 사용성 검증으로 대신하지 않는다.
-- 기능을 연결해 검증하거나 과거 시연 기록·도구·SC·경계 문서의 출처를 찾을 때 `docs/tasks/scenario-exit-criteria.md`를 확인한다. 확인 항목은 통과 기록이 아니며 옛 도구는 실행 환경·부작용부터 확인한다.
+- 기능을 연결해 검증하거나 과거 시연 기록·도구·SC·경계 문서의 출처를 찾을 때 `docs/guides/feature-verification.md`를 확인한다. 확인 항목은 통과 기록이 아니며 옛 도구는 실행 환경·부작용부터 확인한다.
 - 공용 테스트 입력·로더를 바꿀 때 `test-fixtures/README.md`를 확인하고 Backend·Android 소비 테스트를 함께 검증한다. JSON의 옛 Spec/Lane 표기는 현재 작업 소유권이 아니다.
-- SSE·FCM의 재연결·실패 복구·사건 종료 처리를 바꿀 때는 `docs/event-delivery.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
-- 마커·사진의 재시도·삭제·수색 차수 충돌 처리를 바꿀 때는 `docs/marker-photo.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
-- 앱의 미전송 기록·중복 요청·사건 종료 후 정리를 바꿀 때는 `docs/offline-sync.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
-- 오프라인 패키지의 다운로드·준비 완료·갱신·파기를 바꿀 때는 `docs/offline-package.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
-- 수색 차수·근무 교대·인수인계 메모·수색 이력 요약을 바꿀 때는 `docs/handover.md`에서 기존 요구와 현재 구현·테스트 입력의 차이를 확인한다.
-- 사건 가져오기·배정·종료를 바꿀 때는 `docs/incident-lifecycle.md`에서 원천 시스템과의 역할 분담, 접근 범위, 종료 후 개인정보 제거의 기존 요구와 구현 차이를 확인한다.
-- 로그인·채널·사건 접근·업무폰 최신성·FCM 토큰을 바꿀 때는 `docs/authentication.md`에서 인증 결합·권한 검사·암호화의 기존 요구와 구현 차이를 확인한다.
-- 사건 데이터 파기·위치 조회 감사·운영 로그를 바꿀 때는 `docs/data-retention.md`에서 미전송 원본 보존, 실제 삭제 연결과 기록 실패 처리의 차이를 확인한다.
-- 수색 구역의 도형·분할·담당 배정·완료 처리를 바꿀 때는 `docs/search-area.md`에서 실제 API에 연결된 검증과 기존 요구의 차이를 확인한다.
-- GPS 수집·묶음 저장·경로 조회를 바꿀 때는 `docs/search-path.md`에서 측정 시각·수집 순서, 좌표 저장·도형 조립, 품질 검사의 요구와 구현 차이를 확인한다.
-- 상황판 조회·갱신·종료 표시를 바꿀 때는 `docs/situation-board.md`에서 실제 재조회 흐름, 원본 추적 값, 빈 응답·개인정보 제거의 요구와 구현 차이를 확인한다.
-- HTTP 요청·응답·오류는 임시 보존 중인 `docs/api/api-spec.md`를 Controller·소비자 코드와 대조한다. 이 문서를 바꾸거나 REST Docs로 전환할 때는 `docs/tasks/api-implementation-status.md`에서 소비 테스트·검증 한계·제거 조건을 확인한다.
+- SSE·FCM의 재연결·실패 복구·사건 종료 처리를 바꿀 때는 `docs/features/event-delivery.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
+- 마커·사진의 재시도·삭제·수색 차수 충돌 처리를 바꿀 때는 `docs/features/marker-photo.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
+- 앱의 미전송 기록·중복 요청·사건 종료 후 정리를 바꿀 때는 `docs/features/offline-sync.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
+- 오프라인 패키지의 다운로드·준비 완료·갱신·파기를 바꿀 때는 `docs/features/offline-package.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
+- 수색 차수·근무 교대·인수인계 메모·수색 이력 요약을 바꿀 때는 `docs/features/handover.md`에서 기존 요구와 현재 구현·테스트 입력의 차이를 확인한다.
+- 사건 가져오기·배정·종료를 바꿀 때는 `docs/features/incident-lifecycle.md`에서 원천 시스템과의 역할 분담, 접근 범위, 종료 후 개인정보 제거의 기존 요구와 구현 차이를 확인한다.
+- 로그인·채널·사건 접근·업무폰 최신성·FCM 토큰을 바꿀 때는 `docs/features/authentication.md`에서 인증 결합·권한 검사·암호화의 기존 요구와 구현 차이를 확인한다.
+- 사건 데이터 파기·위치 조회 감사·운영 로그를 바꿀 때는 `docs/features/data-retention.md`에서 미전송 원본 보존, 실제 삭제 연결과 기록 실패 처리의 차이를 확인한다.
+- 수색 구역의 도형·분할·담당 배정·완료 처리를 바꿀 때는 `docs/features/search-area.md`에서 실제 API에 연결된 검증과 기존 요구의 차이를 확인한다.
+- GPS 수집·묶음 저장·경로 조회를 바꿀 때는 `docs/features/search-path.md`에서 측정 시각·수집 순서, 좌표 저장·도형 조립, 품질 검사의 요구와 구현 차이를 확인한다.
+- 상황판 조회·갱신·종료 표시를 바꿀 때는 `docs/features/situation-board.md`에서 실제 재조회 흐름, 원본 추적 값, 빈 응답·개인정보 제거의 요구와 구현 차이를 확인한다.
+- HTTP 요청·응답·오류는 임시 보존 중인 `docs/api/api-spec.md`를 Controller·소비자 코드와 대조한다. 이 문서를 바꾸거나 REST Docs로 전환할 때는 `docs/api/api-implementation-status.md`에서 소비 테스트·검증 한계·제거 조건을 확인한다.
 - DB 변경 배경은 `docs/db-design/db-design-readable.md`를 Mapper·migration과 대조한다. 문서에만 있는 필요한 동작은 미구현 요구로 구분해 합의한다.
 - GitHub Issue는 실제로 발견한 문제의 현상·가설·원인·수정·검증을 기록한다. 일반 기능 개발이나 리팩토링의 작업 관리용으로 자동 생성하지 않는다.
 - `TODO.md`는 Git으로 공유하지 않는 로컬 작업 순서·진척 메모다. 공유 문서의 참조 대상으로 삼지 않는다.
