@@ -282,6 +282,12 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 |---|---|
 | [EventDispatchJobRow](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobRow.java)·[EventDispatchJobDispatchRecord](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobDispatchRecord.java) | 같은 전송 작업의 동일한 9개 필드를 INSERT용·조회용 record로 나눴고 `Dispatch`도 중복된다. SSE 후속 정리에서 저장·조회 역할을 하나의 업무 객체로 합칠 수 있는지 확인한 뒤 이름을 정한다. |
 
+## API 문서 검사 — 추가 후보
+
+| API 문서 검사 후보 | 확인한 이유 |
+|---|---|
+| [ApiImplementationStatusCoverageTest](../../backend/src/test/java/com/surimap/architecture/ApiImplementationStatusCoverageTest.java) | 이름과 달리 API 동작 전체가 아니라 Markdown URL 포함 관계와 Spring 경로 등록만 확인한다. REST Docs 전환에서 대체·제거 여부를 먼저 정하고, 남길 경우 검증 대상을 드러내는 이름·한글 DisplayName·밑줄 메서드명으로 정리한다. 현재 Java 코드는 유지했다. |
+
 ## Backend — 기존 호환 이름
 
 | 현재 이름 | 확인할 점 |
