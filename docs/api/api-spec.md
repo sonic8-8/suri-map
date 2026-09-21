@@ -2,20 +2,20 @@
 
 공개 HTTP API의 URL·요청·응답·오류를 정리한 참고 문서다. 기존 Spec에서 옮긴 계획과 구현 후 갱신한 내용이 섞여 있으므로, 실제 동작은 Controller·DTO·보안 설정과 Frontend·Android 소비자 코드로 대조한다. 문서에만 있는 동작은 구현 완료로 보지 않고 사용자와 확인한다.
 
-Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. [경로 등록 검사와 전환 조건](../tasks/api-implementation-status.md)은 별도로 구분했다. 현재 검사는 아래 46개 HTTP 제목을 읽을 뿐, 필드·권한·오류·저장 동작을 검증하지 않는다. 공개 계약 변경은 [AGENTS.md](../../AGENTS.md)의 호환성 기준을 따른다.
+Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. [경로 등록 검사와 전환 조건](api-implementation-status.md)은 별도로 구분했다. 현재 검사는 아래 46개 HTTP 제목을 읽을 뿐, 필드·권한·오류·저장 동작을 검증하지 않는다. 공개 계약 변경은 [AGENTS.md](../../AGENTS.md)의 호환성 기준을 따른다.
 
 ## 필요한 항목 찾기
 
 | 요청·응답 형식 | 필요한 요구·현재 코드와의 차이 |
 |---|---|
-| [인증·업무폰](#41-auth--account--policephone) | [인증·권한](../authentication.md) |
-| [사건](#42-incident) | [가져오기·배정·종료](../incident-lifecycle.md) |
-| [수색 구역](#43-search-area) | [도형 검증·담당 배정](../search-area.md) |
-| [수색 경로](#44-search-path) | [좌표 기록·품질 검사](../search-path.md) |
-| [상황판·이벤트](#45-situation-board--event) | [상황판 조회](../situation-board.md), [전달·재전송](../event-delivery.md) |
-| [마커·사진](#46-marker--photo) | [복구·삭제](../marker-photo.md) |
-| [동기화·오프라인](#47-sync--offline) | [미전송 기록](../offline-sync.md), [패키지 준비](../offline-package.md) |
-| [차수·근무 교대·인수인계](#48-operational-period--duty-shift--handover) | [요약·원본 기록](../handover.md) |
+| [인증·업무폰](#41-auth--account--policephone) | [인증·권한](../features/authentication.md) |
+| [사건](#42-incident) | [가져오기·배정·종료](../features/incident-lifecycle.md) |
+| [수색 구역](#43-search-area) | [도형 검증·담당 배정](../features/search-area.md) |
+| [수색 경로](#44-search-path) | [좌표 기록·품질 검사](../features/search-path.md) |
+| [상황판·이벤트](#45-situation-board--event) | [상황판 조회](../features/situation-board.md), [전달·재전송](../features/event-delivery.md) |
+| [마커·사진](#46-marker--photo) | [복구·삭제](../features/marker-photo.md) |
+| [동기화·오프라인](#47-sync--offline) | [미전송 기록](../features/offline-sync.md), [패키지 준비](../features/offline-package.md) |
+| [차수·근무 교대·인수인계](#48-operational-period--duty-shift--handover) | [요약·원본 기록](../features/handover.md) |
 | [타일](#49-tiles) | [자체 지도 제공의 선택 이유](../adr/0004-maplibre-and-self-hosted-tiles.md) |
 
 본문에 남은 S1~S8·guard 묶음은 옛 설계의 참조명이며 현재 작업 소유권이나 검증 완료 표시가 아니다. 권한·재시도·요약 생성 등 계획과 실제 구현의 차이는 오른쪽 문서에서 확인한다.
@@ -24,7 +24,7 @@ Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. 
 
 - 공개 JSON API의 기본 prefix는 `/api`다.
 - 기존 API에는 별도 URL version prefix를 두지 않았다. 호환성이 깨지는 변경이 필요하면 소비자 영향과 전환 방식을 먼저 합의한다.
-- 옛 Spec의 prefix 없는 path는 app-relative path였다. 삭제한 경계·Spec의 원문은 [검증 흐름의 출처](../tasks/scenario-exit-criteria.md#과거-문서의-차이와-복원)와 기능별 문서에서 확인한다. 이 문서의 공개 URL도 실제 Controller·소비자와 대조한다.
+- 옛 Spec의 prefix 없는 path는 app-relative path였다. 삭제한 경계·Spec의 원문은 [검증 흐름의 출처](../guides/feature-verification.md#과거-문서의-차이와-복원)와 기능별 문서에서 확인한다. 이 문서의 공개 URL도 실제 Controller·소비자와 대조한다.
 - URL segment는 kebab-case를 사용한다. 기존 URL을 바꾸거나 새 resource를 추가할 때는 실제 소비자와 합의한 요구를 확인한다.
 - Path variable은 가능한 한 entity가 드러나게 쓴다. 예: `{areaId}`보다 `{searchAreaId}`, `{opId}`보다 `{operationalPeriodId}`.
 - `opId`, `pathId`처럼 기존 소비자와 테스트 입력이 사용하는 공개 필드명은 문서 정리를 이유로 바꾸지 않는다.
@@ -491,7 +491,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 ### 4.8 Operational Period / Duty Shift / Handover
 
-기존 요구·현재 구현·테스트 입력의 차이는 [수색 차수와 인수인계](../handover.md)에서 확인한다. 아래 형식은 구현·검증 완료를 뜻하지 않는다.
+기존 요구·현재 구현·테스트 입력의 차이는 [수색 차수와 인수인계](../features/handover.md)에서 확인한다. 아래 형식은 구현·검증 완료를 뜻하지 않는다.
 
 #### POST `/api/operational-periods`
 
@@ -654,7 +654,7 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 ## 5. Public API 제외 항목
 
-옛 S1-3의 아래 계약은 public HTTP API가 아니다. 필요한 요구와 실제 연결 여부는 [사건 데이터 파기와 접근기록](../data-retention.md)에서 구분한다.
+옛 S1-3의 아래 계약은 public HTTP API가 아니다. 필요한 요구와 실제 연결 여부는 [사건 데이터 파기와 접근기록](../features/data-retention.md)에서 구분한다.
 
 - `PurgeCoordinator.closeIncident(incidentId)`
 - `PurgeCoordinator.purgeIncident(incidentId)`

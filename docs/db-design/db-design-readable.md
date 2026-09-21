@@ -19,7 +19,7 @@
 
 개인 계정으로 경로를 기록하는 구현과 옛 공유 계정·팀/순찰차 seed를 같은 정책으로 해석하지 않는다. 현재 [PolicePhoneMapper](../../backend/src/main/resources/mapper/policephone/PolicePhoneMapper.xml)는 `police_phone.account_id`로 계정·사건 배정을 조회한다. 계정과 단말을 연결하는 이 저장 구조만으로 단말 소유권이나 계정 공유 정책이 정해지는 것은 아니다.
 
-관련 요구와 차이: [사건 가져오기·배정·종료](../incident-lifecycle.md), [인증·업무폰·토큰](../authentication.md).
+관련 요구와 차이: [사건 가져오기·배정·종료](../features/incident-lifecycle.md), [인증·업무폰·토큰](../features/authentication.md).
 
 ## 수색 차수·근무 구간·구역
 
@@ -32,7 +32,7 @@
 | `search_area_history` | 구역의 이전·이후 상태와 도형, 변경자·사유를 남긴다. 현재 구역 상태를 대신하는 테이블은 아니다. |
 | `search_area_boundary_alert` | 담당 TEAM 구역 밖 위치·재진입을 기록한다. 사건·차수·구역·업무폰에 연결하고 경로 ID는 없을 수 있다. 경계 확인 안내용이지 위반 판정이나 다음 구역 추천이 아니다. |
 
-관련 요구와 차이: [수색 차수·근무 교대](../handover.md), [수색 구역](../search-area.md). 담당 배정·경계 확인의 저장 구조가 있다는 사실만으로 권한 검사나 실제 알림 전달까지 완료됐다고 보지 않는다.
+관련 요구와 차이: [수색 차수·근무 교대](../features/handover.md), [수색 구역](../features/search-area.md). 담당 배정·경계 확인의 저장 구조가 있다는 사실만으로 권한 검사나 실제 알림 전달까지 완료됐다고 보지 않는다.
 
 ## 경로와 GPS 좌표
 
@@ -48,7 +48,7 @@
 
 `search_path.geometry`는 GPS 원본이 없는 옛 경로의 조회 대체값으로 남아 있다. 저장되지 않은 측정값을 만들어 채우지 않으며, 원본 좌표 없이 도형만 있는 경로에는 새 좌표 추가를 거부한다. 기록 중·일시정지 경로를 하나로 제한하는 현재 [고유 인덱스](../../backend/src/main/resources/db/migration/V20260711_002__enforce_single_active_search_path_per_account.sql)는 **사건별이 아니라 계정 전체**에 적용된다.
 
-시각·수집 순서 검사의 남은 한계와 조회 비용은 [수색 경로](../search-path.md), 변경·측정 과정은 [Issue #16 기록](../issues/16-search-path-append-time-increases-with-length.md)에서 확인한다.
+시각·수집 순서 검사의 남은 한계와 조회 비용은 [수색 경로](../features/search-path.md), 변경·측정 과정은 [Issue #16 기록](../issues/16-search-path-append-time-increases-with-length.md)에서 확인한다.
 
 ## 마커·사진·인수인계
 
@@ -61,9 +61,9 @@
 | `search_history_summary` | 차수 또는 근무 구간 기록의 요약. 원본 묶음의 해시·준비 상태와 생성 상태를 구분한다. 원래 요구는 실패를 `FAILED`로 남기고 임의의 대체 요약을 저장하지 않는 것이다. |
 | `op_comparison_analysis` | 여러 차수의 계산 결과와 AI 관찰 문장. 계산 `status`와 문장 `narrative_status`를 나누어, 문장 생성 실패를 계산 결과의 부재와 혼동하지 않게 한다. |
 
-사진 업로드와 마커 첨부, 알림 저장과 실제 수신은 서로 다른 완료 단계다. [PhotoMapper](../../backend/src/main/resources/mapper/photo/PhotoMapper.xml)·[MarkerNotificationMapper](../../backend/src/main/resources/mapper/marker/MarkerNotificationMapper.xml)와 [마커·사진 요구](../marker-photo.md)를 함께 확인한다.
+사진 업로드와 마커 첨부, 알림 저장과 실제 수신은 서로 다른 완료 단계다. [PhotoMapper](../../backend/src/main/resources/mapper/photo/PhotoMapper.xml)·[MarkerNotificationMapper](../../backend/src/main/resources/mapper/marker/MarkerNotificationMapper.xml)와 [마커·사진 요구](../features/marker-photo.md)를 함께 확인한다.
 
-메모 대상 ID와 비교 대상 차수의 JSON 목록은 각각의 대상 테이블을 FK로 연결한 구조가 아니다. 대상 유효성·동일 사건/차수 검사는 Service까지 확인한다. 요약·비교는 기록의 설명을 돕는 기능이며 자동 수색 판단·추천을 뜻하지 않는다. [인수인계 요구와 구현 차이](../handover.md)를 따른다.
+메모 대상 ID와 비교 대상 차수의 JSON 목록은 각각의 대상 테이블을 FK로 연결한 구조가 아니다. 대상 유효성·동일 사건/차수 검사는 Service까지 확인한다. 요약·비교는 기록의 설명을 돕는 기능이며 자동 수색 판단·추천을 뜻하지 않는다. [인수인계 요구와 구현 차이](../features/handover.md)를 따른다.
 
 ## 전송·오프라인·파기
 
@@ -78,17 +78,17 @@
 | `incident_data_purge_hook_step` | 파기 작업 안에서 대상별 처리 결과·실패·삭제/보존 개수를 남긴다. 전체 상태만으로 개별 대상의 성공을 추정하지 않기 위한 기록이다. |
 | `location_data_access_audit` | 위치 데이터에 접근한 계정·사건·채널·목적·시각·보관 기한. 일반 운영 로그와 다른 기록이다. |
 
-[멱등성 SQL](../../backend/src/main/resources/mapper/sync/IdempotencyRecordMapper.xml), [패키지 SQL](../../backend/src/main/resources/mapper/offlinepackage/OfflinePackageMapper.xml), [전송 작업 SQL](../../backend/src/main/resources/mapper/event/EventDispatchJobMapper.xml), [파기 SQL](../../backend/src/main/resources/mapper/retention/PurgeRunMapper.xml)이 각 저장 경로다. 복구·보존 요구는 [오프라인 동기화](../offline-sync.md), [패키지](../offline-package.md), [데이터 파기·접근기록](../data-retention.md)에 남긴다.
+[멱등성 SQL](../../backend/src/main/resources/mapper/sync/IdempotencyRecordMapper.xml), [패키지 SQL](../../backend/src/main/resources/mapper/offlinepackage/OfflinePackageMapper.xml), [전송 작업 SQL](../../backend/src/main/resources/mapper/event/EventDispatchJobMapper.xml), [파기 SQL](../../backend/src/main/resources/mapper/retention/PurgeRunMapper.xml)이 각 저장 경로다. 복구·보존 요구는 [오프라인 동기화](../features/offline-sync.md), [패키지](../features/offline-package.md), [데이터 파기·접근기록](../features/data-retention.md)에 남긴다.
 
 ### 구현으로 오해하면 안 되는 옛 설계
 
 | 옛 문서의 설명 | 확인한 코드와 남은 요구 |
 |---|---|
-| `event_dispatch_target`에 대상별 재시도 상태 저장 | 해당 테이블의 migration·운영 SQL은 없다. 현재 Dispatcher는 SSE 작업 단위 상태를 기록한다. 대상별 실패·재시도 요구는 [이벤트 전달](../event-delivery.md)에서 후속 검토한다. |
+| `event_dispatch_target`에 대상별 재시도 상태 저장 | 해당 테이블의 migration·운영 SQL은 없다. 현재 Dispatcher는 SSE 작업 단위 상태를 기록한다. 대상별 실패·재시도 요구는 [이벤트 전달](../features/event-delivery.md)에서 후속 검토한다. |
 | `sse_replay_event`에 사건별 순번·재전송 이력 저장 | 해당 테이블의 migration·운영 SQL은 없다. [EventStreamConfig](../../backend/src/main/java/com/surimap/eventhub/stream/EventStreamConfig.java)가 메모리 저장소를 등록한다. DB 전송 작업의 존재만으로 재시작 후 재전송을 보장하지 않는다. |
 | `token_ciphertext`에 암호화된 FCM 토큰 저장 | [업무폰 Service](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java)는 `cipher:` 접두사만 붙인다. 컬럼명을 암호화 구현의 증거로 쓰지 않으며 토큰 보호 요구는 유지한다. |
 
-수리맵의 자체 `refresh_token` 테이블은 [migration](../../backend/src/main/resources/db/migration/V20260517_002__drop_legacy_refresh_token.sql)으로 제거됐다. 기존 읽기 문서도 Keycloak/OIDC의 인증 토큰 관리와 FCM을 구분했다. 현재 인증 연결과 남은 차이는 [인증 문서](../authentication.md)에서 확인한다.
+수리맵의 자체 `refresh_token` 테이블은 [migration](../../backend/src/main/resources/db/migration/V20260517_002__drop_legacy_refresh_token.sql)으로 제거됐다. 기존 읽기 문서도 Keycloak/OIDC의 인증 토큰 관리와 FCM을 구분했다. 현재 인증 연결과 남은 차이는 [인증 문서](../features/authentication.md)에서 확인한다.
 
 기존 재전송 테이블 설계를 그대로 구현하자는 결정은 아니다. 필요한 복구 범위와 보존 조건을 사용자와 합의한 뒤 구현한다. 파기·감사 테이블도 스케줄러·각 대상의 삭제·접근 기록이 실제 연결됐는지 별도로 검증해야 한다. 옛 문서의 보관 기간은 법적 검토가 끝난 기준으로 취급하지 않는다.
 
@@ -101,7 +101,7 @@ Room은 서버 PostgreSQL과 별도의 DB다. 현재 테이블 목록과 schema 
 | 옛 `android_outbox` | 실제 테이블명은 [OutboxEntity](../../android/app/src/main/java/com/surimap/core/database/OutboxEntity.kt)의 `android_outbox_row`다. 미전송 요청 본문·멱등성 키·의존 작업·재시도 상태를 보관한다. 서버와 DB 외래 키로 연결되는 것이 아니라 요청 식별자로 대응한다. |
 | `android_sync_status` | [SyncStatusEntity](../../android/app/src/main/java/com/surimap/core/database/SyncStatusEntity.kt)는 업무폰 ID를 키로 미전송·재시도·최종 실패 수와 마지막 동기화 상태를 요약한다. 개별 쓰기 원본이나 서버 처리 결과 자체가 아니다. |
 
-초안·로컬 마커·패키지·지도 응답·사건·경로 기록 상태도 별도 Room 엔티티로 관리한다. 옛 문서의 두 테이블만이 로컬 저장소의 전부는 아니다. ACK 전 원본 보존과 종료 후 처리는 [오프라인 동기화 요구](../offline-sync.md)에서 확인한다.
+초안·로컬 마커·패키지·지도 응답·사건·경로 기록 상태도 별도 Room 엔티티로 관리한다. 옛 문서의 두 테이블만이 로컬 저장소의 전부는 아니다. ACK 전 원본 보존과 종료 후 처리는 [오프라인 동기화 요구](../features/offline-sync.md)에서 확인한다.
 
 ## 과거 설계와 검증 범위
 
