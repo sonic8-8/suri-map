@@ -1,8 +1,24 @@
-# Suri-Map API 명세
+# API 요청·응답 참고
 
 공개 HTTP API의 URL·요청·응답·오류를 정리한 참고 문서다. 기존 Spec에서 옮긴 계획과 구현 후 갱신한 내용이 섞여 있으므로, 실제 동작은 Controller·DTO·보안 설정과 Frontend·Android 소비자 코드로 대조한다. 문서에만 있는 동작은 구현 완료로 보지 않고 사용자와 확인한다.
 
-`ApiImplementationStatusCoverageTest`가 아래 API 제목을 읽는다. 문서 정리에서도 API 제목·경로는 유지하며, 공개 계약 변경은 [AGENTS.md](../../AGENTS.md)의 호환성 기준을 따른다.
+Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. [경로 등록 검사와 전환 조건](../tasks/api-implementation-status.md)은 별도로 구분했다. 현재 검사는 아래 46개 HTTP 제목을 읽을 뿐, 필드·권한·오류·저장 동작을 검증하지 않는다. 공개 계약 변경은 [AGENTS.md](../../AGENTS.md)의 호환성 기준을 따른다.
+
+## 필요한 항목 찾기
+
+| 요청·응답 형식 | 필요한 요구·현재 코드와의 차이 |
+|---|---|
+| [인증·업무폰](#41-auth--account--policephone) | [인증·권한](../authentication.md) |
+| [사건](#42-incident) | [가져오기·배정·종료](../incident-lifecycle.md) |
+| [수색 구역](#43-search-area) | [도형 검증·담당 배정](../search-area.md) |
+| [수색 경로](#44-search-path) | [좌표 기록·품질 검사](../search-path.md) |
+| [상황판·이벤트](#45-situation-board--event) | [상황판 조회](../situation-board.md), [전달·재전송](../event-delivery.md) |
+| [마커·사진](#46-marker--photo) | [복구·삭제](../marker-photo.md) |
+| [동기화·오프라인](#47-sync--offline) | [미전송 기록](../offline-sync.md), [패키지 준비](../offline-package.md) |
+| [차수·근무 교대·인수인계](#48-operational-period--duty-shift--handover) | [요약·원본 기록](../handover.md) |
+| [타일](#49-tiles) | [자체 지도 제공의 선택 이유](../adr/0004-maplibre-and-self-hosted-tiles.md) |
+
+본문에 남은 S1~S8·guard 묶음은 옛 설계의 참조명이며 현재 작업 소유권이나 검증 완료 표시가 아니다. 권한·재시도·요약 생성 등 계획과 실제 구현의 차이는 오른쪽 문서에서 확인한다.
 
 ## 1. 표기 기준과 기존 계약
 
@@ -11,7 +27,7 @@
 - 옛 Spec의 prefix 없는 path는 app-relative path였다. 삭제한 경계·Spec의 원문은 [검증 흐름의 출처](../tasks/scenario-exit-criteria.md#과거-문서의-차이와-복원)와 기능별 문서에서 확인한다. 이 문서의 공개 URL도 실제 Controller·소비자와 대조한다.
 - URL segment는 kebab-case를 사용한다. 기존 URL을 바꾸거나 새 resource를 추가할 때는 실제 소비자와 합의한 요구를 확인한다.
 - Path variable은 가능한 한 entity가 드러나게 쓴다. 예: `{areaId}`보다 `{searchAreaId}`, `{opId}`보다 `{operationalPeriodId}`.
-- DTO field는 기존 spec/harness fixture와 맞추기 위해 `opId`, `pathId`처럼 이미 굳어진 이름을 유지한다. 이 문서는 URL canonicalization을 우선한다.
+- `opId`, `pathId`처럼 기존 소비자와 테스트 입력이 사용하는 공개 필드명은 문서 정리를 이유로 바꾸지 않는다.
 - tileserver 경로는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 않는다.
 
 ## 2. 공통 HTTP 계약
@@ -45,7 +61,7 @@
 }
 ```
 
-Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 spec의 public guard/domain error catalog를 우선한다.
+Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 오류 목록도 실제 Controller·공통 예외 처리·소비자와 대조하며, 차이를 발견하면 필요한 동작을 합의한다.
 
 ### 2.4 Query와 pagination
 
@@ -76,7 +92,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### Keycloak/OIDC login/logout
 
-- Owner: S1-2
 - Consumer: APP, WEB
 - Login entrypoint: `/keycloak/realms/suri-map/protocol/openid-connect/auth`
 - Token endpoint: `/keycloak/realms/suri-map/protocol/openid-connect/token`
@@ -91,8 +106,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/fcm/tokens`
 
-- Owner: S1-2
-- Source spec: `POST /fcm/tokens`
 - Consumer: APP
 - Headers: `Authorization`, `X-Client-Channel`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`
@@ -103,8 +116,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/police-phones/{policePhoneId}/heartbeat`
 
-- Owner: S1-2
-- Source spec: `POST /police-phones/{policePhoneId}/heartbeat`
 - Consumer: APP
 - Headers: `Authorization`, `X-Client-Channel`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`
@@ -117,8 +128,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/incidents/import`
 
-- Owner: S1-1
-- Source spec: `POST /incidents/import`
 - Consumer: WEB command, INTERNAL webhook fallback
 - Headers: `Authorization`, `Idempotency-Key`, `X-Client-Channel`
 - Guard: `@RequireChannel(WEB)`, missing-team commander 또는 경찰 지구대/파출소 field commander
@@ -130,8 +139,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/internal/mock-112/events`
 
-- Owner: S1-1
-- Source spec: `POST /api/internal/mock-112/events`
 - Consumer: mock-112 internal webhook
 - Headers: `X-Client-Channel: INTERNAL`, `X-Mock112-Signature`, `Idempotency-Key`
 - Guard: internal secret or HMAC signature, webhook idempotency
@@ -143,8 +150,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents`
 
-- Owner: S1-1
-- Source spec: `GET /incidents`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP,WEB)`. APP와 WEB 일반 계정은 현재 계정의 active `incident_assignment` 범위만 조회한다. WEB `COMMAND` 계정은 지휘 상황판 기본 목록에서 같은 `organizationType`의 active 배정이 있는 OPEN 사건을 조회한다.
@@ -155,8 +160,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}`
 
-- Owner: S1-1
-- Source spec: `GET /incidents/{incidentId}`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP,WEB)`, `@RequireIncidentAccess`
@@ -175,7 +178,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}/map-revisions`
 
-- Owner: APP map cache aggregate. Source data ownership remains S1-1/S2/S3-1/S5/S7.
 - Consumer: APP
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP)`, `@RequireIncidentAccess`, `@RecordLocationAccess`
@@ -189,8 +191,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/incidents/{incidentId}/close`
 
-- Owner: S1-1
-- Source spec: `POST /incidents/{incidentId}/close`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`, `X-Client-Channel`
 - Guard: `web-command`, `incident-read`, `write-common`, `@RequireOpenIncident`, `@RequireRole(MISSING_TEAM_COMMANDER)`
@@ -203,8 +203,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-areas`
 
-- Owner: S2
-- Source spec: `POST /search-areas`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -217,8 +215,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/search-areas`
 
-- Owner: S2
-- Source spec: `GET /search-areas`, `SearchAreaQuery.overallOf(incidentId)`
 - Consumer: APP, WEB, S3-2, S7
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -232,8 +228,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### PATCH `/api/search-areas/{searchAreaId}`
 
-- Owner: S2
-- Source spec: `PATCH /search-areas/{searchAreaId}`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -246,8 +240,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-areas/{searchAreaId}/split`
 
-- Owner: S2
-- Source spec: `POST /search-areas/{searchAreaId}/split`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -258,8 +250,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-areas/{searchAreaId}/assignments`
 
-- Owner: S2
-- Source spec: `POST /search-areas/{searchAreaId}/assignments`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -272,8 +262,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-paths`
 
-- Owner: S3-1
-- Source spec: `POST /search-paths`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
@@ -285,8 +273,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### PATCH `/api/search-paths/{searchPathId}`
 
-- Owner: S3-1
-- Source spec: `PATCH /search-paths/{searchPathId}`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
@@ -298,8 +284,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-paths/batch`
 
-- Owner: S3-1
-- Source spec: `POST /search-paths/batch`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
@@ -315,8 +299,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/search-area-boundary-alerts`
 
-- Owner: S3-1 with S2 search_area assignment read and S4 FCM fanout
-- Source spec: `POST /search-area-boundary-alerts`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
@@ -329,8 +311,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/search-paths`
 
-- Owner: S3-1
-- Source spec: `GET /search-paths`
 - Consumer: APP, WEB, S3-2, S8
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
@@ -342,8 +322,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`
 
-- Owner: S3-1
-- Source spec: `PATCH /search-path-segments/{searchPathSegmentId}`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -356,8 +334,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}/board`
 
-- Owner: S3-2
-- Source spec: `GET /incidents/{incidentId}/board`
 - Consumer: WEB
 - Headers: `Authorization`
 - Guard: `@RequireChannel(WEB)`, `@RequireIncidentAccess`, `@RecordLocationAccess`
@@ -370,8 +346,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}/events`
 
-- Owner: S4
-- Source spec: `GET /incidents/{incidentId}/events`
 - Consumer: WEB, S3-2
 - Headers: `Authorization`, optional `Last-Event-ID`
 - Guard: `public-session`, `incident-read`, `@RequireChannel(WEB)`
@@ -383,8 +357,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/events`
 
-- Owner: S4
-- Source spec: `GET /incidents/events`
 - Consumer: WEB incident list / command dashboard
 - Headers: `Authorization`, optional `Last-Event-ID`
 - Guard: `public-session`, account assignment scope, `@RequireChannel(WEB)`
@@ -399,8 +371,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/markers`
 
-- Owner: S5
-- Source spec: `GET /markers`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
@@ -412,8 +382,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/markers`
 
-- Owner: S5
-- Source spec: `POST /markers`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
@@ -426,8 +394,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### PATCH `/api/markers/{markerId}`
 
-- Owner: S5
-- Source spec: `PATCH /markers/{markerId}`
 - Consumer: APP, WEB according to S5 marker policy
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy
@@ -438,8 +404,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### DELETE `/api/markers/{markerId}`
 
-- Owner: S5
-- Source spec: `DELETE /markers/{markerId}`
 - Consumer: APP, WEB according to S5 marker policy
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy
@@ -450,8 +414,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/markers/{markerId}/photos/upload-url`
 
-- Owner: S5
-- Source spec: `POST /markers/{markerId}/photos/upload-url`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`
@@ -464,8 +426,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/markers/photos/upload-url`
 
-- Owner: S5
-- Source spec: `POST /markers/photos/upload-url`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
@@ -477,8 +437,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/markers/{markerId}/photos/{photoId}/attach`
 
-- Owner: S5
-- Source spec: `POST /markers/{markerId}/photos/{photoId}/attach`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`
@@ -492,8 +450,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/sync/clock`
 
-- Owner: S6
-- Source spec: `POST /sync/clock`
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
 - Guard: `@RequireChannel(APP)`, PolicePhone registered
@@ -504,8 +460,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/sync/outbox/requeue`
 
-- Owner: S6
-- Source spec: `POST /sync/outbox/requeue`
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
 - Guard: `@RequireChannel(APP)`, PolicePhone registered
@@ -516,8 +470,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}/offline-package/manifest`
 
-- Owner: S7
-- Source spec: `GET /incidents/{incidentId}/offline-package/manifest`
 - Consumer: APP, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`; APP package fetch additionally requires PolicePhone registered/assigned
@@ -529,8 +481,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/incidents/{incidentId}/offline-package/installations`
 
-- Owner: S7
-- Source spec: `POST /incidents/{incidentId}/offline-package/installations`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`
@@ -545,8 +495,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/operational-periods`
 
-- Owner: S8
-- Source spec: `POST /operational-periods`
 - Consumer: WEB
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -557,8 +505,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/incidents/{incidentId}/operational-periods`
 
-- Owner: S8
-- Source spec: `GET /incidents/{incidentId}/operational-periods`
 - Consumer: APP, WEB, S3-2, S7
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -568,8 +514,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/operational-periods/comparisons`
 
-- Owner: S8
-- Source spec: `POST /operational-periods/comparisons`
 - Consumer: WEB, S3-2
 - Headers: `Authorization`, `Idempotency-Key`, `X-Client-Channel: WEB`
 - Guard: `web-command`, `incident-read`, `write-common`
@@ -587,8 +531,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/duty-shifts`
 
-- Owner: S8
-- Source spec: `boundaries.md` API Index, DB `duty_shift`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, current OP
@@ -599,8 +541,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### PATCH `/api/duty-shifts/{dutyShiftId}`
 
-- Owner: S8
-- Source spec: `boundaries.md` API Index, DB `duty_shift`
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, current OP
@@ -611,8 +551,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/duty-shifts`
 
-- Owner: S8
-- Source spec: `boundaries.md` API Index, DB `duty_shift`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -623,8 +561,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### POST `/api/handover-memos`
 
-- Owner: S8
-- Source spec: `POST /handover-memos`
 - Consumer: APP, WEB according to field-or-web-write policy
 - Headers: `Authorization`, `Idempotency-Key`
 - Guard: `field-or-web-write`, `incident-read`, `write-common`
@@ -635,8 +571,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/handover-memos`
 
-- Owner: S8
-- Source spec: `GET /handover-memos`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -647,7 +581,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### Search history summary generation
 
-- Owner: S8
 - Public client endpoint: none
 - Product scope labels:
   - `scopeType=DUTY_SHIFT`: 인수인계 요약. 다음 근무자가 이전 근무 기록을 빠르게 읽도록 정리하며, Android 현장 앱의 인수인계 화면은 이 범위를 기본 표시한다.
@@ -666,8 +599,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/operational-periods/{operationalPeriodId}/handover-timeline`
 
-- Owner: S8
-- Source spec: `GET /operational-periods/{operationalPeriodId}/handover-timeline`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -684,8 +615,6 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 #### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
 
-- Owner: S8
-- Source spec: `GET /operational-periods/{operationalPeriodId}/search-history-summaries`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
@@ -701,8 +630,6 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 #### GET `/tiles/styles/{styleId}.json`
 
-- Owner: S7
-- Source spec: `GET /tiles/styles/{styleId}.json`
 - Consumer: APP, WEB MapLibre
 - Headers: `Authorization`
 - Guard: `public-session` over tile HTTPS
@@ -711,8 +638,6 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 #### GET `/tiles/{style}/{z}/{x}/{y}.pbf`
 
-- Owner: S7
-- Source spec: `GET /tiles/{style}/{z}/{x}/{y}.pbf`
 - Consumer: APP, WEB MapLibre
 - Headers: `Authorization`
 - Guard: `public-session` over tile HTTPS
@@ -721,8 +646,6 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 #### GET `/tiles/fonts/{fontStack}/{range}.pbf`
 
-- Owner: S7
-- Source spec: `GET /tiles/fonts/{fontStack}/{range}.pbf`
 - Consumer: APP, WEB MapLibre
 - Headers: `Authorization`
 - Guard: `public-session` over tile HTTPS
@@ -741,44 +664,8 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 이 계약은 backend internal port 또는 server-side API assembly 전용으로 유지한다.
 
-## 6. 기존 URL 정리 필요 목록
+## 6. 과거 URL·소유권 기록
 
-| 현재 표현 | 문제 | Canonical URL |
-|---|---|---|
-| `POST /fcm/tokens` | `/api` prefix 없음 | `POST /api/fcm/tokens` |
-| `POST /police-phones/{policePhoneId}/heartbeat` | `/api` prefix 없음 | `POST /api/police-phones/{policePhoneId}/heartbeat` |
-| `POST /incidents/import` | `/api` prefix 없음 | `POST /api/incidents/import` |
-| `POST /incidents/{incidentId}/close` | `/api` prefix 없음 | `POST /api/incidents/{incidentId}/close` |
-| `POST /incidents/{incidentId}/search-areas/overall` | `overall_search_area`를 별도 resource처럼 보이게 함 | `POST /api/search-areas` body `areaLevel=OVERALL` |
-| `PATCH /incidents/{incidentId}/search-areas/overall` | `overall_search_area`를 별도 resource처럼 보이게 함 | `PATCH /api/search-areas/{searchAreaId}` |
-| `GET /incidents/{incidentId}/search-areas/overall` | `overall_search_area`를 별도 resource처럼 보이게 함 | `GET /api/search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE` |
-| `PATCH /search-areas/{areaId}` | path variable 축약 | `PATCH /api/search-areas/{searchAreaId}` |
-| `POST /search-areas/{areaId}/split` | path variable 축약 | `POST /api/search-areas/{searchAreaId}/split` |
-| `PATCH /search-areas/{areaId}/state` | `state`/`status` 표현 혼재와 상태 전용 endpoint | `PATCH /api/search-areas/{searchAreaId}` |
-| `PATCH /search-areas/{areaId}/status` | 상태 전용 endpoint | `PATCH /api/search-areas/{searchAreaId}` |
-| `PATCH /search-paths/{pathId}` | path variable 축약 | `PATCH /api/search-paths/{searchPathId}` |
-| `PATCH /search-path-segments/{segmentId}` | path variable 축약 | `PATCH /api/search-path-segments/{searchPathSegmentId}` |
-| `POST /search-paths/batch` | `/api` prefix 없음 | `POST /api/search-paths/batch` |
-| `GET /events?incidentId={incidentId}` | 필수 사건 scope가 query string에 있음 | `GET /api/incidents/{incidentId}/events` |
-| `GET /markers` | `/api` prefix 없음 | `GET /api/markers` |
-| `POST /markers/{markerId}/photos/upload-url` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/upload-url` |
-| `POST /markers/photos/upload-url` | `/api` prefix 없음 | `POST /api/markers/photos/upload-url` |
-| `POST /markers/{markerId}/photos/presign` | S5 기준 용어가 아님 | `POST /api/markers/{markerId}/photos/upload-url` |
-| `POST /markers/{markerId}/photos/{photoId}/attach` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/{photoId}/attach` |
-| `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 기준 용어가 아님 | `POST /api/markers/{markerId}/photos/{photoId}/attach` |
-| `POST /sync/clock` | `/api` prefix 없음 | `POST /api/sync/clock` |
-| `POST /sync/outbox/requeue` | `/api` prefix 없음 | `POST /api/sync/outbox/requeue` |
-| `GET /incidents/{incidentId}/offline-package/manifest` | `/api` prefix 없음 | `GET /api/incidents/{incidentId}/offline-package/manifest` |
-| `POST /incidents/{incidentId}/offline-package/installations` | `/api` prefix 없음 | `POST /api/incidents/{incidentId}/offline-package/installations` |
-| `GET /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
+중복된 prefix 변환표와 Spec 반영 절차는 [정리 전 원문](https://github.com/sonic8-8/suri-map/blob/f5182b739b0ccc58e5a72080a74dae87e927519b/docs/api/api-spec.md)에 보존했다. 2026-09-21 정리에서는 HTTP 제목 46개와 각 API의 요청·응답·오류·동작 설명을 유지하고 `Owner`·`Source spec` 줄을 제거했다. URL·DTO·권한을 바꾸거나 새 API를 추가하지 않았다.
 
-## 7. docs/spec 반영 상태
-
-- [옛 S2 출처](../search-area.md#화면-반영과-테스트-입력): `POST /search-areas/{searchAreaId}/assignments` 상세 contract와 `SEARCH_AREA_ASSIGNMENT_CHANGED` 소유권을 반영했다.
-- 옛 S8의 근무 교대·수색 이력 요약 요구와 원문 출처는 [수색 차수와 인수인계](../handover.md)에 남겼다. 요청 형식은 이 문서에 임시 보존하며 실제 Controller·소비자와 대조한다.
-- `docs/spec/boundaries.md`, `docs/spec/harness-scenarios.md`: canonical URL과 photo `upload-url`/`attach` 표현을 반영했다.
-- `docs/tasks/*.md`: 구현 산출물 endpoint 문자열을 canonical URL로 반영했다.
-
-## 8. 남은 반영 순서
-
-1. backend, frontend, android `AGENTS.md`는 이 문서를 API 기준 계약으로 참조한다.
+옛 문서에만 있는 필요한 요구는 위 기능별 문서와 함께 검토한다. 문서 삭제, 경로 검사 통과, 코드 존재 중 어느 것도 그 요구의 구현·검증 완료를 뜻하지 않는다.

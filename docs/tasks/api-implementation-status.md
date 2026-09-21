@@ -1,129 +1,97 @@
-# API 구현 현황표
+# API 경로 검사와 문서화 전환
 
-작성일: 2026-05-11
-최종 갱신: 2026-05-19
+API 문서와 이 표는 Spring REST Docs 전환 전까지 임시 보존한다. 과거 구현 판정과 현재 경로 등록 검사를 구분하며, 전체 API 기능의 완료표로 사용하지 않는다.
 
-## 목적
+## 남기는 내용과 이유
 
-표시된 갱신일에 API 문서와 Backend·Frontend·Android를 대조한 기록이다. 아래 판정과 환경 설명을 현재 상태로 대신하지 않는다. 현재 동작은 실제 Controller·소비자 코드·실행 결과로 확인한다.
-
-`ApiImplementationStatusCoverageTest`가 API 행과 상태 열을 읽어 Spring 경로의 존재를 검사한다. 표는 이 입력을 위해 유지하며, 테스트 통과가 개별 API의 응답·권한·DB 동작까지 검증한 결과는 아니다.
-
-## 판정 기준
-
-- Public HTTP URL 기준은 `docs/api/api-spec.md`를 따른다.
-- 구현 여부는 실제 controller, frontend runtime 코드, Android runtime 코드 기준으로 판단했다.
-- Frontend/Android UI는 별도 작업 중이므로 여기서는 API client, repository, outbox sender, mapper, SSE adapter 같은 headless 연동 상태만 본다.
-- `backend/src/main/java/com/surimap/**/Controller.java` 기준 현재 public controller는 Incident, SearchArea(headless MVP), PolicePhone heartbeat, SearchPath, EventStream, Marker/Photo, Sync/Offline, Tiles를 포함한다.
-
-상태 표기:
-
-| 상태 | 의미 |
+| 대상 | 이번 정리 |
 |---|---|
-| 구현 | public endpoint 또는 headless client가 실제 runtime path에 연결되어 있다. |
-| 부분 | 일부 골격, 테스트 fixture, slot renderer, local model은 있으나 실제 public 연동이 부족하다. |
-| 미구현 | 기준 public contract를 처리하는 runtime 코드가 없다. |
-| 불일치 | 구현은 있으나 기준 문서와 header/path/용어가 충돌한다. |
+| [API 참고 문서](../api/api-spec.md) | HTTP 제목 46개와 요청·응답·오류 설명을 유지했다. 과거 Spec 담당자·중복 URL 변환표는 Git 원문으로 남겼다. |
+| 아래 상태표 | 검사 입력인 URL·옛 구분·상태를 유지했다. 오래된 구현 근거·후속 MR 순서와 UI 연결 표는 원문으로 남겼다. |
+| [ApiImplementationStatusCoverageTest](../../backend/src/test/java/com/surimap/architecture/ApiImplementationStatusCoverageTest.java) | 대체 문서와 검사를 검증할 때까지 유지한다. 이번에는 Java 코드·검증 조건을 바꾸지 않았다. |
 
-## 당시 확인 결과
+## 현재 검사가 확인하는 범위
 
-1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
-2. 백엔드는 S1-1 Incident, S2 SearchArea headless MVP, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles, S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary headless MVP가 구현되어 있다.
-3. 백엔드 S3-2 Board read controller는 `DefaultIncidentBoardSourceRowCollector`로 S2/S3-1/S5/S7/S8의 현재 구현된 query source를 읽는다. 다만 아직 source owner가 없는 `toast`, `police_phone_freshness`, `incident_terminal` 세부 source와 S8 summary provider READY/STALE 완성도는 후속 보강이 필요하다.
-4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 `X-PolicePhone-Id`/`police_phone_*` 계약으로 정렬됐다.
-5. Frontend는 공통 API client, Board API query/hook, fetch 기반 SSE adapter, board response mapper, Vite `/api`·`/tiles` proxy가 구현되어 있다. 실제 화면 연결은 별도 UI 작업물과 합치는 단계가 남아 있다.
-6. Android는 OkHttp 기반 공통 API client, real `HttpOutboxSender`, Sync/Auth/Incident/Offline/SearchArea/OperationalPeriod/DutyShift/Handover/Summary/Path/Marker repository 또는 operation builder, MapLibre tile client/header adapter가 구현되어 있다.
-7. 남은 큰 위험은 실제 PostGIS 런타임 smoke다. 현재 로컬 WSL에는 Docker가 없고 `localhost:5432` PostgreSQL도 떠 있지 않아 `bootRun` smoke는 환경 준비 후 재실행해야 한다.
+1. API 문서의 ``#### METHOD `path` `` 형식 제목을 읽어, 모두 상태표에 있는지 확인한다.
+2. 상태가 `구현`·`부분`·`불일치`인 행의 HTTP method·path가 Spring에 등록됐는지 확인한다. `미구현` 행은 경로가 없어도 허용한다.
 
-## Backend API 현황
+상태표의 URL은 첫 번째 열, 상태는 세 번째 열에서 읽는다. 이 형식과 API 제목을 바꾸려면 소비 테스트도 함께 전환해야 한다.
 
-| API | Owner | Backend | 근거 | 후속 작업 |
-|---|---:|---|---|---|
-| Keycloak/OIDC login/logout | S1-2 | 구현 | Keycloak Authorization Code + PKCE, Spring Security JWT/JWKS 검증 | `/api/auth/login`, `/api/auth/logout` 자체 session API 제거 |
-| `POST /api/fcm/tokens` | S1-2 | 구현 | `FcmTokenController` | Android headless client 추가됨 |
-| `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 구현 | `PolicePhoneHeartbeatController` | Android headless client 추가됨 |
-| `POST /api/incidents/import` | S1-1 | 구현 | `IncidentImportController` | Web command client 필요 |
-| `POST /api/internal/mock-112/events` | S1-1 | 구현 | `Mock112WebhookController`, `Mock112WebhookService` | 실제 Firebase Admin adapter는 별도 ticket |
-| `GET /api/incidents` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
-| `GET /api/incidents/{incidentId}` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
-| `GET /api/incidents/{incidentId}/map-revisions` | APP map cache aggregate | 구현 | `AppMapRevisionController`, `AppMapRevisionQueryService`, Android `SearchMapRevisionRepository` | 배포 서버 반영 후 revision 동일 시 heavy map source fetch 생략 smoke |
-| `POST /api/incidents/{incidentId}/close` | S1-1 | 구현 | `IncidentCloseController` | Web command client 필요 |
-| `POST /api/search-areas` | S2 | 부분 | `SearchAreaController`, `SearchAreaApiService`가 WEB guard/idempotency header/headless response를 제공하나 MyBatis persistence는 미연결 | search_area/op DB 계약 정렬 후 persistence 전환 |
-| `GET /api/search-areas` | S2 | 부분 | `SearchAreaController`, Web client, Android read repository 추가 | board/offline source provider와 MyBatis query adapter 연결 |
-| `PATCH /api/search-areas/{searchAreaId}` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | search_area_history/MyBatis persistence 연결 |
-| `POST /api/search-areas/{searchAreaId}/split` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | split spatial validation/history persistence 연결 |
-| `POST /api/search-areas/{searchAreaId}/assignments` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | `search_area_assignment` migration/owner 정렬 필요 |
-| `POST /api/search-paths` | S3-1 | 구현 | `AppSearchPathController` | Android write operation builder 필요 |
-| `PATCH /api/search-paths/{searchPathId}` | S3-1 | 구현 | `AppSearchPathController` | Android write operation builder 필요 |
-| `POST /api/search-paths/batch` | S3-1 | 구현 | `SearchPathController` | Android real outbox replay 필요 |
-| `POST /api/search-area-boundary-alerts` | S3-1 | 구현 | `SearchAreaBoundaryAlertController`, `search_area_boundary_alert`, mock FCM dispatcher, Android outbox operation builder | 배포 서버 기준 mock location 내부→외부 이동 검증 필요 |
-| `GET /api/search-paths` | S3-1 | 구현 | `SearchPathController` | FE board mapper와 Android read repository 필요 |
-| `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 | `SearchPathController` | Web correction client 필요 |
-| `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape, WEB/incident guard, `@RecordLocationAccess` audit, S2/S3-1/S5/S7/S8의 현재 구현된 query source row collector를 제공. `sinceVersion`은 full snapshot reload watermark로만 취급하며 source-owner delta/minVersion 필터로 쓰지 않는다. | 아직 source owner가 없는 `toast`/`handover_status`/`police_phone_freshness` 세부 source 정리 |
-| `GET /api/incidents/{incidentId}/events` | S4 | 구현 | `EventStreamController` | FE fetch 기반 SSE adapter 추가됨 |
-| `GET /api/incidents/events` | S4 | 구현 | `EventStreamController`, account-scoped `SseStreamService` | Web 사건 목록 refetch signal 연결됨 |
-| `GET /api/markers` | S5 | 구현 | `MarkerController` | Android live marker overlay 연결됨 |
-| `POST /api/markers` | S5 | 구현 | `MarkerController` | Android write operation builder 필요 |
-| `PATCH /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
-| `DELETE /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
-| `POST /api/markers/photos/upload-url` | S5 | 구현 | `MarkerPhotoDraftController` | Android marker create photo staging flow 필요 |
-| `POST /api/markers/{markerId}/photos/upload-url` | S5 | 구현 | `PhotoController` | Android photo upload flow 필요 |
-| `POST /api/markers/{markerId}/photos/{photoId}/attach` | S5 | 구현 | `PhotoController` | Android photo attach flow 필요 |
-| `POST /api/sync/clock` | S6 | 구현 | `SyncClockController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android sync clock client 추가 |
-| `POST /api/sync/outbox/requeue` | S6 | 구현 | `OutboxRequeueController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android requeue client 추가 |
-| `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 구현 | `OfflinePackageController` | Android package repository 필요 |
-| `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
-| `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client, previous OP summary generation enqueue 추가 | idempotency durable record, handoverMemo 저장, provider 실행/STALE 재생성 보강 |
-| `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 | `OperationalPeriodController`, `OperationalPeriodQuery`, Web client, Android read repository 추가 | board/offline source provider 연결 |
-| `POST /api/operational-periods/comparisons` | S8 | 부분 | `OpComparisonController`, `OpComparisonApiService`, MyBatis `op_comparison_analysis` write, idempotency replay, `OP_COMPARISON_ANALYSIS_CHANGED` publish 추가 | S3-2 board slot/Web client 연결, 실제 provider runtime smoke |
-| `POST /api/duty-shifts` | S8 | 부분 | `AppDutyShiftController`, MyBatis `duty_shift` write, Android outbox repository 추가 | durable idempotency, assignment 정책 보강 |
-| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 | `AppDutyShiftController`, Android duty shift END outbox repository, 서버 summary generation enqueue, Android lower-sequence barrier 추가 | provider 실행/STALE 재생성 보강 |
-| `GET /api/duty-shifts` | S8 | 부분 | `DutyShiftQueryController`, Web API client, Android read repository 추가 | board slot source provider 연결 |
-| `POST /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, MyBatis `handover_memo` write, EventHub publish, Web client, Android outbox repository 추가 | durable idempotency와 board source provider 연결 |
-| `GET /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, `HandoverMemoMapper`, Web/Android read client 추가 | S3-2 handover slot source provider 연결 |
-| `GET /api/operational-periods/{operationalPeriodId}/handover-timeline` | S8 | 구현 | `HandoverTimelineController`, `HandoverTimelineApiService`, path/marker/memo/summary timeline merge, actor PII masking | Web/Android 리플레이·보고서 화면 client 연결 |
-| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client, 서버 내부 generation enqueue 추가 | provider 실행과 READY/FAILED 전환, STALE 재생성 계산 보강 |
-| `GET /tiles/styles/{styleId}.json` | S7 | 구현 | `TileController` | FE `/tiles` proxy와 Android MapLibre style client 추가됨 |
-| `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 | `TileController` | Android MapLibre tile request header adapter 추가됨 |
-| `GET /tiles/fonts/{fontStack}/{range}.pbf` | S7 | 구현 | `TileController` | FE/Android MapLibre glyph request header adapter 추가됨 |
+이 검사는 HTTP 요청을 보내지 않는다. 입력·응답 필드, 인증·권한, 채널별 헤더 조건, 오류·멱등성, DB 저장, SSE 재전송, 타일 제공, 화면 연결은 검증하지 않는다. 코드의 모든 경로가 문서에 실렸는지도 역으로 확인하지 않으며, Keycloak/OIDC 로그인 행은 Spring 경로 검사에서 제외된다.
 
-## Frontend Headless 현황
+2026-09-21 정리 전후 검사 2개가 각각 통과했다. 정리 후에는 `cd backend && ./gradlew cleanTest test --tests com.surimap.architecture.ApiImplementationStatusCoverageTest`로 재실행했다. 이는 test profile의 경로 등록 확인이며 PostGIS·실제 서버·업무폰 검증이 아니다. 아래의 과거 판정을 현재 기능 완료로 갱신하지 않았다.
 
-| 영역 | 상태 | 근거 | 후속 작업 |
-|---|---|---|---|
-| 공통 API base | 구현 | `shared/api` fetch wrapper, auth/channel header, `{error}` parser | 화면별 client 주입 확산 |
-| TanStack Query | 구현 | `QueryClientProvider`, `useIncidentBoard`, `useIncidentBoardQuery` | UI 작업물과 query state 연결 |
-| Board read | 구현 | `fetchIncidentBoard`, board mapper | slot UI에 API mapper 결과 주입 |
-| SSE | 구현 | `incidentBoardEventStream` fetch streaming adapter, `Last-Event-ID`, eventId dedupe | 실제 서버 stream smoke |
-| Board slots | 부분 | slot component/test와 API mapper가 있음 | fixture rows 대신 API mapper 결과 주입 |
-| Tiles | 구현 | MapLibre style URL `/tiles/styles/osm-local.json`, Vite `/api`·`/tiles` proxy | 실제 tile endpoint smoke |
-| Web commands | 부분 | incident/search-area/operational-period/handover command client 추가 | UI 작업물과 합칠 나머지 headless command API 선행 |
+## 과거 상태표 — 2026-05-19
 
-## Android Headless 현황
+`구현`은 당시 경로·클라이언트 연결, `부분`은 일부 연결, `미구현`은 경로 부재, `불일치`는 당시 문서와의 차이를 뜻했다. 옛 S1~S8 표기는 현재 담당자·승인 규칙이 아니다.
 
-| 영역 | 상태 | 근거 | 후속 작업 |
-|---|---|---|---|
-| 네트워크 의존성 | 구현 | OkHttp 기반 `SuriMapApiClient`, `HttpOutboxSender`, MapLibre tile call factory | 실제 device/runtime 주입 |
-| API client | 구현 | base URL, auth, `X-Client-Channel: APP`, `X-PolicePhone-Id`, JSON body 처리 | DI 구성과 UI/ViewModel 연결 |
-| Outbox local model | 구현 | Room `OutboxEntity`, DAO, WorkManager, state machine 있음 | 실제 sender와 sequence barrier 연결 |
-| Outbox sender | 구현 | `HttpOutboxSender`, `SuriMapNetwork.createOutboxSender`, ACK/retry/final failure test | production DI 기본값 연결 |
-| Incident/offline/search-area/operational-period/duty-shift/handover/summary read repository | 부분 | 각 headless repository 추가 | UI/ViewModel 연결 |
-| SearchPath/Marker write builder | 구현 | `SearchPathRepository`, `MarkerRepository`, outbox operation builder tests | UI/ViewModel 연결 |
-| DutyShift/Handover/Summary | 부분 | duty shift/handover write outbox builder, duty shift END lower-sequence barrier, summary read repository 추가 | UI/ViewModel 연결 |
-| Tiles | 구현 | `MapTileClient`, `MapLibreTileSourceFactory`, `MapLibreTileCallFactory`, style validator tests | Map 화면 교체 또는 DI 연결 |
+| API | 옛 구분 | 당시 판정 |
+|---|---|---|
+| Keycloak/OIDC login/logout | S1-2 | 구현 |
+| `POST /api/fcm/tokens` | S1-2 | 구현 |
+| `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 구현 |
+| `POST /api/incidents/import` | S1-1 | 구현 |
+| `POST /api/internal/mock-112/events` | S1-1 | 구현 |
+| `GET /api/incidents` | S1-1 | 구현 |
+| `GET /api/incidents/{incidentId}` | S1-1 | 구현 |
+| `GET /api/incidents/{incidentId}/map-revisions` | APP map cache aggregate | 구현 |
+| `POST /api/incidents/{incidentId}/close` | S1-1 | 구현 |
+| `POST /api/search-areas` | S2 | 부분 |
+| `GET /api/search-areas` | S2 | 부분 |
+| `PATCH /api/search-areas/{searchAreaId}` | S2 | 부분 |
+| `POST /api/search-areas/{searchAreaId}/split` | S2 | 부분 |
+| `POST /api/search-areas/{searchAreaId}/assignments` | S2 | 부분 |
+| `POST /api/search-paths` | S3-1 | 구현 |
+| `PATCH /api/search-paths/{searchPathId}` | S3-1 | 구현 |
+| `POST /api/search-paths/batch` | S3-1 | 구현 |
+| `POST /api/search-area-boundary-alerts` | S3-1 | 구현 |
+| `GET /api/search-paths` | S3-1 | 구현 |
+| `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 |
+| `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 |
+| `GET /api/incidents/{incidentId}/events` | S4 | 구현 |
+| `GET /api/incidents/events` | S4 | 구현 |
+| `GET /api/markers` | S5 | 구현 |
+| `POST /api/markers` | S5 | 구현 |
+| `PATCH /api/markers/{markerId}` | S5 | 구현 |
+| `DELETE /api/markers/{markerId}` | S5 | 구현 |
+| `POST /api/markers/photos/upload-url` | S5 | 구현 |
+| `POST /api/markers/{markerId}/photos/upload-url` | S5 | 구현 |
+| `POST /api/markers/{markerId}/photos/{photoId}/attach` | S5 | 구현 |
+| `POST /api/sync/clock` | S6 | 구현 |
+| `POST /api/sync/outbox/requeue` | S6 | 구현 |
+| `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 구현 |
+| `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 |
+| `POST /api/operational-periods` | S8 | 부분 |
+| `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 |
+| `POST /api/operational-periods/comparisons` | S8 | 부분 |
+| `POST /api/duty-shifts` | S8 | 부분 |
+| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 |
+| `GET /api/duty-shifts` | S8 | 부분 |
+| `POST /api/handover-memos` | S8 | 부분 |
+| `GET /api/handover-memos` | S8 | 부분 |
+| `GET /api/operational-periods/{operationalPeriodId}/handover-timeline` | S8 | 구현 |
+| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 |
+| `GET /tiles/styles/{styleId}.json` | S7 | 구현 |
+| `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 |
+| `GET /tiles/fonts/{fontStack}/{range}.pbf` | S7 | 구현 |
 
-## 기준 문서 충돌 또는 주의 지점
+## 과거 표와 현재 코드의 차이
 
-- `docs/spec/boundaries.md`의 public API 표와 Spec ownership은 `docs/api/api-spec.md` 기준으로 정렬됐다. S5 photo endpoint는 `upload-url`/`attach`를 사용하고, search area assignment는 S2 `POST /api/search-areas/{searchAreaId}/assignments`가 owner다.
-- `docs/spec/specs/*.json` 안에는 아직 source-spec endpoint 표기가 `/api` prefix 없이 남은 곳이 있다. 이는 canonical public URL 재정의가 아니라 source spec의 축약 표기로 취급하되, 후속 Spec 정리 MR에서 필요한 경우 명시적으로 정렬한다.
-- S6 controller와 S6 spec fixture의 sync API 용어는 `PolicePhone`/`X-PolicePhone-Id` 기준으로 정렬됐다.
-- Search history summary 생성은 public retry/command API가 아니다. 서버는 duty shift 종료 또는 OP 전환 후 job으로 생성하고, Web/App은 read-only endpoint로만 확인해야 한다.
+- **마커·사진**: 생성은 [AppMarkerController](../../backend/src/main/java/com/surimap/app/controller/marker/AppMarkerController.java), 조회·웹 수정/삭제는 [MarkerController](../../backend/src/main/java/com/surimap/api/controller/marker/MarkerController.java), 생성 전 사진 업로드는 [PhotoController](../../backend/src/main/java/com/surimap/app/controller/photo/PhotoController.java)에 있다. 수정·삭제는 같은 URL을 채널 헤더 조건으로 나눈다. 예전 클래스 목록이나 URL 존재만으로 두 채널을 모두 검증했다고 볼 수 없다.
+- **수색 구역**: [SearchAreaApiService](../../backend/src/main/java/com/surimap/api/service/searcharea/SearchAreaApiService.java)에 Mapper·이력 저장 경로와 메모리 대체 경로가 함께 있다. 옛 “MyBatis 미연결” 설명은 현재와 다르지만, 경로 등록 검사는 실제 SQL 실행이나 [도형·담당 배정 요구](../search-area.md)의 충족을 검증하지 않는다.
+- 나머지 필요한 요구·코드 차이는 [기능별 확인 위치](../api/api-spec.md#필요한-항목-찾기)에서 확인한다. 이번 두 예시의 정적 대조를 모든 API·소비자의 재검증으로 확대하지 않는다.
 
-## 권장 후속 MR 순서
+## REST Docs 전환 조건
 
-1. `[Runtime]` PostGIS를 준비한 뒤 backend를 실제 기동하고 `/api/health`, `/tiles/styles/osm-local.json`, board REST, SSE stream smoke를 수행
-2. `[BE]` S2 SearchArea MyBatis persistence 정렬 및 assignment URL/테이블 충돌 정리
-3. `[BE]` S8 summary provider 실행/READY/FAILED/STALE 재생성, Board S8 source provider 완성도 보강
-4. `[BE]` Board `toast`, `police_phone_freshness`, `incident_terminal` 세부 source provider 정리
-5. `[FE/Android]` 별도 UI 작업물과 headless client/repository 연결
-6. `[E2E]` 대표 fixture `inc-precinct-first-001` 기준으로 Web board, Android outbox replay, tiles, SSE 수렴 smoke를 한 번에 실행
+도입 방식은 합의했지만 아직 구현·검증하지 않았다. [Backend 빌드](../../backend/build.gradle)에는 REST Docs·OpenAPI 문서 생성 의존성이 없다.
+
+1. 기존 Controller 테스트의 API 하나에서 Spring REST Docs → `restdocs-api-spec` → OpenAPI·Swagger UI 표시를 로컬 검증한다. 프로덕션 Controller·DTO에는 문서용 Swagger 애노테이션을 추가하지 않는다. 선택 이유와 비용은 도입 작업의 ADR에 남긴다.
+2. 테스트가 보내고 받는 요청·응답, 헤더·필수값, 권한 거부·오류·중복 요청을 실제 소비자와 대조한다. 기존 문서와 다르면 원하는 동작부터 합의하며, 코드나 옛 문서 한쪽을 자동으로 정답으로 삼지 않는다.
+3. SSE·타일·내부 webhook·OIDC처럼 JSON Controller 문서화만으로 확인되지 않는 경로는 각 검증 범위를 구분한다. 필요한 미구현 요구·호환 이유는 관련 기능 문서에 남긴다.
+4. 생성 문서의 범위·재생성 명령·링크·필요한 검사 전환을 확인한 뒤 수기 명세·상태표와 이 검사를 정리한다. 단순 URL 존재 검사를 API 동작 테스트의 대체물로 남기지 않는다.
+
+REST Docs 도입은 현재 문서 정리의 완료 조건이 아니다. 배포·문서 공개·실제 API 실행 권한도 이번에 변경하지 않는다.
+
+## 원문
+
+[정리 전 상태표](https://github.com/sonic8-8/suri-map/blob/f5182b739b0ccc58e5a72080a74dae87e927519b/docs/tasks/api-implementation-status.md)에 당시 클래스·Frontend/Android 연결 상태, 환경 설명, 후속 순서를 보존했다. “Docker 부재”·“headless 연결 대기” 등의 과거 문장을 지금의 장애나 작업 순서로 다시 적용하지 않는다.

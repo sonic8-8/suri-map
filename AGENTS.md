@@ -30,7 +30,8 @@
 - 수색 구역의 도형·분할·담당 배정·완료 처리를 바꿀 때는 `docs/search-area.md`에서 실제 API에 연결된 검증과 기존 요구의 차이를 확인한다.
 - GPS 수집·묶음 저장·경로 조회를 바꿀 때는 `docs/search-path.md`에서 측정 시각·수집 순서, 좌표 저장·도형 조립, 품질 검사의 요구와 구현 차이를 확인한다.
 - 상황판 조회·갱신·종료 표시를 바꿀 때는 `docs/situation-board.md`에서 실제 재조회 흐름, 원본 추적 값, 빈 응답·개인정보 제거의 요구와 구현 차이를 확인한다.
-- API·DB 변경 배경이 필요하면 `docs/api/api-spec.md`와 `docs/db-design/db-design-readable.md`를 참고하되, Controller·소비자 코드·Mapper·migration과 대조한다. 문서에만 있는 필요한 동작은 미구현 요구로 구분해 합의한다.
+- HTTP 요청·응답·오류는 임시 보존 중인 `docs/api/api-spec.md`를 Controller·소비자 코드와 대조한다. 이 문서를 바꾸거나 REST Docs로 전환할 때는 `docs/tasks/api-implementation-status.md`에서 소비 테스트·검증 한계·제거 조건을 확인한다.
+- DB 변경 배경은 `docs/db-design/db-design-readable.md`를 Mapper·migration과 대조한다. 문서에만 있는 필요한 동작은 미구현 요구로 구분해 합의한다.
 - GitHub Issue는 실제로 발견한 문제의 현상·가설·원인·수정·검증을 기록한다. 일반 기능 개발이나 리팩토링의 작업 관리용으로 자동 생성하지 않는다.
 - `TODO.md`는 Git으로 공유하지 않는 로컬 작업 순서·진척 메모다. 공유 문서의 참조 대상으로 삼지 않는다.
 - 지속해서 필요한 기능 요구·사용 이유·미구현 요구는 관련 공유 문서에 남긴다. Spec·Tasks를 Issue·로컬 TODO로 일괄 대체하지 않는다.
