@@ -28,14 +28,14 @@ import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.locationtech.jts.geom.Point;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AppMarkerService {
 
   private static final long INITIAL_VERSION = 1L;
@@ -49,41 +49,21 @@ public class AppMarkerService {
   private final Clock clock = Clock.systemUTC();
   private final IdempotentResponseCache idempotentResponseCache;
 
-  public AppMarkerService(
-      MarkerMapper markerMapper,
-      MarkerAccessMapper markerAccessMapper,
-      MarkerWriteAccessValidator markerWriteAccessValidator,
-      MarkerEventPublisher markerEventPublisher,
-      PhotoService photoService,
-      MarkerNotificationService markerNotificationService,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
-    this.markerMapper = Objects.requireNonNull(markerMapper);
-    this.markerAccessMapper = Objects.requireNonNull(markerAccessMapper);
-    this.markerWriteAccessValidator = Objects.requireNonNull(markerWriteAccessValidator);
-    this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
-    this.photoService = Objects.requireNonNull(photoService);
-    this.markerNotificationService = Objects.requireNonNull(markerNotificationService);
-    this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
-  }
-
   @Transactional
   public MarkerCreateServiceResponse create(MarkerCreateServiceRequest request) {
     validateCreateRequest(request);
     SuriMapAuthentication authentication = request.getAuthentication();
     validateAppAuthentication(authentication);
     validateIdempotencyKey(request.getIdempotencyKey());
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "POST /api/markers",
-          request.getIdempotencyKey(),
-          request,
-          () -> MarkerCreateLegacyRequestBody.format(request),
-          201,
-          MarkerCreateServiceResponse.class,
-          () -> createNewMarker(request),
-          this::metadataFor);
-    }
-    return createNewMarker(request);
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/markers",
+        request.getIdempotencyKey(),
+        request,
+        () -> MarkerCreateLegacyRequestBody.format(request),
+        201,
+        MarkerCreateServiceResponse.class,
+        () -> createNewMarker(request),
+        this::metadataFor);
   }
 
   @Transactional
@@ -93,24 +73,21 @@ public class AppMarkerService {
     SuriMapAuthentication authentication = request.getAuthentication();
     validateAppAuthentication(authentication);
     validateIdempotencyKey(request.getIdempotencyKey());
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "PATCH /api/markers/" + request.getMarkerId(),
-          request.getIdempotencyKey(),
-          request,
-          () ->
-              MarkerMutationLegacyRequestBody.formatUpdate(
-                  request.getMarkerId(),
-                  request.getVersion(),
-                  request.getLocation(),
-                  request.getMemo(),
-                  request.getType()),
-          200,
-          MarkerMutationServiceResponse.class,
-          () -> updateMarker(request),
-          this::metadataFor);
-    }
-    return updateMarker(request);
+    return idempotentResponseCache.replayOrRun(
+        "PATCH /api/markers/" + request.getMarkerId(),
+        request.getIdempotencyKey(),
+        request,
+        () ->
+            MarkerMutationLegacyRequestBody.formatUpdate(
+                request.getMarkerId(),
+                request.getVersion(),
+                request.getLocation(),
+                request.getMemo(),
+                request.getType()),
+        200,
+        MarkerMutationServiceResponse.class,
+        () -> updateMarker(request),
+        this::metadataFor);
   }
 
   @Transactional
@@ -120,20 +97,17 @@ public class AppMarkerService {
     SuriMapAuthentication authentication = request.getAuthentication();
     validateAppAuthentication(authentication);
     validateIdempotencyKey(request.getIdempotencyKey());
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "DELETE /api/markers/" + request.getMarkerId(),
-          request.getIdempotencyKey(),
-          request,
-          () ->
-              MarkerMutationLegacyRequestBody.formatDelete(
-                  request.getMarkerId(), request.getVersion(), request.getReason()),
-          200,
-          MarkerMutationServiceResponse.class,
-          () -> deleteMarker(request),
-          this::metadataFor);
-    }
-    return deleteMarker(request);
+    return idempotentResponseCache.replayOrRun(
+        "DELETE /api/markers/" + request.getMarkerId(),
+        request.getIdempotencyKey(),
+        request,
+        () ->
+            MarkerMutationLegacyRequestBody.formatDelete(
+                request.getMarkerId(), request.getVersion(), request.getReason()),
+        200,
+        MarkerMutationServiceResponse.class,
+        () -> deleteMarker(request),
+        this::metadataFor);
   }
 
   private void validateCreateRequest(MarkerCreateServiceRequest request) {
