@@ -31,6 +31,11 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 - 이벤트를 조립·발행하는 클래스는 `MarkerEventPublisher`처럼 `{Domain}EventPublisher`로 이름짓고, 실제로 여러 구현을 구분해야 할 때만 `EventHub...Publisher` 같은 구현 방식 접두사를 붙인다.
 - `Reader`, `Provider`, `Manager` 같은 넓은 추상화는 구현 교체 필요나 외부 시스템 경계가 분명할 때만 도입한다.
 
+## 메서드 배치
+
+- `public` 메서드를 먼저 배치하고, `private` 메서드는 그 아래에 모은다.
+- `private` 메서드는 위에서부터 `public` 메서드를 읽을 때 처음 호출되는 순서로 배치한다. 여러 곳에서 사용하는 메서드도 최초 호출을 기준으로 한다.
+
 ## 패키지 설계 원칙
 
 - `SuriMapApplication`은 `com.surimap` 루트에 둔다. 신규 최상위 패키지는 `api`, `app`, `client`, `config`, `domain`, `global`만 사용한다.

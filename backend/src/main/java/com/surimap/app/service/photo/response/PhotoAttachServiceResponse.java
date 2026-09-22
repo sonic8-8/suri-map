@@ -1,5 +1,6 @@
 package com.surimap.app.service.photo.response;
 
+import com.surimap.domain.photo.MarkerPhoto;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,5 +24,15 @@ public class PhotoAttachServiceResponse {
     this.version = version;
     this.markerId = markerId;
     this.markerVersion = markerVersion;
+  }
+
+  public static PhotoAttachServiceResponse from(MarkerPhoto photo, long markerVersion) {
+    return PhotoAttachServiceResponse.builder()
+        .photoId(photo.getId())
+        .status(photo.getStatus().name())
+        .version(photo.getVersion())
+        .markerId(photo.getMarkerId())
+        .markerVersion(markerVersion)
+        .build();
   }
 }
