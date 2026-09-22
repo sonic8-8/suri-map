@@ -68,9 +68,10 @@ public class AppMarkerService {
 
   @Transactional
   public MarkerCreateServiceResponse create(MarkerCreateServiceRequest request) {
-    requireRequest(request);
+    validateCreateRequest(request);
     SuriMapAuthentication authentication = request.getAuthentication();
-    requireAppAuthentication(authentication, request.getIdempotencyKey());
+    validateAppAuthentication(authentication);
+    validateIdempotencyKey(request.getIdempotencyKey());
     if (idempotentResponseCache != null) {
       return idempotentResponseCache.replayOrRun(
           "POST /api/markers",
@@ -83,6 +84,85 @@ public class AppMarkerService {
           this::metadataFor);
     }
     return createNewMarker(request);
+  }
+
+  @Transactional
+  public MarkerMutationServiceResponse update(MarkerUpdateServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    SuriMapAuthentication authentication = request.getAuthentication();
+    validateAppAuthentication(authentication);
+    validateIdempotencyKey(request.getIdempotencyKey());
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "PATCH /api/markers/" + request.getMarkerId(),
+          request.getIdempotencyKey(),
+          request,
+          () ->
+              MarkerMutationLegacyRequestBody.formatUpdate(
+                  request.getMarkerId(),
+                  request.getVersion(),
+                  request.getLocation(),
+                  request.getMemo(),
+                  request.getType()),
+          200,
+          MarkerMutationServiceResponse.class,
+          () -> updateMarker(request),
+          this::metadataFor);
+    }
+    return updateMarker(request);
+  }
+
+  @Transactional
+  public MarkerMutationServiceResponse delete(MarkerDeleteServiceRequest request) {
+    requireMarkerId(request == null ? null : request.getMarkerId());
+    requireRequestVersion(request.getVersion());
+    SuriMapAuthentication authentication = request.getAuthentication();
+    validateAppAuthentication(authentication);
+    validateIdempotencyKey(request.getIdempotencyKey());
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "DELETE /api/markers/" + request.getMarkerId(),
+          request.getIdempotencyKey(),
+          request,
+          () ->
+              MarkerMutationLegacyRequestBody.formatDelete(
+                  request.getMarkerId(), request.getVersion(), request.getReason()),
+          200,
+          MarkerMutationServiceResponse.class,
+          () -> deleteMarker(request),
+          this::metadataFor);
+    }
+    return deleteMarker(request);
+  }
+
+  private void validateCreateRequest(MarkerCreateServiceRequest request) {
+    if (request == null
+        || request.getIncidentId() == null
+        || request.getOpId() == null
+        || request.getType() == null
+        || request.getLocation() == null
+        || request.getClientTs() == null) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+    if (!request.getPhotos().isEmpty() && request.getId() == null) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private void validateAppAuthentication(SuriMapAuthentication authentication) {
+    if (authentication == null) {
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
+    }
+    if (!"APP".equals(authentication.channel())) {
+      throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
+    }
+  }
+
+  private void validateIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
   }
 
   private MarkerCreateServiceResponse createNewMarker(MarkerCreateServiceRequest request) {
@@ -100,9 +180,9 @@ public class AppMarkerService {
 
     UUID markerId = request.getId() == null ? UUID.randomUUID() : request.getId();
     Instant serverTs = clock.instant();
-    MarkerType markerType = markerType(request.getType());
+    MarkerType markerType = parseMarkerType(request.getType());
     MarkerSupportRequestType supportRequestType =
-        supportRequestType(request.getSupportRequestType());
+        parseSupportRequestType(request.getSupportRequestType());
 
     Marker marker =
         Marker.builder()
@@ -122,6 +202,8 @@ public class AppMarkerService {
             .version(INITIAL_VERSION)
             .build();
     markerMapper.insertCreate(marker);
+    List<PhotoAttachServiceResponse> photos =
+        photoService.attachPhotosForMarkerCreation(marker, request.getPhotos());
 
     MarkerEventPayload eventPayload =
         MarkerEventPayload.builder()
@@ -137,8 +219,6 @@ public class AppMarkerService {
             .serverTs(serverTs)
             .build();
     markerEventPublisher.publish("MARKER_CREATED", eventPayload);
-    List<PhotoAttachServiceResponse> photos =
-        photoService.attachPhotosForMarkerCreation(marker, request.getPhotos());
     MarkerCreateServiceResponse response =
         MarkerCreateServiceResponse.builder()
             .id(markerId)
@@ -161,76 +241,16 @@ public class AppMarkerService {
         response.getVersion());
   }
 
-  private void requireRequest(MarkerCreateServiceRequest request) {
-    if (request == null
-        || request.getIncidentId() == null
-        || request.getOpId() == null
-        || request.getType() == null
-        || request.getLocation() == null
-        || request.getClientTs() == null) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
-    if (!request.getPhotos().isEmpty() && request.getId() == null) {
+  private void requireMarkerId(UUID markerId) {
+    if (markerId == null) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
   }
 
-  private void requireAppAuthentication(
-      SuriMapAuthentication authentication, String idempotencyKey) {
-    if (authentication == null) {
-      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
-    }
-    if (!"APP".equals(authentication.channel())) {
-      throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
-    }
-    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+  private void requireRequestVersion(Long version) {
+    if (version == null || version <= 0) {
       throw new BusinessException(ErrorCode.WRITE_CONFLICT);
     }
-  }
-
-  private MarkerType markerType(String value) {
-    try {
-      return MarkerType.valueOf(value);
-    } catch (IllegalArgumentException exception) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
-  }
-
-  private MarkerSupportRequestType supportRequestType(String value) {
-    if (value == null || value.isBlank()) {
-      return null;
-    }
-    try {
-      return MarkerSupportRequestType.valueOf(value);
-    } catch (IllegalArgumentException exception) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
-  }
-
-  @Transactional
-  public MarkerMutationServiceResponse update(MarkerUpdateServiceRequest request) {
-    requireMarkerId(request == null ? null : request.getMarkerId());
-    requireRequestVersion(request.getVersion());
-    SuriMapAuthentication authentication = request.getAuthentication();
-    requireAppAuthentication(authentication, request.getIdempotencyKey());
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "PATCH /api/markers/" + request.getMarkerId(),
-          request.getIdempotencyKey(),
-          request,
-          () ->
-              MarkerMutationLegacyRequestBody.formatUpdate(
-                  request.getMarkerId(),
-                  request.getVersion(),
-                  request.getLocation(),
-                  request.getMemo(),
-                  request.getType()),
-          200,
-          MarkerMutationServiceResponse.class,
-          () -> updateMarker(request),
-          this::metadataFor);
-    }
-    return updateMarker(request);
   }
 
   private MarkerMutationServiceResponse updateMarker(MarkerUpdateServiceRequest request) {
@@ -257,26 +277,12 @@ public class AppMarkerService {
     return MarkerMutationServiceResponse.from(current);
   }
 
-  @Transactional
-  public MarkerMutationServiceResponse delete(MarkerDeleteServiceRequest request) {
-    requireMarkerId(request == null ? null : request.getMarkerId());
-    requireRequestVersion(request.getVersion());
-    SuriMapAuthentication authentication = request.getAuthentication();
-    requireAppAuthentication(authentication, request.getIdempotencyKey());
-    if (idempotentResponseCache != null) {
-      return idempotentResponseCache.replayOrRun(
-          "DELETE /api/markers/" + request.getMarkerId(),
-          request.getIdempotencyKey(),
-          request,
-          () ->
-              MarkerMutationLegacyRequestBody.formatDelete(
-                  request.getMarkerId(), request.getVersion(), request.getReason()),
-          200,
-          MarkerMutationServiceResponse.class,
-          () -> deleteMarker(request),
-          this::metadataFor);
-    }
-    return deleteMarker(request);
+  private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus(),
+        response.getVersion(),
+        response.getVersion());
   }
 
   private MarkerMutationServiceResponse deleteMarker(MarkerDeleteServiceRequest request) {
@@ -299,6 +305,25 @@ public class AppMarkerService {
     return MarkerMutationServiceResponse.from(current);
   }
 
+  private MarkerType parseMarkerType(String value) {
+    try {
+      return MarkerType.valueOf(value);
+    } catch (IllegalArgumentException exception) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
+  private MarkerSupportRequestType parseSupportRequestType(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return MarkerSupportRequestType.valueOf(value);
+    } catch (IllegalArgumentException exception) {
+      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
+    }
+  }
+
   private Marker requireMutationAccess(UUID markerId, SuriMapAuthentication authentication) {
     if (authentication.policePhoneId() == null) {
       throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
@@ -317,18 +342,6 @@ public class AppMarkerService {
       throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
     return marker;
-  }
-
-  private void requireMarkerId(UUID markerId) {
-    if (markerId == null) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
-  }
-
-  private void requireRequestVersion(Long version) {
-    if (version == null || version <= 0) {
-      throw new BusinessException(ErrorCode.WRITE_CONFLICT);
-    }
   }
 
   private GeoJsonPoint resolveUpdateLocation(Marker current, MarkerUpdateServiceRequest request) {
@@ -369,13 +382,5 @@ public class AppMarkerService {
 
   private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {
     return requestingPolicePhoneId == null ? marker.getPolicePhoneId() : requestingPolicePhoneId;
-  }
-
-  private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {
-    return new ResponseMetadata(
-        response.getId().toString(),
-        response.getStatus(),
-        response.getVersion(),
-        response.getVersion());
   }
 }

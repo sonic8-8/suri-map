@@ -282,10 +282,11 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 ## 반영 이력 요약
 
-2026-09-09~15에 정리한 마커·SSE 이름과 테스트의 요약이다. 파일별 이전·이후 이름과 검증 내역은 [마커·알림 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#마커알림--먼저-진행), [SSE·인증 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#sse인증--승인한-이름-반영)에서 확인한다. 2026-09-22에는 기록을 축약했으며 코드를 다시 변경하거나 테스트를 실행하지 않았다.
+2026-09-09~15에 정리한 마커·SSE 이름과 테스트의 요약이다. 파일별 이전·이후 이름과 검증 내역은 [마커·알림 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#마커알림--먼저-진행), [SSE·인증 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#sse인증--승인한-이름-반영)에서 확인한다. 2026-09-22 문서 축약 이후의 코드 변경은 아래 날짜를 붙여 구분한다.
 
 | 정리한 대상 | 반영 결과 |
 |---|---|
+| 마커 생성 검증·사진 첨부 구분 (2026-09-22) | `validateCreateRequest`·`validateAppAuthentication`·`validateIdempotencyKey`로 검사 대상을 구분했다. `attachPhotosForMarkerCreation`은 초기 사진 첨부, `attachPhotoToExistingMarker`는 생성 후 마커 수정까지 담당한다. 파일 확인·사진 저장은 `attachUploadedPhoto`로 공유한다. [반영 동작과 검증 범위](../features/marker-photo.md#사진을-포함한-마커-생성과-생성-후-사진-추가). |
 | 마커 생성·사진·알림의 `RedTest`·`Sc06`·`Sc08`·`ContractTest` | 필요한 검증을 `MarkerTest`·`MarkerWriteAccessValidatorTest`·`AppMarkerServiceTest`·Mapper 테스트에 모았다. SQL 문자열·가짜 표시 결과 검사는 실제 서비스·DB 검증과 구분해 제거했다. |
 | 알림 전달·조회 | 전용 FCM 전달 로직은 `MarkerNotificationService`, 조회는 `MarkerNotificationMapper`로 모았다. 미사용 지원 요청·표시 코드는 제거하고, 알림 전용 타입에는 `MarkerNotification`을 드러냈다. 상황판 슬롯은 `marker_notification`을 사용한다. |
 | 마커 조회·응답 | `MarkerQuery`·중복 결과 객체를 제거하고 `api/service/marker/MarkerService`로 통합했다. 응답은 `MarkersServiceResponse`의 내부 class로 모으고 응답 변환을 도메인에서 DTO로 옮겼다. |

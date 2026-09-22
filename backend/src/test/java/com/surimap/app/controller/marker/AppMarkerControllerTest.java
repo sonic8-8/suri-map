@@ -321,8 +321,8 @@ class AppMarkerControllerTest {
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
             .policePhoneId(POLICE_PHONE_ID)
-            .status("UPDATED")
-            .version(2L)
+            .status("ACTIVE")
+            .version(1L)
             .photos(
                 List.of(
                     PhotoAttachServiceResponse.builder()
@@ -330,7 +330,7 @@ class AppMarkerControllerTest {
                         .status("ATTACHED")
                         .version(2L)
                         .markerId(MARKER_ID)
-                        .markerVersion(2L)
+                        .markerVersion(1L)
                         .build()))
             .build();
     when(appMarkerService.create(any(MarkerCreateServiceRequest.class)))
@@ -348,13 +348,13 @@ class AppMarkerControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
         // then: 첨부된 사진과 마커의 상태·버전을 기존 JSON 필드로 응답한다.
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.status", is("UPDATED")))
-        .andExpect(jsonPath("$.version", is(2)))
+        .andExpect(jsonPath("$.status", is("ACTIVE")))
+        .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.photos[0].photoId", is(photoId.toString())))
         .andExpect(jsonPath("$.photos[0].status", is("ATTACHED")))
         .andExpect(jsonPath("$.photos[0].version", is(2)))
         .andExpect(jsonPath("$.photos[0].markerId", is(MARKER_ID.toString())))
-        .andExpect(jsonPath("$.photos[0].markerVersion", is(2)));
+        .andExpect(jsonPath("$.photos[0].markerVersion", is(1)));
     ArgumentCaptor<MarkerCreateServiceRequest> captured =
         ArgumentCaptor.forClass(MarkerCreateServiceRequest.class);
     verify(appMarkerService).create(captured.capture());
