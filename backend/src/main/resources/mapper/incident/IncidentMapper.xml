@@ -67,6 +67,20 @@
         WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
+    <select id="findLastSseSequence" resultType="java.lang.Long">
+        SELECT last_sse_sequence
+        FROM incident
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="incrementAndGetSseSequence" resultType="java.lang.Long"
+            affectData="true" flushCache="true" useCache="false">
+        UPDATE incident
+        SET last_sse_sequence = last_sse_sequence + 1
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        RETURNING last_sse_sequence
+    </select>
+
     <select id="findImportIdempotencyRecord" resultMap="idempotencyRecordMap">
         SELECT
             id,

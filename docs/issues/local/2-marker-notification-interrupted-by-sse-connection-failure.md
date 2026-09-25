@@ -67,17 +67,19 @@
 | 검증 대상 | 확인한 동작 | 결과 |
 |---|---|---|
 | [연결 관리 테스트](../../../backend/src/test/java/com/surimap/eventhub/stream/SseConnectionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
-| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobDispatcherTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
+| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobWorkerTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
 | 전체 Backend 테스트 | `./gradlew test` | 1,227개 통과, 222개 클래스, 실패·오류·건너뜀 0건 |
 
 전체 테스트는 3분 29초가 걸렸습니다. 변경 Java 파일 4개의 포맷과 공백 검사도 통과했습니다. 테스트 종료 중 닫힌 DB 커넥션 경고 1건이 있었으며 테스트 실패는 없었습니다. 통합 테스트에서 확인한 `COMPLETED`는 서버의 전송 처리 완료이지, 실제 브라우저의 알림 표시 확인은 아닙니다.
+
+2026-09-26 테스트 클래스가 `EventDispatchJobDispatcherTest`에서 `EventDispatchJobWorkerTest`로 바뀌어 링크·실행 명령을 갱신했습니다. 위 숫자는 당시 검증 기록입니다.
 
 관련 테스트는 Docker가 실행 중인 환경에서 `backend`로 이동한 뒤 다음 명령으로 다시 실행할 수 있습니다. Docker가 없으면 DB 연동 테스트는 건너뛰므로, 명령 성공 여부뿐 아니라 실행·건너뜀 개수도 확인해야 합니다.
 
 ```bash
 ./gradlew test \
   --tests 'com.surimap.eventhub.stream.SseConnectionRegistryTest' \
-  --tests 'com.surimap.eventhub.EventDispatchJobDispatcherTest'
+  --tests 'com.surimap.eventhub.EventDispatchJobWorkerTest'
 ```
 
 최초 Smoke Test는 격리된 로컬 PostGIS DB, 현재 Backend·Frontend 개발 서버와 실제 브라우저를 연결해 수행했습니다. 업무폰 요청은 `APP` 헤더를 넣은 직접 HTTP 요청으로 대체했으며 실제 Android 앱이나 합성 SSE 프레임은 사용하지 않았습니다. [당시 실행 기록](../../../_workspace/marker-sse-smoke-20260914.yJUQJb/RESULTS.md)에 준비 방법과 관측 결과가 있습니다. `_workspace` 자료는 로컬 전용이며 Git에는 포함되지 않습니다.

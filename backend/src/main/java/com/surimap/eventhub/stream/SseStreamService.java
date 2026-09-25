@@ -1,7 +1,9 @@
 package com.surimap.eventhub.stream;
 
 import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.eventhub.validation.BaseEventValidator;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -67,22 +69,32 @@ public class SseStreamService {
   }
 
   public SseReplayEventStore.ReplayAppend dispatchLive(
-      UUID eventDispatchJobId, PublishRequest request) {
-    var append = replayEventStore.append(eventDispatchJobId, request);
-    if (append.isNew()) {
-      SseEventFrame frame = replayService.frameOf(append.event());
-      connectionRegistry.sendToIncident(request.incidentId(), frame);
-      assignedAccountIds(request)
-          .forEach(accountId -> connectionRegistry.sendToAccount(accountId, frame));
-    }
-    if (append.isNew() && INCIDENT_CLOSED.equals(request.type())) {
+      UUID eventDispatchJobId, PublishRequest request, long sseSequence) {
+    BaseEventValidator.validate(request);
+    boolean isNew = replayEventStore.findByEventId(request.eventId()).isEmpty();
+    var event =
+        replayEventStore.save(
+            SseReplayEvent.active(
+                eventDispatchJobId,
+                eventDispatchJobId,
+                request.incidentId(),
+                sseSequence,
+                request,
+                Instant.now()));
+    SseEventFrame frame = replayService.frameOf(event);
+    // 이력 저장 성공은 전송 성공이 아니다. 재시도도 같은 순번으로 전달한다.
+    connectionRegistry.sendToIncident(request.incidentId(), frame);
+    assignedAccountIds(request)
+        .forEach(accountId -> connectionRegistry.sendToAccount(accountId, frame));
+    if (INCIDENT_CLOSED.equals(request.type())) {
       connectionRegistry.closeIncidentConnections(request.incidentId());
     }
-    if (append.isNew() && INCIDENT_PURGED.equals(request.type())) {
+    if (INCIDENT_PURGED.equals(request.type())) {
       connectionRegistry.closeIncidentConnections(request.incidentId());
       replayEventStore.purgeIncident(request.incidentId());
     }
-    return append;
+    return new SseReplayEventStore.ReplayAppend(
+        request.eventId(), request.incidentId(), sseSequence, event, isNew);
   }
 
   private List<UUID> assignedAccountIds(PublishRequest request) {

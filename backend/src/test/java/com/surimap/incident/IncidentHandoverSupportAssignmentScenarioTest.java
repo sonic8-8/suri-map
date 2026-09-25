@@ -190,7 +190,7 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
 
     // when: 저장된 이벤트를 SSE 스트림 서비스에 직접 전달한다.
     ReplayAppend sseEvidence =
-        sseStreamService.dispatchLive(supportEvent.rowId(), supportEvent.toPublishRequest());
+        sseStreamService.dispatchLive(supportEvent.rowId(), supportEvent.toPublishRequest(), 1L);
     // then: 전달한 배정 이벤트의 종류와 버전을 유지한다.
     assertThat(sseEvidence.isNew()).isTrue();
     assertThat(sseEvidence.event().envelope().type()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
