@@ -13,27 +13,30 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("DbEventHub search area fanout")
 class DbEventHubFanoutTest {
 
   @Test
-  @DisplayName("SEARCH_AREA_CHANGED is persisted and synchronously delivered to offline package consumer")
-  void searchAreaChangedIsPersistedAndDeliveredToConsumer() {
+  @DisplayName("수색 구역 변경 이벤트를 저장하면 해당 소비자에게 동기 전달한다")
+  void search_area_changed_is_persisted_and_delivered_to_consumer() {
+    // given: 수색 구역 변경을 처리하는 소비자가 등록돼 있다.
     CapturingEventDispatchJobMapper mapper = new CapturingEventDispatchJobMapper();
     CapturingSearchAreaChangedConsumer consumer = new CapturingSearchAreaChangedConsumer();
     DbEventHub eventHub = new DbEventHub(mapper, () -> List.of(consumer));
     PublishRequest event = searchAreaChangedEvent();
 
+    // when: 수색 구역 변경 이벤트를 발행한다.
     eventHub.publish(event);
 
+    // then: 전송 작업으로 저장하고 소비자에게 같은 이벤트를 전달한다.
     assertThat(mapper.rows).hasSize(1);
-    assertThat(mapper.rows.get(0).eventId()).isEqualTo(event.eventId());
+    assertThat(mapper.rows.get(0).getEventId()).isEqualTo(event.eventId());
     assertThat(consumer.events).containsExactly(event);
   }
 
   @Test
-  @DisplayName("non search area events are only persisted")
-  void nonSearchAreaEventsAreOnlyPersisted() {
+  @DisplayName("수색 구역 변경이 아닌 이벤트는 저장하되 해당 소비자에게 전달하지 않는다")
+  void other_event_is_persisted_without_delivery_to_search_area_consumer() {
+    // given: 수색 구역 소비자와 다른 유형의 이벤트를 준비한다.
     CapturingEventDispatchJobMapper mapper = new CapturingEventDispatchJobMapper();
     CapturingSearchAreaChangedConsumer consumer = new CapturingSearchAreaChangedConsumer();
     DbEventHub eventHub = new DbEventHub(mapper, () -> List.of(consumer));
@@ -48,8 +51,10 @@ class DbEventHubFanoutTest {
             Instant.parse("2026-05-19T00:00:00Z"),
             Map.of("id", "pkg-1"));
 
+    // when: 다른 유형의 이벤트를 발행한다.
     eventHub.publish(event);
 
+    // then: 저장은 유지하되 처리 대상이 아닌 소비자에는 전달하지 않는다.
     assertThat(mapper.rows).hasSize(1);
     assertThat(consumer.events).isEmpty();
   }
@@ -71,20 +76,41 @@ class DbEventHubFanoutTest {
   }
 
   private static final class CapturingEventDispatchJobMapper implements EventDispatchJobMapper {
-    private final List<EventDispatchJobRow> rows = new ArrayList<>();
+    private final List<EventDispatchJob> rows = new ArrayList<>();
 
     @Override
-    public void insert(EventDispatchJobRow row) {
+    public void insert(EventDispatchJob row) {
       rows.add(row);
     }
 
     @Override
-    public EventDispatchJobDispatchRecord claimById(UUID id, String claimStatus) {
+    public EventDispatchJob findById(UUID id) {
       return null;
     }
 
     @Override
-    public List<EventDispatchJobDispatchRecord> claimPending(int limit, String claimStatus) {
+    public EventDispatchJob findByIdForUpdate(UUID id) {
+      return null;
+    }
+
+    @Override
+    public List<EventDispatchJob> findBySseSequenceRange(
+        UUID incidentId, long afterSequence, long throughSequence, int limit) {
+      return List.of();
+    }
+
+    @Override
+    public int assignSseSequenceIfAbsent(UUID id, long sseSequence) {
+      return 0;
+    }
+
+    @Override
+    public EventDispatchJob claimById(UUID id, String claimStatus) {
+      return null;
+    }
+
+    @Override
+    public List<EventDispatchJob> claimPending(int limit, String claimStatus) {
       return List.of();
     }
 

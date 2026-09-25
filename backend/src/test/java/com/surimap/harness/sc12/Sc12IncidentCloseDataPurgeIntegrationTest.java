@@ -171,8 +171,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
                     SOURCE_INCIDENT_ID, List.of(supportAssignment())))
         .isInstanceOf(IncidentLifecycleGuardException.class)
         .hasMessage("incident_closed");
-    assertThat(activeAssignmentAccountIds())
-        .doesNotContain("11111111-1111-1111-1111-111111110006");
+    assertThat(activeAssignmentAccountIds()).doesNotContain("11111111-1111-1111-1111-111111110006");
 
     // 3. 종료 이벤트는 S4 전파와 파기 소비자로 넘어가는 인계 경계다.
     OutboxRow closedEvent = singleOutboxRow("INCIDENT_CLOSED");
@@ -187,7 +186,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
     assertNoPii(closedEvent.payload());
 
     ReplayAppend closedSse =
-        sseStreamService.dispatchLive(closedEvent.rowId(), closedEvent.toPublishRequest());
+        sseStreamService.dispatchLive(closedEvent.rowId(), closedEvent.toPublishRequest(), 1L);
     assertThat(closedSse.isNew()).isTrue();
     assertThat(closedSse.event().envelope().type()).isEqualTo("INCIDENT_CLOSED");
     assertThat(closedSse.event().envelope().payload().get("closedAt"))
@@ -225,7 +224,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
     assertNoPii(purgedEvent.payload());
 
     ReplayAppend purgedSse =
-        sseStreamService.dispatchLive(purgedEvent.rowId(), purgedEvent.toPublishRequest());
+        sseStreamService.dispatchLive(purgedEvent.rowId(), purgedEvent.toPublishRequest(), 2L);
     assertThat(purgedSse.isNew()).isTrue();
     assertThat(purgedSse.event().envelope().type()).isEqualTo("INCIDENT_PURGED");
     assertThat(sseReplayEventStore.isIncidentPurged(INCIDENT_ID)).isTrue();

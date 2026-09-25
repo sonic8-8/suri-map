@@ -18,10 +18,14 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface IncidentMapper {
 
-  Optional<IncidentRecord> findBySourceIncidentId(
-      @Param("sourceIncidentId") UUID sourceIncidentId);
+  Optional<IncidentRecord> findBySourceIncidentId(@Param("sourceIncidentId") UUID sourceIncidentId);
 
   Optional<IncidentRecord> findByIncidentId(@Param("incidentId") UUID incidentId);
+
+  Long findLastSseSequence(@Param("incidentId") UUID incidentId);
+
+  /** 증가한 순번을 반환한다. 사건이 없으면 null이며, 작업 순번 저장과 같은 트랜잭션에서 호출한다. */
+  Long incrementAndGetSseSequence(@Param("incidentId") UUID incidentId);
 
   Optional<IncidentImportIdempotencyRecord> findImportIdempotencyRecord(
       @Param("idempotencyKey") String idempotencyKey,

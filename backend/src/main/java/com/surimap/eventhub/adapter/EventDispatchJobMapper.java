@@ -5,29 +5,31 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-/**
- * event_dispatch_job 테이블 MyBatis Mapper.
- *
- * <p>S4.json §domain_model.entities[0]: event_dispatch_job outbox row INSERT를 담당한다.
- * SQL 본문은 {@code mapper/event/EventDispatchJobMapper.xml}에 정의된다.
- */
+/** 전송 작업의 저장·조회 SQL. 트랜잭션 조율과 SSE 전송은 호출부가 담당한다. */
 @Mapper
 public interface EventDispatchJobMapper {
 
+  void insert(EventDispatchJob job);
+
+  EventDispatchJob findById(@Param("id") UUID id);
+
+  EventDispatchJob findByIdForUpdate(@Param("id") UUID id);
+
+  /** afterSequence는 제외하고 throughSequence까지 순번순으로 조회한다. 전송 완료 여부와 무관하다. */
+  List<EventDispatchJob> findBySseSequenceRange(
+      @Param("incidentId") UUID incidentId,
+      @Param("afterSequence") long afterSequence,
+      @Param("throughSequence") long throughSequence,
+      @Param("limit") int limit);
+
   /**
-   * event_dispatch_job row를 INSERT한다.
-   *
-   * <p>event_id는 UNIQUE constraint로 중복 publish를 방지한다.
-   * S4.json duplicate_event_dedupe fixture: ux_event_dispatch_job_event_id UNIQUE.
-   *
-   * @param row INSERT할 row DTO
+   * 순번이 없고 완료되지 않은 작업만 갱신한다. 갱신 건수가 0이면 배정되지 않은 것이다. 사건 카운터 증가와의 원자성·재호출 처리는 서비스 트랜잭션에서 조율해야 한다.
    */
-  void insert(EventDispatchJobRow row);
+  int assignSseSequenceIfAbsent(@Param("id") UUID id, @Param("sseSequence") long sseSequence);
 
-  EventDispatchJobDispatchRecord claimById(
-      @Param("id") UUID id, @Param("claimStatus") String claimStatus);
+  EventDispatchJob claimById(@Param("id") UUID id, @Param("claimStatus") String claimStatus);
 
-  List<EventDispatchJobDispatchRecord> claimPending(
+  List<EventDispatchJob> claimPending(
       @Param("limit") int limit, @Param("claimStatus") String claimStatus);
 
   int markCompleted(@Param("id") UUID id, @Param("completedStatus") String completedStatus);

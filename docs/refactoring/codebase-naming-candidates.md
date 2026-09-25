@@ -81,6 +81,7 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
 | [GeometrySpatialMapperIntegrationTest](../../backend/src/test/java/com/surimap/maparea/geometry/validation/GeometrySpatialMapperIntegrationTest.java) | `GeometrySpatialMapperTest` |
+| [CoreRuntimeSchemaMigrationIntegrationTest](../../backend/src/test/java/com/surimap/database/CoreRuntimeSchemaMigrationIntegrationTest.java) | 실제 PostgreSQL의 Flyway schema와 옛 ID 전환을 검사한다. `Integration` 분류를 덜고 migration 검증 대상으로 이름을 정리할 후보이며, 이번 SSE 순번 구현에서는 기존 파일을 변경하지 않았다. |
 | [OpComparisonAnalysisMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonAnalysisMapperIntegrationTest.java) | `OpComparisonAnalysisMapperTest` |
 | [OpComparisonRegionFactMapperIntegrationTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonRegionFactMapperIntegrationTest.java) | `OpComparisonRegionFactMapperTest` |
 | [SearchHistorySummaryMapperIntegrationTest](../../backend/src/test/java/com/surimap/summary/SearchHistorySummaryMapperIntegrationTest.java) | `SearchHistorySummaryMapperTest` |
@@ -203,13 +204,14 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [TileManifestFixtureExactnessTest](../../backend/src/test/java/com/surimap/offlinepackage/TileManifestFixtureExactnessTest.java) | 고정 시험 데이터의 값·참조를 검사한다. 실제 타일 준비·서빙 검증과 구분하고 필요한 검사·이름을 함께 정리 |
 | [OfflinePackageManifestSourceIntegrationTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestSourceIntegrationTest.java) | `Integration` 분류 대신 검증 대상에 맞춰 정리할 후보다. 사건·차수·구역·마커 조회와 이벤트가 대역인 구성을 실제 전체 연동 시험과 구분 |
 
-## 이벤트 전송 작업의 저장·조회 객체
+## 이벤트 전송 처리 클래스
 
-2026-09-21 저장·조회 SQL과 연결 객체를 대조하며 발견했다. 실제 클래스·Mapper는 변경하지 않았다.
+2026-09-25 [역할 분리 합의](../features/event-delivery.md#sse-재연결과-중복-처리)에 따라 정한 이름을 2026-09-26 구현에 반영했다. DB 재전송 조회·중단 복구까지 완료한 것은 아니다.
 
-| 후보 | 확인한 이유 |
+| 변경 | 현재 책임 |
 |---|---|
-| [EventDispatchJobRow](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobRow.java)·[EventDispatchJobDispatchRecord](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobDispatchRecord.java) | 같은 전송 작업의 동일한 9개 필드를 INSERT용·조회용 record로 나눴고 `Dispatch`도 중복된다. SSE 후속 정리에서 저장·조회 역할을 하나의 업무 객체로 합칠 수 있는지 확인한 뒤 이름을 정한다. |
+| `EventDispatchJobDispatcher` → [EventDispatchJobService](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobService.java) | 작업 선점·순번 확정·처리 결과를 DB 트랜잭션으로 저장한다. SSE 전송이나 FCM 성공 판정은 맡지 않는다. |
+| `EventDispatchJobPollingWorker` → [EventDispatchJobWorker](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobWorker.java) | 커밋 후 깨우기·주기 조회를 받고 서비스 커밋 → SSE 전송 → 결과 저장을 실행한다. 기존 Dispatcher 테스트도 `EventDispatchJobWorkerTest`로 옮겼다. |
 
 ## API 문서 검사
 
@@ -286,6 +288,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 정리한 대상 | 반영 결과 |
 |---|---|
+| 이벤트 전송 작업의 저장·조회 객체 (2026-09-26) | `EventDispatchJobRow`·`EventDispatchJobDispatchRecord`를 [EventDispatchJob](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJob.java) class 하나로 통합했다. 같은 이벤트 내용과 전송 상태·SSE 순번을 저장·조회한다. 이후 같은 날 Service·worker 책임을 분리했으며 DB 재전송 조회 연결은 남아 있다. |
 | 마커 생성 검증·사진 첨부 구분 (2026-09-22) | `validateCreateRequest`·`validateAppAuthentication`·`validateIdempotencyKey`로 검사 대상을 구분했다. `attachPhotosForMarkerCreation`은 초기 사진 첨부, `attachPhotoToExistingMarker`는 생성 후 마커 수정까지 담당한다. 파일 확인·사진 저장은 `attachUploadedPhoto`로 공유한다. [반영 동작과 검증 범위](../features/marker-photo.md#사진을-포함한-마커-생성과-생성-후-사진-추가). |
 | 마커 생성·사진·알림의 `RedTest`·`Sc06`·`Sc08`·`ContractTest` | 필요한 검증을 `MarkerTest`·`MarkerWriteAccessValidatorTest`·`AppMarkerServiceTest`·Mapper 테스트에 모았다. SQL 문자열·가짜 표시 결과 검사는 실제 서비스·DB 검증과 구분해 제거했다. |
 | 알림 전달·조회 | 전용 FCM 전달 로직은 `MarkerNotificationService`, 조회는 `MarkerNotificationMapper`로 모았다. 미사용 지원 요청·표시 코드는 제거하고, 알림 전용 타입에는 `MarkerNotification`을 드러냈다. 상황판 슬롯은 `marker_notification`을 사용한다. |
@@ -293,7 +296,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | 오류·인증·좌표 | 공통 예외 처리로 통합하고 `MarkerAuthenticationResolver`·`GeoJsonPoint.roundToSixDecimals()`로 역할을 드러냈다. 공개 오류·좌표 형식·기존 요청 해시 비교는 유지했다. |
 | 기준 마커·운영 패키지 | 초기 등록은 `ReferenceMarkerSeedService`에 모았다. 공용 FCM은 `client/fcm`, 설정은 `config/fcm`, 사진 파기 계약은 `api/service/photo`로 옮기고 운영 `com/surimap/marker` 디렉터리를 제거했다. |
 | SSE·인증 이름 | 연결 관리는 `SseConnectionRegistry`, 동작은 `registerForIncident`·`sendToIncident` 등으로 정리했다. 인증 필터와 테스트 메서드도 동작을 나타내는 이름으로 바꿨다. |
-| SSE 테스트 | 전달·연결·저장·재전송을 `EventDispatchJobDispatcherTest`·`SseConnectionRegistryTest`·`SseStreamServiceTest`·`SseReplayServiceTest`로 모았다. 밑줄 메서드명·한글 `DisplayName`·given/when/then 설명을 적용했다. |
+| SSE 테스트 | 전달·연결·저장·재전송을 대상별로 모으고 밑줄 메서드명·한글 `DisplayName`·given/when/then 설명을 적용했다. 이후 `EventDispatchJobDispatcherTest`는 `EventDispatchJobWorkerTest`로 변경하고 DB 트랜잭션 검증을 `EventDispatchJobServiceTest`에 추가했다. |
 | 옛 단말 복구 도구 | `check_l4_d01_runtime_preflight.py`·`run_l4_d01_deployed_stability.py`는 호출자가 없어 제거했다. 실행하지 않았으며 [복원 근거와 주의점](../test-results/android-network-recovery-2026-05-14/README.md#옛-기록도구의-복원)을 남겼다. |
 
 당시 마커 서비스 검증은 실제 DB와 외부 FCM 대역을 사용했고, SSE 서비스 검증은 실제 Spring 빈과 메모리 재전송 저장소를 사용했다. 이 테스트로 DB 재전송 내구성·실제 네트워크 수신·업무폰 알림 표시를 증명한 것은 아니다. 이름·통합 변경 뒤 관련 검증 88개 통과는 당시 결과이며 이번 문서 정리의 실행 결과가 아니다.

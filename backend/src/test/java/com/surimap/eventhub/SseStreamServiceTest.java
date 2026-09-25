@@ -79,7 +79,8 @@ class SseStreamServiceTest {
             "PATH_APPENDED",
             "30000000-0000-4000-8000-000000000501",
             "RECORDING",
-            7L));
+            7L),
+        901L);
 
     // then: 전송 순간에 이미 저장돼 있으며, 순번과 원래 내용이 그대로 전달된다.
     assertThat(connection.getFrames()).hasSize(1);
@@ -95,22 +96,23 @@ class SseStreamServiceTest {
   }
 
   @Test
-  @DisplayName("같은 이벤트를 서로 다른 전송 작업으로 처리해도, 저장과 전송은 한 번만 한다")
-  void dispatch_live_with_duplicate_event_saves_and_sends_once() {
-    // given: 같은 이벤트를 가리키는 전송 작업 두 개다.
+  @DisplayName("같은 작업의 전송을 재시도하면 이력은 하나로 유지하고 같은 순번으로 다시 보낸다")
+  void dispatch_live_retry_preserves_single_history_and_sends_same_sequence_again() {
+    // given: 같은 작업을 재시도할 수 있는 전송 대상이 등록돼 있다.
     UUID eventId = UUID.fromString("40000000-0000-4000-8000-000000000701");
     var event = EventStreamTestFixtures.publishRequest(eventId, INCIDENT_ID, "PATH_APPENDED");
     var connection = new CapturingSseConnection();
     connectionRegistry.registerForIncident(INCIDENT_ID, connection);
 
-    // when: 두 작업이 같은 이벤트를 차례로 전송한다.
-    streamService.dispatchLive(UUID.fromString("70000000-0000-4000-8000-000000000701"), event);
-    streamService.dispatchLive(UUID.fromString("70000000-0000-4000-8000-000000000702"), event);
+    // when: DB에서 확정한 같은 순번으로 다시 전송한다.
+    UUID jobId = UUID.fromString("70000000-0000-4000-8000-000000000701");
+    streamService.dispatchLive(jobId, event, 1L);
+    streamService.dispatchLive(jobId, event, 1L);
 
-    // then: 재전송 저장소와 연결에 이벤트가 하나씩만 남는다.
+    // then: 저장된 이력은 하나이며 전송은 같은 순번으로 다시 시도한다.
     assertThat(replayStore.findByEventId(eventId)).isPresent();
     assertThat(replayStore.findByIncidentId(INCIDENT_ID)).hasSize(1);
-    assertThat(connection.getFrames()).hasSize(1);
+    assertThat(connection.getFrames()).extracting(SseEventFrame::id).containsExactly("1", "1");
   }
 
   @Test
@@ -129,7 +131,8 @@ class SseStreamServiceTest {
             CLOSED_INCIDENT_ID,
             "INCIDENT_CLOSED",
             "CLOSED",
-            12L));
+            12L),
+        1212L);
 
     // then: 종료 이벤트만 다음 순번으로 전달하고 연결 등록을 제거한다.
     assertThat(connection.getFrames())
@@ -153,7 +156,8 @@ class SseStreamServiceTest {
         EventStreamTestFixtures.publishRequest(
             UUID.fromString("40000000-0000-4000-8000-000000000912"),
             INCIDENT_ID,
-            "INCIDENT_CLOSED"));
+            "INCIDENT_CLOSED"),
+        1L);
 
     // then: 종료 이벤트를 한 번 전달하고 실제 연결과 등록을 모두 정리한다.
     assertThat(connection.getFrames())
@@ -194,7 +198,8 @@ class SseStreamServiceTest {
             PURGED_INCIDENT_ID,
             "INCIDENT_PURGED",
             "PURGED",
-            13L));
+            13L),
+        1302L);
 
     // then: 과거 이벤트 재전송과 새 이벤트 전송을 모두 거부한다.
     assertThatThrownBy(() -> replayService.replayAfter(PURGED_INCIDENT_ID, "1301"))
@@ -208,7 +213,8 @@ class SseStreamServiceTest {
                         PURGED_INCIDENT_ID,
                         "PATH_APPENDED",
                         "RECORDING",
-                        14L)))
+                        14L),
+                    1303L))
         .isInstanceOf(GoneRefetchRequiredException.class);
     assertThat(replayStore.findByIncidentId(PURGED_INCIDENT_ID)).isEmpty();
   }
@@ -235,13 +241,15 @@ class SseStreamServiceTest {
         EventStreamTestFixtures.publishRequest(
             UUID.fromString("40000000-0000-4000-8000-000000000912"),
             INCIDENT_ID,
-            "INCIDENT_CLOSED"));
+            "INCIDENT_CLOSED"),
+        902L);
     streamService.dispatchLive(
         UUID.fromString("70000000-0000-4000-8000-000000000913"),
         EventStreamTestFixtures.publishRequest(
             UUID.fromString("40000000-0000-4000-8000-000000000913"),
             INCIDENT_ID,
-            "INCIDENT_PURGED"));
+            "INCIDENT_PURGED"),
+        903L);
 
     // then: 저장 데이터가 사라지고, 마지막 순번 유무와 관계없이 재전송을 거부한다.
     assertThat(replayStore.findByIncidentId(INCIDENT_ID)).isEmpty();
