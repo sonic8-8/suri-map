@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.eventhub.stream.GoneRefetchRequiredException;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.time.Duration;
@@ -19,6 +20,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -44,6 +48,7 @@ class EventDispatchJobServiceTest extends PostGisIntegrationTestSupport {
   @AfterEach
   void delete_test_incident() {
     jdbcTemplate.update("DELETE FROM event_dispatch_job WHERE incident_id = ?", incidentId);
+    jdbcTemplate.update("DELETE FROM incident_data_purge WHERE incident_id = ?", incidentId);
     jdbcTemplate.update("DELETE FROM incident WHERE id = ?", incidentId);
   }
 
@@ -168,6 +173,116 @@ class EventDispatchJobServiceTest extends PostGisIntegrationTestSupport {
     // when / then: 완료 상태와 무관하게 원래 순번을 돌려준다.
     assertThat(service.getOrAssignSseSequence(job.getId())).isEqualTo(sequence);
     assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(sequence);
+  }
+
+  @Test
+  @DisplayName("DB 재전송 이력을 지정한 개수로 나눠 읽고 조회 범위 뒤의 새 이벤트는 포함하지 않는다")
+  void replay_pages_read_committed_range_without_including_newer_events() {
+    // given: 메모리 저장소를 거치지 않고 DB에 두 이벤트와 순번을 확정했다.
+    EventDispatchJob first = insertJob();
+    EventDispatchJob second = insertJob();
+    service.getOrAssignSseSequence(first.getId());
+    long throughSequence = service.getOrAssignSseSequence(second.getId());
+    mapper.claimById(first.getId(), "DISPATCHING");
+    mapper.markCompleted(first.getId(), "COMPLETED");
+    mapper.claimById(second.getId(), "DISPATCHING");
+    mapper.markFailed(second.getId(), "FAILED");
+
+    // when: 한 개씩 조회하는 도중 범위 밖의 새 이벤트가 추가된다.
+    var firstPage = service.readSseReplayPage(incidentId, 0L, throughSequence, 1);
+    service.getOrAssignSseSequence(insertJob().getId());
+    var secondPage = service.readSseReplayPage(incidentId, 1L, throughSequence, 1);
+
+    // then: 전송 상태와 무관하게 확정한 범위만 읽고 다음 순번이나 원문을 바꾸지 않는다.
+    assertThat(firstPage).extracting(EventDispatchJob::getId).containsExactly(first.getId());
+    assertThat(secondPage).extracting(EventDispatchJob::getId).containsExactly(second.getId());
+    assertThat(secondPage.get(0).toPublishRequest()).isEqualTo(second.toPublishRequest());
+    assertThat(service.readSseReplayPage(incidentId, 2L, throughSequence, 1)).isEmpty();
+    assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(3L);
+    assertThat(mapper.findById(second.getId()).getDispatchStatus()).isEqualTo("FAILED");
+  }
+
+  @ParameterizedTest
+  @CsvSource({"1,1", "2,2", "3,3", "0,3"})
+  @DisplayName("이어받을 이력의 앞·중간·끝이나 전체가 없으면 일부 결과 대신 재조회를 요구한다")
+  void missing_replay_sequence_requires_refetch_without_returning_partial_page(
+      long deletedSequence, int limit) {
+    // given: 순번 1~3은 확정됐지만 그중 일부 또는 전체 이력이 삭제됐다.
+    for (int index = 0; index < 3; index++) {
+      service.getOrAssignSseSequence(insertJob().getId());
+    }
+    if (deletedSequence == 0L) {
+      jdbcTemplate.update("DELETE FROM event_dispatch_job WHERE incident_id = ?", incidentId);
+    } else {
+      jdbcTemplate.update(
+          "DELETE FROM event_dispatch_job WHERE incident_id = ? AND sse_sequence = ?",
+          incidentId,
+          deletedSequence);
+    }
+
+    // when / then: 다음에 와야 할 순번이 없으면 빈 목록이나 잘린 이력으로 성공 처리하지 않는다.
+    assertThatThrownBy(() -> service.readSseReplayPage(incidentId, 0L, 3L, limit))
+        .isInstanceOf(GoneRefetchRequiredException.class);
+    assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(3L);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"-1,0,1", "2,1,1", "0,0,0", "0,0,-1"})
+  @DisplayName("재전송 범위가 음수·역순이거나 조회 개수가 양수가 아니면 요청을 거부한다")
+  void invalid_replay_range_or_limit_is_rejected(
+      long afterSequence, long throughSequence, int limit) {
+    // given: 호출부에서 잘못 지정한 범위 또는 조회 개수다.
+    // when / then: 빈 페이지로 성공 처리하거나 잘못된 값을 SQL로 넘기지 않는다.
+    assertThatThrownBy(
+            () -> service.readSseReplayPage(incidentId, afterSequence, throughSequence, limit))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"4,4", "0,4", "9223372036854775807,9223372036854775807"})
+  @DisplayName("DB에 확정되지 않은 순번으로 이어받으려 하면 재조회를 요구한다")
+  void replay_range_beyond_committed_sequence_requires_refetch(
+      long afterSequence, long throughSequence) {
+    // given: 이력이 전혀 없는 사건의 0~0 범위는 비어 있고, 이후 순번 1~3을 확정한다.
+    assertThat(service.readSseReplayPage(incidentId, 0L, 0L, 1)).isEmpty();
+    for (int index = 0; index < 3; index++) {
+      service.getOrAssignSseSequence(insertJob().getId());
+    }
+
+    // when / then: 현재 DB보다 앞선 순번을 빈 페이지나 정상 이력으로 받아들이지 않는다.
+    assertThatThrownBy(
+            () -> service.readSseReplayPage(incidentId, afterSequence, throughSequence, 1))
+        .isInstanceOf(GoneRefetchRequiredException.class);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"CLOSED", "PURGED", "MISSING"})
+  @DisplayName("종료·파기됐거나 존재하지 않는 사건의 과거 이력은 DB에 남아 있어도 조회하지 않는다")
+  void closed_purged_or_missing_incident_rejects_history_read(String state) {
+    // given: DB에 이력은 남았지만 더 이상 과거 내용을 조회할 수 없는 사건이다.
+    EventDispatchJob job = insertJob();
+    service.getOrAssignSseSequence(job.getId());
+    if ("CLOSED".equals(state)) {
+      incidentMapper.closeIncident(incidentId, null, Instant.now());
+    } else if ("PURGED".equals(state)) {
+      jdbcTemplate.update(
+          """
+          INSERT INTO incident_data_purge
+              (id, incident_id, status, closed_at, purge_due_at, completed_at,
+               environment_policy, created_at, updated_at)
+          VALUES (?, ?, 'COMPLETED', now(), now(), now(), 'PRODUCTION_IMMEDIATE', now(), now())
+          """,
+          UUID.randomUUID(),
+          incidentId);
+    }
+    UUID requestedIncidentId = "MISSING".equals(state) ? UUID.randomUUID() : incidentId;
+
+    // when / then: 과거 내용이나 정상적인 빈 페이지를 돌려주지 않고 호출부에 조회 불가를 알린다.
+    assertThatThrownBy(() -> service.readSseReplayPage(requestedIncidentId, 0L, 1L, 1))
+        .isInstanceOf(GoneRefetchRequiredException.class);
+    assertThatThrownBy(() -> service.readSseReplayPage(requestedIncidentId, 1L, 1L, 1))
+        .isInstanceOf(GoneRefetchRequiredException.class);
+    assertThat(mapper.findById(job.getId()).toPublishRequest()).isEqualTo(job.toPublishRequest());
   }
 
   private EventDispatchJob insertJob() {
