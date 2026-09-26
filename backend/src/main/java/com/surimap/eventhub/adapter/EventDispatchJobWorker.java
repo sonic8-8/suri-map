@@ -1,6 +1,7 @@
 package com.surimap.eventhub.adapter;
 
 import com.surimap.eventhub.stream.SseStreamService;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,10 +62,24 @@ public class EventDispatchJobWorker implements SmartLifecycle {
     if (!running.compareAndSet(false, true)) {
       return;
     }
-    if (pollingEnabled) {
-      future =
-          executor.scheduleWithFixedDelay(
-              this::dispatchSafely, initialDelayMs, fixedDelayMs, TimeUnit.MILLISECONDS);
+    try {
+      // ponytail: 현재 배포 설정은 백엔드 1개다. 동시 다중 인스턴스 운영 전에는 소유권·회수 방식을 바꾼다.
+      int recovered = service.requeueInterruptedJobs();
+      if (pollingEnabled) {
+        future =
+            executor.scheduleWithFixedDelay(
+                this::recoverUnfinishedJobsAndDispatch,
+                initialDelayMs,
+                fixedDelayMs,
+                TimeUnit.MILLISECONDS);
+      }
+      if (recovered > 0) {
+        log.info("event_dispatch_job interrupted jobs requeued. count={}", recovered);
+        wake();
+      }
+    } catch (RuntimeException exception) {
+      running.set(false);
+      throw exception;
     }
   }
 
@@ -99,13 +114,41 @@ public class EventDispatchJobWorker implements SmartLifecycle {
     }
   }
 
+  private void recoverUnfinishedJobsAndDispatch() {
+    if (!running.get()) {
+      return;
+    }
+    try {
+      // 전송과 같은 단일 스레드에서 실행하므로, 이전 회차의 결과 저장 실패도 회수할 수 있다.
+      int interrupted = service.requeueInterruptedJobs();
+      int failed = service.requeueFailedJobs();
+      if (interrupted > 0 || failed > 0) {
+        log.info(
+            "event_dispatch_job unfinished jobs requeued. interrupted={}, failed={}",
+            interrupted,
+            failed);
+      }
+      dispatchSafely();
+    } catch (RuntimeException exception) {
+      log.warn("event_dispatch_job retry scan failed", exception);
+    }
+  }
+
   private void dispatchSafely() {
     if (!running.get()) {
       return;
     }
     try {
-      for (EventDispatchJob job : service.claimPendingJobs(batchSize)) {
-        dispatchJob(job);
+      int processed = 0;
+      while (running.get() && processed < batchSize) {
+        List<EventDispatchJob> jobs = service.claimPendingJobs(batchSize - processed);
+        if (jobs.isEmpty()) {
+          break;
+        }
+        for (EventDispatchJob job : jobs) {
+          dispatchJob(job);
+          processed++;
+        }
       }
     } catch (RuntimeException exception) {
       log.warn("event_dispatch_job worker failed", exception);

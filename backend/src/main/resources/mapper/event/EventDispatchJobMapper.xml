@@ -25,6 +25,20 @@
         occurred_at, dispatch_status, sse_sequence
     </sql>
 
+    <!-- 종료·파기된 사건의 과거 내용은 남겨 두되 다시 보내지 않는다. 종료 정보만 전달한다. -->
+    <sql id="dispatchableEvent">
+        (
+            job.event_type IN ('INCIDENT_CLOSED', 'INCIDENT_PURGED')
+            OR (
+                EXISTS (SELECT 1 FROM incident WHERE id = job.incident_id AND status = 'OPEN')
+                AND NOT EXISTS (
+                    SELECT 1 FROM incident_data_purge
+                    WHERE incident_id = job.incident_id AND status = 'COMPLETED'
+                )
+            )
+        )
+    </sql>
+
     <!-- 업무 트랜잭션에서 저장한다. 상태는 DB 기본값 PENDING, SSE 순번은 미확정이다. -->
     <insert id="insert" parameterType="com.surimap.eventhub.adapter.EventDispatchJob">
         INSERT INTO event_dispatch_job (
@@ -94,13 +108,20 @@
 
     <select id="claimPending" resultMap="eventDispatchJobMap"
             affectData="true" flushCache="true" useCache="false">
-        WITH claimed AS (
-            SELECT id
-            FROM event_dispatch_job
-            WHERE dispatch_status = 'PENDING'
-            ORDER BY created_at, id
+        WITH incident_heads AS (
+            SELECT DISTINCT ON (job.incident_id) job.id
+            FROM event_dispatch_job job
+            WHERE job.dispatch_status IN ('PENDING', 'FAILED', 'DISPATCHING')
+              AND <include refid="dispatchableEvent"/>
+            ORDER BY job.incident_id, job.sse_sequence NULLS LAST, job.created_at, job.id
+        ), claimed AS (
+            SELECT job.id
+            FROM event_dispatch_job job
+            JOIN incident_heads head ON head.id = job.id
+            WHERE job.dispatch_status = 'PENDING'
+            ORDER BY job.created_at, job.id
             LIMIT #{limit}
-            FOR UPDATE SKIP LOCKED
+            FOR UPDATE OF job SKIP LOCKED
         )
         UPDATE event_dispatch_job job
         SET dispatch_status = #{claimStatus}
@@ -125,6 +146,20 @@
         SET dispatch_status = #{completedStatus}
         WHERE id = #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND dispatch_status = 'DISPATCHING'
+    </update>
+
+    <update id="requeueInterruptedJobs">
+        UPDATE event_dispatch_job job
+        SET dispatch_status = 'PENDING'
+        WHERE job.dispatch_status = 'DISPATCHING'
+          AND <include refid="dispatchableEvent"/>
+    </update>
+
+    <update id="requeueFailedJobs">
+        UPDATE event_dispatch_job job
+        SET dispatch_status = 'PENDING'
+        WHERE job.dispatch_status = 'FAILED'
+          AND <include refid="dispatchableEvent"/>
     </update>
 
     <update id="markFailed">

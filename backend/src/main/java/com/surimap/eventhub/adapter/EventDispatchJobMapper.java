@@ -32,6 +32,10 @@ public interface EventDispatchJobMapper {
   List<EventDispatchJob> claimPending(
       @Param("limit") int limit, @Param("claimStatus") String claimStatus);
 
+  int requeueInterruptedJobs();
+
+  int requeueFailedJobs();
+
   int markCompleted(@Param("id") UUID id, @Param("completedStatus") String completedStatus);
 
   int markFailed(@Param("id") UUID id, @Param("failedStatus") String failedStatus);

@@ -115,6 +115,16 @@ class DbEventHubFanoutTest {
     }
 
     @Override
+    public int requeueInterruptedJobs() {
+      return 0;
+    }
+
+    @Override
+    public int requeueFailedJobs() {
+      return 0;
+    }
+
+    @Override
     public int markCompleted(UUID id, String completedStatus) {
       return 0;
     }

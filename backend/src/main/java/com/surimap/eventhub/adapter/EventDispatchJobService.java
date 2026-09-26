@@ -16,6 +16,14 @@ public class EventDispatchJobService {
   private final EventDispatchJobMapper mapper;
   private final IncidentMapper incidentMapper;
 
+  public int requeueInterruptedJobs() {
+    return mapper.requeueInterruptedJobs();
+  }
+
+  public int requeueFailedJobs() {
+    return mapper.requeueFailedJobs();
+  }
+
   public List<EventDispatchJob> claimPendingJobs(int limit) {
     return mapper.claimPending(Math.max(1, limit), "DISPATCHING");
   }

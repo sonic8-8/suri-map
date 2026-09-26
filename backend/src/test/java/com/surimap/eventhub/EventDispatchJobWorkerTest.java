@@ -24,10 +24,13 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -256,18 +259,27 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
     }
   }
 
-  @Test
-  @DisplayName("깨우기 신호가 없어도 주기 조회가 DB의 대기 작업을 찾아 전송한다")
-  void periodic_scan_dispatches_persisted_pending_job_without_wake_signal() throws Exception {
-    // given: EventHub 신호 없이 DB에만 저장한 작업과 기존 주기 설정의 별도 worker다.
+  @ParameterizedTest
+  @ValueSource(strings = {"PENDING", "DISPATCHING"})
+  @DisplayName("시작 후 DB에 남은 대기·중단 작업도 깨우기 신호 없이 주기 조회로 전송한다")
+  void periodic_scan_dispatches_unfinished_job_created_after_start_without_wake_signal(String state)
+      throws Exception {
+    // given: 기존 주기 설정으로 별도 worker를 시작한다.
     EventDispatchJob job = EventDispatchJob.from(createPathAppendedEvent());
-    jobMapper.insert(job);
     var pollingWorker = new EventDispatchJobWorker(jobService, streamService, true, 0, 1000, 100);
     var connected = new CapturingSink();
     try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
       try {
-        // when: 주기 조회를 시작하고 DB의 작업 완료를 기다린다.
         pollingWorker.start();
+        // when: 시작 시 회수 이후에 미완료 작업을 커밋하고 깨우기 신호는 보내지 않는다.
+        new TransactionTemplate(txManager)
+            .executeWithoutResult(
+                status -> {
+                  jobMapper.insert(job);
+                  if ("DISPATCHING".equals(state)) {
+                    jobMapper.claimById(job.getId(), state);
+                  }
+                });
         await()
             .atMost(Duration.ofSeconds(10))
             .untilAsserted(() -> assertThat(getDispatchStatus()).isEqualTo("COMPLETED"));
@@ -278,6 +290,110 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
       } finally {
         pollingWorker.stop();
       }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  @DisplayName("시작 전에 중단된 작업은 순번이 없으면 확정하고 있으면 그대로 이어서 전송한다")
+  void startup_recovers_interrupted_job_without_reassigning_sequence(boolean hasSequence)
+      throws Exception {
+    // given: 이전 worker가 작업을 선점했지만 전송 결과를 남기지 못한 상태다.
+    EventDispatchJob job = EventDispatchJob.from(createPathAppendedEvent());
+    jobMapper.insert(job);
+    jobMapper.claimById(job.getId(), "DISPATCHING");
+    if (hasSequence) {
+      jobService.getOrAssignSseSequence(job.getId());
+    }
+    var restartedWorker =
+        new EventDispatchJobWorker(jobService, streamService, false, 0, 1000, 100);
+    var connected = new CapturingSink();
+    try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
+      try {
+        // when: 새 worker를 시작한다. 재접속 조회나 실제 JVM 재시작 검증은 아니다.
+        restartedWorker.start();
+        await()
+            .atMost(Duration.ofSeconds(10))
+            .untilAsserted(() -> assertThat(getDispatchStatus()).isEqualTo("COMPLETED"));
+
+        // then: 중단된 작업을 자동으로 이어 보내며 원래 DB 순번을 유지한다.
+        assertThat(connected.frames()).extracting(SseEventFrame::id).containsExactly("1");
+        assertThat(jobMapper.findById(job.getId()).getSseSequence()).isEqualTo(1L);
+        assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(1L);
+        assertThat(jobMapper.findById(job.getId()).toPublishRequest())
+            .isEqualTo(job.toPublishRequest());
+      } finally {
+        restartedWorker.stop();
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("일시적으로 실패한 전송 작업은 주기 조회에서 자동으로 다시 보내고 같은 순번을 유지한다")
+  void periodic_scan_retries_failed_job_with_original_sequence() throws Exception {
+    // given: 첫 전송만 실패하고 다음 전송은 받을 수 있는 연결이다.
+    var attempts = new AtomicInteger();
+    var connected = new CapturingSink();
+    SseLiveEventSink temporaryFailure =
+        frame -> {
+          if (attempts.incrementAndGet() == 1) {
+            throw new IllegalStateException(
+                "temporary send failure", new IllegalArgumentException("test failure"));
+          }
+          connected.send(frame);
+        };
+    var pollingWorker = new EventDispatchJobWorker(jobService, streamService, true, 0, 1000, 100);
+    try (var registration = connectionRegistry.registerForIncident(incidentId, temporaryFailure)) {
+      try {
+        // when: 한 worker가 최초 전송과 실패 후 재시도를 모두 담당한다. 수동 상태 변경은 없다.
+        jobMapper.insert(EventDispatchJob.from(createPersonFoundEvent()));
+        pollingWorker.start();
+        await()
+            .atMost(Duration.ofSeconds(10))
+            .untilAsserted(() -> assertThat(getDispatchStatus()).isEqualTo("COMPLETED"));
+
+        // then: 실패 작업이 자동으로 재전송되며 새 순번을 만들지 않는다.
+        assertThat(attempts).hasValue(2);
+        assertThat(connected.frames()).extracting(SseEventFrame::id).containsExactly("1");
+        assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(1L);
+      } finally {
+        pollingWorker.stop();
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("한 번 깨운 worker는 같은 사건의 앞 작업을 완료한 뒤 다음 작업도 순서대로 보낸다")
+  void one_wake_dispatches_pending_jobs_of_same_incident_in_sequence() throws Exception {
+    // given: 같은 사건에 순번을 확정한 두 작업이 저장돼 있고 주기 조회는 꺼져 있다.
+    EventDispatchJob first = EventDispatchJob.from(createPathAppendedEvent());
+    EventDispatchJob second =
+        EventDispatchJob.from(
+            EventStreamTestFixtures.publishRequest(
+                UUID.randomUUID(),
+                incidentId,
+                "PATH_APPENDED",
+                UUID.randomUUID().toString(),
+                "RECORDING",
+                4L));
+    jobMapper.insert(first);
+    jobMapper.insert(second);
+    jobService.getOrAssignSseSequence(first.getId());
+    jobService.getOrAssignSseSequence(second.getId());
+    var connected = new CapturingSink();
+    try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
+      // when: 깨우기 신호를 한 번만 보낸다.
+      worker.wake();
+      await()
+          .atMost(Duration.ofSeconds(10))
+          .untilAsserted(
+              () ->
+                  assertThat(jobMapper.findById(second.getId()).getDispatchStatus())
+                      .isEqualTo("COMPLETED"));
+
+      // then: 첫 작업이 끝난 후 다음 작업을 선점해서 같은 순서로 전송한다.
+      assertThat(jobMapper.findById(first.getId()).getDispatchStatus()).isEqualTo("COMPLETED");
+      assertThat(connected.frames()).extracting(SseEventFrame::id).containsExactly("1", "2");
     }
   }
 
