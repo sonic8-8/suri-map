@@ -91,6 +91,9 @@ class EventDispatchJobMapperTest extends PostGisIntegrationTestSupport {
 
     // when: 기존 완료 작업에 새 순번 배정을 시도한다.
     assertThat(mapper.assignSseSequenceIfAbsent(job.getId(), 1L)).isZero();
+    assertThat(mapper.requeueInterruptedJobs()).isZero();
+    assertThat(mapper.requeueFailedJobs()).isZero();
+    assertThat(mapper.claimPending(1, "DISPATCHING")).isEmpty();
 
     // then: 행을 삭제하거나 상태·이벤트 내용을 바꾸지 않고 순번을 비워 둔다.
     EventDispatchJob saved = mapper.findById(job.getId());
@@ -203,7 +206,8 @@ class EventDispatchJobMapperTest extends PostGisIntegrationTestSupport {
     assertThat(mapper.findById(byId.getId()).getDispatchStatus()).isEqualTo("DISPATCHING");
     assertThat(mapper.claimById(byId.getId(), "DISPATCHING")).isNull();
 
-    // when: 남은 작업을 묶음 조회로 선점한다.
+    // when: 앞 작업을 완료한 다음 남은 작업을 묶음 조회로 선점한다.
+    mapper.markCompleted(byId.getId(), "COMPLETED");
     assertThat(mapper.claimPending(1, "DISPATCHING"))
         .extracting(EventDispatchJob::getId)
         .containsExactly(byBatch.getId());
@@ -211,6 +215,95 @@ class EventDispatchJobMapperTest extends PostGisIntegrationTestSupport {
     // then: 묶음 선점도 새 상태로 조회되며 같은 결과를 캐시에서 반복하지 않는다.
     assertThat(mapper.findById(byBatch.getId()).getDispatchStatus()).isEqualTo("DISPATCHING");
     assertThat(mapper.claimPending(1, "DISPATCHING")).isEmpty();
+  }
+
+  @Test
+  @DisplayName("앞선 전송이 실패한 사건은 뒤 작업을 선점하지 않고 다른 사건은 계속 처리한다")
+  void failed_earlier_job_blocks_only_later_jobs_of_same_incident() {
+    // given: 생성 순서와 달리 첫 순번 작업이 실패했고, 다른 사건에도 대기 작업이 있다.
+    UUID incidentId = insertIncident();
+    EventDispatchJob later = insertJob(incidentId);
+    EventDispatchJob earlier = insertJob(incidentId);
+    EventDispatchJob otherIncident = insertJob(insertIncident());
+    mapper.assignSseSequenceIfAbsent(earlier.getId(), 1L);
+    mapper.assignSseSequenceIfAbsent(later.getId(), 2L);
+    mapper.claimById(earlier.getId(), "DISPATCHING");
+    mapper.markFailed(earlier.getId(), "FAILED");
+
+    // when / then: 실패 작업을 건너뛰지 않되 다른 사건까지 멈추지는 않는다.
+    assertThat(mapper.claimPending(10, "DISPATCHING"))
+        .extracting(EventDispatchJob::getId)
+        .containsExactly(otherIncident.getId());
+    assertThat(mapper.findById(later.getId()).getDispatchStatus()).isEqualTo("PENDING");
+
+    // when: 실패 작업을 재시도 대상으로 되돌린다.
+    mapper.requeueFailedJobs();
+
+    // then: 사건의 첫 작업만 선점하고, 완료한 다음에야 뒤 작업을 선점한다.
+    assertThat(mapper.claimPending(10, "DISPATCHING"))
+        .extracting(EventDispatchJob::getId)
+        .containsExactly(earlier.getId());
+    assertThat(mapper.claimPending(10, "DISPATCHING")).isEmpty();
+    mapper.markCompleted(earlier.getId(), "COMPLETED");
+    assertThat(mapper.claimPending(10, "DISPATCHING"))
+        .extracting(EventDispatchJob::getId)
+        .containsExactly(later.getId());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"CLOSED", "PURGED"})
+  @DisplayName("종료·파기된 사건의 과거 전송 작업은 보존하되 다시 보내지 않고 종료 정보만 선점한다")
+  void closed_or_purged_incident_keeps_old_jobs_but_claims_only_terminal_event(String state) {
+    // given: 같은 사건에 실패·중단·대기 중인 과거 경로 이벤트가 남아 있다.
+    UUID incidentId = insertIncident();
+    EventDispatchJob failed = insertJob(incidentId);
+    EventDispatchJob interrupted = insertJob(incidentId);
+    EventDispatchJob pending = insertJob(incidentId);
+    mapper.assignSseSequenceIfAbsent(failed.getId(), 1L);
+    mapper.claimById(failed.getId(), "DISPATCHING");
+    mapper.markFailed(failed.getId(), "FAILED");
+    mapper.claimById(interrupted.getId(), "DISPATCHING");
+    if ("CLOSED".equals(state)) {
+      incidentMapper.closeIncident(incidentId, null, Instant.now());
+    } else {
+      // 사건 상태와 별개로 DB에 파기 완료 기록이 있어도 재전송하지 않아야 한다.
+      jdbcTemplate.update(
+          """
+          INSERT INTO incident_data_purge
+              (id, incident_id, status, closed_at, purge_due_at, completed_at,
+               environment_policy, created_at, updated_at)
+          VALUES (?, ?, 'COMPLETED', now(), now(), now(), 'PRODUCTION_IMMEDIATE', now(), now())
+          """,
+          UUID.randomUUID(),
+          incidentId);
+    }
+    EventDispatchJob terminal =
+        EventDispatchJob.from(
+            new PublishRequest(
+                UUID.randomUUID(),
+                incidentId,
+                "INCIDENT_" + state,
+                1,
+                "incident",
+                incidentId,
+                Instant.now(),
+                Map.of("id", incidentId.toString(), "status", state, "version", 2)));
+    mapper.insert(terminal);
+
+    // when: 미완료 작업 회수와 대기 작업 선점을 수행한다.
+    assertThat(mapper.requeueInterruptedJobs()).isZero();
+    assertThat(mapper.requeueFailedJobs()).isZero();
+    assertThat(mapper.claimPending(10, "DISPATCHING"))
+        .extracting(EventDispatchJob::getId)
+        .containsExactly(terminal.getId());
+
+    // then: 과거 내용을 삭제하거나 완료로 바꾸지 않고 기존 상태·순번·원문을 보존한다.
+    assertThat(mapper.findById(failed.getId()).getDispatchStatus()).isEqualTo("FAILED");
+    assertThat(mapper.findById(failed.getId()).getSseSequence()).isEqualTo(1L);
+    assertThat(mapper.findById(failed.getId()).toPublishRequest())
+        .isEqualTo(failed.toPublishRequest());
+    assertThat(mapper.findById(interrupted.getId()).getDispatchStatus()).isEqualTo("DISPATCHING");
+    assertThat(mapper.findById(pending.getId()).getDispatchStatus()).isEqualTo("PENDING");
   }
 
   private UUID insertIncident() {
