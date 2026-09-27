@@ -32,6 +32,24 @@ public class EventDispatchJobService {
     return mapper.claimPending(Math.max(1, limit), "DISPATCHING");
   }
 
+  /** 이번 재전송의 마지막 확정 순번을 읽는다. 호출부는 연결 등록·실시간 이벤트 대기를 조율하고 이 값을 모든 페이지의 throughSequence로 유지한다. */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public long getSseReplayEndSequence(UUID incidentId) {
+    Long lastSequence = incidentMapper.findLastSseSequence(incidentId);
+    if (lastSequence == null
+        || incidentMapper
+            .findByIncidentId(incidentId)
+            .filter(incident -> "OPEN".equals(incident.getStatus()))
+            .isEmpty()
+        || purgeRunMapper
+            .findByIncidentId(incidentId)
+            .filter(run -> run.getStatus() == IncidentDataPurgeStatus.COMPLETED)
+            .isPresent()) {
+      throw new GoneRefetchRequiredException();
+    }
+    return lastSequence;
+  }
+
   /**
    * afterSequence 다음부터 throughSequence까지 연속된 이력을 최대 limit개 읽는다. 최초 접속의 시작 위치·계정 권한·종료 정보 응답과 실제 SSE
    * 전송은 호출 경로에서 별도로 처리한다.
@@ -40,7 +58,9 @@ public class EventDispatchJobService {
   public List<EventDispatchJob> readSseReplayPage(
       UUID incidentId, long afterSequence, long throughSequence, int limit) {
     validateReplayRange(afterSequence, throughSequence, limit);
-    validateIncidentReplayState(incidentId, throughSequence);
+    if (throughSequence > getSseReplayEndSequence(incidentId)) {
+      throw new GoneRefetchRequiredException();
+    }
     List<EventDispatchJob> jobs =
         mapper.findBySseSequenceRange(incidentId, afterSequence, throughSequence, limit);
     validateReplayContinuity(jobs, afterSequence, throughSequence, limit);
@@ -80,23 +100,6 @@ public class EventDispatchJobService {
   private void validateReplayRange(long afterSequence, long throughSequence, int limit) {
     if (afterSequence < 0 || throughSequence < afterSequence || limit <= 0) {
       throw new IllegalArgumentException("invalid SSE replay range or limit");
-    }
-  }
-
-  private void validateIncidentReplayState(UUID incidentId, long throughSequence) {
-    Long lastSequence = incidentMapper.findLastSseSequence(incidentId);
-    if (lastSequence == null || throughSequence > lastSequence) {
-      throw new GoneRefetchRequiredException();
-    }
-    if (incidentMapper
-            .findByIncidentId(incidentId)
-            .filter(incident -> "OPEN".equals(incident.getStatus()))
-            .isEmpty()
-        || purgeRunMapper
-            .findByIncidentId(incidentId)
-            .filter(run -> run.getStatus() == IncidentDataPurgeStatus.COMPLETED)
-            .isPresent()) {
-      throw new GoneRefetchRequiredException();
     }
   }
 
