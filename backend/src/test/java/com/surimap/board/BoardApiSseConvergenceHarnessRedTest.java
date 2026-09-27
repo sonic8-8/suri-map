@@ -79,7 +79,7 @@ class BoardApiSseConvergenceHarnessRedTest {
   @Test
   @DisplayName("slot merge follows S3-2 api_assembly_failure_fixtures")
   void slot_merge_follows_s3_2_api_assembly_failure_fixtures() throws IOException {
-    JsonNode failures = fixture("backend/src/test/resources/board-api-assembly-failures.json");
+    JsonNode failures = readBoardAssemblyFailures();
     BoardRefetchGuard guard = new BoardRefetchGuard();
     BoardAssemblyRequest current = currentMergeRequest();
 
@@ -269,9 +269,7 @@ class BoardApiSseConvergenceHarnessRedTest {
   @Test
   @DisplayName("board API refetch lag marks STALE_REFETCH before reload convergence")
   void board_api_refetch_lag_marks_stale_refetch_before_reload_convergence() throws IOException {
-    JsonNode delayed =
-        fixture("backend/src/test/resources/board-api-assembly-failures.json")
-            .path("delayed_refetch_trigger");
+    JsonNode delayed = readBoardAssemblyFailures().path("delayed_refetch_trigger");
     BoardAssemblyRequest staleBoard = staleAreaRequest(number(delayed, "staleResponseVersion"));
     BoardRefetchSignal sourceSignal =
         new BoardRefetchSignal(
@@ -323,6 +321,14 @@ class BoardApiSseConvergenceHarnessRedTest {
     assertThat(cursor.sourceSpec()).isEqualTo(expected.sourceSpec());
     assertThat(cursor.sourceHash()).isEqualTo(expected.sourceHash());
     assertThat(cursor.latestEventId()).isEqualTo(expected.latestEventId());
+  }
+
+  private static JsonNode readBoardAssemblyFailures() throws IOException {
+    try (var input =
+        BoardApiSseConvergenceHarnessRedTest.class.getResourceAsStream(
+            "/board-api-assembly-failures.json")) {
+      return OBJECT_MAPPER.readTree(input);
+    }
   }
 
   @SuppressWarnings("unchecked")
