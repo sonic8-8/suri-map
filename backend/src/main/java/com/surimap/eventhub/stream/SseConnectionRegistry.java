@@ -19,8 +19,7 @@ public class SseConnectionRegistry {
       new ConcurrentHashMap<>();
 
   public AutoCloseable registerForIncident(UUID incidentId, SseLiveEventSink sink) {
-    sinksByIncident.computeIfAbsent(incidentId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
-    return () -> unregister(sinksByIncident, incidentId, sink);
+    return register(sinksByIncident, incidentId, sink);
   }
 
   public void sendToIncident(UUID incidentId, SseEventFrame frame) {
@@ -28,8 +27,7 @@ public class SseConnectionRegistry {
   }
 
   public AutoCloseable registerForAccount(UUID accountId, SseLiveEventSink sink) {
-    sinksByAccount.computeIfAbsent(accountId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
-    return () -> unregister(sinksByAccount, accountId, sink);
+    return register(sinksByAccount, accountId, sink);
   }
 
   public void sendToAccount(UUID accountId, SseEventFrame frame) {
@@ -46,6 +44,22 @@ public class SseConnectionRegistry {
 
   public List<SseLiveEventSink> sinks(UUID incidentId) {
     return List.copyOf(sinksByIncident.getOrDefault(incidentId, new CopyOnWriteArrayList<>()));
+  }
+
+  private AutoCloseable register(
+      ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> registeredSinks,
+      UUID subscriptionTargetId,
+      SseLiveEventSink sink) {
+    registeredSinks.compute(
+        subscriptionTargetId,
+        (ignored, sinks) -> {
+          if (sinks == null) {
+            sinks = new CopyOnWriteArrayList<>();
+          }
+          sinks.add(sink);
+          return sinks;
+        });
+    return () -> unregister(registeredSinks, subscriptionTargetId, sink);
   }
 
   private void sendToRegisteredSinks(
@@ -90,13 +104,11 @@ public class SseConnectionRegistry {
       ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> registeredSinks,
       UUID subscriptionTargetId,
       SseLiveEventSink sink) {
-    var sinks = registeredSinks.get(subscriptionTargetId);
-    if (sinks == null) {
-      return;
-    }
-    sinks.remove(sink);
-    if (sinks.isEmpty()) {
-      registeredSinks.remove(subscriptionTargetId, sinks);
-    }
+    registeredSinks.computeIfPresent(
+        subscriptionTargetId,
+        (ignored, sinks) -> {
+          sinks.remove(sink);
+          return sinks.isEmpty() ? null : sinks;
+        });
   }
 }

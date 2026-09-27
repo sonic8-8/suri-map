@@ -15,6 +15,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,6 +60,52 @@ class SseConnectionRegistryTest {
 
       // then: 매번 사건의 연결 목록이 비워진다.
       assertThat(registry.sinks(INCIDENT_ID)).isEmpty();
+    }
+  }
+
+  @ParameterizedTest(name = "구독 대상: {0}")
+  @ValueSource(strings = {"incident", "account"})
+  @DisplayName("마지막 기존 연결 해제와 새 연결 등록이 겹쳐도 새 연결에는 이벤트를 전달한다")
+  void concurrent_registration_and_unregistration_keeps_new_connection(String subscriptionType)
+      throws Exception {
+    // given: 같은 구독 대상에서 연결 교체가 겹치도록 실제 스레드 두 개를 사용한다.
+    var executor = Executors.newFixedThreadPool(2);
+    try {
+      for (int attempt = 0; attempt < 1_000; attempt++) {
+        var previous = register(subscriptionType, ignored -> {});
+        var received = new AtomicInteger();
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        var disconnect =
+            executor.submit(
+                () -> {
+                  ready.countDown();
+                  assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                  previous.close();
+                  return null;
+                });
+        var reconnect =
+            executor.submit(
+                () -> {
+                  ready.countDown();
+                  assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                  return register(subscriptionType, ignored -> received.incrementAndGet());
+                });
+
+        // when: 기존 등록 해제와 새 등록을 동시에 시작하고 둘 다 끝난 뒤 전송한다.
+        assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        disconnect.get(10, TimeUnit.SECONDS);
+        try (var registration = reconnect.get(10, TimeUnit.SECONDS)) {
+          send(subscriptionType);
+
+          // then: 성공적으로 등록한 새 연결이 정리 대상에 섞여 사라지지 않는다.
+          assertThat(received.get()).as("연결 교체 회차 %s", attempt).isEqualTo(1);
+        }
+      }
+    } finally {
+      executor.shutdownNow();
+      assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
     }
   }
 
@@ -190,12 +240,11 @@ class SseConnectionRegistryTest {
     assertThatThrownBy(() -> registry.sendToIncident(INCIDENT_ID, frame)).isSameAs(failure);
   }
 
-  private void register(String subscriptionType, SseLiveEventSink sink) {
+  private AutoCloseable register(String subscriptionType, SseLiveEventSink sink) {
     if (subscriptionType.equals("account")) {
-      registry.registerForAccount(ACCOUNT_ID, sink);
-    } else {
-      registry.registerForIncident(INCIDENT_ID, sink);
+      return registry.registerForAccount(ACCOUNT_ID, sink);
     }
+    return registry.registerForIncident(INCIDENT_ID, sink);
   }
 
   private void send(String subscriptionType) {
