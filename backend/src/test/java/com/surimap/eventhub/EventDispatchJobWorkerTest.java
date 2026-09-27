@@ -114,6 +114,71 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("같은 트랜잭션의 마커 생성·발견 알림은 작업 UUID가 역순이어도 발행한 순서로 전송한다")
+  void marker_created_and_person_found_are_sent_in_publication_order_when_job_ids_are_reversed()
+      throws Exception {
+    // given: 같은 마커의 생성 이벤트와 발견 알림을 받을 연결이 있다.
+    PublishRequest personFound = createPersonFoundEvent();
+    PublishRequest markerCreated =
+        new PublishRequest(
+            UUID.randomUUID(),
+            incidentId,
+            "MARKER_CREATED",
+            1,
+            "marker",
+            personFound.sourceEntityId(),
+            personFound.occurredAt(),
+            personFound.payload());
+    var connected = new CapturingSink();
+    try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
+      // when: 같은 저장 시각의 두 작업을 만들고 UUID 정렬이 발행 순서와 반대가 되게 한다.
+      new TransactionTemplate(txManager)
+          .executeWithoutResult(
+              status -> {
+                eventHub.publish(markerCreated);
+                eventHub.publish(personFound);
+                jdbcTemplate.update(
+                    """
+                    UPDATE event_dispatch_job SET id = CASE event_type
+                        WHEN 'MARKER_CREATED' THEN '00000000-0000-0000-0000-000000009002'::uuid
+                        ELSE '00000000-0000-0000-0000-000000009001'::uuid
+                    END WHERE incident_id = ?
+                    """,
+                    incidentId);
+                assertThat(
+                        jdbcTemplate.queryForObject(
+                            "SELECT count(DISTINCT created_at) FROM event_dispatch_job WHERE incident_id = ?",
+                            Integer.class,
+                            incidentId))
+                    .isEqualTo(1);
+                assertThat(connected.frames()).isEmpty();
+              });
+      await()
+          .atMost(Duration.ofSeconds(10))
+          .untilAsserted(
+              () ->
+                  assertThat(
+                          jdbcTemplate.queryForObject(
+                              "SELECT count(*) FROM event_dispatch_job WHERE incident_id = ? AND dispatch_status = 'COMPLETED'",
+                              Integer.class,
+                              incidentId))
+                      .isEqualTo(2));
+
+      // then: 생성 이벤트부터 순번을 확정해 전송하며 두 원본 이벤트 모두 유지한다.
+      assertThat(connected.frames())
+          .extracting(SseEventFrame::event)
+          .containsExactly("MARKER_CREATED", "PERSON_FOUND");
+      assertThat(connected.frames()).extracting(SseEventFrame::id).containsExactly("1", "2");
+      assertThat(connected.frames())
+          .extracting(frame -> frame.data().eventId())
+          .containsExactly(markerCreated.eventId(), personFound.eventId());
+      assertThat(jobMapper.findBySseSequenceRange(incidentId, 0L, 2L, 2))
+          .extracting(EventDispatchJob::getEventType)
+          .containsExactly("MARKER_CREATED", "PERSON_FOUND");
+    }
+  }
+
+  @Test
   @DisplayName("닫힌 SSE 연결이 남아 있어도, 발견 알림을 정상 연결에 전송하고 작업을 완료한다")
   void dispatch_when_closed_connection_remains_sends_person_found_and_completes_job()
       throws Exception {

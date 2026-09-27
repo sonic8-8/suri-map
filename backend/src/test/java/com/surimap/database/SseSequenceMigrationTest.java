@@ -27,8 +27,8 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
   @Autowired private EventDispatchJobMapper jobMapper;
 
   @Test
-  @DisplayName("기존 DB를 전환하면 완료·미완료 작업과 원본을 보존하고 옛 순번을 추정하지 않는다")
-  void migration_preserves_existing_jobs_and_source_data_without_assigning_sequences() {
+  @DisplayName("순번·저장 순서 컬럼을 추가해도 기존 작업·원본·확정 순번은 보존하고 과거 순서는 추정하지 않는다")
+  void migrations_preserve_existing_jobs_source_data_and_assigned_sequences() {
     // given: 직전 migration까지 적용한 DB에 원본과 상태가 서로 다른 전송 작업이 있다.
     UUID incidentId = UUID.randomUUID();
     UUID markerId = UUID.randomUUID();
@@ -60,7 +60,12 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
     List<String> sourcesBefore = readSourceContents(markerId, pathId);
 
     // when: 실제 main Flyway migration으로 SSE 순번 컬럼을 추가한다.
-    Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+    Flyway.configure()
+        .dataSource(dataSource)
+        .locations("classpath:db/migration")
+        .target("20260926.001")
+        .load()
+        .migrate();
 
     // then: 기존 내용·상태·업무 버전은 그대로이며 순번만 미배정 상태로 추가된다.
     assertThat(readJobContents(incidentId)).isEqualTo(jobsBefore);
@@ -74,6 +79,28 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
         .containsExactlyElementsOf(statuses);
     assertThat(migrated).allSatisfy(job -> assertThat(job.getSseSequence()).isNull());
     assertThat(jobMapper.findBySseSequenceRange(incidentId, 0L, Long.MAX_VALUE, 4)).isEmpty();
+
+    // given: SSE 순번을 이미 확정한 작업이 있는 DB에 저장 순서 컬럼을 추가한다.
+    long assignedSequence = incidentMapper.incrementAndGetSseSequence(incidentId);
+    jobMapper.assignSseSequenceIfAbsent(jobIds.get(1), assignedSequence);
+
+    // when: 저장 순서를 위한 실제 main migration을 이어서 적용한다.
+    Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+
+    // then: 기존 내용·확정 순번은 바뀌지 않고 알 수 없는 과거 저장 순서는 비워 둔다.
+    assertThat(readJobContents(incidentId)).isEqualTo(jobsBefore);
+    assertThat(readSourceContents(markerId, pathId)).isEqualTo(sourcesBefore);
+    assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(assignedSequence);
+    assertThat(jobIds.stream().map(jobMapper::findById).toList())
+        .extracting(EventDispatchJob::getSseSequence)
+        .containsExactly(null, assignedSequence, null, null);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT insertion_order FROM event_dispatch_job WHERE incident_id = ?",
+                Long.class,
+                incidentId))
+        .hasSize(statuses.size())
+        .containsOnlyNulls();
   }
 
   private void insertSourceData(UUID incidentId, UUID markerId, UUID pathId) {
@@ -116,7 +143,7 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
   private List<String> readJobContents(UUID incidentId) {
     return jdbcTemplate.queryForList(
         """
-        SELECT (to_jsonb(job) - 'sse_sequence')::text
+        SELECT (to_jsonb(job) - 'sse_sequence' - 'insertion_order')::text
         FROM event_dispatch_job job WHERE incident_id = ? ORDER BY id
         """,
         String.class,

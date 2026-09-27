@@ -106,6 +106,7 @@
         RETURNING <include refid="columns"/>
     </select>
 
+    <!-- 확정 순번을 우선한다. 같은 시각의 미확정 작업은 UUID가 아니라 INSERT 순서를 따른다. -->
     <select id="claimPending" resultMap="eventDispatchJobMap"
             affectData="true" flushCache="true" useCache="false">
         WITH incident_heads AS (
@@ -113,13 +114,14 @@
             FROM event_dispatch_job job
             WHERE job.dispatch_status IN ('PENDING', 'FAILED', 'DISPATCHING')
               AND <include refid="dispatchableEvent"/>
-            ORDER BY job.incident_id, job.sse_sequence NULLS LAST, job.created_at, job.id
+            ORDER BY job.incident_id, job.sse_sequence NULLS LAST, job.created_at,
+                     job.insertion_order NULLS FIRST, job.id
         ), claimed AS (
             SELECT job.id
             FROM event_dispatch_job job
             JOIN incident_heads head ON head.id = job.id
             WHERE job.dispatch_status = 'PENDING'
-            ORDER BY job.created_at, job.id
+            ORDER BY job.created_at, job.insertion_order NULLS FIRST, job.id
             LIMIT #{limit}
             FOR UPDATE OF job SKIP LOCKED
         )
