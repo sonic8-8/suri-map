@@ -11,6 +11,7 @@ RUN ./gradlew --no-daemon --build-cache help
 FROM base AS source
 COPY backend/src ./src
 COPY docs /docs
+COPY test-fixtures /test-fixtures
 COPY infra/docker/keycloak/import/suri-map-realm.json /infra/docker/keycloak/import/suri-map-realm.json
 
 FROM source AS tester
