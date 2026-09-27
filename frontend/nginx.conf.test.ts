@@ -8,6 +8,21 @@ describe('frontend nginx runtime routing', () => {
     expect(nginxConfig).toContain('absolute_redirect off;');
   });
 
+  test('API와 타일 요청은 외부 HTTPS 정보를 보존하고 표준 Forwarded 헤더는 제거한다', () => {
+    expect(nginxConfig).toContain('map $http_x_forwarded_proto $original_request_proto');
+    expect(nginxConfig).toContain('map $http_x_forwarded_port $original_request_port');
+    expect(nginxConfig).toContain('"" $scheme;');
+    expect(nginxConfig).toContain('"" $server_port;');
+    for (const route of ['/api/', '/tiles/']) {
+      const start = nginxConfig.indexOf(`location ${route} {`);
+      const block = nginxConfig.slice(start, nginxConfig.indexOf('\n    }', start));
+      expect(block).toContain('proxy_set_header X-Forwarded-Proto $original_request_proto;');
+      expect(block).toContain('proxy_set_header X-Forwarded-Port $original_request_port;');
+      expect(block).toContain('proxy_set_header X-Forwarded-Host $host;');
+      expect(block).toContain('proxy_set_header Forwarded "";');
+    }
+  });
+
   test('proxies mock-112 public route before SPA fallback', () => {
     const mockRouteIndex = nginxConfig.indexOf('location /mock-112/');
     const fallbackIndex = nginxConfig.indexOf('try_files $uri $uri/ /index.html;');
