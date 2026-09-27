@@ -218,6 +218,35 @@ class EventDispatchJobMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("저장 시각이 같은 미확정 작업은 UUID 크기와 관계없이 저장한 순서로 선점한다")
+  void unsequenced_jobs_with_same_timestamp_are_claimed_in_insertion_order() {
+    // given: 같은 트랜잭션에서 저장한 두 작업의 시각은 같고 UUID 크기는 저장 순서와 반대다.
+    UUID incidentId = insertIncident();
+    EventDispatchJob first = insertJob(incidentId);
+    EventDispatchJob second = insertJob(incidentId);
+    UUID firstId = UUID.fromString("00000000-0000-0000-0000-000000009002");
+    UUID secondId = UUID.fromString("00000000-0000-0000-0000-000000009001");
+    jdbcTemplate.update(
+        "UPDATE event_dispatch_job SET id = ?, created_at = '2026-09-28T00:00:00Z' WHERE id = ?",
+        firstId,
+        first.getId());
+    jdbcTemplate.update(
+        "UPDATE event_dispatch_job SET id = ?, created_at = '2026-09-28T00:00:00Z' WHERE id = ?",
+        secondId,
+        second.getId());
+
+    // when: 사건에서 다음에 전송할 작업을 선점한다.
+    List<EventDispatchJob> claimed = mapper.claimPending(10, "DISPATCHING");
+
+    // then: 먼저 저장한 작업부터 처리하고, 완료한 다음 두 번째 작업을 선점한다.
+    assertThat(claimed).extracting(EventDispatchJob::getId).containsExactly(firstId);
+    mapper.markCompleted(firstId, "COMPLETED");
+    assertThat(mapper.claimPending(10, "DISPATCHING"))
+        .extracting(EventDispatchJob::getId)
+        .containsExactly(secondId);
+  }
+
+  @Test
   @DisplayName("앞선 전송이 실패한 사건은 뒤 작업을 선점하지 않고 다른 사건은 계속 처리한다")
   void failed_earlier_job_blocks_only_later_jobs_of_same_incident() {
     // given: 생성 순서와 달리 첫 순번 작업이 실패했고, 다른 사건에도 대기 작업이 있다.
