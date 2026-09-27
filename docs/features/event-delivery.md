@@ -96,6 +96,7 @@ SSE·FCM의 재연결, 실패 복구, 사건 종료 처리를 변경할 때 확�
 
 ## 연결 정리의 검증 범위
 
+- **연결 등록·해제 경합 (2026-09-27)**: 마지막 기존 연결 해제와 새 연결 등록이 겹치면 새 등록이 목록에서 사라져 이벤트를 받지 못하는 문제를 사건·계정 구독에서 재현했다. 같은 구독 대상의 목록 변경을 원자적으로 처리하도록 수정했다. Registry 테스트 12개와 전체 Backend 1,296개가 통과했다(실패·오류·건너뜀 0, 전체 3분 48초, 기본 성능 태그 제외). 실제 HTTP 재접속이나 DB 재전송 전환 검증은 아니며, 원인·명령·검증 범위는 [로컬 이슈 6](../issues/local/6-sse-registration-lost-during-reconnect.md)에 기록했다.
 - [SseConnectionRegistryTest](../../backend/src/test/java/com/surimap/eventhub/stream/SseConnectionRegistryTest.java)는 테스트용 연결을 100회 등록한 뒤 직접 해제해 목록이 비워지는지 검사한다. [SseStreamServiceTest](../../backend/src/test/java/com/surimap/eventhub/SseStreamServiceTest.java)는 사건 종료 이벤트를 전달한 뒤 연결을 닫고 등록을 제거하는지 검사한다.
 - 이 검사들은 실제 HTTP 연결 종료 시 콜백이 호출되는지, 브라우저 화면 이동 후 자동 정리가 되는지, 메모리 누수가 없는지까지 증명하지 않는다. 실제 초기 전송 중 연결이 끊긴 뒤 다음 이벤트까지 참조가 남는 조건은 [로컬 이슈 5의 진단](../issues/local/5-sse-initial-send-disconnect-cleanup.md)에 별도로 기록했다.
 - 2026-09-21에는 위 테스트 코드와 [옛 검증 설명](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/evidence/backend/sse-stream-lifecycle.md)을 대조해 검증 범위를 이곳에 통합했다. 제품 테스트나 실제 연결 시험을 다시 실행한 결과는 아니다.
