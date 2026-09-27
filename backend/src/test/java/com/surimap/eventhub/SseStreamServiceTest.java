@@ -168,23 +168,6 @@ class SseStreamServiceTest {
   }
 
   @Test
-  @DisplayName("종료 이벤트까지 재전송한 사건에 다시 연결하면, 실시간 구독을 등록하지 않는다")
-  void open_stream_after_terminal_replay_does_not_register_live_connection() {
-    // given: 마지막 경로 이벤트와 사건 종료 이벤트가 저장돼 있다.
-    replayStore.save(createStoredIncidentEvent(CLOSED_INCIDENT_ID, 1211L, "PATH_APPENDED"));
-    replayStore.save(createStoredIncidentEvent(CLOSED_INCIDENT_ID, 1212L, "INCIDENT_CLOSED"));
-
-    // when: 마지막 경로 이후의 이벤트를 재전송하고, 종료 순번으로 다시 연결한다.
-    var replay = replayService.replayResultAfter(CLOSED_INCIDENT_ID, "1211");
-    streamService.openStream(CLOSED_INCIDENT_ID, "1212");
-
-    // then: 종료 이벤트까지 전달하고 실시간 구독은 남기지 않는다.
-    assertThat(replay.frames()).extracting(SseEventFrame::event).containsExactly("INCIDENT_CLOSED");
-    assertThat(replay.terminalReached()).isTrue();
-    assertThat(connectionRegistry.sinks(CLOSED_INCIDENT_ID)).isEmpty();
-  }
-
-  @Test
   @DisplayName("종료 이력이 저장된 사건을 파기하면, 재전송 데이터를 지우고 새 이벤트도 거부한다")
   void dispatch_purged_incident_removes_replay_and_rejects_new_events() {
     // given: 사건 종료 이력이 저장돼 있다.

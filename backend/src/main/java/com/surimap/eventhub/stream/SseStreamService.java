@@ -3,6 +3,7 @@ package com.surimap.eventhub.stream;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.validation.BaseEventValidator;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -30,42 +31,21 @@ public class SseStreamService {
   }
 
   public SseEmitter openStream(UUID incidentId, String lastEventId) {
-    var replay = replayService.replayResultAfter(incidentId, lastEventId);
-    var emitter = new SseEmitter(0L);
-    var sink = new SseEmitterLiveEventSink(emitter);
-    if (replay.terminalReached()) {
-      replay.frames().forEach(sink::send);
-      sink.close();
-      return emitter;
-    }
-
-    AutoCloseable registration = connectionRegistry.registerForIncident(incidentId, sink);
-
-    emitter.onCompletion(() -> closeQuietly(registration));
-    emitter.onTimeout(() -> closeQuietly(registration));
-    emitter.onError(ignored -> closeQuietly(registration));
-
-    try {
-      sendOpenComment(emitter);
-      replay.frames().forEach(sink::send);
-    } catch (RuntimeException exception) {
-      closeQuietly(registration);
-      throw exception;
-    }
-    return emitter;
+    // ponytail: 전체 메모리 이력 조회는 임시 유지한다. DB 페이지·실시간 전환 조율로 교체한다.
+    // 스트림을 시작하기 전에 재조회가 필요한 요청은 기존 HTTP 409로 거부한다.
+    replayService.replayResultAfter(incidentId, lastEventId);
+    return new SseStreamEmitter(emitter -> sendIncidentReplay(incidentId, lastEventId, emitter));
   }
 
   public SseEmitter openAccountStream(UUID accountId) {
-    var emitter = new SseEmitter(0L);
-    var sink = new SseEmitterLiveEventSink(emitter);
-    AutoCloseable registration = connectionRegistry.registerForAccount(accountId, sink);
-
-    emitter.onCompletion(() -> closeQuietly(registration));
-    emitter.onTimeout(() -> closeQuietly(registration));
-    emitter.onError(ignored -> closeQuietly(registration));
-
-    sendOpenComment(emitter);
-    return emitter;
+    return new SseStreamEmitter(
+        emitter -> {
+          var sink = new SseEmitterLiveEventSink(emitter);
+          AutoCloseable registration = connectionRegistry.registerForAccount(accountId, sink);
+          if (emitter.attachRegistration(registration)) {
+            sendOpenComment(emitter);
+          }
+        });
   }
 
   public SseReplayEventStore.ReplayAppend dispatchLive(
@@ -97,6 +77,30 @@ public class SseStreamService {
         request.eventId(), request.incidentId(), sseSequence, event, isNew);
   }
 
+  private void sendIncidentReplay(UUID incidentId, String lastEventId, SseStreamEmitter emitter) {
+    // 컨테이너 작업을 기다리는 동안 추가된 이벤트도 다시 조회한다.
+    var replay = replayService.replayResultAfter(incidentId, lastEventId);
+    var sink = new SseEmitterLiveEventSink(emitter);
+    if (replay.terminalReached()) {
+      replay.frames().forEach(sink::send);
+      sink.close();
+      return;
+    }
+    AutoCloseable registration = connectionRegistry.registerForIncident(incidentId, sink);
+    if (emitter.attachRegistration(registration)) {
+      sendOpenComment(emitter);
+      replay.frames().forEach(sink::send);
+    }
+  }
+
+  private void sendOpenComment(SseEmitter emitter) {
+    try {
+      emitter.send(SseEmitter.event().comment("connected"));
+    } catch (IOException exception) {
+      throw new UncheckedIOException(exception);
+    }
+  }
+
   private List<UUID> assignedAccountIds(PublishRequest request) {
     Object value =
         "INCIDENT_CREATED".equals(request.type())
@@ -118,23 +122,6 @@ public class SseStreamService {
       return UUID.fromString(value);
     } catch (IllegalArgumentException exception) {
       return null;
-    }
-  }
-
-  private void closeQuietly(AutoCloseable closeable) {
-    try {
-      closeable.close();
-    } catch (Exception ignored) {
-      // Closing an already completed SSE session is idempotent for the registry.
-    }
-  }
-
-  private void sendOpenComment(SseEmitter emitter) {
-    try {
-      emitter.send(SseEmitter.event().comment("connected"));
-    } catch (IOException exception) {
-      emitter.completeWithError(exception);
-      throw new IllegalStateException("failed to open SSE stream", exception);
     }
   }
 }

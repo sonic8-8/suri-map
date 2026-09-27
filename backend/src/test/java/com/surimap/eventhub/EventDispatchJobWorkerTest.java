@@ -16,6 +16,8 @@ import com.surimap.eventhub.stream.SseReplayEventStore;
 import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -36,6 +38,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @TestPropertySource(
     properties = {
@@ -115,10 +118,21 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
   void dispatch_when_closed_connection_remains_sends_person_found_and_completes_job()
       throws Exception {
     // given: 종료 콜백이 처리되기 전에 새 이벤트가 들어오는 상황이다.
-    var disconnected = streamService.openStream(incidentId, null);
+    var disconnected = new SseEmitter(0L);
     disconnected.completeWithError(new IllegalStateException("response already unusable"));
+    connectionRegistry.registerForIncident(
+        incidentId,
+        frame -> {
+          try {
+            disconnected.send(
+                SseEmitter.event().id(frame.id()).name(frame.event()).data(frame.data()));
+          } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+          }
+        });
     var connected = new CapturingSink();
     try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
+      assertThat(connectionRegistry.sinks(incidentId)).hasSize(2);
       // when: 실제 트랜잭션으로 발견 알림을 저장하고 커밋 후 전송한다.
       new TransactionTemplate(txManager)
           .executeWithoutResult(status -> eventHub.publish(createPersonFoundEvent()));

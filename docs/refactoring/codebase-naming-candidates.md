@@ -53,7 +53,6 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | eventhub | [EventDispatchJobOwnershipRedTest](../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobOwnershipRedTest.java) |
 | eventhub | [EventDispatchJobTransactionRedTest](../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobTransactionRedTest.java) |
 | eventhub | [EventHubHarnessRunnerRedTest](../../backend/src/test/java/com/surimap/eventhub/EventHubHarnessRunnerRedTest.java) |
-| eventhub | [EventStreamControllerRedTest](../../backend/src/test/java/com/surimap/eventhub/EventStreamControllerRedTest.java) |
 | eventhub | [OwnerPayloadSchemaValidationRedTest](../../backend/src/test/java/com/surimap/eventhub/OwnerPayloadSchemaValidationRedTest.java) |
 | handover | [HandoverMemoContextBindingRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoContextBindingRedTest.java) |
 | handover | [HandoverMemoCreatePublishRequestRedTest](../../backend/src/test/java/com/surimap/handover/HandoverMemoCreatePublishRequestRedTest.java) |
@@ -288,6 +287,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 정리한 대상 | 반영 결과 |
 |---|---|
+| SSE HTTP 응답 검증 (2026-09-27) | `EventStreamControllerRedTest`를 [EventStreamControllerTest](../../backend/src/test/java/com/surimap/eventhub/EventStreamControllerTest.java)로 변경했다. 한글 메서드 `DisplayName`·밑줄 메서드명·given/when/then 설명을 적용하고, 응답 준비 후 전송과 시작 실패·종료 처리를 MockMvc에서 검증한다. 종료 사건 재접속 검사는 전송 작업을 실행하도록 기존 Service 테스트에서 옮겼다. |
 | 이벤트 전송 작업의 저장·조회 객체 (2026-09-26) | `EventDispatchJobRow`·`EventDispatchJobDispatchRecord`를 [EventDispatchJob](../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJob.java) class 하나로 통합했다. 같은 이벤트 내용과 전송 상태·SSE 순번을 저장·조회한다. 이후 같은 날 Service·worker 책임을 분리했으며 DB 재전송 조회 연결은 남아 있다. |
 | 마커 생성 검증·사진 첨부 구분 (2026-09-22) | `validateCreateRequest`·`validateAppAuthentication`·`validateIdempotencyKey`로 검사 대상을 구분했다. `attachPhotosForMarkerCreation`은 초기 사진 첨부, `attachPhotoToExistingMarker`는 생성 후 마커 수정까지 담당한다. 파일 확인·사진 저장은 `attachUploadedPhoto`로 공유한다. [반영 동작과 검증 범위](../features/marker-photo.md#사진을-포함한-마커-생성과-생성-후-사진-추가). |
 | 마커 생성·사진·알림의 `RedTest`·`Sc06`·`Sc08`·`ContractTest` | 필요한 검증을 `MarkerTest`·`MarkerWriteAccessValidatorTest`·`AppMarkerServiceTest`·Mapper 테스트에 모았다. SQL 문자열·가짜 표시 결과 검사는 실제 서비스·DB 검증과 구분해 제거했다. |
