@@ -9,6 +9,12 @@
 - **현재 차이**: [JWT 변환기](../../backend/src/main/java/com/surimap/account/security/KeycloakJwtAuthenticationConverter.java)는 계정 종류·소속을 JWT에서 읽지만 채널·업무폰 ID는 요청 헤더에서 가져온다. 역할도 두 계정 속성에서 파생한다. `INTERNAL` enum도 파싱하므로 JWT와 단말·채널의 결합, 계정 비활성화 반영, 내부 API 보호를 각 호출부와 함께 확인해야 한다.
 - [보안 설정](../../backend/src/main/java/com/surimap/config/SecurityConfig.java)과 [인증 필터](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)는 JWT decoder와 인증 객체를 사용한다. 서명 검증이 있다는 사실만으로 위 단말·사건별 권한 요구까지 충족됐다고 판단하지 않는다. SSE 요청의 인증 보관 수정은 [기존 문제 기록](../issues/local/3-authenticated-sse-access-denied-on-disconnect.md)을 참조한다.
 
+## HTTPS 프록시와 브라우저 출처
+
+- 같은 공개 웹 주소의 요청은 내부 HTTP 통신과 혼동하지 않고 같은 출처로 판단해야 한다. [Frontend nginx](../../frontend/nginx.conf)는 호스트 nginx가 확인한 외부 프로토콜·포트를 Backend로 전달하고, [Backend 설정](../../backend/src/main/resources/application.yml)의 `server.forward-headers-strategy: native`는 Tomcat이 이 정보로 요청 주소를 판정하도록 한다.
+- 이 설정은 외부 호스트 nginx가 전달 헤더를 덮어쓰고 Frontend·Backend 포트를 외부에 직접 노출하지 않는 구성을 전제로 한다. Tomcat 기본값은 사설·루프백 프록시를 신뢰하며 특정 nginx 한 대만 제한한 설정은 아니다. Frontend는 별도 `Forwarded` 헤더를 제거한다. CORS 허용 목록·JWT·채널 권한은 이번 수정에서 바꾸지 않았다.
+- 2026-09-28 로컬 프록시·실제 Tomcat 검증에서 같은 HTTPS 출처의 통과와 다른 출처의 거부를 확인했다. 실제 Hetzner 배포와 화면 저장·후속 갱신은 아직 검증하지 않았다. 원인·실행 결과·남은 확인은 [CORS 문제 기록](../issues/local/9-browser-post-rejected-by-cors.md)을 따른다.
+
 ## 권한 검사와 실패 순서
 
 - 앱의 현장 기록과 웹의 구역·차수 지휘를 구분하되, 마커 수정·삭제와 인수인계 메모는 양쪽 채널의 세부 권한을 확인한다. 내부 원천 반영은 일반 앱·웹의 권한과 분리한다. 옛 경계표의 웹 지원 배정 허용은 같은 문서의 mock 112 반영 전용 설명과 충돌하므로 새 API의 근거로 삼지 않는다.
