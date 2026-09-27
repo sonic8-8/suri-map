@@ -176,24 +176,50 @@ class EventDispatchJobServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("재전송의 마지막 순번은 별도 조회로 읽고 아직 커밋하지 않은 순번은 포함하지 않는다")
+  void replay_end_sequence_excludes_uncommitted_assignment_without_changing_stored_data() {
+    // given: 저장된 작업은 있지만 확정한 순번은 아직 없다.
+    EventDispatchJob job = insertJob();
+    assertThat(service.getSseReplayEndSequence(incidentId)).isZero();
+
+    // when: 호출한 트랜잭션의 순번 저장이 커밋되지 않은 상태에서 재전송 끝 순번을 읽는다.
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(
+            status -> {
+              long sequence = incidentMapper.incrementAndGetSseSequence(incidentId);
+              mapper.assignSseSequenceIfAbsent(job.getId(), sequence);
+              assertThat(service.getSseReplayEndSequence(incidentId)).isZero();
+              status.setRollbackOnly();
+            });
+
+    // then: 롤백될 순번을 재전송 범위에 넣지 않고 작업 원문·상태·카운터도 바꾸지 않는다.
+    assertThat(service.getSseReplayEndSequence(incidentId)).isZero();
+    assertThat(mapper.findById(job.getId()).getSseSequence()).isNull();
+    assertThat(mapper.findById(job.getId()).getDispatchStatus()).isEqualTo("PENDING");
+    assertThat(mapper.findById(job.getId()).toPublishRequest()).isEqualTo(job.toPublishRequest());
+  }
+
+  @Test
   @DisplayName("DB 재전송 이력을 지정한 개수로 나눠 읽고 조회 범위 뒤의 새 이벤트는 포함하지 않는다")
   void replay_pages_read_committed_range_without_including_newer_events() {
     // given: 메모리 저장소를 거치지 않고 DB에 두 이벤트와 순번을 확정했다.
     EventDispatchJob first = insertJob();
     EventDispatchJob second = insertJob();
     service.getOrAssignSseSequence(first.getId());
-    long throughSequence = service.getOrAssignSseSequence(second.getId());
+    service.getOrAssignSseSequence(second.getId());
     mapper.claimById(first.getId(), "DISPATCHING");
     mapper.markCompleted(first.getId(), "COMPLETED");
     mapper.claimById(second.getId(), "DISPATCHING");
     mapper.markFailed(second.getId(), "FAILED");
 
-    // when: 한 개씩 조회하는 도중 범위 밖의 새 이벤트가 추가된다.
+    // when: 조회할 마지막 순번을 DB에서 읽고, 페이지를 읽는 도중 새 이벤트가 추가된다.
+    long throughSequence = service.getSseReplayEndSequence(incidentId);
     var firstPage = service.readSseReplayPage(incidentId, 0L, throughSequence, 1);
     service.getOrAssignSseSequence(insertJob().getId());
     var secondPage = service.readSseReplayPage(incidentId, 1L, throughSequence, 1);
 
     // then: 전송 상태와 무관하게 확정한 범위만 읽고 다음 순번이나 원문을 바꾸지 않는다.
+    assertThat(throughSequence).isEqualTo(2L);
     assertThat(firstPage).extracting(EventDispatchJob::getId).containsExactly(first.getId());
     assertThat(secondPage).extracting(EventDispatchJob::getId).containsExactly(second.getId());
     assertThat(secondPage.get(0).toPublishRequest()).isEqualTo(second.toPublishRequest());
@@ -278,6 +304,8 @@ class EventDispatchJobServiceTest extends PostGisIntegrationTestSupport {
     UUID requestedIncidentId = "MISSING".equals(state) ? UUID.randomUUID() : incidentId;
 
     // when / then: 과거 내용이나 정상적인 빈 페이지를 돌려주지 않고 호출부에 조회 불가를 알린다.
+    assertThatThrownBy(() -> service.getSseReplayEndSequence(requestedIncidentId))
+        .isInstanceOf(GoneRefetchRequiredException.class);
     assertThatThrownBy(() -> service.readSseReplayPage(requestedIncidentId, 0L, 1L, 1))
         .isInstanceOf(GoneRefetchRequiredException.class);
     assertThatThrownBy(() -> service.readSseReplayPage(requestedIncidentId, 1L, 1L, 1))
