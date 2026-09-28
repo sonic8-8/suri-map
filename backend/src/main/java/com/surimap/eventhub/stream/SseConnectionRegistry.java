@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +24,12 @@ public class SseConnectionRegistry {
   }
 
   public void sendToIncident(UUID incidentId, SseEventFrame frame) {
-    sendToRegisteredSinks(sinksByIncident, incidentId, frame);
+    sendToRegisteredSinks(sinksByIncident, incidentId, frame, sink -> sink.send(frame));
+  }
+
+  public void sendToIncident(UUID incidentId, SseEventFrame frame, Runnable validateBeforeSend) {
+    sendToRegisteredSinks(
+        sinksByIncident, incidentId, frame, sink -> sink.send(frame, validateBeforeSend));
   }
 
   public AutoCloseable registerForAccount(UUID accountId, SseLiveEventSink sink) {
@@ -31,7 +37,12 @@ public class SseConnectionRegistry {
   }
 
   public void sendToAccount(UUID accountId, SseEventFrame frame) {
-    sendToRegisteredSinks(sinksByAccount, accountId, frame);
+    sendToRegisteredSinks(sinksByAccount, accountId, frame, sink -> sink.send(frame));
+  }
+
+  public void sendToAccount(UUID accountId, SseEventFrame frame, Runnable validateBeforeSend) {
+    sendToRegisteredSinks(
+        sinksByAccount, accountId, frame, sink -> sink.send(frame, validateBeforeSend));
   }
 
   public void closeIncidentConnections(UUID incidentId) {
@@ -65,14 +76,15 @@ public class SseConnectionRegistry {
   private void sendToRegisteredSinks(
       ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> registeredSinks,
       UUID subscriptionTargetId,
-      SseEventFrame frame) {
+      SseEventFrame frame,
+      Consumer<SseLiveEventSink> send) {
     var sinks = registeredSinks.get(subscriptionTargetId);
     if (sinks == null) {
       return;
     }
     for (var sink : sinks) {
       try {
-        sink.send(frame);
+        send.accept(sink);
       } catch (IllegalStateException | UncheckedIOException exception) {
         // Spring emitter의 내부 처리 실패는 원인 예외를 감싼다. 종료된 연결과 구분한다.
         if (exception instanceof IllegalStateException && exception.getCause() != null) {

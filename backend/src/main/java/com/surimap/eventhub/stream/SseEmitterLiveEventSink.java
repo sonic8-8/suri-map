@@ -6,129 +6,134 @@ import java.nio.charset.StandardCharsets;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 final class SseEmitterLiveEventSink implements SseLiveEventSink {
 
-  // 로컬 전환 검증용 초기값이며 운영 적정값은 부하·연결 수를 측정한 뒤 조정한다.
+  // 기존 재전송 대기 한도를 실시간에도 적용한다. 운영 적정값은 부하·연결 수를 측정한 뒤 조정한다.
   private static final int MAX_PENDING_EVENT_COUNT = 1000;
   private static final int MAX_PENDING_BYTES = 1024 * 1024;
   private static final Logger log = LoggerFactory.getLogger(SseEmitterLiveEventSink.class);
 
   private final SseStreamEmitter emitter;
-  private final NavigableMap<Long, byte[]> pendingEvents = new TreeMap<>();
+  private final boolean incidentStream;
+  private final NavigableMap<Long, PendingEvent> pendingEvents = new TreeMap<>();
   private int pendingBytes;
+  private PendingEvent writingEvent;
+  private long writingSequence;
   private boolean replaying;
+  private boolean draining;
   private boolean terminalReceived;
-  private boolean closeAfterReplay;
+  private boolean closing;
   private long lastSentSequence;
+  private long nextAccountEvent;
 
   SseEmitterLiveEventSink(SseStreamEmitter emitter) {
-    this.emitter = emitter;
+    this(emitter, false);
   }
 
-  SseEmitterLiveEventSink(SseStreamEmitter emitter, boolean replaying) {
-    this(emitter);
-    this.replaying = replaying;
+  SseEmitterLiveEventSink(SseStreamEmitter emitter, boolean incidentStream) {
+    this.emitter = emitter;
+    this.incidentStream = incidentStream;
+    this.replaying = incidentStream;
   }
 
   @Override
   public void send(SseEventFrame frame) {
+    send(frame, () -> {});
+  }
+
+  @Override
+  public void send(SseEventFrame frame, Runnable validateBeforeSend) {
     boolean overflow = false;
+    boolean startDrain = false;
     synchronized (pendingEvents) {
-      if (emitter.isClosed()) {
+      if (emitter.isClosed() || closing) {
         throw new IllegalStateException("SSE connection is closed");
       }
-      if (replaying) {
-        if ("INCIDENT_CLOSED".equals(frame.event()) || "INCIDENT_PURGED".equals(frame.event())) {
-          terminalReceived = true;
-          discardPendingEvents();
-        } else if (terminalReceived) {
-          return;
-        }
-        long sequence = Long.parseLong(frame.id());
-        if (sequence <= lastSentSequence || pendingEvents.containsKey(sequence)) {
-          return;
-        }
-        byte[] serialized = SseEventFrameFormatter.format(frame).getBytes(StandardCharsets.UTF_8);
-        if (pendingEvents.size() >= MAX_PENDING_EVENT_COUNT
-            || serialized.length > MAX_PENDING_BYTES - pendingBytes) {
-          log.warn(
-              "SSE replay backlog exceeded. pendingEvents={}, pendingBytes={}, incomingBytes={}",
-              pendingEvents.size(),
-              pendingBytes,
-              serialized.length);
-          discardPendingEvents();
-          overflow = true;
-        } else {
-          pendingEvents.put(sequence, serialized);
-          pendingBytes += serialized.length;
-          return;
+      boolean terminal =
+          "INCIDENT_CLOSED".equals(frame.event()) || "INCIDENT_PURGED".equals(frame.event());
+      if (incidentStream && terminal) {
+        terminalReceived = true;
+        discardPendingEvents();
+      } else if (incidentStream && terminalReceived) {
+        return;
+      }
+      // 계정 구독은 여러 사건의 같은 순번을 받을 수 있으므로 수신 순서로 대기시킨다.
+      long sequence = incidentStream ? Long.parseLong(frame.id()) : ++nextAccountEvent;
+      if (incidentStream
+          && (sequence <= lastSentSequence
+              || pendingEvents.containsKey(sequence)
+              || (writingEvent != null && writingSequence == sequence))) {
+        return;
+      }
+      byte[] serialized = SseEventFrameFormatter.format(frame).getBytes(StandardCharsets.UTF_8);
+      int pendingCount = pendingEvents.size() + (writingEvent == null ? 0 : 1);
+      if (pendingCount >= MAX_PENDING_EVENT_COUNT
+          || serialized.length > MAX_PENDING_BYTES - pendingBytes) {
+        log.warn(
+            "SSE backlog exceeded. pendingEvents={}, pendingBytes={}, incomingBytes={}",
+            pendingCount,
+            pendingBytes,
+            serialized.length);
+        discardPendingEvents();
+        overflow = true;
+      } else {
+        pendingEvents.put(sequence, new PendingEvent(serialized, validateBeforeSend, terminal));
+        pendingBytes += serialized.length;
+        if (!replaying && !draining) {
+          draining = true;
+          startDrain = true;
         }
       }
     }
     if (overflow) {
       emitter.disconnect();
-      return;
+    } else if (startDrain) {
+      emitter.submitTransmission(this::drainPendingEvents);
     }
-    sendNow(frame);
   }
 
   @Override
   public void close() {
     synchronized (pendingEvents) {
-      if (replaying) {
-        closeAfterReplay = true;
+      closing = true;
+      if (replaying || draining) {
         return;
       }
     }
-    emitter.complete();
+    emitter.disconnect();
   }
 
-  void sendReplay(SseEventFrame frame) {
-    synchronized (pendingEvents) {
-      if (emitter.isClosed() || terminalReceived) {
-        return;
-      }
+  void sendReplay(SseEventFrame frame, Runnable validateBeforeSend) {
+    if (isReplayStopped()) {
+      return;
     }
-    sendNow(frame);
+    validateBeforeSend.run();
+    if (isReplayStopped()) {
+      return;
+    }
+    writeSerializedFrame(SseEventFrameFormatter.format(frame).getBytes(StandardCharsets.UTF_8));
     removeSentEvents(Long.parseLong(frame.id()));
   }
 
   void finishReplay() {
-    while (!emitter.isClosed()) {
-      long sequence;
-      byte[] serialized;
-      synchronized (pendingEvents) {
-        var entry = pendingEvents.firstEntry();
-        if (entry == null) {
-          replaying = false;
-          break;
-        }
-        sequence = entry.getKey();
-        serialized = entry.getValue();
-      }
-      try {
-        emitter.send(
-            Set.of(new ResponseBodyEmitter.DataWithMediaType(serialized, MediaType.TEXT_PLAIN)));
-      } catch (IOException exception) {
-        throw new UncheckedIOException(exception);
-      }
-      removeSentEvents(sequence);
+    synchronized (pendingEvents) {
+      replaying = false;
+      draining = true;
     }
-    if (closeAfterReplay) {
-      emitter.complete();
-    }
+    drainPendingEvents();
   }
 
   void discardPendingEvents() {
     synchronized (pendingEvents) {
       pendingEvents.clear();
-      pendingBytes = 0;
+      // 이미 쓰기 중인 데이터는 쓰기가 끝날 때까지 한도에 포함한다.
+      pendingBytes = writingEvent == null ? 0 : writingEvent.serialized.length;
     }
   }
 
@@ -138,12 +143,73 @@ final class SseEmitterLiveEventSink implements SseLiveEventSink {
     }
   }
 
-  private void sendNow(SseEventFrame frame) {
+  private void drainPendingEvents() {
+    while (!emitter.isClosed()) {
+      long sequence;
+      PendingEvent pending;
+      boolean closeWhenDrained;
+      synchronized (pendingEvents) {
+        var entry = pendingEvents.pollFirstEntry();
+        if (entry == null) {
+          draining = false;
+          closeWhenDrained = closing;
+          pending = null;
+          sequence = 0;
+        } else {
+          sequence = entry.getKey();
+          pending = entry.getValue();
+          writingEvent = pending;
+          writingSequence = sequence;
+          closeWhenDrained = false;
+        }
+      }
+      if (pending == null) {
+        if (closeWhenDrained) {
+          emitter.complete();
+        }
+        return;
+      }
+      try {
+        if (shouldSkipPendingEvent(pending)) {
+          continue;
+        }
+        try {
+          pending.validateBeforeSend.run();
+        } catch (GoneRefetchRequiredException exception) {
+          // 상태 조회 중 도착한 종료 알림은 다음 차례에 보내고 닫는다.
+          if (isReplayStopped()) {
+            continue;
+          }
+          throw exception;
+        }
+        if (shouldSkipPendingEvent(pending)) {
+          continue;
+        }
+        writeSerializedFrame(pending.serialized);
+        if (incidentStream) {
+          removeSentEvents(sequence);
+        }
+      } finally {
+        synchronized (pendingEvents) {
+          pendingBytes -= pending.serialized.length;
+          writingEvent = null;
+        }
+      }
+    }
+  }
+
+  private boolean shouldSkipPendingEvent(PendingEvent pending) {
+    synchronized (pendingEvents) {
+      return emitter.isClosed() || (incidentStream && terminalReceived && !pending.terminal);
+    }
+  }
+
+  private void writeSerializedFrame(byte[] serialized) {
     try {
-      emitter.send(SseEmitter.event().id(frame.id()).name(frame.event()).data(frame.data()));
-    } catch (IOException e) {
-      // 연결 목록에서는 즉시 제외하되 HTTP 오류 완료 처리는 컨테이너에 맡긴다.
-      throw new UncheckedIOException(e);
+      emitter.send(
+          Set.of(new ResponseBodyEmitter.DataWithMediaType(serialized, MediaType.TEXT_PLAIN)));
+    } catch (IOException exception) {
+      throw new UncheckedIOException(exception);
     }
   }
 
@@ -151,10 +217,17 @@ final class SseEmitterLiveEventSink implements SseLiveEventSink {
     synchronized (pendingEvents) {
       lastSentSequence = sequence;
       var sent = pendingEvents.headMap(sequence, true);
-      for (byte[] serialized : sent.values()) {
-        pendingBytes -= serialized.length;
+      for (PendingEvent pending : sent.values()) {
+        pendingBytes -= pending.serialized.length;
       }
       sent.clear();
     }
+  }
+
+  @RequiredArgsConstructor
+  private static final class PendingEvent {
+    private final byte[] serialized;
+    private final Runnable validateBeforeSend;
+    private final boolean terminal;
   }
 }

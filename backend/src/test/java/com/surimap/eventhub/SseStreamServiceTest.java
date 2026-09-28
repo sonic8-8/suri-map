@@ -167,6 +167,66 @@ class SseStreamServiceTest extends PostGisIntegrationTestSupport {
     assertThat(jobMapper.findById(closed.getId())).isNotNull();
   }
 
+  @ParameterizedTest(name = "전송 대기 중 사건 상태: {0}")
+  @ValueSource(strings = {"OPEN", "CLOSED", "PURGED"})
+  @DisplayName("상태 조회 뒤 전송 대기 중 사건이 종료·파기되면 뒤 연결에 과거 내용을 보내지 않는다")
+  void terminal_state_committed_during_dispatch_blocks_payload_to_later_connection(String state)
+      throws Exception {
+    // given: DB 상태 검사를 마친 뒤 첫 연결의 전송에서 대기한다.
+    var path = save_event("PATH_APPENDED");
+    var firstSendStarted = new java.util.concurrent.CountDownLatch(1);
+    var releaseFirstSend = new java.util.concurrent.CompletableFuture<Void>();
+    connectionRegistry.registerForIncident(
+        incidentId,
+        ignored -> {
+          firstSendStarted.countDown();
+          releaseFirstSend.join();
+        });
+    var laterConnection = new CapturingSseConnection();
+    connectionRegistry.registerForIncident(incidentId, laterConnection);
+    var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    try {
+      var delivery =
+          executor.submit(
+              () -> streamService.dispatchLive(path.toPublishRequest(), path.getSseSequence()));
+      assertThat(firstSendStarted.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+      // when: 별도 DB 연결에서 종료·파기를 커밋한 뒤 첫 연결의 대기를 푼다.
+      if (!state.equals("OPEN")) {
+        save_event("INCIDENT_CLOSED");
+        jdbcTemplate.update("UPDATE incident SET status = 'CLOSED' WHERE id = ?", incidentId);
+      }
+      if (state.equals("PURGED")) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO incident_data_purge
+                (id, incident_id, status, closed_at, purge_due_at, completed_at,
+                 environment_policy, created_at, updated_at)
+            VALUES (?, ?, 'COMPLETED', now(), now(), now(), 'PRODUCTION_IMMEDIATE', now(), now())
+            """,
+            UUID.randomUUID(),
+            incidentId);
+      }
+      releaseFirstSend.complete(null);
+
+      // then: 진행 중이면 전달하고, 종료·파기 뒤 아직 쓰지 않은 과거 내용은 전달하지 않는다.
+      if (state.equals("OPEN")) {
+        delivery.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        assertThat(laterConnection.frames)
+            .extracting(SseEventFrame::event)
+            .containsExactly("PATH_APPENDED");
+      } else {
+        assertThatThrownBy(() -> delivery.get(10, java.util.concurrent.TimeUnit.SECONDS))
+            .hasCauseInstanceOf(GoneRefetchRequiredException.class);
+        assertThat(laterConnection.frames).isEmpty();
+      }
+    } finally {
+      releaseFirstSend.complete(null);
+      executor.shutdown();
+      assertThat(executor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+    }
+  }
+
   private EventDispatchJob save_event(String type) {
     PublishRequest request =
         EventStreamTestFixtures.publishRequest(UUID.randomUUID(), incidentId, type);

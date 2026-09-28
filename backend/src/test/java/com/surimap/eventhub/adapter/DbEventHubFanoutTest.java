@@ -94,6 +94,11 @@ class DbEventHubFanoutTest {
     }
 
     @Override
+    public boolean isIncidentOpenAndNotPurged(UUID incidentId) {
+      throw new UnsupportedOperationException("fanout test does not validate SSE writes");
+    }
+
+    @Override
     public List<EventDispatchJob> findBySseSequenceRange(
         UUID incidentId, long afterSequence, long throughSequence, int limit) {
       return List.of();

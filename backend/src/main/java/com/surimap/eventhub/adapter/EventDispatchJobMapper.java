@@ -15,6 +15,8 @@ public interface EventDispatchJobMapper {
 
   EventDispatchJob findByIdForUpdate(@Param("id") UUID id);
 
+  boolean isIncidentOpenAndNotPurged(@Param("incidentId") UUID incidentId);
+
   /** afterSequence는 제외하고 throughSequence까지 순번순으로 조회한다. 전송 완료 여부와 무관하다. */
   List<EventDispatchJob> findBySseSequenceRange(
       @Param("incidentId") UUID incidentId,
