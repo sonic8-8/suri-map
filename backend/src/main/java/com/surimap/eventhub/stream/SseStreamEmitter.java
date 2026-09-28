@@ -19,6 +19,7 @@ final class SseStreamEmitter extends SseEmitter {
   private final Consumer<SseStreamEmitter> initialTransmission;
   private final AtomicBoolean closed = new AtomicBoolean();
   private final AtomicReference<AutoCloseable> registration = new AtomicReference<>();
+  private volatile AsyncContext asyncContext;
 
   SseStreamEmitter(Consumer<SseStreamEmitter> initialTransmission) {
     super(0L);
@@ -42,7 +43,23 @@ final class SseStreamEmitter extends SseEmitter {
   }
 
   void start(AsyncContext context) {
+    asyncContext = context;
     context.start(this::sendInitialEvents);
+  }
+
+  boolean isClosed() {
+    return closed.get();
+  }
+
+  void disconnect() {
+    unregister();
+    // 재전송 스레드가 느린 소켓에 쓰는 중이어도 공용 전송 worker를 기다리게 하지 않는다.
+    try {
+      asyncContext.start(this::complete);
+    } catch (RuntimeException exception) {
+      log.warn("SSE close task rejected. failureType={}", exception.getClass().getSimpleName());
+      asyncContext.complete();
+    }
   }
 
   boolean attachRegistration(AutoCloseable newRegistration) {

@@ -22,6 +22,13 @@ public interface EventDispatchJobMapper {
       @Param("throughSequence") long throughSequence,
       @Param("limit") int limit);
 
+  long countBySseSequenceRange(
+      @Param("incidentId") UUID incidentId,
+      @Param("afterSequence") long afterSequence,
+      @Param("throughSequence") long throughSequence);
+
+  EventDispatchJob findLatestSequencedIncidentClosedEvent(@Param("incidentId") UUID incidentId);
+
   /**
    * 순번이 없고 완료되지 않은 작업만 갱신한다. 갱신 건수가 0이면 배정되지 않은 것이다. 사건 카운터 증가와의 원자성·재호출 처리는 서비스 트랜잭션에서 조율해야 한다.
    */

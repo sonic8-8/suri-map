@@ -21,7 +21,7 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.stream.SseReplayEventStore.ReplayAppend;
+import com.surimap.eventhub.stream.SseEventFrame;
 import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.mock112.AssignmentPollingHandler;
@@ -189,12 +189,10 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_CHANGED_ACCOUNT_IDS);
 
     // when: 저장된 이벤트를 SSE 스트림 서비스에 직접 전달한다.
-    ReplayAppend sseEvidence =
-        sseStreamService.dispatchLive(supportEvent.rowId(), supportEvent.toPublishRequest(), 1L);
+    SseEventFrame sseEvidence = sseStreamService.dispatchLive(supportEvent.toPublishRequest(), 1L);
     // then: 전달한 배정 이벤트의 종류와 버전을 유지한다.
-    assertThat(sseEvidence.isNew()).isTrue();
-    assertThat(sseEvidence.event().envelope().type()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
-    assertThat(sseEvidence.event().envelope().payload().get("version")).isEqualTo(3);
+    assertThat(sseEvidence.data().type()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
+    assertThat(sseEvidence.data().payload().get("version")).isEqualTo(3);
 
     NotificationTargets targets =
         incidentAssignmentView.notificationTargets(INCIDENT_ID, "SUPPORT_ASSIGNMENT");

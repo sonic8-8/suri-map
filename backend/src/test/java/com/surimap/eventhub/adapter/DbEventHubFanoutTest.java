@@ -105,6 +105,16 @@ class DbEventHubFanoutTest {
     }
 
     @Override
+    public long countBySseSequenceRange(UUID incidentId, long afterSequence, long throughSequence) {
+      throw new UnsupportedOperationException("fanout test does not read replay history");
+    }
+
+    @Override
+    public EventDispatchJob findLatestSequencedIncidentClosedEvent(UUID incidentId) {
+      throw new UnsupportedOperationException("fanout test does not read terminal history");
+    }
+
+    @Override
     public EventDispatchJob claimById(UUID id, String claimStatus) {
       return null;
     }

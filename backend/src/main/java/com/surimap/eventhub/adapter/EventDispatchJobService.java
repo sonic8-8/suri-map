@@ -57,14 +57,53 @@ public class EventDispatchJobService {
   @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
   public List<EventDispatchJob> readSseReplayPage(
       UUID incidentId, long afterSequence, long throughSequence, int limit) {
+    List<EventDispatchJob> jobs =
+        readRetainedSseReplayPage(incidentId, afterSequence, throughSequence, limit);
+    validateReplayContinuity(jobs, afterSequence, throughSequence, limit);
+    return jobs;
+  }
+
+  /** 마지막 수신 순번 없는 새 연결은 누락 복구 대신 현재 남은 이력을 읽는다. */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public List<EventDispatchJob> readRetainedSseReplayPage(
+      UUID incidentId, long afterSequence, long throughSequence, int limit) {
     validateReplayRange(afterSequence, throughSequence, limit);
     if (throughSequence > getSseReplayEndSequence(incidentId)) {
       throw new GoneRefetchRequiredException();
     }
-    List<EventDispatchJob> jobs =
-        mapper.findBySseSequenceRange(incidentId, afterSequence, throughSequence, limit);
-    validateReplayContinuity(jobs, afterSequence, throughSequence, limit);
-    return jobs;
+    return mapper.findBySseSequenceRange(incidentId, afterSequence, throughSequence, limit);
+  }
+
+  /** 응답 시작 전에 뒤 페이지의 누락도 확인한다. 순번의 양수·사건별 유일성은 DB 제약이 보장한다. */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public void validateSseReplayContinuity(
+      UUID incidentId, long afterSequence, long throughSequence) {
+    validateReplayRange(afterSequence, throughSequence, 1);
+    if (throughSequence > getSseReplayEndSequence(incidentId)
+        || mapper.countBySseSequenceRange(incidentId, afterSequence, throughSequence)
+            != throughSequence - afterSequence) {
+      throw new GoneRefetchRequiredException();
+    }
+  }
+
+  /** 종료된 사건은 과거 내용 없이 확정된 종료 알림만 허용한다. 파기 완료·누락 사건은 재조회한다. */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public EventDispatchJob readIncidentClosedEvent(UUID incidentId) {
+    if (incidentMapper
+            .findByIncidentId(incidentId)
+            .filter(incident -> "CLOSED".equals(incident.getStatus()))
+            .isEmpty()
+        || purgeRunMapper
+            .findByIncidentId(incidentId)
+            .filter(run -> run.getStatus() == IncidentDataPurgeStatus.COMPLETED)
+            .isPresent()) {
+      throw new GoneRefetchRequiredException();
+    }
+    EventDispatchJob event = mapper.findLatestSequencedIncidentClosedEvent(incidentId);
+    if (event == null) {
+      throw new GoneRefetchRequiredException();
+    }
+    return event;
   }
 
   public long getOrAssignSseSequence(UUID jobId) {

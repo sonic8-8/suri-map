@@ -159,7 +159,7 @@ public class EventDispatchJobWorker implements SmartLifecycle {
     try {
       long sequence = service.getOrAssignSseSequence(job.getId());
       // 프록시를 거친 서비스 호출이 커밋된 뒤, DB 트랜잭션 밖에서 전송한다.
-      sseStreamService.dispatchLive(job.getId(), job.toPublishRequest(), sequence);
+      sseStreamService.dispatchLive(job.toPublishRequest(), sequence);
       service.completeJob(job.getId());
     } catch (RuntimeException exception) {
       log.warn(

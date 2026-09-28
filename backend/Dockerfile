@@ -15,7 +15,9 @@ COPY test-fixtures /test-fixtures
 COPY infra/docker/keycloak/import/suri-map-realm.json /infra/docker/keycloak/import/suri-map-realm.json
 
 FROM source AS tester
-RUN ./gradlew --no-daemon --build-cache test jacocoTestReport
+RUN ./gradlew --no-daemon --build-cache testClasses
+# DB tests need the Docker socket at container runtime, not during image build.
+CMD ["./gradlew", "--no-daemon", "--no-build-cache", "test", "jacocoTestReport", "--console=plain"]
 
 FROM tester AS builder
 RUN ./gradlew --no-daemon --build-cache bootJar -x test
