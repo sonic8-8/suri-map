@@ -31,5 +31,6 @@ public interface SseReplayEventStore {
 
   void clear();
 
-  record ReplayAppend(UUID eventId, UUID incidentId, long replaySequence, SseReplayEvent event, boolean isNew) {}
+  record ReplayAppend(
+      UUID eventId, UUID incidentId, long replaySequence, SseReplayEvent event, boolean isNew) {}
 }

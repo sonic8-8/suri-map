@@ -106,10 +106,7 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
 
   @Override
   public OptionalLong terminalReplaySequence(UUID incidentId) {
-    return byIncident
-        .getOrDefault(incidentId, new ConcurrentSkipListMap<>())
-        .values()
-        .stream()
+    return byIncident.getOrDefault(incidentId, new ConcurrentSkipListMap<>()).values().stream()
         .filter(event -> SseReplayEvent.ACTIVE.equals(event.replayStatus()))
         .filter(event -> "INCIDENT_CLOSED".equals(event.envelope().type()))
         .mapToLong(SseReplayEvent::replaySequence)

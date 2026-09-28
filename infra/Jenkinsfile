@@ -155,23 +155,34 @@ pipeline {
                       -f backend/Dockerfile \
                       .
 
-                    test_container=$(docker create ${BACKEND_TEST_IMAGE})
-                    trap 'docker rm -f "${test_container}" >/dev/null 2>&1 || true' EXIT
+                    test_container=$(docker create \
+                      --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+                      --add-host host.docker.internal:host-gateway \
+                      --env TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
+                      "${BACKEND_TEST_IMAGE}")
+                    trap 'docker rm -fv "${test_container}" >/dev/null 2>&1 || true' EXIT
+
+                    test_exit=0
+                    docker start --attach "${test_container}" || test_exit=$?
 
                     mkdir -p \
                       backend/build/reports/tests \
                       backend/build/test-results
 
+                    artifact_exit=0
                     docker cp "${test_container}:/workspace/build/reports/tests/test" \
-                      backend/build/reports/tests/
+                      backend/build/reports/tests/ || artifact_exit=1
                     docker cp "${test_container}:/workspace/build/test-results/test" \
-                      backend/build/test-results/
+                      backend/build/test-results/ || artifact_exit=1
 
                     docker cp "${test_container}:/workspace/build/reports/jacoco/test/jacocoTestReport.xml" \
                       "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" 2>/dev/null || true
 
                     docker cp "${test_container}:/workspace/build/reports/jacoco/test/html" \
                       "${BACKEND_TEST_ARTIFACT_DIR}/coverage/html" 2>/dev/null || true
+
+                    [ "${test_exit}" -eq 0 ] || exit "${test_exit}"
+                    exit "${artifact_exit}"
                 '''
 
                 sh '''

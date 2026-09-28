@@ -97,6 +97,21 @@
           AND dispatch_status != 'COMPLETED'
     </update>
 
+    <select id="countBySseSequenceRange" resultType="long">
+        SELECT COUNT(*) FROM event_dispatch_job
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND sse_sequence > #{afterSequence}
+          AND sse_sequence &lt;= #{throughSequence}
+    </select>
+
+    <select id="findLatestSequencedIncidentClosedEvent" resultMap="eventDispatchJobMap">
+        SELECT <include refid="columns"/> FROM event_dispatch_job
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND event_type = 'INCIDENT_CLOSED' AND sse_sequence IS NOT NULL
+        ORDER BY sse_sequence DESC
+        LIMIT 1
+    </select>
+
     <select id="claimById" resultMap="eventDispatchJobMap"
             affectData="true" flushCache="true" useCache="false">
         UPDATE event_dispatch_job

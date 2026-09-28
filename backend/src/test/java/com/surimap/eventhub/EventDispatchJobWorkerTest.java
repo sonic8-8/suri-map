@@ -12,7 +12,7 @@ import com.surimap.eventhub.port.EventHub;
 import com.surimap.eventhub.stream.SseConnectionRegistry;
 import com.surimap.eventhub.stream.SseEventFrame;
 import com.surimap.eventhub.stream.SseLiveEventSink;
-import com.surimap.eventhub.stream.SseReplayEventStore;
+import com.surimap.eventhub.stream.SseReplayService;
 import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
@@ -53,7 +53,7 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
   @Autowired private EventHub eventHub;
   @Autowired private IncidentMapper incidentMapper;
   @Autowired private PlatformTransactionManager txManager;
-  @Autowired private SseReplayEventStore replayStore;
+  @Autowired private SseReplayService replayService;
   @Autowired private SseConnectionRegistry connectionRegistry;
   @Autowired private SseStreamService streamService;
   @Autowired private EventDispatchJobMapper jobMapper;
@@ -62,7 +62,6 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
 
   @BeforeEach
   void prepare_test_incident() {
-    replayStore.clear();
     incidentId = UUID.randomUUID();
     Instant now = EventStreamTestFixtures.CREATED_AT;
     incidentMapper.insertIncident(
@@ -106,7 +105,9 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
       assertThat(sink.sendingThread).isNotEqualTo(requestThread);
       assertThat(frame.data().eventId()).isEqualTo(EVENT_ID);
       assertThat(frame.data().payload().get("status")).isEqualTo("RECORDING");
-      assertThat(replayStore.findByEventId(EVENT_ID)).isPresent();
+      assertThat(replayService.replayResultAfter(incidentId, "0").getFrames())
+          .extracting(frameValue -> frameValue.data().eventId())
+          .contains(EVENT_ID);
       assertThat(getDispatchStatus()).isEqualTo("COMPLETED");
     } finally {
       registration.close();
@@ -211,33 +212,13 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
       assertThat(connected.frames().get(0).event()).isEqualTo("PERSON_FOUND");
       assertThat(connected.frames().get(0).data().eventId()).isEqualTo(EVENT_ID);
       assertThat(connectionRegistry.sinks(incidentId)).containsExactly(connected);
-      assertThat(replayStore.findByEventId(EVENT_ID)).isPresent();
+      assertThat(replayService.replayResultAfter(incidentId, "0").getFrames())
+          .extracting(frameValue -> frameValue.data().eventId())
+          .contains(EVENT_ID);
       // COMPLETED는 서버 전송 처리의 완료이며 브라우저 표시 확인이 아니다.
       assertThat(getDispatchStatus()).isEqualTo("COMPLETED");
     } finally {
       connectionRegistry.closeIncidentConnections(incidentId);
-    }
-  }
-
-  @Test
-  @DisplayName("재전송 저장에 실패하면, 알림을 전송하거나 작업을 완료 처리하지 않는다")
-  void dispatch_when_replay_storage_rejects_event_marks_job_failed() throws Exception {
-    // given: 파기된 사건은 재전송 저장소에 새 이벤트를 저장할 수 없다.
-    replayStore.purgeIncident(incidentId);
-    var connected = new CapturingSink();
-    try (var registration = connectionRegistry.registerForIncident(incidentId, connected)) {
-      // when: 저장이 거부될 발견 알림의 전송 작업을 처리한다.
-      new TransactionTemplate(txManager)
-          .executeWithoutResult(status -> eventHub.publish(createPersonFoundEvent()));
-
-      await()
-          .atMost(Duration.ofSeconds(10))
-          .untilAsserted(() -> assertThat(getDispatchStatus()).isEqualTo("FAILED"));
-
-      // then: 연결 하나의 실패와 달리 저장 실패는 전송 작업의 실패로 남는다.
-      assertThat(connected.frames()).isEmpty();
-      assertThat(replayStore.findByEventId(EVENT_ID)).isEmpty();
-      assertThat(getDispatchStatus()).isEqualTo("FAILED");
     }
   }
 
@@ -334,7 +315,7 @@ class EventDispatchJobWorkerTest extends PostGisIntegrationTestSupport {
       // then: 이력이 있다는 이유로 생략하지 않으며 새 순번을 소비하지 않는다.
       assertThat(connected.frames()).extracting(SseEventFrame::id).containsExactly("1");
       assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(1L);
-      assertThat(replayStore.findByIncidentId(incidentId)).hasSize(1);
+      assertThat(replayService.replayResultAfter(incidentId, "0").getFrames()).hasSize(1);
     }
   }
 

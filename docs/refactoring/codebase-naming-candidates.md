@@ -24,6 +24,7 @@
 
 | 대상 | 확인할 점 |
 |---|---|
+| [SseEmitterLiveEventSink](../../backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java) | 재전송 중 새 이벤트 대기·한도·순서 전환도 맡으므로 `LiveEventSink`만으로는 역할이 좁게 읽힌다. DB 재전송 연결을 마친 뒤 연결별 전송 담당이라는 이름으로 정리할지 확인한다. 이번에는 이름을 바꾸지 않았다. |
 | [IncidentHandoverSupportAssignmentScenarioTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentScenarioTest.java) | `ScenarioTest`를 별도 분류로 쓰지 않기로 한 기준에 맞춰 검증 대상별 분리·통합과 이름을 정한다. 실제 DB·FCM 호출 검사와 SSE 직접 호출·고정 자료 조립·probe 행 검사를 구분한다. |
 | [MarkerPhotoPurgeHook](../../backend/src/main/java/com/surimap/api/service/photo/MarkerPhotoPurgeHook.java)·[MarkerPhotoPurgeHookAdapter](../../backend/src/main/java/com/surimap/api/service/photo/MarkerPhotoPurgeHookAdapter.java) | 패키지 이동은 끝났지만 실제 삭제 구현·빈 등록은 별도 확인 대상이다. 이름 변경만으로 연결 누락을 해결한 것으로 보지 않는다. |
 | [남은 마커 테스트·fixture](../../backend/src/test/java/com/surimap/marker/) | 운영 `com/surimap/marker` 디렉터리는 제거했지만 테스트 디렉터리까지 정리한 것은 아니다. 각 검증의 대상·중복·대역 사용을 확인한다. |
@@ -87,6 +88,7 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | [AuthPolicePhoneHarnessRunner](../../backend/src/test/java/com/surimap/account/harness/AuthPolicePhoneHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [Sc02ToSc12BoardConvergenceHarnessRunner](../../backend/src/test/java/com/surimap/board/Sc02ToSc12BoardConvergenceHarnessRunner.java) | 공용 데이터로 응답을 조립하고 고정 시나리오 표를 반환함. 실제 시나리오·SSE 실행기로 오해되지 않도록 필요한 보조 역할부터 정리 |
 | [EventHubHarnessRunner](../../backend/src/test/java/com/surimap/eventhub/harness/EventHubHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
+| [InMemoryS4EventHubContract](../../backend/src/test/java/com/surimap/eventhub/harness/InMemoryS4EventHubContract.java) | `S4`·`Contract` 대신 테스트 입력·기록 대역이라는 역할을 드러낼 후보다. 2026-09-28 메모리 저장소를 `src/test`로 옮겨 이 대역에서만 재사용했으며 실제 DB 재전송 검증과 구분한다. |
 | [Sc04SearchAreaHarnessTest](../../backend/src/test/java/com/surimap/harness/sc04/Sc04SearchAreaHarnessTest.java) | 검증 대상·시나리오 확인 후 결정 |
 | [Sc07Sc09OfflineReplayHarnessRunner](../../backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [Sc10OpHandoverHarnessTest](../../backend/src/test/java/com/surimap/harness/sc10/Sc10OpHandoverHarnessTest.java) | 검증 대상·시나리오 확인 후 결정 |
@@ -277,13 +279,15 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | 후속 후보 | 확인할 점 |
 |---|---|
 | [infra/ci/verify-evidence.sh](../../infra/ci/verify-evidence.sh)·[사용 안내](../../infra/ci/README.md) | `RED`·`L2-D01` 표현과 포괄적인 `evidence` 이름이 남아 있다. 현재 Jenkinsfile의 직접 호출은 찾지 못했으며 CI 결과 파일 존재·문구 검사와 실제 품질 판정을 구분해 필요성·이름·안내를 함께 검토 |
-| [collect-s4-evidence.sh](../../infra/ci/collect-s4-evidence.sh)·[verify-s4-evidence.sh](../../infra/ci/verify-s4-evidence.sh) | Jenkins에서 호출한다. `S4` 대신 실제 검증 범위를 드러내야 한다. 두 JUnit XML의 실패·오류 수와 출력 문구를 검사하며 `Consumer Convergence: 1/1 (100%)`는 고정 출력이다. 실제 서버·클라이언트 수신 성공률을 측정한 결과가 아니므로 SSE 재검증 때 판정 로직부터 확인한다. |
+| [collect-s4-evidence.sh](../../infra/ci/collect-s4-evidence.sh)·[verify-s4-evidence.sh](../../infra/ci/verify-s4-evidence.sh) | Jenkins에서 호출한다. 2026-09-28 DB 재전송·실시간 전송 테스트 참조를 갱신하고 고정 성공률을 제거했으며 건너뜀·0개 실행·누락 결과를 통과로 처리하지 않게 했다. `S4`·`evidence` 파일명은 CI 호출·산출물 참조와 함께 정리할 후보로 남긴다. |
 
 이미 합의한 k6 이름은 유지한다.
 
 ## 반영 이력 요약
 
 2026-09-09~15에 정리한 마커·SSE 이름과 테스트의 요약이다. 파일별 이전·이후 이름과 검증 내역은 [마커·알림 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#마커알림--먼저-진행), [SSE·인증 원문](https://github.com/sonic8-8/suri-map/blob/403b383dc2693fd15d1616ee7206e6cb0e420df5/docs/refactoring/codebase-naming-candidates.md#sse인증--승인한-이름-반영)에서 확인한다. 2026-09-22 문서 축약 이후의 코드 변경은 아래 날짜를 붙여 구분한다.
+
+2026-09-28: `SseSequenceEnvelopeReplayTest`의 형식·순번 검사를 실제 DB를 사용하는 `SseReplayServiceTest`로 통합하고 옛 파일은 제거했다. 중복 재시도는 `SseStreamServiceTest`에서 DB 이력 하나·같은 순번 재전송으로 확인한다. 메모리 저장소 3개는 옛 테스트 입력으로만 남겨 `src/test`로 이동했다. 삭제·이동 전 코드는 Git 이력에서 복원할 수 있다.
 
 | 정리한 대상 | 반영 결과 |
 |---|---|

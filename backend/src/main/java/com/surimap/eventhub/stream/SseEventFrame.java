@@ -1,5 +1,6 @@
 package com.surimap.eventhub.stream;
 
+import com.surimap.eventhub.adapter.EventDispatchJob;
 import com.surimap.eventhub.dto.PublishRequest;
 import java.util.Objects;
 
@@ -11,10 +12,10 @@ public record SseEventFrame(String id, String event, PublishRequest data) {
     Objects.requireNonNull(data, "data must not be null");
   }
 
-  static SseEventFrame from(SseReplayEvent replayEvent) {
+  static SseEventFrame from(EventDispatchJob replayEvent) {
     return new SseEventFrame(
-        Long.toString(replayEvent.replaySequence()),
-        replayEvent.envelope().type(),
-        replayEvent.envelope());
+        Long.toString(replayEvent.getSseSequence()),
+        replayEvent.getEventType(),
+        replayEvent.toPublishRequest());
   }
 }

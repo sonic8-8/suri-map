@@ -130,7 +130,7 @@ class SseConnectionRegistryTest {
   void send_when_emitter_has_completed_removes_failed_connection_and_sends_to_healthy_connection(
       String subscriptionType) {
     // given: 실제 Spring emitter가 오류로 종료됐지만 연결 목록에는 아직 남아 있다.
-    var emitter = new SseEmitter(0L);
+    var emitter = new SseStreamEmitter(ignored -> {});
     emitter.completeWithError(
         new AsyncRequestNotUsableException("Response not usable after response errors."));
     var disconnected = spy(new SseEmitterLiveEventSink(emitter));
@@ -156,7 +156,7 @@ class SseConnectionRegistryTest {
   void send_when_io_fails_removes_connection_without_completing_emitter(String subscriptionType)
       throws IOException {
     // given: 실제 전송 경계에서 응답 쓰기가 실패하는 연결이 먼저 등록돼 있다.
-    var emitter = mock(SseEmitter.class);
+    var emitter = mock(SseStreamEmitter.class);
     doThrow(new IOException("private-network-details"))
         .when(emitter)
         .send(any(SseEmitter.SseEventBuilder.class));
@@ -216,7 +216,7 @@ class SseConnectionRegistryTest {
   @DisplayName("메시지 변환 실패가 IllegalStateException으로 감싸지면, 연결 종료로 무시하지 않는다")
   void send_when_message_conversion_fails_propagates_failure() throws IOException {
     // given: Spring은 메시지 변환 등의 내부 오류를 원인 예외와 함께 감싼다.
-    var emitter = mock(SseEmitter.class);
+    var emitter = mock(SseStreamEmitter.class);
     var failure =
         new IllegalStateException(
             "Failed to send", new HttpMessageNotWritableException("conversion failed"));

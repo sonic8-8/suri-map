@@ -2,8 +2,12 @@ package com.surimap.eventhub;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
@@ -16,13 +20,19 @@ import com.surimap.common.auth.Role;
 import com.surimap.common.auth.guard.GuardExceptionHandler;
 import com.surimap.config.GuardConfig;
 import com.surimap.config.SecurityConfig;
+import com.surimap.eventhub.adapter.EventDispatchJobService;
+import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.stream.EventStreamConfig;
 import com.surimap.eventhub.stream.EventStreamController;
 import com.surimap.eventhub.stream.EventStreamExceptionHandler;
+import com.surimap.eventhub.stream.GoneRefetchRequiredException;
+import com.surimap.eventhub.stream.InMemorySseReplayEventStore;
 import com.surimap.eventhub.stream.SseConnectionRegistry;
 import com.surimap.eventhub.stream.SseEventFrame;
 import com.surimap.eventhub.stream.SseReplayEvent;
 import com.surimap.eventhub.stream.SseReplayEventStore;
+import com.surimap.eventhub.stream.SseReplayService;
+import com.surimap.eventhub.stream.SseReplayService.ReplayResult;
 import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
@@ -38,13 +48,21 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -53,6 +71,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockAsyncContext;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -66,6 +85,7 @@ import org.springframework.web.context.request.async.WebAsyncUtils;
   GuardExceptionHandler.class,
   GuardPortTestStubs.class,
   EventStreamConfig.class,
+  SseStreamService.class,
   EventStreamExceptionHandler.class
 })
 class EventStreamControllerTest {
@@ -76,7 +96,10 @@ class EventStreamControllerTest {
       UUID.fromString("70000000-0000-4000-8000-000000000901");
 
   @Autowired private MockMvc mockMvc;
-  @Autowired private SseReplayEventStore replayStore;
+  // HTTP 전송·연결 전환용 입력이다. DB 조회 자체는 SseReplayServiceTest에서 검증한다.
+  private final SseReplayEventStore replayStore = new InMemorySseReplayEventStore();
+  @MockitoBean private SseReplayService replayService;
+  @MockitoBean private EventDispatchJobService jobService;
   @Autowired private SseConnectionRegistry connectionRegistry;
   @Autowired private SseStreamService streamService;
   @Autowired private WebApplicationContext applicationContext;
@@ -84,6 +107,32 @@ class EventStreamControllerTest {
   @BeforeEach
   void reset_replay_store() {
     replayStore.clear();
+    when(replayService.replayResultAfter(any(), nullable(String.class)))
+        .thenAnswer(
+            invocation -> {
+              String lastId = invocation.getArgument(1);
+              long cursor = lastId == null || lastId.isBlank() ? 0 : Long.parseLong(lastId);
+              long through =
+                  replayStore.findByIncidentId(INCIDENT_ID).stream()
+                      .mapToLong(SseReplayEvent::replaySequence)
+                      .max()
+                      .orElse(0L);
+              var remaining = replayStore.replayAfter(INCIDENT_ID, cursor);
+              if (cursor > 0
+                  && !remaining.isEmpty()
+                  && remaining.get(0).replaySequence() > cursor + 1) {
+                throw new GoneRefetchRequiredException();
+              }
+              return replay_page(cursor, through);
+            });
+    when(replayService.replayNextPage(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              ReplayResult previous = invocation.getArgument(1);
+              long cursor =
+                  Long.parseLong(previous.getFrames().get(previous.getFrames().size() - 1).id());
+              return replay_page(cursor, previous.getThroughSequence());
+            });
   }
 
   @AfterEach
@@ -374,7 +423,7 @@ class EventStreamControllerTest {
         mockMvc.perform(context -> new DeferredStartRequest(context, submittedTasks)).andReturn();
 
     // when: 작업을 기다리는 동안 이벤트가 추가된 뒤 전송을 시작한다.
-    streamService.dispatchLive(
+    dispatch_event(
         DISPATCH_JOB_ID,
         EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
         1L);
@@ -383,6 +432,403 @@ class EventStreamControllerTest {
     // then: 접속 시점의 빈 이력만 사용하지 않고 추가된 이벤트를 보낸다.
     assertThat(result.getResponse().getContentAsString())
         .contains("id:1", "event:PATH_APPENDED", EVENT_ID.toString());
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("과거 이벤트를 보내는 중 새 이벤트가 도착해도 과거 순번 뒤에 이어서 보낸다")
+  void new_event_during_replay_is_sent_after_historical_event() throws Exception {
+    // given: 1번 이력이 있으며 첫 응답을 쓸 때 2번 이벤트가 도착한다.
+    replayStore.save(
+        SseReplayEvent.active(
+            UUID.randomUUID(),
+            DISPATCH_JOB_ID,
+            INCIDENT_ID,
+            1L,
+            EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+            EventStreamTestFixtures.CREATED_AT));
+    var interleavingMvc =
+        interceptFirstResponseWrite(
+            () -> {
+              dispatch_event(
+                  DISPATCH_JOB_ID,
+                  EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+                  1L);
+              dispatch_event(
+                  UUID.randomUUID(),
+                  EventStreamTestFixtures.publishRequest(
+                      UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                  2L);
+            });
+    List<Runnable> submittedTasks = new ArrayList<>();
+
+    // when: MVC가 준비한 응답에서 과거 이력 전송을 시작한다.
+    var result =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+    submittedTasks.get(0).run();
+
+    // then: 새 이벤트가 과거 이력을 앞지르지 않고 각 순번을 한 번만 전송한다.
+    assertThat(
+            result
+                .getResponse()
+                .getContentAsString()
+                .lines()
+                .filter(line -> line.startsWith("id:"))
+                .toList())
+        .containsExactly("id:1", "id:2");
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("대기분 전송 중 추가된 이벤트도 중복 없이 순서대로 보내고 실시간 전송으로 넘어간다")
+  void event_arriving_while_draining_is_sent_once_before_live_delivery() throws Exception {
+    // given: 과거 1번 뒤에 대기 2번을 보내고, 2번을 쓰는 동안 3번이 도착한다.
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    var secondEvent =
+        EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED");
+    UUID secondJobId = UUID.randomUUID();
+    var flushCount = new AtomicInteger();
+    var interleavingMvc =
+        MockMvcBuilders.webAppContextSetup(applicationContext)
+            .addFilter(
+                (request, response, chain) -> {
+                  var intercepted = spy((HttpServletResponse) response);
+                  doAnswer(
+                          invocation -> {
+                            var value = invocation.callRealMethod();
+                            int writtenFrames = flushCount.incrementAndGet();
+                            if (writtenFrames == 1) { // 연결 확인 주석을 보낸 직후다.
+                              dispatch_event(secondJobId, secondEvent, 2L);
+                            } else if (writtenFrames == 3) { // 1번 이력 뒤의 대기 2번을 보내는 중이다.
+                              dispatch_event(secondJobId, secondEvent, 2L);
+                              dispatch_event(
+                                  UUID.randomUUID(),
+                                  EventStreamTestFixtures.publishRequest(
+                                      UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                                  3L);
+                            }
+                            return value;
+                          })
+                      .when(intercepted)
+                      .flushBuffer();
+                  chain.doFilter(request, intercepted);
+                })
+            .build();
+    List<Runnable> submittedTasks = new ArrayList<>();
+    var result =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+
+    // when: 재전송을 마친 뒤 4번은 일반 실시간 경로로 보낸다.
+    submittedTasks.get(0).run();
+    dispatch_event(
+        UUID.randomUUID(),
+        EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+        4L);
+
+    // then: 중복 2번과 전환 시점의 새 이벤트가 순서를 깨뜨리거나 누락을 만들지 않는다.
+    assertThat(
+            result
+                .getResponse()
+                .getContentAsString()
+                .lines()
+                .filter(line -> line.startsWith("id:"))
+                .toList())
+        .containsExactly("id:1", "id:2", "id:3", "id:4");
+  }
+
+  @ParameterizedTest(name = "대기 이벤트: {0}개")
+  @ValueSource(ints = {1000, 1001})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("재전송 중 대기 이벤트가 1,000개를 넘으면 해당 연결만 끊고 이력은 보존한다")
+  void replay_pending_event_limit_disconnects_only_overflowing_connection(int eventCount)
+      throws Exception {
+    // given: 한 연결은 재전송 중이고 다른 연결은 실시간 이벤트를 받는다.
+    List<SseEventFrame> receivedByOtherConnection = new ArrayList<>();
+    connectionRegistry.registerForIncident(INCIDENT_ID, receivedByOtherConnection::add);
+    var interleavingMvc =
+        interceptFirstResponseWrite(
+            () -> {
+              for (int sequence = 1; sequence <= eventCount; sequence++) {
+                dispatch_event(
+                    UUID.randomUUID(),
+                    EventStreamTestFixtures.publishRequest(
+                        UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                    sequence);
+              }
+            });
+    List<Runnable> submittedTasks = new ArrayList<>();
+    var result =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+
+    // when: 재전송 응답을 쓰는 사이 새 이벤트들이 도착한다.
+    submittedTasks.get(0).run();
+
+    // then: 한도까지는 모두 이어 보내고, 초과하면 그 연결만 제거한다.
+    assertThat(receivedByOtherConnection).hasSize(eventCount);
+    assertThat(replayStore.findByIncidentId(INCIDENT_ID)).hasSize(eventCount);
+    if (eventCount == 1000) {
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).hasSize(2);
+      assertThat(
+              result
+                  .getResponse()
+                  .getContentAsString()
+                  .lines()
+                  .filter(line -> line.startsWith("id:"))
+                  .toList())
+          .hasSize(1000);
+    } else {
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).hasSize(1);
+      assertThat(result.getResponse().getContentAsString()).doesNotContain("id:");
+    }
+  }
+
+  @ParameterizedTest(name = "이벤트 {0}개, 한글 {1}자, 초과 {2}")
+  @CsvSource({"1,340000,false", "1,350000,true", "2,180000,true"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("재전송 대기는 글자 수가 아닌 UTF-8 전송 바이트 합계가 1MiB를 넘을 때 종료한다")
+  void replay_pending_byte_limit_counts_serialized_utf8_frames(
+      int eventCount, int characterCount, boolean overflow) throws Exception {
+    // given: 개수 한도보다 작지만 한글 내용 때문에 전송 바이트가 큰 이벤트들이다.
+    var interleavingMvc =
+        interceptFirstResponseWrite(
+            () -> {
+              for (int sequence = 1; sequence <= eventCount; sequence++) {
+                dispatch_event(
+                    UUID.randomUUID(),
+                    EventStreamTestFixtures.publishRequest(
+                        UUID.randomUUID(),
+                        INCIDENT_ID,
+                        "PATH_APPENDED",
+                        "30000000-0000-4000-8000-000000000501",
+                        "가".repeat(characterCount),
+                        7L),
+                    sequence);
+              }
+            });
+    List<Runnable> submittedTasks = new ArrayList<>();
+    var result =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+
+    // when: 과거 이력의 전송이 끝나기 전에 새 이벤트가 도착한다.
+    submittedTasks.get(0).run();
+
+    // then: 직렬화된 합계가 한도 안이면 전송하고, 초과하면 이력을 보존한 채 종료한다.
+    assertThat(replayStore.findByIncidentId(INCIDENT_ID)).hasSize(eventCount);
+    if (overflow) {
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+      assertThat(result.getResponse().getContentAsString()).doesNotContain("id:");
+    } else {
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).hasSize(1);
+      assertThat(result.getResponse().getContentAsString()).contains("id:1");
+    }
+  }
+
+  @ParameterizedTest(name = "종료 이벤트: {0}")
+  @ValueSource(strings = {"INCIDENT_CLOSED", "INCIDENT_PURGED"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("재전송 중 사건 종료·파기가 도착하면 남은 과거 내용 대신 종료 정보만 보내고 닫는다")
+  void terminal_event_during_replay_discards_pending_history_and_closes(String eventType)
+      throws Exception {
+    // given: 아직 보내지 않은 경로 이력이 있으며 첫 응답 쓰기 중 종료 정보가 도착한다.
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    var interleavingMvc =
+        interceptFirstResponseWrite(
+            () ->
+                dispatch_event(
+                    UUID.randomUUID(),
+                    EventStreamTestFixtures.publishRequest(
+                        UUID.randomUUID(), INCIDENT_ID, eventType),
+                    2L));
+    List<Runnable> submittedTasks = new ArrayList<>();
+    var result =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+
+    // when: 과거 이력 전송을 시작한다.
+    submittedTasks.get(0).run();
+
+    // then: 종료를 확인한 뒤 이전 경로 내용을 새로 내보내지 않는다.
+    assertThat(result.getResponse().getContentAsString())
+        .contains("id:2", "event:" + eventType)
+        .doesNotContain("id:1", "event:PATH_APPENDED");
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+    assertThat(WebAsyncUtils.getAsyncManager(result.getRequest()).hasConcurrentResult()).isTrue();
+    assertThat(result.getAsyncResult()).isNull();
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("재전송 응답 쓰기가 막혀도 다른 연결은 전달받고 초과 연결의 등록은 즉시 제거된다")
+  void blocked_replay_write_does_not_block_other_connections_or_overflow_cleanup()
+      throws Exception {
+    // given: 한 연결의 실제 응답 쓰기를 멈추고 다른 연결은 정상 수신한다.
+    var writeStarted = new CountDownLatch(1);
+    var releaseWrite = new CountDownLatch(1);
+    var otherReceived = new AtomicInteger();
+    connectionRegistry.registerForIncident(INCIDENT_ID, ignored -> otherReceived.incrementAndGet());
+    var slowMvc =
+        interceptFirstResponseWrite(
+            () -> {
+              writeStarted.countDown();
+              assertThat(releaseWrite.await(10, TimeUnit.SECONDS)).isTrue();
+            });
+    List<Runnable> submittedTasks = new CopyOnWriteArrayList<>();
+    var result =
+        slowMvc.perform(context -> new DeferredStartRequest(context, submittedTasks)).andReturn();
+    var executor = Executors.newFixedThreadPool(2);
+    try {
+      var replay = executor.submit(submittedTasks.get(0));
+      assertThat(writeStarted.await(10, TimeUnit.SECONDS)).isTrue();
+
+      // when: 재전송 스레드와 다른 스레드에서 새 이벤트를 보낸다.
+      var delivery =
+          executor.submit(
+              () -> {
+                for (int sequence = 1; sequence <= 1001; sequence++) {
+                  dispatch_event(
+                      UUID.randomUUID(),
+                      EventStreamTestFixtures.publishRequest(
+                          UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                      sequence);
+                }
+              });
+      delivery.get(10, TimeUnit.SECONDS);
+
+      // then: 막힌 쓰기를 풀기 전에도 정상 연결의 전달과 초과 연결 해제가 끝난다.
+      assertThat(otherReceived.get()).isEqualTo(1001);
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).hasSize(1);
+      assertThat(submittedTasks).hasSize(2);
+      releaseWrite.countDown();
+      replay.get(10, TimeUnit.SECONDS);
+      submittedTasks.get(1).run();
+      assertThat(result.getResponse().getContentAsString()).doesNotContain("id:");
+      assertThat(result.getAsyncResult()).isNull();
+    } finally {
+      releaseWrite.countDown();
+      executor.shutdownNow();
+      assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+    }
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("대기량 초과로 끊겨도 마지막으로 받은 순번부터 재접속하면 나머지 이벤트를 빠짐없이 받는다")
+  void reconnect_after_overflow_resumes_after_last_received_sequence() throws Exception {
+    // given: 첫 이벤트 전송 직후 새 이벤트 1,001개가 도착하도록 준비한다.
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    var flushCount = new AtomicInteger();
+    var interleavingMvc =
+        MockMvcBuilders.webAppContextSetup(applicationContext)
+            .addFilter(
+                (request, response, chain) -> {
+                  var intercepted = spy((HttpServletResponse) response);
+                  doAnswer(
+                          invocation -> {
+                            var value = invocation.callRealMethod();
+                            if (flushCount.incrementAndGet() == 2) {
+                              for (int sequence = 2; sequence <= 1002; sequence++) {
+                                dispatch_event(
+                                    UUID.randomUUID(),
+                                    EventStreamTestFixtures.publishRequest(
+                                        UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                                    sequence);
+                              }
+                            }
+                            return value;
+                          })
+                      .when(intercepted)
+                      .flushBuffer();
+                  chain.doFilter(request, intercepted);
+                })
+            .build();
+    List<Runnable> submittedTasks = new ArrayList<>();
+    var first =
+        interleavingMvc
+            .perform(context -> new DeferredStartRequest(context, submittedTasks))
+            .andReturn();
+    submittedTasks.get(0).run();
+    assertThat(
+            first
+                .getResponse()
+                .getContentAsString()
+                .lines()
+                .filter(line -> line.startsWith("id:"))
+                .toList())
+        .containsExactly("id:1");
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+    submittedTasks.get(1).run();
+
+    // when: 실제 받은 1번을 마지막 수신 순번으로 전달해 다시 접속한다.
+    List<Runnable> resumedTasks = new ArrayList<>();
+    var resumed =
+        mockMvc
+            .perform(
+                context -> {
+                  var request = new DeferredStartRequest(context, resumedTasks);
+                  request.addHeader("Last-Event-ID", "1");
+                  return request;
+                })
+            .andReturn();
+    resumedTasks.get(0).run();
+
+    // then: 대기에 넣었던 순번을 건너뛰지 않고 2번부터 1,002번까지 이어 보낸다.
+    var receivedIds =
+        resumed
+            .getResponse()
+            .getContentAsString()
+            .lines()
+            .filter(line -> line.startsWith("id:"))
+            .toList();
+    assertThat(receivedIds).hasSize(1001).startsWith("id:2").endsWith("id:1002");
+    for (int index = 0; index < receivedIds.size(); index++) {
+      assertThat(receivedIds.get(index)).isEqualTo("id:" + (index + 2));
+    }
   }
 
   @ParameterizedTest(name = "마지막 수신 순번: {0}")
@@ -470,6 +916,79 @@ class EventStreamControllerTest {
     assertThat(result.getResponse().getContentAsString()).isEqualTo(received);
   }
 
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("다음 페이지 조회 중 파기가 확정돼도 대기 중인 파기 알림을 전달하고 닫는다")
+  void purge_during_next_page_read_delivers_pending_terminal_event() throws Exception {
+    // given: 과거 이력은 두 페이지이며 두 번째 조회 중 파기 알림이 도착한다.
+    for (long sequence = 1; sequence <= 101; sequence++) {
+      dispatch_event(
+          UUID.randomUUID(),
+          EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+          sequence);
+    }
+    doAnswer(
+            invocation -> {
+              dispatch_event(
+                  UUID.randomUUID(),
+                  EventStreamTestFixtures.publishRequest(
+                      UUID.randomUUID(), INCIDENT_ID, "INCIDENT_PURGED"),
+                  102);
+              throw new GoneRefetchRequiredException();
+            })
+        .when(replayService)
+        .replayNextPage(any(), any());
+    List<Runnable> tasks = new ArrayList<>();
+    var result = mockMvc.perform(context -> new DeferredStartRequest(context, tasks)).andReturn();
+
+    // when: 초기 전송과 다음 페이지 조회를 실행한다.
+    tasks.get(0).run();
+
+    // then: 남은 과거 이력은 보내지 않고 파기 알림을 보낸 뒤 정상 종료한다.
+    assertThat(result.getResponse().getContentAsString())
+        .contains("id:102", "event:INCIDENT_PURGED")
+        .doesNotContain("id:101\n");
+    assertThat(result.getAsyncResult()).isNull();
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+  }
+
+  private ReplayResult replay_page(long cursor, long through) {
+    return ReplayResult.builder()
+        .frames(
+            replayStore.replayAfter(INCIDENT_ID, cursor).stream()
+                .filter(event -> event.replaySequence() <= through)
+                .limit(100)
+                .map(
+                    event ->
+                        new SseEventFrame(
+                            Long.toString(event.replaySequence()),
+                            event.envelope().type(),
+                            event.envelope()))
+                .toList())
+        .throughSequence(through)
+        .terminalReached(replayStore.terminalReplaySequence(INCIDENT_ID).isPresent())
+        .build();
+  }
+
+  private void dispatch_event(UUID jobId, PublishRequest request, long sequence) {
+    replayStore.save(
+        SseReplayEvent.active(
+            jobId,
+            jobId,
+            request.incidentId(),
+            sequence,
+            request,
+            EventStreamTestFixtures.CREATED_AT));
+    streamService.dispatchLive(request, sequence);
+    if ("INCIDENT_PURGED".equals(request.type())) {
+      replayStore.purgeIncident(request.incidentId());
+    }
+  }
+
   private MockMvc mvcWithWriteFailure(Exception failure) {
     return MockMvcBuilders.webAppContextSetup(applicationContext)
         .addFilter(
@@ -477,6 +996,26 @@ class EventStreamControllerTest {
               var failingResponse = spy((HttpServletResponse) response);
               doThrow(failure).when(failingResponse).getOutputStream();
               chain.doFilter(request, failingResponse);
+            })
+        .build();
+  }
+
+  private MockMvc interceptFirstResponseWrite(Executable firstWriteAction) {
+    var firstWrite = new AtomicBoolean();
+    return MockMvcBuilders.webAppContextSetup(applicationContext)
+        .addFilter(
+            (request, response, chain) -> {
+              var intercepted = spy((HttpServletResponse) response);
+              doAnswer(
+                      invocation -> {
+                        if (firstWrite.compareAndSet(false, true)) {
+                          firstWriteAction.execute();
+                        }
+                        return invocation.callRealMethod();
+                      })
+                  .when(intercepted)
+                  .getOutputStream();
+              chain.doFilter(request, intercepted);
             })
         .build();
   }

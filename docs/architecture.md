@@ -26,7 +26,7 @@
 4. [DbEventHub](../backend/src/main/java/com/surimap/eventhub/adapter/DbEventHub.java)가 이벤트 전송 작업을 DB에 저장하고 커밋 뒤 [worker](../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobWorker.java)를 깨운다. worker는 [Service](../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobService.java)에서 사건별 SSE 순번을 커밋한 뒤 DB 트랜잭션 밖에서 전송한다. 주기 조회도 대기 작업을 찾는다.
 5. 웹은 [fetch 기반 SSE 수신기](../frontend/src/shared/api/eventStream.ts)로 이벤트를 받는다. [상황판 구독](../frontend/src/features/situationBoard/presentation/hooks/useSituationBoardData.ts)이 조회 캐시를 무효화하면 API를 다시 조회한다. 서버는 [조회 서비스](../backend/src/main/java/com/surimap/board/IncidentBoardQueryService.java)에서 여러 원본 데이터를 모아 응답을 조립한다.
 
-이 흐름은 호출 관계의 설명이다. DB 전송 작업의 완료가 화면 표시 완료를 뜻하지 않는다. SSE 재전송 이력은 [메모리 저장소](../backend/src/main/java/com/surimap/eventhub/stream/EventStreamConfig.java)를 사용하므로 서버 재시작 후 복구를 보장하지 않는다. 최신 화면 복구와 놓친 알림 복구의 차이는 [이벤트 전달](features/event-delivery.md)·[상황판 기록](features/situation-board.md)에서 확인한다.
+이 흐름은 호출 관계의 설명이다. DB 전송 작업의 완료가 화면 표시 완료를 뜻하지 않는다. 2026-09-28 로컬 구현에서는 [재전송 서비스](../backend/src/main/java/com/surimap/eventhub/stream/SseReplayService.java)가 DB 이력을 페이지 단위로 읽도록 연결했다. 실제 배포·서버 재시작 후 복구 검증과는 구분한다. 최신 화면 복구와 놓친 알림 복구의 차이는 [이벤트 전달](features/event-delivery.md)·[상황판 기록](features/situation-board.md)에서 확인한다.
 
 ## 채널과 코드 배치
 
@@ -42,7 +42,7 @@
 | 애플리케이션 배포 | [Runtime Compose](../infra/docker/docker-compose.runtime.yml)에 Frontend·Backend·PostGIS·MinIO·mock-112·Keycloak과 원천·인증용 별도 PostgreSQL이 있다. TileServer GL은 `tiles` profile이다. 호스트 주소·비밀값·활성 profile은 배포 환경에서 주입한다. |
 | HTTP 진입점 | [Frontend Nginx](../frontend/nginx.conf)가 정적 파일을 제공하고 API·타일·인증·사진·mock-112 요청을 중계한다. 별도 호스트 Nginx의 [SSE 설정](../infra/nginx/suri-map-sse.locations.conf)과 [타일 예시](../infra/nginx/tileserver-gl.locations.example.conf)도 있다. 호스트의 전체 설정은 이 저장소만으로 확정할 수 없다. |
 | 타일 실행 데이터 | [TileServer 설정](../infra/docker/tileserver/config.json)과 스타일은 저장소에 있다. 실제 MBTiles·glyph는 별도로 준비해야 한다. [준비 안내](../infra/docker/tileserver/README.md)의 EC2 경로는 과거 환경 예시이며, 현재 위치는 `TILESERVER_DATA_DIR`과 배포 파일을 확인한다. |
-| 빌드·배포 파이프라인 | [Jenkinsfile](../infra/Jenkinsfile)에 Backend 시험·이미지 빌드·배포·기동 확인·k6 smoke 단계가 있다. SonarQube는 건너뜀으로 기록하고 k6는 배포 뒤 실행한다. 이를 모든 품질 검사가 배포 전에 차단하는 구조로 설명하지 않는다. 현재 작업의 실제 실행 여부는 CI 기록으로 확인한다. |
+| 빌드·배포 파이프라인 | [Jenkinsfile](../infra/Jenkinsfile)에 Backend 시험·이미지 빌드·배포·기동 확인·k6 smoke 단계가 있다. [Backend CI 안내](../infra/ci/README.md)의 테스트 컨테이너는 Docker 소켓으로 별도 PostgreSQL/PostGIS를 띄운다. SonarQube는 건너뜀으로 기록하고 k6는 배포 뒤 실행한다. 이를 모든 품질 검사가 배포 전에 차단하는 구조로 설명하지 않는다. 현재 작업의 실제 실행 여부는 CI 기록으로 확인한다. |
 | 메트릭 | [관측 설정](../infra/observability/README.md)은 Hetzner App 서버의 Actuator·호스트·컨테이너·PostgreSQL 지표를 Ops 서버의 Prometheus·Grafana에서 보는 구성이다. k6 시험 절차는 [부하 테스트 안내](../infra/k6/README.md)에서 확인한다. |
 | 로그·백업 | Runtime Compose는 Docker 로그 회전을 설정한다. [부하 시험 전 백업](../infra/observability/app/backup-before-load-test.sh)은 수동 실행 스크립트다. 중앙 로그 수집·정기 백업·복원 검증을 완료했다는 뜻은 아니다. |
 

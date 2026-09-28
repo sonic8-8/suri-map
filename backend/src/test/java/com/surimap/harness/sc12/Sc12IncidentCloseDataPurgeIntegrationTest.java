@@ -19,9 +19,11 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
+import com.surimap.eventhub.adapter.EventDispatchJobService;
 import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.stream.SseReplayEventStore;
-import com.surimap.eventhub.stream.SseReplayEventStore.ReplayAppend;
+import com.surimap.eventhub.stream.GoneRefetchRequiredException;
+import com.surimap.eventhub.stream.SseEventFrame;
+import com.surimap.eventhub.stream.SseReplayService;
 import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.mock112.AssignmentPollingHandler;
@@ -97,7 +99,8 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   @Autowired private PurgeCoordinator purgeCoordinator;
 
-  @Autowired private SseReplayEventStore sseReplayEventStore;
+  @Autowired private EventDispatchJobService jobService;
+  @Autowired private SseReplayService replayService;
 
   @Autowired private SseStreamService sseStreamService;
 
@@ -111,7 +114,6 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   @BeforeEach
   void seedSc12Incident() {
     assignmentPollingHandler.reset();
-    sseReplayEventStore.clear();
     jdbcTemplate.execute(
         """
         TRUNCATE TABLE marker_notification, photo, marker, offline_package_installation,
@@ -185,14 +187,13 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
         .containsEntry("writeDisabledReason", "incident_closed");
     assertNoPii(closedEvent.payload());
 
-    ReplayAppend closedSse =
-        sseStreamService.dispatchLive(closedEvent.rowId(), closedEvent.toPublishRequest(), 1L);
-    assertThat(closedSse.isNew()).isTrue();
-    assertThat(closedSse.event().envelope().type()).isEqualTo("INCIDENT_CLOSED");
-    assertThat(closedSse.event().envelope().payload().get("closedAt"))
-        .isEqualTo("2026-04-28T01:45:00Z");
-    assertThat(sseReplayEventStore.terminalReplaySequence(INCIDENT_ID).orElseThrow())
-        .isEqualTo(closedSse.replaySequence());
+    SseEventFrame closedSse =
+        sseStreamService.dispatchLive(
+            closedEvent.toPublishRequest(), jobService.getOrAssignSseSequence(closedEvent.rowId()));
+    assertThat(closedSse.data().type()).isEqualTo("INCIDENT_CLOSED");
+    assertThat(closedSse.data().payload().get("closedAt")).isEqualTo("2026-04-28T01:45:00Z");
+    assertThat(replayService.replayResultAfter(INCIDENT_ID, "0").getFrames())
+        .containsExactly(closedSse);
 
     // 4. INCIDENT_CLOSED를 소비한 뒤 로컬 파기를 실행해 SC-12가 파기 완료 종료 상태에 도달함을 증명한다.
     IncidentDataPurgeRun purgeRun =
@@ -223,11 +224,12 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
     assertThat(purgedEvent.payload()).containsKey("purgedAt");
     assertNoPii(purgedEvent.payload());
 
-    ReplayAppend purgedSse =
-        sseStreamService.dispatchLive(purgedEvent.rowId(), purgedEvent.toPublishRequest(), 2L);
-    assertThat(purgedSse.isNew()).isTrue();
-    assertThat(purgedSse.event().envelope().type()).isEqualTo("INCIDENT_PURGED");
-    assertThat(sseReplayEventStore.isIncidentPurged(INCIDENT_ID)).isTrue();
+    SseEventFrame purgedSse =
+        sseStreamService.dispatchLive(
+            purgedEvent.toPublishRequest(), jobService.getOrAssignSseSequence(purgedEvent.rowId()));
+    assertThat(purgedSse.data().type()).isEqualTo("INCIDENT_PURGED");
+    assertThatThrownBy(() -> replayService.replayResultAfter(INCIDENT_ID, "0"))
+        .isInstanceOf(GoneRefetchRequiredException.class);
 
     // 5. 종료 상황판 증거는 오래된 개인정보나 새로고침/재시도 안내 없이 수렴해야 한다.
     BoardDTO board = assembleTerminalBoard(completed, purgedEvent, purgedSse);
@@ -399,7 +401,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   }
 
   private BoardDTO assembleTerminalBoard(
-      IncidentDataPurgeRun completed, OutboxRow purgedEvent, ReplayAppend purgedSse) {
+      IncidentDataPurgeRun completed, OutboxRow purgedEvent, SseEventFrame purgedSse) {
     // S1-3 종료 행과 package badge 행을 포함해 S3-2가 소비하는 상황판 형태로 조립한다.
     return new BoardAssembler()
         .assemble(
@@ -418,7 +420,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   }
 
   private BoardSourceRow incidentTerminalRow(
-      IncidentDataPurgeRun completed, OutboxRow purgedEvent, ReplayAppend purgedSse) {
+      IncidentDataPurgeRun completed, OutboxRow purgedEvent, SseEventFrame purgedSse) {
     // 이 행에는 금지 키를 일부러 넣는다. SC-12는 종료 상황판이 이를 제거해야 한다.
     return new BoardSourceRow(
         "incident_terminal",
@@ -427,7 +429,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
         TERMINAL_BOARD_ROW_ID,
         "PURGED",
         completed.version(),
-        purgedSse.replaySequence(),
+        Long.parseLong(purgedSse.id()),
         purgedEvent.eventId().toString(),
         "hash-sc12-terminal-purged",
         Map.ofEntries(
