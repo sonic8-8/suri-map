@@ -42,7 +42,7 @@
 | 애플리케이션 배포 | [Runtime Compose](../infra/docker/docker-compose.runtime.yml)에 Frontend·Backend·PostGIS·MinIO·mock-112·Keycloak과 원천·인증용 별도 PostgreSQL이 있다. TileServer GL은 `tiles` profile이다. 호스트 주소·비밀값·활성 profile은 배포 환경에서 주입한다. |
 | HTTP 진입점 | [Frontend Nginx](../frontend/nginx.conf)가 정적 파일을 제공하고 API·타일·인증·사진·mock-112 요청을 중계한다. 별도 호스트 Nginx의 [SSE 설정](../infra/nginx/suri-map-sse.locations.conf)과 [타일 예시](../infra/nginx/tileserver-gl.locations.example.conf)도 있다. 호스트의 전체 설정은 이 저장소만으로 확정할 수 없다. |
 | 타일 실행 데이터 | [TileServer 설정](../infra/docker/tileserver/config.json)과 스타일은 저장소에 있다. 실제 MBTiles·glyph는 별도로 준비해야 한다. [준비 안내](../infra/docker/tileserver/README.md)의 EC2 경로는 과거 환경 예시이며, 현재 위치는 `TILESERVER_DATA_DIR`과 배포 파일을 확인한다. |
-| 빌드·배포 파이프라인 | [Jenkinsfile](../infra/Jenkinsfile)에 Backend 시험·이미지 빌드·배포·기동 확인·k6 smoke 단계가 있다. [Backend CI 안내](../infra/ci/README.md)의 테스트 컨테이너는 Docker 소켓으로 별도 PostgreSQL/PostGIS를 띄운다. SonarQube는 건너뜀으로 기록하고 k6는 배포 뒤 실행한다. 이를 모든 품질 검사가 배포 전에 차단하는 구조로 설명하지 않는다. 현재 작업의 실제 실행 여부는 CI 기록으로 확인한다. |
+| 빌드·배포 파이프라인 | Hetzner Jenkins의 inline 설정은 `Checkout → Backend Test CI → Sync → Deploy` 순서다. Ops 서버의 별도 DB로 테스트하고 실패·필수 결과 누락·필수 SSE DB 검사 건너뜀을 배포 전에 차단한다. [hetzner.Jenkinsfile](../infra/ci/hetzner.Jenkinsfile)은 설정 대조용 사본이며 SCM에서 자동으로 읽지 않는다. 기존 `infra/Jenkinsfile`도 현재 작업에서 사용하지 않는다. 구성·보고서·실행 기록은 [Backend CI 안내](../infra/ci/README.md)를 따른다. |
 | 메트릭 | [관측 설정](../infra/observability/README.md)은 Hetzner App 서버의 Actuator·호스트·컨테이너·PostgreSQL 지표를 Ops 서버의 Prometheus·Grafana에서 보는 구성이다. k6 시험 절차는 [부하 테스트 안내](../infra/k6/README.md)에서 확인한다. |
 | 로그·백업 | Runtime Compose는 Docker 로그 회전을 설정한다. [부하 시험 전 백업](../infra/observability/app/backup-before-load-test.sh)은 수동 실행 스크립트다. 중앙 로그 수집·정기 백업·복원 검증을 완료했다는 뜻은 아니다. |
 
