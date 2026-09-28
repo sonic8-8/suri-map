@@ -32,6 +32,14 @@ public class EventDispatchJobService {
     return mapper.claimPending(Math.max(1, limit), "DISPATCHING");
   }
 
+  /** 일반 이벤트 쓰기 직전 상태를 확인한다. 조회 트랜잭션은 네트워크 쓰기 전에 끝낸다. */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public void validateSseTransmission(UUID incidentId) {
+    if (!mapper.isIncidentOpenAndNotPurged(incidentId)) {
+      throw new GoneRefetchRequiredException();
+    }
+  }
+
   /** 이번 재전송의 마지막 확정 순번을 읽는다. 호출부는 연결 등록·실시간 이벤트 대기를 조율하고 이 값을 모든 페이지의 throughSequence로 유지한다. */
   @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
   public long getSseReplayEndSequence(UUID incidentId) {

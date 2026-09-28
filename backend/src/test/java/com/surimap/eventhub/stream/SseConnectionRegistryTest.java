@@ -2,7 +2,6 @@ package com.surimap.eventhub.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,7 +24,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 class SseConnectionRegistryTest {
 
@@ -155,12 +153,12 @@ class SseConnectionRegistryTest {
   @DisplayName("쓰기 중 I/O 오류가 나면, 해당 연결을 제외하고 HTTP 정리는 컨테이너에 맡긴다")
   void send_when_io_fails_removes_connection_without_completing_emitter(String subscriptionType)
       throws IOException {
-    // given: 실제 전송 경계에서 응답 쓰기가 실패하는 연결이 먼저 등록돼 있다.
-    var emitter = mock(SseStreamEmitter.class);
-    doThrow(new IOException("private-network-details"))
-        .when(emitter)
-        .send(any(SseEmitter.SseEventBuilder.class));
-    register(subscriptionType, new SseEmitterLiveEventSink(emitter));
+    // given: 연결에서 I/O 오류가 전파되며, 실제 Servlet 쓰기의 정리는 Controller 검사에서 확인한다.
+    var disconnected = mock(SseLiveEventSink.class);
+    doThrow(new java.io.UncheckedIOException(new IOException("private-network-details")))
+        .when(disconnected)
+        .send(frame);
+    register(subscriptionType, disconnected);
     var connected = mock(SseLiveEventSink.class);
     register(subscriptionType, connected);
 
@@ -169,9 +167,8 @@ class SseConnectionRegistryTest {
     send(subscriptionType);
 
     // then: 실패한 연결은 재사용하지 않고, 정상 연결은 계속 수신한다.
-    verify(emitter).send(any(SseEmitter.SseEventBuilder.class));
-    verify(emitter, never()).complete();
-    verify(emitter, never()).completeWithError(any());
+    verify(disconnected).send(frame);
+    verify(disconnected, never()).close();
     verify(connected, times(2)).send(frame);
   }
 
@@ -216,12 +213,12 @@ class SseConnectionRegistryTest {
   @DisplayName("메시지 변환 실패가 IllegalStateException으로 감싸지면, 연결 종료로 무시하지 않는다")
   void send_when_message_conversion_fails_propagates_failure() throws IOException {
     // given: Spring은 메시지 변환 등의 내부 오류를 원인 예외와 함께 감싼다.
-    var emitter = mock(SseStreamEmitter.class);
+    var sink = mock(SseLiveEventSink.class);
     var failure =
         new IllegalStateException(
             "Failed to send", new HttpMessageNotWritableException("conversion failed"));
-    doThrow(failure).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
-    registry.registerForIncident(INCIDENT_ID, new SseEmitterLiveEventSink(emitter));
+    doThrow(failure).when(sink).send(frame);
+    registry.registerForIncident(INCIDENT_ID, sink);
 
     // when / then: 전송 작업이 내부 오류를 실패로 기록할 수 있도록 전달한다.
     assertThatThrownBy(() -> registry.sendToIncident(INCIDENT_ID, frame)).isSameAs(failure);

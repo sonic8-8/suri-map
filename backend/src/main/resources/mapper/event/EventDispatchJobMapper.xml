@@ -71,6 +71,18 @@
         WHERE id = #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
+    <select id="isIncidentOpenAndNotPurged" resultType="boolean" useCache="false">
+        SELECT EXISTS (
+            SELECT 1 FROM incident
+            WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND status = 'OPEN'
+        ) AND NOT EXISTS (
+            SELECT 1 FROM incident_data_purge
+            WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND status = 'COMPLETED'
+        )
+    </select>
+
     <select id="findBySseSequenceRange" resultMap="eventDispatchJobMap">
         SELECT <include refid="columns"/>
         FROM event_dispatch_job

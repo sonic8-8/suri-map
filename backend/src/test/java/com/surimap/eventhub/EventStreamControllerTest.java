@@ -539,6 +539,7 @@ class EventStreamControllerTest {
         UUID.randomUUID(),
         EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
         4L);
+    submittedTasks.get(1).run();
 
     // then: 중복 2번과 전환 시점의 새 이벤트가 순서를 깨뜨리거나 누락을 만들지 않는다.
     assertThat(
@@ -551,28 +552,34 @@ class EventStreamControllerTest {
         .containsExactly("id:1", "id:2", "id:3", "id:4");
   }
 
-  @ParameterizedTest(name = "대기 이벤트: {0}개")
-  @ValueSource(ints = {1000, 1001})
+  @ParameterizedTest(name = "실시간: {0}, 대기 이벤트: {1}개")
+  @CsvSource({"false,1000", "false,1001", "true,1000", "true,1001"})
   @WithMockAccount(
       channel = Channel.WEB,
       accountType = AccountType.COMMAND,
       organizationType = OrganizationType.MISSING_TEAM,
       roles = Role.MISSING_TEAM_COMMANDER)
-  @DisplayName("재전송 중 대기 이벤트가 1,000개를 넘으면 해당 연결만 끊고 이력은 보존한다")
-  void replay_pending_event_limit_disconnects_only_overflowing_connection(int eventCount)
+  @DisplayName("재전송·실시간 대기 이벤트가 1,000개를 넘으면 해당 연결만 끊고 이력은 보존한다")
+  void pending_event_limit_disconnects_only_overflowing_connection(boolean live, int eventCount)
       throws Exception {
     // given: 한 연결은 재전송 중이고 다른 연결은 실시간 이벤트를 받는다.
     List<SseEventFrame> receivedByOtherConnection = new ArrayList<>();
     connectionRegistry.registerForIncident(INCIDENT_ID, receivedByOtherConnection::add);
+    Runnable enqueueEvents =
+        () -> {
+          for (int sequence = 1; sequence <= eventCount; sequence++) {
+            dispatch_event(
+                UUID.randomUUID(),
+                EventStreamTestFixtures.publishRequest(
+                    UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+                sequence);
+          }
+        };
     var interleavingMvc =
         interceptFirstResponseWrite(
             () -> {
-              for (int sequence = 1; sequence <= eventCount; sequence++) {
-                dispatch_event(
-                    UUID.randomUUID(),
-                    EventStreamTestFixtures.publishRequest(
-                        UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
-                    sequence);
+              if (!live) {
+                enqueueEvents.run();
               }
             });
     List<Runnable> submittedTasks = new ArrayList<>();
@@ -583,6 +590,10 @@ class EventStreamControllerTest {
 
     // when: 재전송 응답을 쓰는 사이 새 이벤트들이 도착한다.
     submittedTasks.get(0).run();
+    if (live) {
+      enqueueEvents.run();
+      submittedTasks.get(1).run();
+    }
 
     // then: 한도까지는 모두 이어 보내고, 초과하면 그 연결만 제거한다.
     assertThat(receivedByOtherConnection).hasSize(eventCount);
@@ -603,31 +614,44 @@ class EventStreamControllerTest {
     }
   }
 
-  @ParameterizedTest(name = "이벤트 {0}개, 한글 {1}자, 초과 {2}")
-  @CsvSource({"1,340000,false", "1,350000,true", "2,180000,true"})
+  @ParameterizedTest(name = "실시간 {0}, 이벤트 {1}개, 한글 {2}자, 초과 {3}")
+  @CsvSource({
+    "false,1,340000,false",
+    "false,1,350000,true",
+    "false,2,180000,true",
+    "true,1,340000,false",
+    "true,1,350000,true",
+    "true,2,180000,true"
+  })
   @WithMockAccount(
       channel = Channel.WEB,
       accountType = AccountType.COMMAND,
       organizationType = OrganizationType.MISSING_TEAM,
       roles = Role.MISSING_TEAM_COMMANDER)
-  @DisplayName("재전송 대기는 글자 수가 아닌 UTF-8 전송 바이트 합계가 1MiB를 넘을 때 종료한다")
-  void replay_pending_byte_limit_counts_serialized_utf8_frames(
-      int eventCount, int characterCount, boolean overflow) throws Exception {
+  @DisplayName("재전송·실시간 대기는 글자 수가 아닌 UTF-8 전송 바이트 합계가 1MiB를 넘을 때 종료한다")
+  void pending_byte_limit_counts_serialized_utf8_frames(
+      boolean live, int eventCount, int characterCount, boolean overflow) throws Exception {
     // given: 개수 한도보다 작지만 한글 내용 때문에 전송 바이트가 큰 이벤트들이다.
+    Runnable enqueueEvents =
+        () -> {
+          for (int sequence = 1; sequence <= eventCount; sequence++) {
+            dispatch_event(
+                UUID.randomUUID(),
+                EventStreamTestFixtures.publishRequest(
+                    UUID.randomUUID(),
+                    INCIDENT_ID,
+                    "PATH_APPENDED",
+                    "30000000-0000-4000-8000-000000000501",
+                    "가".repeat(characterCount),
+                    7L),
+                sequence);
+          }
+        };
     var interleavingMvc =
         interceptFirstResponseWrite(
             () -> {
-              for (int sequence = 1; sequence <= eventCount; sequence++) {
-                dispatch_event(
-                    UUID.randomUUID(),
-                    EventStreamTestFixtures.publishRequest(
-                        UUID.randomUUID(),
-                        INCIDENT_ID,
-                        "PATH_APPENDED",
-                        "30000000-0000-4000-8000-000000000501",
-                        "가".repeat(characterCount),
-                        7L),
-                    sequence);
+              if (!live) {
+                enqueueEvents.run();
               }
             });
     List<Runnable> submittedTasks = new ArrayList<>();
@@ -638,6 +662,10 @@ class EventStreamControllerTest {
 
     // when: 과거 이력의 전송이 끝나기 전에 새 이벤트가 도착한다.
     submittedTasks.get(0).run();
+    if (live) {
+      enqueueEvents.run();
+      submittedTasks.get(1).run();
+    }
 
     // then: 직렬화된 합계가 한도 안이면 전송하고, 초과하면 이력을 보존한 채 종료한다.
     assertThat(replayStore.findByIncidentId(INCIDENT_ID)).hasSize(eventCount);
@@ -746,6 +774,88 @@ class EventStreamControllerTest {
       releaseWrite.countDown();
       executor.shutdownNow();
       assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+    }
+  }
+
+  @ParameterizedTest(name = "실시간 쓰기 중단: {0}")
+  @ValueSource(booleans = {false, true})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("실시간 응답 쓰기가 막혀도 다른 상황판에는 이벤트를 전달한다")
+  void blocked_live_write_does_not_block_other_connections(boolean blockLiveWrite)
+      throws Exception {
+    // given: 재전송을 마친 연결의 실시간 응답 쓰기만 멈춘다.
+    var blockWrite = new AtomicBoolean();
+    var writeStarted = new CountDownLatch(1);
+    var releaseWrite = new CountDownLatch(1);
+    var otherReceived = new CountDownLatch(1);
+    var slowMvc =
+        MockMvcBuilders.webAppContextSetup(applicationContext)
+            .addFilter(
+                (request, response, chain) -> {
+                  var intercepted = spy((HttpServletResponse) response);
+                  doAnswer(
+                          invocation -> {
+                            if (blockWrite.get()) {
+                              writeStarted.countDown();
+                              assertThat(releaseWrite.await(10, TimeUnit.SECONDS)).isTrue();
+                            }
+                            return invocation.callRealMethod();
+                          })
+                      .when(intercepted)
+                      .flushBuffer();
+                  chain.doFilter(request, intercepted);
+                })
+            .build();
+    var executor = Executors.newFixedThreadPool(2);
+    try {
+      List<Runnable> tasks = new ArrayList<>();
+      var livePhase = new AtomicBoolean();
+      slowMvc
+          .perform(
+              context ->
+                  new DeferredStartRequest(
+                      context,
+                      task -> {
+                        if (livePhase.get()) {
+                          executor.execute(task);
+                        } else {
+                          tasks.add(task);
+                        }
+                      }))
+          .andReturn();
+      tasks.get(0).run();
+      livePhase.set(true);
+      connectionRegistry.registerForIncident(INCIDENT_ID, ignored -> otherReceived.countDown());
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).hasSize(2);
+      blockWrite.set(blockLiveWrite);
+      // when: 과거 이력 전송 이후 처음 도착한 실시간 이벤트를 전달한다.
+      var delivery =
+          executor.submit(
+              () ->
+                  dispatch_event(
+                      DISPATCH_JOB_ID,
+                      EventStreamTestFixtures.publishRequest(
+                          EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+                      1L));
+      if (blockLiveWrite) {
+        assertThat(writeStarted.await(10, TimeUnit.SECONDS)).isTrue();
+      }
+
+      // then: 느린 쓰기를 풀지 않아도 정상 연결의 전달이 끝나야 한다. 1초는 테스트 대기 한도다.
+      assertThat(otherReceived.await(1, TimeUnit.SECONDS))
+          .as("느린 실시간 연결이 정상 연결의 전송을 막지 않아야 한다")
+          .isTrue();
+      releaseWrite.countDown();
+      delivery.get(10, TimeUnit.SECONDS);
+    } finally {
+      releaseWrite.countDown();
+      executor.shutdown();
+      assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+      assertThat(otherReceived.getCount()).isZero();
     }
   }
 
@@ -904,8 +1014,20 @@ class EventStreamControllerTest {
             "INCIDENT_CREATED",
             EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "INCIDENT_CREATED"));
     connectionRegistry.sendToAccount(accountId, frame);
+    var otherIncident = UUID.randomUUID();
+    connectionRegistry.sendToAccount(
+        accountId,
+        new SseEventFrame(
+            "1",
+            "INCIDENT_CREATED",
+            EventStreamTestFixtures.publishRequest(
+                UUID.randomUUID(), otherIncident, "INCIDENT_CREATED")));
+    assertThat(submittedTasks).hasSize(2);
+    submittedTasks.get(1).run();
     String received = result.getResponse().getContentAsString();
     assertThat(received).contains(":connected", "id:1", "event:INCIDENT_CREATED");
+    assertThat(received).contains(INCIDENT_ID.toString(), otherIncident.toString());
+    assertThat(received.lines().filter(line -> line.equals("id:1")).count()).isEqualTo(2);
     var context = (MockAsyncContext) result.getRequest().getAsyncContext();
     for (var listener : context.getListeners()) {
       listener.onComplete(new AsyncEvent(context));
@@ -954,6 +1076,244 @@ class EventStreamControllerTest {
         .doesNotContain("id:101\n");
     assertThat(result.getAsyncResult()).isNull();
     assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+  }
+
+  @ParameterizedTest(name = "쓰기 대기 위치: {0}")
+  @ValueSource(strings = {"replay", "live"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("페이지 조회·실시간 대기 이후 사건 접근이 거부되면 이전 내용을 쓰지 않고 연결을 닫는다")
+  void terminal_state_before_queued_write_blocks_payload_and_closes_connection(String phase)
+      throws Exception {
+    // given: 조회·발행 때는 허용되지만 실제 쓰기 전에 종료·파기가 확정된다.
+    var terminal = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              if (terminal.get()) {
+                throw new GoneRefetchRequiredException();
+              }
+              return null;
+            })
+        .when(jobService)
+        .validateSseTransmission(INCIDENT_ID);
+    if (phase.equals("replay")) {
+      dispatch_event(
+          DISPATCH_JOB_ID,
+          EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+          1L);
+      var snapshot = replay_page(0, 1);
+      when(replayService.replayResultAfter(any(), nullable(String.class)))
+          .thenReturn(snapshot)
+          .thenAnswer(
+              invocation -> {
+                terminal.set(true);
+                return snapshot;
+              });
+    }
+    List<Runnable> tasks = new ArrayList<>();
+    var result = mockMvc.perform(context -> new DeferredStartRequest(context, tasks)).andReturn();
+
+    // when: 조회 결과를 가져온 뒤 또는 실시간 쓰기 작업을 시작하기 전에 상태가 바뀐다.
+    tasks.get(0).run();
+    if (phase.equals("live")) {
+      dispatch_event(
+          DISPATCH_JOB_ID,
+          EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+          1L);
+      terminal.set(true);
+      tasks.get(1).run();
+    }
+
+    // then: 과거 내용은 쓰지 않고 재접속에서 최신 종료 상태를 확인하도록 정리한다.
+    assertThat(result.getResponse().getContentAsString()).doesNotContain("event:PATH_APPENDED");
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+    assertThat(result.getAsyncResult()).isNull();
+  }
+
+  @ParameterizedTest(name = "종료 알림: {0}")
+  @ValueSource(strings = {"INCIDENT_CLOSED", "INCIDENT_PURGED"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("실시간 쓰기 중 종료·파기 알림이 오면 이미 시작한 쓰기 뒤의 대기 내용을 버리고 종료만 보낸다")
+  void terminal_event_discards_pending_live_payload_and_closes_after_delivery(String eventType)
+      throws Exception {
+    // given: 1번 쓰기는 이미 시작했고 2번은 아직 대기 중이다.
+    var blockNextWrite = new AtomicBoolean();
+    var writeStarted = new CountDownLatch(1);
+    var releaseWrite = new CountDownLatch(1);
+    var slowMvc =
+        MockMvcBuilders.webAppContextSetup(applicationContext)
+            .addFilter(
+                (request, response, chain) -> {
+                  var intercepted = spy((HttpServletResponse) response);
+                  doAnswer(
+                          invocation -> {
+                            if (blockNextWrite.compareAndSet(true, false)) {
+                              writeStarted.countDown();
+                              assertThat(releaseWrite.await(10, TimeUnit.SECONDS)).isTrue();
+                            }
+                            return invocation.callRealMethod();
+                          })
+                      .when(intercepted)
+                      .flushBuffer();
+                  chain.doFilter(request, intercepted);
+                })
+            .build();
+    List<Runnable> tasks = new ArrayList<>();
+    var result = slowMvc.perform(context -> new DeferredStartRequest(context, tasks)).andReturn();
+    tasks.get(0).run();
+    blockNextWrite.set(true);
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    var executor = Executors.newSingleThreadExecutor();
+    try {
+      var write = executor.submit(tasks.get(1));
+      assertThat(writeStarted.await(10, TimeUnit.SECONDS)).isTrue();
+      dispatch_event(
+          UUID.randomUUID(),
+          EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, "PATH_APPENDED"),
+          2L);
+
+      // when: 종료 알림을 대기시킨 뒤 이미 시작한 1번 쓰기를 마친다.
+      dispatch_event(
+          UUID.randomUUID(),
+          EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, eventType),
+          3L);
+      releaseWrite.countDown();
+      write.get(10, TimeUnit.SECONDS);
+
+      // then: 2번은 쓰지 않고 3번 종료 알림 뒤 응답과 등록을 정리한다.
+      assertThat(
+              result
+                  .getResponse()
+                  .getContentAsString()
+                  .lines()
+                  .filter(line -> line.startsWith("id:"))
+                  .toList())
+          .containsExactly("id:1", "id:3");
+      assertThat(result.getResponse().getContentAsString()).contains("event:" + eventType);
+      assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+      assertThat(result.getAsyncResult()).isNull();
+      assertThat(tasks).hasSize(2);
+    } finally {
+      releaseWrite.countDown();
+      executor.shutdown();
+      assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+    }
+  }
+
+  @ParameterizedTest(name = "실시간 실패: {0}")
+  @ValueSource(strings = {"io", "runtime", "rejected"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("실시간 쓰기·작업 제출이 실패하면 연결을 제거하고 내부 오류와 I/O 종료를 구분한다")
+  void live_write_or_submission_failure_removes_connection(String failureType) throws Exception {
+    // given: 초기 연결은 성공하고 실시간 쓰기 또는 작업 제출만 실패한다.
+    var live = new AtomicBoolean();
+    var failingMvc =
+        MockMvcBuilders.webAppContextSetup(applicationContext)
+            .addFilter(
+                (request, response, chain) -> {
+                  var intercepted = spy((HttpServletResponse) response);
+                  doAnswer(
+                          invocation -> {
+                            if (live.get()) {
+                              if (failureType.equals("io")) {
+                                throw new IOException("test disconnect");
+                              }
+                              throw new IllegalArgumentException("test write failure");
+                            }
+                            return invocation.callRealMethod();
+                          })
+                      .when(intercepted)
+                      .flushBuffer();
+                  chain.doFilter(request, intercepted);
+                })
+            .build();
+    List<Runnable> tasks = new ArrayList<>();
+    var result =
+        failingMvc
+            .perform(
+                context ->
+                    new DeferredStartRequest(
+                        context,
+                        task -> {
+                          if (live.get() && failureType.equals("rejected")) {
+                            throw new RejectedExecutionException("test rejected task");
+                          }
+                          tasks.add(task);
+                        }))
+            .andReturn();
+    tasks.get(0).run();
+
+    // when: 실시간 전송 작업을 실행한다.
+    live.set(true);
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    if (!failureType.equals("rejected")) {
+      tasks.get(1).run();
+    }
+
+    // then: I/O 정리는 컨테이너에 맡기고 내부 오류는 오류 완료로 전달한다.
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+    assertThat(WebAsyncUtils.getAsyncManager(result.getRequest()).hasConcurrentResult())
+        .isEqualTo(!failureType.equals("io"));
+    if (!failureType.equals("io")) {
+      assertThat(result.getAsyncResult()).isInstanceOf(RuntimeException.class);
+    }
+  }
+
+  @ParameterizedTest(name = "상태 조회 중 도착한 종료 알림: {0}")
+  @ValueSource(strings = {"INCIDENT_CLOSED", "INCIDENT_PURGED"})
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("대기분의 상태 조회 중 종료·파기가 확정되면 과거 내용 대신 도착한 종료 알림을 보낸다")
+  void terminal_event_during_pending_validation_is_delivered_before_close(String eventType)
+      throws Exception {
+    // given: 실시간 이벤트가 대기 중이고, 쓰기 직전 상태 조회에서 종료 알림이 도착한다.
+    List<Runnable> tasks = new ArrayList<>();
+    var result = mockMvc.perform(context -> new DeferredStartRequest(context, tasks)).andReturn();
+    tasks.get(0).run();
+    dispatch_event(
+        DISPATCH_JOB_ID,
+        EventStreamTestFixtures.publishRequest(EVENT_ID, INCIDENT_ID, "PATH_APPENDED"),
+        1L);
+    doAnswer(
+            invocation -> {
+              dispatch_event(
+                  UUID.randomUUID(),
+                  EventStreamTestFixtures.publishRequest(UUID.randomUUID(), INCIDENT_ID, eventType),
+                  2L);
+              throw new GoneRefetchRequiredException();
+            })
+        .when(jobService)
+        .validateSseTransmission(INCIDENT_ID);
+
+    // when: 대기 이벤트의 쓰기를 시도한다.
+    tasks.get(1).run();
+
+    // then: 도착한 종료 알림까지 버리는 대신 그 알림만 보낸 뒤 정리한다.
+    assertThat(result.getResponse().getContentAsString())
+        .contains("id:2", "event:" + eventType)
+        .doesNotContain("id:1", "event:PATH_APPENDED");
+    assertThat(connectionRegistry.sinks(INCIDENT_ID)).isEmpty();
+    assertThat(result.getAsyncResult()).isNull();
   }
 
   private ReplayResult replay_page(long cursor, long through) {

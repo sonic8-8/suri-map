@@ -34,7 +34,11 @@ public class SseStreamService {
         emitter -> {
           var sink = new SseEmitterLiveEventSink(emitter);
           AutoCloseable registration = connectionRegistry.registerForAccount(accountId, sink);
-          if (emitter.attachRegistration(registration)) {
+          if (emitter.attachRegistration(
+              () -> {
+                sink.discardPendingEvents();
+                registration.close();
+              })) {
             sendOpenComment(emitter);
           }
         });
@@ -47,14 +51,17 @@ public class SseStreamService {
     }
     boolean terminal =
         INCIDENT_CLOSED.equals(request.type()) || INCIDENT_PURGED.equals(request.type());
-    if (!terminal) {
-      jobService.getSseReplayEndSequence(request.incidentId());
-    }
+    UUID incidentId = request.incidentId();
+    String eventType = request.type();
     var frame = new SseEventFrame(Long.toString(sseSequence), request.type(), request);
+    // 대기 중에는 직렬화한 데이터 외에 원래 payload까지 다시 붙잡아 두지 않는다.
+    Runnable validateBeforeSend = () -> validateEventTransmission(incidentId, eventType);
+    validateBeforeSend.run();
     // 이력 저장 성공은 전송 성공이 아니다. 재시도도 같은 순번으로 전달한다.
-    connectionRegistry.sendToIncident(request.incidentId(), frame);
+    connectionRegistry.sendToIncident(request.incidentId(), frame, validateBeforeSend);
     assignedAccountIds(request)
-        .forEach(accountId -> connectionRegistry.sendToAccount(accountId, frame));
+        .forEach(
+            accountId -> connectionRegistry.sendToAccount(accountId, frame, validateBeforeSend));
     if (terminal) {
       connectionRegistry.closeIncidentConnections(request.incidentId());
     }
@@ -76,7 +83,10 @@ public class SseStreamService {
           sendOpenComment(emitter);
         }
         while (!sink.isReplayStopped()) {
-          replay.getFrames().forEach(sink::sendReplay);
+          for (SseEventFrame frame : replay.getFrames()) {
+            String eventType = frame.event();
+            sink.sendReplay(frame, () -> validateEventTransmission(incidentId, eventType));
+          }
           if (replay.isTerminalReached()) {
             sink.close();
             break;
@@ -101,6 +111,14 @@ public class SseStreamService {
       emitter.send(SseEmitter.event().comment("connected"));
     } catch (IOException exception) {
       throw new UncheckedIOException(exception);
+    }
+  }
+
+  private void validateEventTransmission(UUID incidentId, String eventType) {
+    if (!INCIDENT_CLOSED.equals(eventType) && !INCIDENT_PURGED.equals(eventType)) {
+      // 대기열에 넣을 때의 OPEN 확인만으로 나중의 쓰기를 허용하지 않는다.
+      // 이미 시작한 응답 쓰기를 취소하거나 DB 커밋과 네트워크 쓰기를 원자화하지는 않는다.
+      jobService.validateSseTransmission(incidentId);
     }
   }
 

@@ -30,7 +30,7 @@ public class EventDispatchJobWorker implements SmartLifecycle {
   private final long initialDelayMs;
   private final long fixedDelayMs;
   private final int batchSize;
-  // ponytail: 기존 단일 전송 스레드를 유지한다. 느린 연결 격리는 연결별 대기량 제한과 함께 다룬다.
+  // DB 작업·순번 배정은 직렬 처리하고, 실제 응답 쓰기는 연결별 컨테이너 작업에 맡긴다.
   private final ScheduledExecutorService executor =
       Executors.newSingleThreadScheduledExecutor(
           runnable -> {

@@ -304,6 +304,8 @@ class EventDispatchJobServiceTest extends PostGisIntegrationTestSupport {
     UUID requestedIncidentId = "MISSING".equals(state) ? UUID.randomUUID() : incidentId;
 
     // when / then: 과거 내용이나 정상적인 빈 페이지를 돌려주지 않고 호출부에 조회 불가를 알린다.
+    assertThatThrownBy(() -> service.validateSseTransmission(requestedIncidentId))
+        .isInstanceOf(GoneRefetchRequiredException.class);
     assertThatThrownBy(() -> service.getSseReplayEndSequence(requestedIncidentId))
         .isInstanceOf(GoneRefetchRequiredException.class);
     assertThatThrownBy(() -> service.readSseReplayPage(requestedIncidentId, 0L, 1L, 1))
