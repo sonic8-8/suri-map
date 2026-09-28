@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -76,7 +75,7 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   }
 
   @Override
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional(readOnly = true)
   public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
     return repository.byIncident(incidentId);
   }
