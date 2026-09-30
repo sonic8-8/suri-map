@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** S4 EventHub capture mock. eventId와 payload id/status/version 공통 필드를 검증한다. */
+/** S4 EventPublisher capture mock. eventId와 payload id/status/version 공통 필드를 검증한다. */
 public final class MockIncidentEventHub {
 
   private final List<IncidentPublishRequest> publishedRequests = new ArrayList<>();
@@ -55,7 +55,7 @@ public final class MockIncidentEventHub {
 
   private static void requireText(String value, String field) {
     if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException("PublishRequest 필드가 비어 있습니다: " + field);
+      throw new IllegalArgumentException("EventPublishRequest 필드가 비어 있습니다: " + field);
     }
   }
 }

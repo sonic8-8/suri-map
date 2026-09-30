@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class OverallSearchAreaWritePublishesEventWithoutAreaMutationTest {
 
   /**
-   * S4 EventHub.publish mock: in-memory PublishRequest collector.
+   * S4 EventPublisher.publish mock: in-memory EventPublishRequest collector.
    *
    * <p>S2.json §dependencies S4 stub_strategy 기준.
    */
@@ -35,7 +35,8 @@ class OverallSearchAreaWritePublishesEventWithoutAreaMutationTest {
   void setUp() {
     eventCollector = new PublishRequestCollector();
     // TODO L3-T01: OverallSearchAreaService 생성자 signature 확인 후 wiring.
-    // 의존: OverallSearchAreaMapper, GeometryValidationService, OperationalPeriodQuery, EventHub mock
+    // 의존: OverallSearchAreaMapper, GeometryValidationService, OperationalPeriodQuery,
+    // EventPublisher mock
     service = new OverallSearchAreaService(eventCollector);
   }
 

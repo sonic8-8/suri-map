@@ -130,7 +130,7 @@ ResponseEntity<SearchPathStartResponse> start(
 
 ## 테스트 기준
 
-- 테스트 클래스명은 `<검증 대상>Test`로 작성한다. 예: `MarkerControllerTest`, `MarkerServiceTest`, `MarkerMapperTest`, `MarkerTest`, `SseConnectionRegistryTest`.
+- 테스트 클래스명은 `<검증 대상>Test`로 작성한다. 예: `MarkerControllerTest`, `MarkerServiceTest`, `MarkerMapperTest`, `MarkerTest`, `ServerSentEventConnectionRegistryTest`.
 - 클래스의 검증 대상은 클래스명으로 드러내고, `@DisplayName`은 테스트 메서드에 한글로 작성한다. 조건과 기대 결과를 표현하되 `[A할 경우, B한다]` 같은 문장 형식을 강제하지 않는다.
 - 테스트 메서드명은 영어로 작성하고 밑줄로 조건·동작·결과를 구분한다. given/when/then 주석의 설명은 한글로 작성한다.
 - 클래스명은 실제 대상이나 업무 동작으로 구분한다. TDD 단계(`Red`, `Failing`)나 테스트 분류(`Unit`, `Integration`, `Scenario`, `E2E`)를 접미사로 덧붙이지 않는다.
@@ -166,9 +166,9 @@ domain write에서 지켜야 할 순서다. 각 호출부가 실제로 지키는
 3. channel guard
 4. idempotency key reserve
 5. domain table write
-6. `EventHub.publish(PublishRequest)`로 `event_dispatch_job` stage
+6. `EventPublisher.publish(EventPublishRequest)`로 `event_dispatch_job` stage
 7. transaction commit
-8. `EventFanout`/worker fanout
+8. `ServerSentEventJobWorker`가 SSE 전송 작업 처리
 9. idempotency response cache
 
 - Public JSON API는 `/api` prefix를 사용한다.

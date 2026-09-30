@@ -29,7 +29,7 @@ import com.surimap.common.auth.OrganizationType;
 import com.surimap.config.GuardConfig;
 import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
@@ -75,8 +75,7 @@ class S8HandoverApiContractTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
-  private static final UUID DUTY_SHIFT_ID =
-      UUID.fromString("77777777-7777-7777-7777-777777770001");
+  private static final UUID DUTY_SHIFT_ID = UUID.fromString("77777777-7777-7777-7777-777777770001");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000101");
   private static final UUID OTHER_REGISTERED_POLICE_PHONE_ID =
@@ -103,7 +102,7 @@ class S8HandoverApiContractTest {
   @MockitoBean private SearchHistorySummaryMapper searchHistorySummaryMapper;
   @MockitoBean private SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   @MockitoBean private IncidentLifecycleGuard incidentLifecycleGuard;
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
 
   @BeforeEach
   void setUp() {
@@ -334,7 +333,8 @@ class S8HandoverApiContractTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("write_conflict")));
 
-    verify(dutyShiftMapper, never()).end(any(UUID.class), any(UUID.class), any(Instant.class), anyLong());
+    verify(dutyShiftMapper, never())
+        .end(any(UUID.class), any(UUID.class), any(Instant.class), anyLong());
     verify(searchHistorySummaryGenerationJob, never())
         .enqueueForDutyShiftEnd(any(DutyShift.class), any(UUID.class));
   }
@@ -506,19 +506,7 @@ class S8HandoverApiContractTest {
 
   private static OperationalPeriod opWithId(UUID opId) {
     return new OperationalPeriod(
-        opId,
-        INCIDENT_ID,
-        1,
-        "ACTIVE",
-        "INITIAL",
-        null,
-        ACCOUNT_ID,
-        null,
-        NOW,
-        null,
-        1L,
-        NOW,
-        NOW);
+        opId, INCIDENT_ID, 1, "ACTIVE", "INITIAL", null, ACCOUNT_ID, null, NOW, null, 1L, NOW, NOW);
   }
 
   private static DutyShift activeDutyShift() {

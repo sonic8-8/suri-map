@@ -10,8 +10,8 @@ import com.surimap.api.controller.searcharea.response.SearchAreaReadResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.common.auth.SuriMapAuthentication;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.maparea.SearchAreaAssignmentMapper;
 import com.surimap.maparea.SearchAreaAssignmentPersistenceRecord;
 import com.surimap.maparea.SearchAreaHistoryPersistenceRecord;
@@ -221,7 +221,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
   private final SearchAreaAssignmentMapper searchAreaAssignmentMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IdempotentResponseCache idempotentResponseCache;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final Map<UUID, SearchAreaRecord> searchAreas = new LinkedHashMap<>();
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
@@ -229,7 +229,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
     this(geometryValidator, request -> {});
   }
 
-  public SearchAreaApiService(GeometryValidator geometryValidator, EventHub eventHub) {
+  public SearchAreaApiService(GeometryValidator geometryValidator, EventPublisher eventHub) {
     this(
         geometryValidator,
         (SearchAreaMapper) null,
@@ -246,7 +246,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
       ObjectProvider<SearchAreaAssignmentMapper> searchAreaAssignmentMapperProvider,
       ObjectProvider<OperationalPeriodMapper> operationalPeriodMapperProvider,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider,
-      ObjectProvider<EventHub> eventHubProvider) {
+      ObjectProvider<EventPublisher> eventHubProvider) {
     this(
         geometryValidator,
         searchAreaMapperProvider.getIfAvailable(),
@@ -262,7 +262,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
       SearchAreaAssignmentMapper searchAreaAssignmentMapper,
       OperationalPeriodMapper operationalPeriodMapper,
       IdempotentResponseCache idempotentResponseCache,
-      EventHub eventHub) {
+      EventPublisher eventHub) {
     this.geometryValidator = geometryValidator;
     this.searchAreaMapper = searchAreaMapper;
     this.searchAreaAssignmentMapper = searchAreaAssignmentMapper;
@@ -397,30 +397,34 @@ public class SearchAreaApiService implements SearchAreaQuery {
     if (OVERALL.equals(areaLevel) && ACTIVE.equals(status)) {
       return findPersistentOverall(incidentId)
           .map(this::toResponse)
-          .or(
-              () -> Optional.ofNullable(activeOverallOf(incidentId)).map(this::toResponse))
+          .or(() -> Optional.ofNullable(activeOverallOf(incidentId)).map(this::toResponse))
           .orElseThrow(SearchAreaApiException::overallSearchAreaRequired);
     }
 
     if (persistentReadAvailable()) {
       List<String> statusFilter = status != null ? List.of(status) : null;
       boolean includeCancelled = CANCELLED.equals(status);
-      SearchAreaFilters filters = new SearchAreaFilters(statusFilter, opId, null, null, null, includeCancelled);
-      searchAreaMapper.findByIncident(incidentId, filters).forEach(dbRecord -> {
-        SearchAreaRecord record = new SearchAreaRecord(
-            dbRecord.id(),
-            dbRecord.incidentId(),
-            dbRecord.operationalPeriodId(),
-            dbRecord.parentSearchAreaId(),
-            dbRecord.areaLevel(),
-            dbRecord.colorToken(),
-            dbRecord.status(),
-            dbRecord.historyCount(),
-            dbRecord.version(),
-            toGeoJsonPolygon(dbRecord.geometry()),
-            dbRecord.updatedAt());
-        searchAreas.put(dbRecord.id(), record);
-      });
+      SearchAreaFilters filters =
+          new SearchAreaFilters(statusFilter, opId, null, null, null, includeCancelled);
+      searchAreaMapper
+          .findByIncident(incidentId, filters)
+          .forEach(
+              dbRecord -> {
+                SearchAreaRecord record =
+                    new SearchAreaRecord(
+                        dbRecord.id(),
+                        dbRecord.incidentId(),
+                        dbRecord.operationalPeriodId(),
+                        dbRecord.parentSearchAreaId(),
+                        dbRecord.areaLevel(),
+                        dbRecord.colorToken(),
+                        dbRecord.status(),
+                        dbRecord.historyCount(),
+                        dbRecord.version(),
+                        toGeoJsonPolygon(dbRecord.geometry()),
+                        dbRecord.updatedAt());
+                searchAreas.put(dbRecord.id(), record);
+              });
     }
 
     List<SearchAreaRecord> records =
@@ -477,8 +481,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
     queryRecords(incidentId, null, filters).stream()
         .map(this::toSearchAreaRow)
         .forEach(row -> rows.putIfAbsent(row.id(), row));
-    long sourceVersion =
-        rows.values().stream().mapToLong(SearchAreaRow::version).max().orElse(0L);
+    long sourceVersion = rows.values().stream().mapToLong(SearchAreaRow::version).max().orElse(0L);
     return new SearchAreaCollection(incidentId, sourceVersion, List.copyOf(rows.values()));
   }
 
@@ -494,8 +497,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
     queryRecords(null, opId, effectiveFilters).stream()
         .map(this::toSearchAreaRow)
         .forEach(row -> rows.putIfAbsent(row.id(), row));
-    long sourceVersion =
-        rows.values().stream().mapToLong(SearchAreaRow::version).max().orElse(0L);
+    long sourceVersion = rows.values().stream().mapToLong(SearchAreaRow::version).max().orElse(0L);
     UUID incidentId =
         rows.values().stream().map(SearchAreaRow::incidentId).findFirst().orElse(null);
     return new SearchAreaCollection(incidentId, sourceVersion, List.copyOf(rows.values()));
@@ -733,9 +735,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
     }
 
     SearchAreaReadRecord updatedRecord =
-        searchAreaMapper
-            .findById(searchAreaId)
-            .orElseThrow(SearchAreaApiException::writeConflict);
+        searchAreaMapper.findById(searchAreaId).orElseThrow(SearchAreaApiException::writeConflict);
     SearchAreaRecord memoryRecord =
         new SearchAreaRecord(
             updatedRecord.id(),
@@ -774,8 +774,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
     if (activeOverallOf(incidentId) != null) {
       return true;
     }
-    return persistenceAvailable()
-        && searchAreaMapper.countActiveOverallByIncident(incidentId) > 0;
+    return persistenceAvailable() && searchAreaMapper.countActiveOverallByIncident(incidentId) > 0;
   }
 
   private boolean persistenceAvailable() {
@@ -860,9 +859,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             now));
 
     SearchAreaReadRecord updatedRecord =
-        searchAreaMapper
-            .findById(searchAreaId)
-            .orElseThrow(SearchAreaApiException::writeConflict);
+        searchAreaMapper.findById(searchAreaId).orElseThrow(SearchAreaApiException::writeConflict);
     SearchAreaRecord memoryRecord =
         new SearchAreaRecord(
             updatedRecord.id(),
@@ -940,7 +937,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     for (GeoJsonPolygon childGeometry : request.children()) {
       UUID childId = UUID.randomUUID();
       Polygon childPolygon = toJtsPolygon(childGeometry);
-      String colorToken = nextColorToken(parent.incidentId(), childOpId, childPolygon, reservedColorTokens);
+      String colorToken =
+          nextColorToken(parent.incidentId(), childOpId, childPolygon, reservedColorTokens);
       reservedColorTokens.add(colorToken);
       SearchAreaPersistenceRecord childRow =
           new SearchAreaPersistenceRecord(
@@ -1137,15 +1135,17 @@ public class SearchAreaApiService implements SearchAreaQuery {
     }
     payload.put("serverTs", occurredAt.toString());
     eventHub.publish(
-        new PublishRequest(
-            stableUuid("event:SEARCH_AREA_CHANGED:" + response.id() + ":" + response.version()),
-            response.incidentId(),
-            "SEARCH_AREA_CHANGED",
-            1,
-            "search_area",
-            response.id(),
-            occurredAt,
-            payload));
+        EventPublishRequest.builder()
+            .eventId(
+                stableUuid("event:SEARCH_AREA_CHANGED:" + response.id() + ":" + response.version()))
+            .incidentId(response.incidentId())
+            .type("SEARCH_AREA_CHANGED")
+            .payloadFormatVersion(1)
+            .sourceEntityType("search_area")
+            .sourceEntityId(response.id())
+            .occurredAt(occurredAt)
+            .payload(payload)
+            .build());
   }
 
   private void publishSearchAreaAssignmentChanged(
@@ -1172,15 +1172,18 @@ public class SearchAreaApiService implements SearchAreaQuery {
     payload.put("sequence", area.version());
     payload.put("serverTs", occurredAt.toString());
     eventHub.publish(
-        new PublishRequest(
-            stableUuid("event:SEARCH_AREA_ASSIGNMENT_CHANGED:" + area.id() + ":" + area.version()),
-            area.incidentId(),
-            "SEARCH_AREA_ASSIGNMENT_CHANGED",
-            1,
-            "search_area_assignment",
-            sourceId,
-            occurredAt,
-            payload));
+        EventPublishRequest.builder()
+            .eventId(
+                stableUuid(
+                    "event:SEARCH_AREA_ASSIGNMENT_CHANGED:" + area.id() + ":" + area.version()))
+            .incidentId(area.incidentId())
+            .type("SEARCH_AREA_ASSIGNMENT_CHANGED")
+            .payloadFormatVersion(1)
+            .sourceEntityType("search_area_assignment")
+            .sourceEntityId(sourceId)
+            .occurredAt(occurredAt)
+            .payload(payload)
+            .build());
   }
 
   private List<SearchAreaRecord> queryRecords(
@@ -1390,7 +1393,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     return AREA_COLOR_TOKENS.stream()
         .filter(token -> !adjacentTokens.contains(token))
         .filter(token -> !avoidUsedTokens || !usedTokens.contains(token))
-        .filter(token -> !avoidAdjacentGroups || !adjacentGroups.contains(AREA_COLOR_GROUPS.get(token)))
+        .filter(
+            token -> !avoidAdjacentGroups || !adjacentGroups.contains(AREA_COLOR_GROUPS.get(token)))
         .findFirst();
   }
 

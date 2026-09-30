@@ -4,8 +4,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -19,7 +19,7 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.config.GuardConfig;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
@@ -56,7 +56,7 @@ class OperationalPeriodApiContractTest {
   @MockitoBean private OperationalPeriodMapper mapper;
   @MockitoBean private HandoverMemoMapper handoverMemoMapper;
   @MockitoBean private EventPublisherPort eventPublisher;
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
   @MockitoBean private SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   @MockitoBean private IncidentLifecycleGuard incidentLifecycleGuard;
 

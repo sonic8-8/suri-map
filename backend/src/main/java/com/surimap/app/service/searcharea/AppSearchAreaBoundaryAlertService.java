@@ -2,8 +2,8 @@ package com.surimap.app.service.searcharea;
 
 import com.surimap.app.service.searcharea.request.SearchAreaBoundaryAlertServiceRequest;
 import com.surimap.client.fcm.FcmDispatcherPort;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.maparea.boundary.SearchAreaBoundaryAlertContextRow;
 import com.surimap.maparea.boundary.SearchAreaBoundaryAlertMapper;
@@ -50,7 +50,7 @@ public class AppSearchAreaBoundaryAlertService {
   private final SearchAreaBoundaryAlertMapper mapper;
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -61,7 +61,7 @@ public class AppSearchAreaBoundaryAlertService {
       SearchAreaBoundaryAlertMapper mapper,
       OperationalPeriodQuery operationalPeriodQuery,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      EventHub eventHub,
+      EventPublisher eventHub,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider,
@@ -196,15 +196,16 @@ public class AppSearchAreaBoundaryAlertService {
   private void publishEvent(SearchAreaBoundaryAlertResult result) {
     Map<String, Object> payload = payloadFor(result);
     eventHub.publish(
-        new PublishRequest(
-            result.eventId(),
-            result.incidentId(),
-            EVENT_TYPE,
-            PAYLOAD_FORMAT_VERSION,
-            "search_area_boundary_alert",
-            result.id(),
-            clock.instant(),
-            payload));
+        EventPublishRequest.builder()
+            .eventId(result.eventId())
+            .incidentId(result.incidentId())
+            .type(EVENT_TYPE)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType("search_area_boundary_alert")
+            .sourceEntityId(result.id())
+            .occurredAt(clock.instant())
+            .payload(payload)
+            .build());
   }
 
   private void dispatchFcm(SearchAreaBoundaryAlertResult result) {

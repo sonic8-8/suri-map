@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.surimap.common.auth.OrganizationType;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
@@ -35,7 +35,7 @@ class PolicePhonePersistenceIntegrationTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private FcmTokenQuery fcmTokenQuery;
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
 
   @BeforeEach
   void resetDbFixtures() {
@@ -103,7 +103,8 @@ class PolicePhonePersistenceIntegrationTest {
         .andExpect(jsonPath("$.version").value(2))
         .andExpect(jsonPath("$.sequence").value(3))
         .andExpect(
-            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()));
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()));
 
     var row =
         jdbcTemplate.queryForMap(
@@ -123,11 +124,12 @@ class PolicePhonePersistenceIntegrationTest {
         .publish(
             argThat(
                 request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
-                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())
-                        && PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.equals(request.sourceEntityId())
-                        && request.payload().get("sequence").equals(3L)
-                        && request.payload().get("version").equals(2L)));
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.getIncidentId())
+                        && PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.equals(
+                            request.getSourceEntityId())
+                        && request.getPayload().get("sequence").equals(3L)
+                        && request.getPayload().get("version").equals(2L)));
   }
 
   @Test
@@ -148,7 +150,11 @@ class PolicePhonePersistenceIntegrationTest {
             PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
     assertThat(row.get("HEARTBEAT_SEQUENCE")).isEqualTo(5L);
     assertThat(row.get("VERSION")).isEqualTo(2L);
-    verify(eventHub, times(1)).publish(argThat(request -> PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())));
+    verify(eventHub, times(1))
+        .publish(
+            argThat(
+                request ->
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())));
   }
 
   @Test
@@ -200,7 +206,8 @@ class PolicePhonePersistenceIntegrationTest {
             });
   }
 
-  private org.springframework.test.web.servlet.ResultActions heartbeat(long sequence) throws Exception {
+  private org.springframework.test.web.servlet.ResultActions heartbeat(long sequence)
+      throws Exception {
     return mockMvc.perform(
         post(
                 "/api/police-phones/{policePhoneId}/heartbeat",

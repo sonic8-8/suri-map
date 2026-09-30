@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** 테스트용 in-memory event publisher. PublishRequest 캡처용. */
+/** 테스트용 in-memory event publisher. EventPublishRequest 캡처용. */
 public final class InMemoryEventPublisher implements EventPublisherPort {
 
   private final List<OpTransitionedPublishRequest> captured = new ArrayList<>();

@@ -4,6 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,16 +21,19 @@ import com.surimap.board.BoardAssembler;
 import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSourceRow;
+import com.surimap.client.fcm.FcmDispatcherPort.DispatchResult;
 import com.surimap.client.fcm.MockFcmDispatcher;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.stream.SseEventFrame;
-import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.mock112.AssignmentPollingHandler;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.sse.ServerSentEventConnectionRegistry;
+import com.surimap.global.sse.ServerSentEventJobService;
+import com.surimap.global.sse.ServerSentEventMessage;
+import com.surimap.global.sse.ServerSentEventTestSupport;
 import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.incident.service.IncidentAssignmentView.NotificationTargets;
 import com.surimap.maparea.query.SearchAreaQuery;
@@ -41,13 +50,19 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -72,9 +87,10 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
 
   @Autowired private IncidentAssignmentView incidentAssignmentView;
 
-  @Autowired private SseStreamService sseStreamService;
+  @Autowired private ServerSentEventConnectionRegistry connectionRegistry;
+  @Autowired private ServerSentEventJobService jobService;
 
-  @Autowired private MockFcmDispatcher fcmDispatcher;
+  @MockitoSpyBean private MockFcmDispatcher fcmDispatcher;
 
   @Autowired private MockMvc mockMvc;
 
@@ -189,10 +205,12 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_CHANGED_ACCOUNT_IDS);
 
     // when: 저장된 이벤트를 SSE 스트림 서비스에 직접 전달한다.
-    SseEventFrame sseEvidence = sseStreamService.dispatchLive(supportEvent.toPublishRequest(), 1L);
+    ServerSentEventMessage sseEvidence =
+        ServerSentEventTestSupport.dispatchLiveEvent(
+            jobService, connectionRegistry, supportEvent.toPublishRequest(), 1L);
     // then: 전달한 배정 이벤트의 종류와 버전을 유지한다.
-    assertThat(sseEvidence.data().type()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
-    assertThat(sseEvidence.data().payload().get("version")).isEqualTo(3);
+    assertThat(sseEvidence.getData().getType()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
+    assertThat(sseEvidence.getData().getPayload().get("version")).isEqualTo(3);
 
     NotificationTargets targets =
         incidentAssignmentView.notificationTargets(INCIDENT_ID, "SUPPORT_ASSIGNMENT");
@@ -272,6 +290,53 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
                     "11111111-1111-1111-1111-111111110006",
                     "11111111-1111-1111-1111-111111110007",
                     "11111111-1111-1111-1111-111111110008")));
+  }
+
+  @ParameterizedTest(name = "성공: {0}, 실패: {1}")
+  @CsvSource({"0,2", "1,1"})
+  @ExtendWith(OutputCaptureExtension.class)
+  @DisplayName("배정 알림의 FCM 전달이 일부 또는 전부 실패하면, 실패 수를 기록하고 배정·이벤트는 유지한다")
+  void importAssignments_fcmDeliveryFails_preservesAssignmentsAndRecordsFailure(
+      int successCount, int failureCount, CapturedOutput output) {
+    // given: 신규 지원 업무폰 2대의 토큰이 있고, 외부 FCM 전송에만 실패를 주입한다.
+    String eventId = "fcm:INCIDENT_ASSIGNMENT_CHANGED:" + INCIDENT_ID + ":v2";
+    doAnswer(
+            invocation -> {
+              List<String> recipients = invocation.getArgument(0);
+              return new DispatchResult(
+                  invocation.getArgument(2),
+                  successCount,
+                  failureCount,
+                  recipients.subList(successCount, recipients.size()));
+            })
+        .when(fcmDispatcher)
+        .send(anyList(), anyMap(), anyString());
+
+    // when: 실제 배정 반영 흐름이 DB를 갱신하고 FCM 전송을 시도한다.
+    assignmentPollingHandler.handleAssignmentChanges(SOURCE_INCIDENT_ID, supportAssignments());
+
+    // then: 배정·이벤트를 보존하며 자동 재시도 없이 전송 결과를 한 번 기록한다.
+    assertThat(count("incident_assignment", "incident_id = ? AND revoked_at IS NULL", INCIDENT_ID))
+        .isEqualTo(6);
+    assertThat(assignmentChangedOutboxRows())
+        .singleElement()
+        .satisfies(event -> assertThat(event.payloadVersion()).isEqualTo(2L));
+    verify(fcmDispatcher).send(anyList(), anyMap(), eq(eventId));
+    assertThat(
+            output
+                .getOut()
+                .lines()
+                .filter(line -> line.contains("failed to dispatch assignment FCM"))
+                .toList())
+        .singleElement()
+        .asString()
+        .contains(
+            "eventId=" + eventId, "successCount=" + successCount, "failureCount=" + failureCount)
+        .doesNotContain(
+            "fcm:dev-support-car-01",
+            "fcm:dev-support-phone-01",
+            "recipientAccountIds",
+            "recipientPolicePhoneIds");
   }
 
   private void seedIncident() {
@@ -723,16 +788,17 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
       Instant occurredAt,
       String dispatchStatus) {
 
-    PublishRequest toPublishRequest() {
-      return new PublishRequest(
-          eventId,
-          incidentId,
-          eventType,
-          payloadFormatVersion,
-          sourceEntityType,
-          sourceEntityId,
-          occurredAt,
-          payload);
+    EventPublishRequest toPublishRequest() {
+      return EventPublishRequest.builder()
+          .eventId(eventId)
+          .incidentId(incidentId)
+          .type(eventType)
+          .payloadFormatVersion(payloadFormatVersion)
+          .sourceEntityType(sourceEntityType)
+          .sourceEntityId(sourceEntityId)
+          .occurredAt(occurredAt)
+          .payload(payload)
+          .build();
     }
 
     long payloadVersion() {

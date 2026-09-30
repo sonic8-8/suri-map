@@ -1,7 +1,7 @@
 package com.surimap.offlinepackage.service;
 
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
@@ -30,12 +30,12 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   static final String SOURCE_ENTITY_TYPE = "offline_package_installation";
 
   private final OfflinePackageRepository repository;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final IdempotentResponseCache idempotentResponseCache;
 
   public OfflinePackageService(
       OfflinePackageRepository repository,
-      ObjectProvider<EventHub> eventHub,
+      ObjectProvider<EventPublisher> eventHub,
       IdempotentResponseCache idempotentResponseCache) {
     this.repository = repository;
     this.eventHub = eventHub.getIfAvailable(() -> request -> {});
@@ -81,11 +81,11 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   }
 
   @Transactional
-  public void consumeSearchAreaChanged(PublishRequest event) {
-    if (!"SEARCH_AREA_CHANGED".equals(event.type())) {
+  public void consumeSearchAreaChanged(EventPublishRequest event) {
+    if (!"SEARCH_AREA_CHANGED".equals(event.getType())) {
       return;
     }
-    Map<String, Object> payload = event.payload();
+    Map<String, Object> payload = event.getPayload();
     if (payload.containsKey("opId")) {
       return;
     }
@@ -107,17 +107,18 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         .forEach(status -> eventHub.publish(publishRequest(status, serverNow().toInstant())));
   }
 
-  private static PublishRequest publishRequest(
+  private static EventPublishRequest publishRequest(
       OfflinePackageInstallationStatus status, java.time.Instant occurredAt) {
-    return new PublishRequest(
-        stableUuid("event:" + EVENT_TYPE + ":" + status.id() + ":" + status.version()),
-        stableUuid("incident:" + status.incidentId()),
-        EVENT_TYPE,
-        1,
-        SOURCE_ENTITY_TYPE,
-        stableUuid(SOURCE_ENTITY_TYPE + ":" + status.id()),
-        occurredAt,
-        payload(status));
+    return EventPublishRequest.builder()
+        .eventId(stableUuid("event:" + EVENT_TYPE + ":" + status.id() + ":" + status.version()))
+        .incidentId(stableUuid("incident:" + status.incidentId()))
+        .type(EVENT_TYPE)
+        .payloadFormatVersion(1)
+        .sourceEntityType(SOURCE_ENTITY_TYPE)
+        .sourceEntityId(stableUuid(SOURCE_ENTITY_TYPE + ":" + status.id()))
+        .occurredAt(occurredAt)
+        .payload(payload(status))
+        .build();
   }
 
   private static OffsetDateTime serverNow() {

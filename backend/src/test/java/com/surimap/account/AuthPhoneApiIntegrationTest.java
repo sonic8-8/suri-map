@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.policephone.PolicePhoneFixtures;
 import com.surimap.policephone.PolicePhoneHeartbeatUpdatedPublishRequest;
 import com.surimap.policephone.query.FcmTokenQuery;
@@ -36,7 +36,7 @@ class AuthPhoneApiIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private FcmTokenQuery fcmTokenQuery;
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
   @MockitoBean private JwtDecoder jwtDecoder;
 
   @Test
@@ -66,7 +66,8 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(jsonPath("$.tokenCiphertext").doesNotExist())
         .andExpect(jsonPath("$.tokenHash").doesNotExist());
 
-    var activeTokens = fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+    var activeTokens =
+        fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
     assertThat(activeTokens)
         .anySatisfy(
             row -> {
@@ -77,7 +78,8 @@ class AuthPhoneApiIntegrationTest {
   }
 
   @Test
-  @DisplayName("registered but unassigned APP OIDC session can register FCM token before assignment")
+  @DisplayName(
+      "registered but unassigned APP OIDC session can register FCM token before assignment")
   void unassignedRegisteredAppOidcSessionRegistersFcmTokenBeforeAssignment() throws Exception {
     String accessToken =
         appAccessToken(
@@ -90,7 +92,8 @@ class AuthPhoneApiIntegrationTest {
             post("/api/fcm/tokens")
                 .header("Authorization", "Bearer " + accessToken)
                 .header("X-Client-Channel", "APP")
-                .header("X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                .header(
+                    "X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """
@@ -103,7 +106,9 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(jsonPath("$.status").value("ACTIVE"))
         .andExpect(jsonPath("$.version").value(1));
 
-    assertThat(fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+    assertThat(
+            fcmTokenQuery.activeByPolicePhone(
+                PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
         .singleElement()
         .satisfies(
             row -> {
@@ -139,15 +144,16 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("ONLINE"))
         .andExpect(
-            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
         .andExpect(jsonPath("$.sequence").value(1));
 
     verify(eventHub)
         .publish(
             argThat(
                 request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
-                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.getIncidentId())));
   }
 
   @Test
@@ -168,7 +174,8 @@ class AuthPhoneApiIntegrationTest {
                     PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .header("Authorization", "Bearer " + accessToken)
                 .header("X-Client-Channel", "APP")
-                .header("X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                .header(
+                    "X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """
@@ -189,8 +196,8 @@ class AuthPhoneApiIntegrationTest {
         .publish(
             argThat(
                 request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
-                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.getIncidentId())));
   }
 
   @Test
@@ -218,7 +225,9 @@ class AuthPhoneApiIntegrationTest {
 
   private String appAccessToken(String suffix) {
     return appAccessToken(
-        suffix, AccountIdentityCatalog.PRECINCT_TEAM_ID, PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+        suffix,
+        AccountIdentityCatalog.PRECINCT_TEAM_ID,
+        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
   }
 
   private String appAccessToken(String suffix, UUID accountId, UUID policePhoneId) {

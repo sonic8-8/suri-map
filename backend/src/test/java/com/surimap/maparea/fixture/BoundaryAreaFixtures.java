@@ -118,7 +118,7 @@ public final class BoundaryAreaFixtures {
   /**
    * S2 이벤트 발행 결과를 테스트에서 비교하기 위한 읽기 모델.
    *
-   * <p>S4 EventHub.publish PublishRequest의 id/status/version 수렴 비교 기준.
+   * <p>S4 EventPublisher.publish EventPublishRequest의 id/status/version 수렴 비교 기준.
    */
   public record ExpectedEventEnvelope(
       String eventId,

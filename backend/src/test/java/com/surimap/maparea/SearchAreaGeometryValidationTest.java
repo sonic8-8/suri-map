@@ -22,7 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * S2 수색 구역 생성·수정 시 geometry 검증이 PublishRequest 발행 여부를 결정함을 검증한다.
+ * S2 수색 구역 생성·수정 시 geometry 검증이 EventPublishRequest 발행 여부를 결정함을 검증한다.
  *
  * <p>기준 문서: docs/spec/specs/S2.json tdd_red_tests.backend[1] — SearchAreaGeometryValidationTest.
  *
@@ -233,8 +233,8 @@ class SearchAreaGeometryValidationTest {
   /**
    * overall_search_area 밖에 위치하는 polygon.
    *
-   * <p>GeometryFixtures.invalidCoordOutsideEnvelope() 좌표를 outer ring에 포함한다. bbox(126.647507~127.017482,
-   * 35.052595~35.256837) 밖 좌표(lon=127.200000)가 포함된다.
+   * <p>GeometryFixtures.invalidCoordOutsideEnvelope() 좌표를 outer ring에 포함한다.
+   * bbox(126.647507~127.017482, 35.052595~35.256837) 밖 좌표(lon=127.200000)가 포함된다.
    */
   private static GeoJsonPolygon polygonOutsideOverall() {
     List<List<BigDecimal>> ring =

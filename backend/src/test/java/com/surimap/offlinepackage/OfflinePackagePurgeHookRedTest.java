@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.exception.OfflinePackageApiException;
@@ -407,23 +407,25 @@ class OfflinePackagePurgeHookRedTest {
     return "00000000-0000-0000-0000-0000000099%02d".formatted(index);
   }
 
-  private static PublishRequest searchAreaChangedEvent() {
-    return new PublishRequest(
-        UUID.fromString("77777777-0000-4000-8000-0000000009b1"),
-        INCIDENT_ID,
-        "SEARCH_AREA_CHANGED",
-        1,
-        "search_area",
-        UUID.fromString("77777777-0000-4000-8000-0000000009b2"),
-        CLOSED_AT.plusSeconds(60),
-        Map.of(
-            "id",
-            "osa-purge-l6-t09a-revised",
-            "incidentId",
-            INCIDENT_ID.toString(),
-            "version",
-            2,
-            "overallAreaHash",
-            "overall-area-hash-purge-revised"));
+  private static EventPublishRequest searchAreaChangedEvent() {
+    return EventPublishRequest.builder()
+        .eventId(UUID.fromString("77777777-0000-4000-8000-0000000009b1"))
+        .incidentId(INCIDENT_ID)
+        .type("SEARCH_AREA_CHANGED")
+        .payloadFormatVersion(1)
+        .sourceEntityType("search_area")
+        .sourceEntityId(UUID.fromString("77777777-0000-4000-8000-0000000009b2"))
+        .occurredAt(CLOSED_AT.plusSeconds(60))
+        .payload(
+            Map.of(
+                "id",
+                "osa-purge-l6-t09a-revised",
+                "incidentId",
+                INCIDENT_ID.toString(),
+                "version",
+                2,
+                "overallAreaHash",
+                "overall-area-hash-purge-revised"))
+        .build();
   }
 }

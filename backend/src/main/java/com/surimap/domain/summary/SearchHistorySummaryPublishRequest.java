@@ -3,7 +3,7 @@ package com.surimap.domain.summary;
 import java.util.UUID;
 
 /**
- * PublishRequest payload for SEARCH_HISTORY_SUMMARY_CHANGED event. Fields match S8.json
+ * EventPublishRequest payload for SEARCH_HISTORY_SUMMARY_CHANGED event. Fields match S8.json
  * §events_published SEARCH_HISTORY_SUMMARY_CHANGED payload_schema.
  */
 public class SearchHistorySummaryPublishRequest {
@@ -19,12 +19,7 @@ public class SearchHistorySummaryPublishRequest {
   private final long version;
 
   public SearchHistorySummaryPublishRequest(
-      String eventId,
-      UUID id,
-      UUID incidentId,
-      UUID opId,
-      String status,
-      long version) {
+      String eventId, UUID id, UUID incidentId, UUID opId, String status, long version) {
     this.eventId = eventId;
     this.type = EVENT_TYPE;
     this.id = id;

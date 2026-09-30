@@ -17,13 +17,13 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.ExternalIncident;
 import com.surimap.external.ExternalIncidentAdapter;
 import com.surimap.external.ExternalMissingPerson;
 import com.surimap.external.ExternalSeedMarker;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -41,7 +41,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** Docker 없이 SC-01 import가 실제 OP1 생성과 EventHub publish port까지 연결됐는지 검증한다. */
+/** Docker 없이 SC-01 import가 실제 OP1 생성과 EventPublisher publish port까지 연결됐는지 검증한다. */
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
@@ -78,7 +78,7 @@ class Sc01IncidentStartBridgeTest {
 
   @MockitoBean private ReferenceMarkerSeed referenceMarkerSeed;
 
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
 
   @Test
   @WithMockAccount(
@@ -109,16 +109,17 @@ class Sc01IncidentStartBridgeTest {
         .usingRecursiveFieldByFieldElementComparator()
         .containsExactly(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631));
 
-    ArgumentCaptor<PublishRequest> publishCaptor = ArgumentCaptor.forClass(PublishRequest.class);
+    ArgumentCaptor<EventPublishRequest> publishCaptor =
+        ArgumentCaptor.forClass(EventPublishRequest.class);
     verify(eventHub, times(2)).publish(publishCaptor.capture());
-    assertThat(publishCaptor.getAllValues().stream().map(PublishRequest::type).toList())
+    assertThat(publishCaptor.getAllValues().stream().map(EventPublishRequest::getType).toList())
         .containsExactlyInAnyOrder("INCIDENT_CREATED", "OP_TRANSITIONED");
     assertThat(
             publishCaptor.getAllValues().stream()
-                .filter(request -> "INCIDENT_CREATED".equals(request.type()))
+                .filter(request -> "INCIDENT_CREATED".equals(request.getType()))
                 .findFirst()
                 .orElseThrow()
-                .payload())
+                .getPayload())
         .containsEntry("id", INCIDENT_ID.toString())
         .containsEntry("status", "OPEN")
         .containsEntry("version", 1L);

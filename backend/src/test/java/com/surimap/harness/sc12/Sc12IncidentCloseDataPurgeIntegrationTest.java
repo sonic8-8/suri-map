@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.api.service.sse.ServerSentEventHistoryService;
 import com.surimap.board.BoardAssembler;
 import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
@@ -19,14 +20,14 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
-import com.surimap.eventhub.adapter.EventDispatchJobService;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.stream.GoneRefetchRequiredException;
-import com.surimap.eventhub.stream.SseEventFrame;
-import com.surimap.eventhub.stream.SseReplayService;
-import com.surimap.eventhub.stream.SseStreamService;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.mock112.AssignmentPollingHandler;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.sse.ServerSentEventConnectionRegistry;
+import com.surimap.global.sse.ServerSentEventJobService;
+import com.surimap.global.sse.ServerSentEventMessage;
+import com.surimap.global.sse.ServerSentEventRefetchRequiredException;
+import com.surimap.global.sse.ServerSentEventTestSupport;
 import com.surimap.incident.event.IncidentClosedEvent;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuardException;
 import com.surimap.maparea.query.SearchAreaQuery;
@@ -99,10 +100,10 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   @Autowired private PurgeCoordinator purgeCoordinator;
 
-  @Autowired private EventDispatchJobService jobService;
-  @Autowired private SseReplayService replayService;
+  @Autowired private ServerSentEventJobService jobService;
+  @Autowired private ServerSentEventHistoryService replayService;
 
-  @Autowired private SseStreamService sseStreamService;
+  @Autowired private ServerSentEventConnectionRegistry connectionRegistry;
 
   @DynamicPropertySource
   static void useMainMigrationsWithAccountFixtures(DynamicPropertyRegistry registry) {
@@ -187,12 +188,15 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
         .containsEntry("writeDisabledReason", "incident_closed");
     assertNoPii(closedEvent.payload());
 
-    SseEventFrame closedSse =
-        sseStreamService.dispatchLive(
-            closedEvent.toPublishRequest(), jobService.getOrAssignSseSequence(closedEvent.rowId()));
-    assertThat(closedSse.data().type()).isEqualTo("INCIDENT_CLOSED");
-    assertThat(closedSse.data().payload().get("closedAt")).isEqualTo("2026-04-28T01:45:00Z");
-    assertThat(replayService.replayResultAfter(INCIDENT_ID, "0").getFrames())
+    ServerSentEventMessage closedSse =
+        ServerSentEventTestSupport.dispatchLiveEvent(
+            jobService,
+            connectionRegistry,
+            closedEvent.toPublishRequest(),
+            jobService.getOrAssignServerSentEventSequence(closedEvent.rowId()));
+    assertThat(closedSse.getData().getType()).isEqualTo("INCIDENT_CLOSED");
+    assertThat(closedSse.getData().getPayload().get("closedAt")).isEqualTo("2026-04-28T01:45:00Z");
+    assertThat(replayService.getFirstPageAfter(INCIDENT_ID, "0").getMessages())
         .containsExactly(closedSse);
 
     // 4. INCIDENT_CLOSED를 소비한 뒤 로컬 파기를 실행해 SC-12가 파기 완료 종료 상태에 도달함을 증명한다.
@@ -224,12 +228,15 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
     assertThat(purgedEvent.payload()).containsKey("purgedAt");
     assertNoPii(purgedEvent.payload());
 
-    SseEventFrame purgedSse =
-        sseStreamService.dispatchLive(
-            purgedEvent.toPublishRequest(), jobService.getOrAssignSseSequence(purgedEvent.rowId()));
-    assertThat(purgedSse.data().type()).isEqualTo("INCIDENT_PURGED");
-    assertThatThrownBy(() -> replayService.replayResultAfter(INCIDENT_ID, "0"))
-        .isInstanceOf(GoneRefetchRequiredException.class);
+    ServerSentEventMessage purgedSse =
+        ServerSentEventTestSupport.dispatchLiveEvent(
+            jobService,
+            connectionRegistry,
+            purgedEvent.toPublishRequest(),
+            jobService.getOrAssignServerSentEventSequence(purgedEvent.rowId()));
+    assertThat(purgedSse.getData().getType()).isEqualTo("INCIDENT_PURGED");
+    assertThatThrownBy(() -> replayService.getFirstPageAfter(INCIDENT_ID, "0"))
+        .isInstanceOf(ServerSentEventRefetchRequiredException.class);
 
     // 5. 종료 상황판 증거는 오래된 개인정보나 새로고침/재시도 안내 없이 수렴해야 한다.
     BoardDTO board = assembleTerminalBoard(completed, purgedEvent, purgedSse);
@@ -401,7 +408,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   }
 
   private BoardDTO assembleTerminalBoard(
-      IncidentDataPurgeRun completed, OutboxRow purgedEvent, SseEventFrame purgedSse) {
+      IncidentDataPurgeRun completed, OutboxRow purgedEvent, ServerSentEventMessage purgedSse) {
     // S1-3 종료 행과 package badge 행을 포함해 S3-2가 소비하는 상황판 형태로 조립한다.
     return new BoardAssembler()
         .assemble(
@@ -420,7 +427,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   }
 
   private BoardSourceRow incidentTerminalRow(
-      IncidentDataPurgeRun completed, OutboxRow purgedEvent, SseEventFrame purgedSse) {
+      IncidentDataPurgeRun completed, OutboxRow purgedEvent, ServerSentEventMessage purgedSse) {
     // 이 행에는 금지 키를 일부러 넣는다. SC-12는 종료 상황판이 이를 제거해야 한다.
     return new BoardSourceRow(
         "incident_terminal",
@@ -429,7 +436,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
         TERMINAL_BOARD_ROW_ID,
         "PURGED",
         completed.version(),
-        Long.parseLong(purgedSse.id()),
+        Long.parseLong(purgedSse.getId()),
         purgedEvent.eventId().toString(),
         "hash-sc12-terminal-purged",
         Map.ofEntries(
@@ -536,16 +543,17 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
       Instant occurredAt,
       String dispatchStatus) {
 
-    PublishRequest toPublishRequest() {
-      return new PublishRequest(
-          eventId,
-          incidentId,
-          eventType,
-          payloadFormatVersion,
-          sourceEntityType,
-          sourceEntityId,
-          occurredAt,
-          payload);
+    EventPublishRequest toPublishRequest() {
+      return EventPublishRequest.builder()
+          .eventId(eventId)
+          .incidentId(incidentId)
+          .type(eventType)
+          .payloadFormatVersion(payloadFormatVersion)
+          .sourceEntityType(sourceEntityType)
+          .sourceEntityId(sourceEntityId)
+          .occurredAt(occurredAt)
+          .payload(payload)
+          .build();
     }
   }
 

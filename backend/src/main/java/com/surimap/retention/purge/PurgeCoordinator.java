@@ -1,6 +1,6 @@
 package com.surimap.retention.purge;
 
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
@@ -18,11 +18,12 @@ public class PurgeCoordinator {
 
   private final IncidentDataPurgeStore store;
   private final List<PurgeHook> hooks;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final OperationalLogSink operationalLogSink;
   private final Clock clock;
 
-  public PurgeCoordinator(IncidentDataPurgeStore store, List<PurgeHook> hooks, EventHub eventHub) {
+  public PurgeCoordinator(
+      IncidentDataPurgeStore store, List<PurgeHook> hooks, EventPublisher eventHub) {
     this(store, hooks, eventHub, OperationalLogSink.noop(), Clock.systemUTC());
   }
 
@@ -30,7 +31,7 @@ public class PurgeCoordinator {
   public PurgeCoordinator(
       IncidentDataPurgeStore store,
       List<PurgeHook> hooks,
-      EventHub eventHub,
+      EventPublisher eventHub,
       OperationalLogSink operationalLogSink,
       Clock clock) {
     this.store = Objects.requireNonNull(store, "store는 null일 수 없습니다");

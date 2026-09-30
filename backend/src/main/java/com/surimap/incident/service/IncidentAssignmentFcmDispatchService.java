@@ -54,7 +54,15 @@ public class IncidentAssignmentFcmDispatchService {
     String eventId =
         "fcm:INCIDENT_ASSIGNMENT_CHANGED:" + result.incidentId() + ":v" + result.version();
     try {
-      fcmDispatcher.send(recipients, payload, eventId);
+      FcmDispatcherPort.DispatchResult dispatchResult =
+          fcmDispatcher.send(recipients, payload, eventId);
+      if (!dispatchResult.isFullySuccessful()) {
+        log.warn(
+            "failed to dispatch assignment FCM eventId={} successCount={} failureCount={}",
+            eventId,
+            dispatchResult.successCount(),
+            dispatchResult.failureCount());
+      }
     } catch (RuntimeException exception) {
       log.warn("failed to dispatch assignment FCM eventId={}", eventId, exception);
     }

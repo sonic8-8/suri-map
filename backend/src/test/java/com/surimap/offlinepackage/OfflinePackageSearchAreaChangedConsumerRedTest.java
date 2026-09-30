@@ -10,8 +10,8 @@ import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
 import com.surimap.board.PackageBadgeBoardAssembler;
-import com.surimap.eventhub.adapter.MockEventHub;
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.CapturingEventPublisher;
+import com.surimap.global.event.EventPublishRequest;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
 import com.surimap.offlinepackage.consumer.SearchAreaChangedConsumer;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
@@ -54,7 +54,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
 
   @Autowired private SearchAreaChangedConsumer searchAreaChangedConsumer;
 
-  @Autowired private MockEventHub eventHub;
+  @Autowired private CapturingEventPublisher eventHub;
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -129,7 +129,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     assertCurrentManifestRevisionExpiresAfter(beforeRevision);
 
     assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .extracting(event -> event.payload().get("id"), event -> event.payload().get("status"))
+        .extracting(
+            event -> event.getPayload().get("id"), event -> event.getPayload().get("status"))
         .contains(
             tuple(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID, "STALE"),
             tuple(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID, "STALE"),
@@ -171,8 +172,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         .filteredOn(
             event ->
                 OfflinePackageInstallationFixtures.INSTALLATION_ID.equals(
-                    event.payload().get("id")))
-        .extracting(MockEventHub.CapturedPublish::eventId)
+                    event.getPayload().get("id")))
+        .extracting(EventPublishRequest::getEventId)
         .doesNotHaveDuplicates()
         .hasSize(2);
   }
@@ -200,7 +201,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
   }
 
-  private void invokeSearchAreaChangedConsumer(PublishRequest event) {
+  private void invokeSearchAreaChangedConsumer(EventPublishRequest event) {
     searchAreaChangedConsumer.consume(event);
   }
 
@@ -311,7 +312,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     return statusPhoneCode(id);
   }
 
-  private static PublishRequest searchAreaChangedEvent() {
+  private static EventPublishRequest searchAreaChangedEvent() {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", BoundaryAreaFixtures.OVERALL_AREA_ID.toString());
     payload.put("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID);
@@ -320,15 +321,16 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     payload.put("sequence", BoundaryAreaFixtures.OVERALL_AREA_EVENT_SEQUENCE);
     payload.put("geometry", "overall-area-hash-precinct-revised");
     payload.put("serverTs", OfflinePackageInstallationFixtures.SERVER_TS.toString());
-    return new PublishRequest(
-        stableUuid("event:" + BoundaryAreaFixtures.OVERALL_AREA_EVENT_ID),
-        stableUuid("incident:" + OfflinePackageManifestFixtures.INCIDENT_ID),
-        OfflinePackageInstallationFixtures.SEARCH_AREA_CHANGED_EVENT_TYPE,
-        1,
-        "search_area",
-        stableUuid("search_area:" + BoundaryAreaFixtures.OVERALL_AREA_ID),
-        OfflinePackageInstallationFixtures.SERVER_TS.toInstant(),
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(stableUuid("event:" + BoundaryAreaFixtures.OVERALL_AREA_EVENT_ID))
+        .incidentId(stableUuid("incident:" + OfflinePackageManifestFixtures.INCIDENT_ID))
+        .type(OfflinePackageInstallationFixtures.SEARCH_AREA_CHANGED_EVENT_TYPE)
+        .payloadFormatVersion(1)
+        .sourceEntityType("search_area")
+        .sourceEntityId(stableUuid("search_area:" + BoundaryAreaFixtures.OVERALL_AREA_ID))
+        .occurredAt(OfflinePackageInstallationFixtures.SERVER_TS.toInstant())
+        .payload(payload)
+        .build();
   }
 
   private static OfflinePackageInstallationReportRequest readyReport() {
@@ -358,8 +360,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
 
     @Bean
     @Primary
-    MockEventHub mockEventHub() {
-      return new MockEventHub();
+    CapturingEventPublisher mockEventHub() {
+      return new CapturingEventPublisher();
     }
   }
 }

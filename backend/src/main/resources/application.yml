@@ -20,6 +20,9 @@ server:
   port: ${SERVER_PORT:8080}
   # 프록시가 확인한 외부 HTTPS 주소로 출처를 비교한다. Backend 포트는 외부에 노출하지 않는다.
   forward-headers-strategy: native
+  tomcat:
+    mbeanregistry:
+      enabled: true
 
 surimap:
   cors:
@@ -60,6 +63,10 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      slo:
+        http.server.requests: 25ms,50ms,100ms,250ms,500ms,1s,2s,5s,10s
 
 mock112:
   enabled: ${MOCK_112_ENABLED:true}

@@ -2,9 +2,9 @@ package com.surimap.database;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.eventhub.adapter.EventDispatchJob;
-import com.surimap.eventhub.adapter.EventDispatchJobMapper;
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.sse.ServerSentEventJob;
+import com.surimap.global.sse.ServerSentEventJobMapper;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.time.Instant;
@@ -24,7 +24,7 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
 
   @Autowired private DataSource dataSource;
   @Autowired private IncidentMapper incidentMapper;
-  @Autowired private EventDispatchJobMapper jobMapper;
+  @Autowired private ServerSentEventJobMapper jobMapper;
 
   @Test
   @DisplayName("순번·저장 순서 컬럼을 추가해도 기존 작업·원본·확정 순번은 보존하고 과거 순서는 추정하지 않는다")
@@ -40,17 +40,18 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
     List<String> statuses = List.of("COMPLETED", "PENDING", "FAILED", "DISPATCHING");
     List<UUID> jobIds = new ArrayList<>();
     for (String status : statuses) {
-      EventDispatchJob job =
-          EventDispatchJob.from(
-              new PublishRequest(
-                  UUID.randomUUID(),
-                  incidentId,
-                  "PERSON_FOUND",
-                  1,
-                  "marker",
-                  markerId,
-                  occurredAt,
-                  Map.of("id", markerId.toString(), "status", "ACTIVE", "version", 1)));
+      ServerSentEventJob job =
+          ServerSentEventJob.from(
+              EventPublishRequest.builder()
+                  .eventId(UUID.randomUUID())
+                  .incidentId(incidentId)
+                  .type("PERSON_FOUND")
+                  .payloadFormatVersion(1)
+                  .sourceEntityType("marker")
+                  .sourceEntityId(markerId)
+                  .occurredAt(occurredAt)
+                  .payload(Map.of("id", markerId.toString(), "status", "ACTIVE", "version", 1))
+                  .build());
       jobMapper.insert(job);
       jdbcTemplate.update(
           "UPDATE event_dispatch_job SET dispatch_status = ? WHERE id = ?", status, job.getId());
@@ -73,11 +74,11 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
     assertThat(incidentMapper.findByIncidentId(incidentId).orElseThrow().getVersion())
         .isEqualTo(7L);
     assertThat(incidentMapper.findLastSseSequence(incidentId)).isZero();
-    List<EventDispatchJob> migrated = jobIds.stream().map(jobMapper::findById).toList();
+    List<ServerSentEventJob> migrated = jobIds.stream().map(jobMapper::findById).toList();
     assertThat(migrated)
-        .extracting(EventDispatchJob::getDispatchStatus)
+        .extracting(ServerSentEventJob::getDispatchStatus)
         .containsExactlyElementsOf(statuses);
-    assertThat(migrated).allSatisfy(job -> assertThat(job.getSseSequence()).isNull());
+    assertThat(migrated).allSatisfy(job -> assertThat(job.getServerSentEventSequence()).isNull());
     assertThat(jobMapper.findBySseSequenceRange(incidentId, 0L, Long.MAX_VALUE, 4)).isEmpty();
 
     // given: SSE 순번을 이미 확정한 작업이 있는 DB에 저장 순서 컬럼을 추가한다.
@@ -92,7 +93,7 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
     assertThat(readSourceContents(markerId, pathId)).isEqualTo(sourcesBefore);
     assertThat(incidentMapper.findLastSseSequence(incidentId)).isEqualTo(assignedSequence);
     assertThat(jobIds.stream().map(jobMapper::findById).toList())
-        .extracting(EventDispatchJob::getSseSequence)
+        .extracting(ServerSentEventJob::getServerSentEventSequence)
         .containsExactly(null, assignedSequence, null, null);
     assertThat(
             jdbcTemplate.queryForList(

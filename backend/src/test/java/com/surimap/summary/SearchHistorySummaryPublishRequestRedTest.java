@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * RED contract tests for L3-T08: search history summary port, PublishRequest payload, and
+ * RED contract tests for L3-T08: search history summary port, EventPublishRequest payload, and
  * ForbiddenSummaryGuard (FR-23, S8 §search_history_summary_quality, SC-11).
  *
  * <p>These tests are RED because SearchHistorySummaryService, OpenAiSearchHistorySummaryAdapter,
@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Fixture IDs come verbatim from S8.json §harness_fixtures.sc11_handover_ai_convergence.
  */
-@DisplayName("L3-T08 SearchHistorySummary PublishRequest contract tests")
+@DisplayName("L3-T08 SearchHistorySummary EventPublishRequest contract tests")
 class SearchHistorySummaryPublishRequestRedTest {
 
   // ── Shared fixture values ─────────────────────────────────────────────────
@@ -37,14 +37,14 @@ class SearchHistorySummaryPublishRequestRedTest {
         "minimized OP/path/marker/area/memo evidence snapshot");
   }
 
-  // ── 1. PublishRequest payload contract ───────────────────────────────────
+  // ── 1. EventPublishRequest payload contract ───────────────────────────────────
 
   @Nested
-  @DisplayName("SEARCH_HISTORY_SUMMARY_CHANGED PublishRequest")
+  @DisplayName("SEARCH_HISTORY_SUMMARY_CHANGED EventPublishRequest")
   class PublishRequestContract {
 
     @Test
-    @DisplayName("FAILED 상태의 PublishRequest는 fixture id/status/version/opId를 포함한다")
+    @DisplayName("FAILED 상태의 EventPublishRequest는 fixture id/status/version/opId를 포함한다")
     void failedPublishRequestContainsFixtureFields() {
       // Given: fixture values from S8.json §harness_fixtures.sc11_handover_ai_convergence.aiSummary
       var request =
@@ -57,32 +57,25 @@ class SearchHistorySummaryPublishRequestRedTest {
               SearchHistorySummaryFixtures.SUMMARY_VERSION);
 
       // Then: event type matches spec
-      assertThat(request.getType())
-          .isEqualTo(SearchHistorySummaryFixtures.SUMMARY_EVENT_TYPE);
+      assertThat(request.getType()).isEqualTo(SearchHistorySummaryFixtures.SUMMARY_EVENT_TYPE);
 
       // Then: payload id matches fixture summaryId
-      assertThat(request.getId())
-          .isEqualTo(SearchHistorySummaryFixtures.SUMMARY_ID);
+      assertThat(request.getId()).isEqualTo(SearchHistorySummaryFixtures.SUMMARY_ID);
 
       // Then: incidentId matches fixture
-      assertThat(request.getIncidentId())
-          .isEqualTo(SearchHistorySummaryFixtures.INCIDENT_ID);
+      assertThat(request.getIncidentId()).isEqualTo(SearchHistorySummaryFixtures.INCIDENT_ID);
 
       // Then: opId matches fixture op-precinct-001-op2
-      assertThat(request.getOpId())
-          .isEqualTo(SearchHistorySummaryFixtures.OP_ID);
+      assertThat(request.getOpId()).isEqualTo(SearchHistorySummaryFixtures.OP_ID);
 
       // Then: status is FAILED as spec requires for failure scenario
-      assertThat(request.getStatus())
-          .isEqualTo("FAILED");
+      assertThat(request.getStatus()).isEqualTo("FAILED");
 
       // Then: version matches fixture version=1
-      assertThat(request.getVersion())
-          .isEqualTo(1L);
+      assertThat(request.getVersion()).isEqualTo(1L);
 
       // Then: eventId matches fixture evt-s8-ai-summary-001
-      assertThat(request.getEventId())
-          .isEqualTo("evt-s8-ai-summary-001");
+      assertThat(request.getEventId()).isEqualTo("evt-s8-ai-summary-001");
     }
 
     @Test
@@ -110,8 +103,7 @@ class SearchHistorySummaryPublishRequestRedTest {
       SummaryResult result = adapter.generate(buildRequest());
 
       assertThat(result.status()).isEqualTo(GenerationStatus.READY);
-      assertThat(result.summaryText())
-          .isEqualTo(SearchHistorySummaryFixtures.SUCCESS_SUMMARY_TEXT);
+      assertThat(result.summaryText()).isEqualTo(SearchHistorySummaryFixtures.SUCCESS_SUMMARY_TEXT);
       assertThat(result.isFailed()).isFalse();
     }
 
@@ -125,7 +117,8 @@ class SearchHistorySummaryPublishRequestRedTest {
       SummaryResult result = adapter.generate(buildRequest());
 
       assertThat(result.summaryText()).isNotNull().isNotBlank();
-      // source prompt must not leak into client-visible text (S8 §non_functional_requirements.security)
+      // source prompt must not leak into client-visible text (S8
+      // §non_functional_requirements.security)
       assertThat(result.summaryText()).doesNotContain("source_prompt");
     }
   }
@@ -178,9 +171,7 @@ class SearchHistorySummaryPublishRequestRedTest {
       // S8.json §FR-39: "실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다"
       SummaryResult failed = SummaryResult.failed();
 
-      assertThat(failed.summaryText())
-          .as("FAILED 상태에서 content는 null이어야 한다 (S8 §FR-39)")
-          .isNull();
+      assertThat(failed.summaryText()).as("FAILED 상태에서 content는 null이어야 한다 (S8 §FR-39)").isNull();
     }
   }
 
@@ -326,8 +317,7 @@ class SearchHistorySummaryPublishRequestRedTest {
       assertThat(SearchHistorySummaryFixtures.SUMMARY_DISPLAY_STATUS_UNAVAILABLE)
           .isEqualTo("UNAVAILABLE");
       // Paired with FAILED status
-      assertThat(SearchHistorySummaryFixtures.SUMMARY_STATUS_FAILED)
-          .isEqualTo("FAILED");
+      assertThat(SearchHistorySummaryFixtures.SUMMARY_STATUS_FAILED).isEqualTo("FAILED");
     }
 
     @Test

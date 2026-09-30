@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Test;
 /**
  * L2-T03 RED: POLICE_PHONE_HEARTBEAT_UPDATED publish request contract.
  *
- * <p>S1-2 owns the payload semantics and must hand the canonical fields to S4 EventHub.publish.
- * This test stays in test scope and fails until the production source introduces the task-specific
- * heartbeat publish request.
+ * <p>S1-2 owns the payload semantics and must hand the canonical fields to S4
+ * EventPublisher.publish. This test stays in test scope and fails until the production source
+ * introduces the task-specific heartbeat publish request.
  */
 @DisplayName("L2-T03 POLICE_PHONE_HEARTBEAT_UPDATED publish request RED")
 class PolicePhoneHeartbeatPublishRequestRedTest {
@@ -35,7 +35,8 @@ class PolicePhoneHeartbeatPublishRequestRedTest {
   }
 
   @Test
-  @DisplayName("heartbeat publish request payload exposes canonical id status version policePhoneId sequence fields")
+  @DisplayName(
+      "heartbeat publish request payload exposes canonical id status version policePhoneId sequence fields")
   void heartbeat_publish_request_payload_exposes_canonical_fields() throws Exception {
     List<Path> candidates = findMainSourceFiles("Heartbeat", "PublishRequest");
 
@@ -55,8 +56,7 @@ class PolicePhoneHeartbeatPublishRequestRedTest {
 
   @Test
   @DisplayName("heartbeat publish request payload keeps optional lastSyncAt and ONLINE status")
-  void heartbeat_publish_request_payload_keeps_last_sync_at_and_online_status()
-      throws Exception {
+  void heartbeat_publish_request_payload_keeps_last_sync_at_and_online_status() throws Exception {
     List<Path> candidates = findMainSourceFiles("Heartbeat", "PublishRequest");
 
     assertThat(candidates)

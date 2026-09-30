@@ -217,7 +217,7 @@ public final class OperationalPeriodFixtures {
   /**
    * S8 OP_TRANSITIONED 이벤트 payload를 테스트에서 비교하기 위한 읽기 모델.
    *
-   * <p>S4 EventHub.publish PublishRequest의 id/status/version/opId 수렴 비교 기준.
+   * <p>S4 EventPublisher.publish EventPublishRequest의 id/status/version/opId 수렴 비교 기준.
    */
   public record ExpectedOpTransitionEvent(
       String type,
@@ -230,7 +230,9 @@ public final class OperationalPeriodFixtures {
       UUID fromOpId,
       UUID toOpId) {}
 
-  /** OP_TRANSITIONED PublishRequest payload 비교 모델 (S8.json events_published[].payload_schema). */
+  /**
+   * OP_TRANSITIONED EventPublishRequest payload 비교 모델 (S8.json events_published[].payload_schema).
+   */
   public record OpTransitionedEvent(
       UUID eventId,
       String type,

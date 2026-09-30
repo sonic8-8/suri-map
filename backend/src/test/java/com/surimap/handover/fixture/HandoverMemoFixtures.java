@@ -32,7 +32,10 @@ public final class HandoverMemoFixtures {
   /** S8.json harness_fixtures.sc11_handover_ai_convergence.handoverMemo.status */
   public static final String MEMO_STATUS = "ACTIVE";
 
-  /** S8.json harness_fixtures.sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated.eventId */
+  /**
+   * S8.json
+   * harness_fixtures.sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated.eventId
+   */
   public static final String MEMO_EVENT_ID = "evt-s8-handover-memo-001";
 
   /** S8.json handover_memo.memo_target_type enum values */
@@ -46,8 +49,11 @@ public final class HandoverMemoFixtures {
   /** HANDOVER_MEMO_CREATED event type (S8.json events_published) */
   public static final String EVENT_TYPE_HANDOVER_MEMO_CREATED = "HANDOVER_MEMO_CREATED";
 
-  /** S6 outbox dependency group for handover memo (S6.json enum: SESSION|PATH|MARKER|PHOTO|PACKAGE_STATUS).
-   *  MARKER is the closest analog for independently queueable field-write operations. */
+  /**
+   * S6 outbox dependency group for handover memo (S6.json enum:
+   * SESSION|PATH|MARKER|PHOTO|PACKAGE_STATUS). MARKER is the closest analog for independently
+   * queueable field-write operations.
+   */
   public static final String OUTBOX_DEPENDENCY_GROUP = "MARKER";
 
   public static final String OUTBOX_METHOD = "POST";
@@ -82,7 +88,8 @@ public final class HandoverMemoFixtures {
   /**
    * SC-11 HANDOVER_MEMO_CREATED expected S4 event (S8.json harness_fixtures).
    *
-   * <p>payloadId=memo-precinct-op2-001, payloadStatus=ACTIVE, payloadVersion=1, opId=op-precinct-001-op2
+   * <p>payloadId=memo-precinct-op2-001, payloadStatus=ACTIVE, payloadVersion=1,
+   * opId=op-precinct-001-op2
    */
   public static ExpectedHandoverMemoEvent handoverMemoCreatedEvent(
       String targetType, UUID targetId) {
@@ -101,7 +108,8 @@ public final class HandoverMemoFixtures {
   /**
    * S6 outbox-compatible write operation fixture for offline handover memo.
    *
-   * <p>S8.json §dependencies.spec_dependencies[S6].stub_strategy: "duplicate key replay and offline memo fixture"
+   * <p>S8.json §dependencies.spec_dependencies[S6].stub_strategy: "duplicate key replay and offline
+   * memo fixture"
    */
   public static OutboxWriteOperation outboxWriteOperation(String idempotencyKey) {
     return new OutboxWriteOperation(
@@ -109,18 +117,18 @@ public final class HandoverMemoFixtures {
         INCIDENT_ID,
         UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddd0001"), // deviceId
         OUTBOX_DEPENDENCY_GROUP,
-        1L,                                                       // sequence
+        1L, // sequence
         OUTBOX_METHOD,
         OUTBOX_ENDPOINT,
-        "{\"targetType\":\"OPERATIONAL_PERIOD\"}",               // payload
-        "sha256-placeholder",                                     // bodyHash
+        "{\"targetType\":\"OPERATIONAL_PERIOD\"}", // payload
+        "sha256-placeholder", // bodyHash
         idempotencyKey,
         OP2_ID,
         MEMO_ID,
         "handover_memo",
         CREATED_AT,
-        0L,                                                       // clockOffsetMs
-        CREATED_AT);                                              // clockSyncedAt
+        0L, // clockOffsetMs
+        CREATED_AT); // clockSyncedAt
   }
 
   /**
@@ -143,10 +151,10 @@ public final class HandoverMemoFixtures {
   /**
    * S8 HANDOVER_MEMO_CREATED 이벤트 payload를 테스트에서 비교하기 위한 읽기 모델.
    *
-   * <p>S4 EventHub.publish PublishRequest의 id/status/version/opId 수렴 비교 기준.
+   * <p>S4 EventPublisher.publish EventPublishRequest의 id/status/version/opId 수렴 비교 기준.
    *
-   * <p>S8.json events_published[HANDOVER_MEMO_CREATED].payload_schema 필수 필드:
-   * id, incidentId, opId, status, version, targetType
+   * <p>S8.json events_published[HANDOVER_MEMO_CREATED].payload_schema 필수 필드: id, incidentId, opId,
+   * status, version, targetType
    */
   public record ExpectedHandoverMemoEvent(
       String eventId,

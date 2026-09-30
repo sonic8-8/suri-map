@@ -2,7 +2,7 @@ package com.surimap.retention.purge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.global.event.CapturingEventPublisher;
 import com.surimap.incident.event.IncidentClosedEvent;
 import com.surimap.retention.purge.fixture.PurgeLifecycleFixtures;
 import com.surimap.retention.purge.testdouble.MockPurgeHookRegistry;
@@ -18,7 +18,7 @@ class PurgeCoordinatorRedTest {
   @DisplayName("동일한 CLOSED 사건 replay는 하나의 purge run만 생성하고 version을 중복 증가시키지 않는다")
   void closedIncidentCreatesSinglePurgeRun() {
     MockPurgeHookRegistry registry = PurgeLifecycleFixtures.defaultRegistry();
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     InMemoryIncidentDataPurgeStore store = new InMemoryIncidentDataPurgeStore();
     PurgeCoordinator coordinator = new PurgeCoordinator(store, registry.hooks(), eventHub);
 
@@ -46,7 +46,7 @@ class PurgeCoordinatorRedTest {
   @DisplayName("INCIDENT_CLOSED handoff는 incident_data_purge run을 시작한다")
   void incidentClosedHandoffStartsPurgeRun() {
     MockPurgeHookRegistry registry = PurgeLifecycleFixtures.defaultRegistry();
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     InMemoryIncidentDataPurgeStore store = new InMemoryIncidentDataPurgeStore();
     PurgeCoordinator coordinator = new PurgeCoordinator(store, registry.hooks(), eventHub);
     IncidentClosedPurgeHandler handler = new IncidentClosedPurgeHandler(coordinator);
@@ -69,7 +69,7 @@ class PurgeCoordinatorRedTest {
   @DisplayName("모든 훅 성공 후에만 INCIDENT_PURGED를 한 번 발행하고 purge run을 COMPLETED로 마감한다")
   void incidentPurgedPublishedOnlyAfterAllHooksSucceed() {
     MockPurgeHookRegistry registry = PurgeLifecycleFixtures.defaultRegistry();
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     InMemoryIncidentDataPurgeStore store = new InMemoryIncidentDataPurgeStore();
     PurgeCoordinator coordinator = new PurgeCoordinator(store, registry.hooks(), eventHub);
     IncidentDataPurgeRun run = openRun(coordinator);
@@ -82,17 +82,17 @@ class PurgeCoordinatorRedTest {
     assertThat(eventHub.findByType("INCIDENT_PURGED").get(0))
         .satisfies(
             event -> {
-              assertThat(event.incidentId()).isEqualTo(PurgeLifecycleFixtures.INCIDENT_ID);
-              assertThat(event.sourceEntityType()).isEqualTo("incident_data_purge");
-              assertThat(event.sourceEntityId()).isEqualTo(run.purgeRunId());
-              assertThat(event.payload())
+              assertThat(event.getIncidentId()).isEqualTo(PurgeLifecycleFixtures.INCIDENT_ID);
+              assertThat(event.getSourceEntityType()).isEqualTo("incident_data_purge");
+              assertThat(event.getSourceEntityId()).isEqualTo(run.purgeRunId());
+              assertThat(event.getPayload())
                   .containsAllEntriesOf(
                       Map.of(
                           "id", PurgeLifecycleFixtures.INCIDENT_ID.toString(),
                           "status", "PURGED",
                           "version", completed.version(),
                           "purgeRunId", run.purgeRunId().toString()));
-              assertThat(event.payload()).containsKey("purgedAt");
+              assertThat(event.getPayload()).containsKey("purgedAt");
             });
   }
 
@@ -102,7 +102,7 @@ class PurgeCoordinatorRedTest {
     MockPurgeHookRegistry registry =
         PurgeLifecycleFixtures.defaultRegistry()
             .withResult(PurgeHookName.LOCAL_SYNC, PurgeLifecycleFixtures.waitingForSyncResult());
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     InMemoryIncidentDataPurgeStore store = new InMemoryIncidentDataPurgeStore();
     PurgeCoordinator coordinator = new PurgeCoordinator(store, registry.hooks(), eventHub);
     IncidentDataPurgeRun run = openRun(coordinator);
@@ -120,7 +120,7 @@ class PurgeCoordinatorRedTest {
   @DisplayName("완료된 purge run의 scheduler retry와 CLOSED replay는 INCIDENT_PURGED를 중복 발행하지 않는다")
   void duplicateRetryDoesNotDuplicatePublish() {
     MockPurgeHookRegistry registry = PurgeLifecycleFixtures.defaultRegistry();
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     InMemoryIncidentDataPurgeStore store = new InMemoryIncidentDataPurgeStore();
     PurgeCoordinator coordinator = new PurgeCoordinator(store, registry.hooks(), eventHub);
     IncidentDataPurgeRun run = openRun(coordinator);

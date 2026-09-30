@@ -7,7 +7,7 @@ import java.util.UUID;
 /**
  * SEARCH_AREA_ASSIGNMENT_CHANGED 이벤트 payload record (S2.json §events_published).
  *
- * <p>EventHub.publish PublishRequest 생성 시 payload로 사용한다.
+ * <p>EventPublisher.publish EventPublishRequest 생성 시 payload로 사용한다.
  */
 public record SearchAreaAssignmentChangedEvent(
     String eventId,

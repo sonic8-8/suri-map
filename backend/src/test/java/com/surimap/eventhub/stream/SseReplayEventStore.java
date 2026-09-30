@@ -1,6 +1,6 @@
 package com.surimap.eventhub.stream;
 
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +11,7 @@ public interface SseReplayEventStore {
 
   SseReplayEvent save(SseReplayEvent event);
 
-  ReplayAppend append(UUID eventDispatchJobId, PublishRequest envelope);
+  ReplayAppend append(UUID eventDispatchJobId, EventPublishRequest envelope);
 
   Optional<ReplayAppend> findByEventId(UUID eventId);
 

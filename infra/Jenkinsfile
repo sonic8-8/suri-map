@@ -1419,7 +1419,7 @@ PROFILE_JSON
                     k6_exit=0
                     docker run --rm \
                       --network host \
-                      -v "$(pwd)/infra/k6/smoke.js:/scripts/smoke.js:ro" \
+                      -v "$(pwd)/infra/k6/api-smoke.js:/scripts/api-smoke.js:ro" \
                       -v "$(pwd)/${K6_SMOKE_ARTIFACT_DIR}:/results" \
                       grafana/k6:latest run \
                       --out "json=/results/k6-results.json" \
@@ -1433,7 +1433,7 @@ PROFILE_JSON
                       --env APP_API_P95_MS="${K6_APP_API_P95_MS:-2000}" \
                       --env SSE_P95_MS="${K6_SSE_P95_MS:-15000}" \
                       --env HTTP_FAIL_RATE="${K6_HTTP_FAIL_RATE:-0.05}" \
-                      /scripts/smoke.js \
+                      /scripts/api-smoke.js \
                       > "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt" 2>&1 || k6_exit=$?
 
                     cat "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt"

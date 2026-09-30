@@ -5,8 +5,8 @@ set -eu
 
 S4_EVIDENCE_ARTIFACT_DIR="${S4_EVIDENCE_ARTIFACT_DIR:-ci-artifacts/s4-evidence}"
 BACKEND_TEST_RESULT_DIR="${BACKEND_TEST_RESULT_DIR:-backend/build/test-results/test}"
-REPLAY_CLASS="com.surimap.eventhub.SseReplayServiceTest"
-FANOUT_CLASS="com.surimap.eventhub.SseStreamServiceTest"
+REPLAY_CLASS="com.surimap.api.service.sse.ServerSentEventHistoryServiceTest"
+FANOUT_CLASS="com.surimap.global.sse.ServerSentEventJobWorkerTest"
 
 mkdir -p "${S4_EVIDENCE_ARTIFACT_DIR}"
 

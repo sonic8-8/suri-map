@@ -53,7 +53,7 @@ Jenkins는 `docker create` → `docker start --attach`로 실행하고, 실패�
 | JUnit | `test-results/TEST-*.xml`. Jenkins의 **Test Result**에서도 확인한다. |
 | HTML 테스트 보고서 | `test-report/index.html`과 연결된 파일 |
 | JaCoCo | `coverage/jacocoTestReport.xml`, `coverage/html/index.html`과 연결된 파일 |
-| SSE DB 검사 | `sse/`. `collect-s4-evidence.sh`가 `SseReplayServiceTest`·`SseStreamServiceTest`의 실제 JUnit XML을 읽고 `verify-s4-evidence.sh`가 판정한다. |
+| SSE DB 검사 | `sse/`. `collect-s4-evidence.sh`가 `ServerSentEventHistoryServiceTest`·`ServerSentEventJobWorkerTest`의 실제 JUnit XML을 읽고 `verify-s4-evidence.sh`가 판정한다. |
 
 JUnit 게시에는 기존 플러그인, 파일 보관에는 Jenkins의 `archiveArtifacts`를 사용한다. [JUnit 결과 누락·실패 처리](https://www.jenkins.io/doc/pipeline/steps/junit/)와 [산출물 보관](https://www.jenkins.io/doc/pipeline/steps/core/#archiveartifacts-archive-the-artifacts)의 공식 동작을 따른다. 테스트 통과율·커버리지 목표치를 새로 정한 것은 아니다.
 

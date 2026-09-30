@@ -21,8 +21,8 @@ import com.surimap.api.service.path.SearchPathService;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
@@ -62,7 +62,7 @@ class OpComparisonApiServiceTest {
       org.mockito.Mockito.mock(OpComparisonRegionFactMapper.class);
   private final OpComparisonNarrativePort narrativePort =
       org.mockito.Mockito.mock(OpComparisonNarrativePort.class);
-  private final EventHub eventHub = org.mockito.Mockito.mock(EventHub.class);
+  private final EventPublisher eventHub = org.mockito.Mockito.mock(EventPublisher.class);
   private final IncidentLifecycleGuard incidentLifecycleGuard =
       org.mockito.Mockito.mock(IncidentLifecycleGuard.class);
 
@@ -119,12 +119,12 @@ class OpComparisonApiServiceTest {
     assertThat(response.regionFacts()).isEmpty();
     assertThat(response.version()).isEqualTo(2L);
 
-    ArgumentCaptor<PublishRequest> event = ArgumentCaptor.forClass(PublishRequest.class);
+    ArgumentCaptor<EventPublishRequest> event = ArgumentCaptor.forClass(EventPublishRequest.class);
     verify(eventHub).publish(event.capture());
-    assertThat(event.getValue().type()).isEqualTo("OP_COMPARISON_ANALYSIS_CHANGED");
-    assertThat(event.getValue().sourceEntityType()).isEqualTo("op_comparison_analysis");
-    assertThat(event.getValue().sourceEntityId()).isEqualTo(response.comparisonId());
-    assertThat(event.getValue().payload())
+    assertThat(event.getValue().getType()).isEqualTo("OP_COMPARISON_ANALYSIS_CHANGED");
+    assertThat(event.getValue().getSourceEntityType()).isEqualTo("op_comparison_analysis");
+    assertThat(event.getValue().getSourceEntityId()).isEqualTo(response.comparisonId());
+    assertThat(event.getValue().getPayload())
         .containsEntry("id", response.comparisonId().toString())
         .containsEntry("comparisonId", response.comparisonId().toString())
         .containsEntry("incidentId", INCIDENT_ID.toString())
@@ -132,7 +132,8 @@ class OpComparisonApiServiceTest {
         .containsEntry("narrativeStatus", "SKIPPED")
         .containsEntry("version", 2L);
     @SuppressWarnings("unchecked")
-    List<String> eventOpIds = (List<String>) event.getValue().payload().get("operationalPeriodIds");
+    List<String> eventOpIds =
+        (List<String>) event.getValue().getPayload().get("operationalPeriodIds");
     assertThat(eventOpIds).containsExactly(OP1_ID.toString(), OP2_ID.toString());
   }
 

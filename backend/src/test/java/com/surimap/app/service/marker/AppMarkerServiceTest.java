@@ -14,6 +14,12 @@ import static com.surimap.policephone.PolicePhoneFixtures.REGISTERED_UNASSIGNED_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +36,7 @@ import com.surimap.app.service.photo.request.PhotoAttachServiceRequest;
 import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
+import com.surimap.client.fcm.FcmDispatcherPort.DispatchResult;
 import com.surimap.client.fcm.MockFcmDispatcher;
 import com.surimap.client.storage.MockObjectStorageAdapter;
 import com.surimap.domain.marker.Marker;
@@ -59,14 +66,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -103,7 +114,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private PhotoMapper photoMapper;
   @Autowired private MockObjectStorageAdapter objectStorage;
   @Autowired private ObjectMapper objectMapper;
-  @Autowired private MockFcmDispatcher fcmDispatcher;
+  @MockitoSpyBean private MockFcmDispatcher fcmDispatcher;
   @Autowired private PolicePhonePersistenceService policePhonePersistenceService;
   @Autowired private PlatformTransactionManager transactionManager;
 
@@ -934,26 +945,62 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
   }
 
-  @ParameterizedTest(name = "마커 유형: {0}")
-  @CsvSource({"SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED", "PERSON_FOUND,,PERSON_FOUND"})
-  @DisplayName("커밋 후 FCM 전달이 실패해도, 저장된 마커·알림·이벤트와 요청 처리 결과는 유지한다")
+  @ParameterizedTest(name = "마커 유형: {0}, 성공: {3}, 실패: {4}")
+  @CsvSource({
+    "SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED,0,2",
+    "SUPPORT_REQUEST,DRONE,SUPPORT_REQUEST_CREATED,1,1",
+    "PERSON_FOUND,,PERSON_FOUND,0,3",
+    "PERSON_FOUND,,PERSON_FOUND,2,1"
+  })
+  @ExtendWith(OutputCaptureExtension.class)
+  @DisplayName("커밋 후 FCM 전달이 일부 또는 전부 실패하면, 실패 수를 기록하고 마커·알림·이벤트는 유지한다")
   void createMarker_fcmDeliveryFails_preservesMarkerNotificationAndEvents(
-      String markerType, String supportRequestType, String eventType) {
-    // given: 마커 저장은 허용하고 외부 FCM 전달만 실패하게 한다.
+      String markerType,
+      String supportRequestType,
+      String eventType,
+      int successCount,
+      int failureCount,
+      CapturedOutput output) {
+    // given: 실제 DB를 사용하고, 외부 FCM 경계에서만 일부 또는 전체 실패를 반환한다.
     MarkerCreateServiceRequest request = createRequest(markerType, supportRequestType);
+    doAnswer(
+            invocation -> {
+              List<String> recipients = invocation.getArgument(0);
+              return new DispatchResult(
+                  invocation.getArgument(2),
+                  successCount,
+                  failureCount,
+                  recipients.subList(successCount, recipients.size()));
+            })
+        .when(fcmDispatcher)
+        .send(anyList(), anyMap(), anyString());
 
-    // when: 커밋 전에 저장된 이벤트 ID를 확인해 해당 FCM 전달에 실패를 주입한다.
-    MarkerCreateServiceResponse response =
-        new TransactionTemplate(transactionManager)
-            .execute(
-                status -> {
-                  MarkerCreateServiceResponse created = appMarkerService.create(request);
-                  fcmDispatcher.injectFailureFor(readEventId(eventType));
-                  return created;
-                });
+    // when: 마커를 생성하고 트랜잭션 커밋 후 FCM 전송을 시도한다.
+    MarkerCreateServiceResponse response = appMarkerService.create(request);
 
-    // then: FCM 성공 기록은 없지만 실제 DB의 마커·알림·이벤트는 삭제되거나 롤백되지 않는다.
-    assertThat(fcmDispatcher.getAllDispatches()).isEmpty();
+    // then: 성공·실패 수만 기록하고, 토큰·알림 본문은 기록하거나 자동 재시도하지 않는다.
+    verify(fcmDispatcher).send(anyList(), anyMap(), eq(readEventId(eventType)));
+    assertThat(
+            output
+                .getOut()
+                .lines()
+                .filter(line -> line.contains("failed to dispatch marker notification FCM"))
+                .toList())
+        .singleElement()
+        .asString()
+        .contains(
+            "eventId=" + readEventId(eventType),
+            "successCount=" + successCount,
+            "failureCount=" + failureCount)
+        .doesNotContain(
+            TEAM_FCM_TOKEN,
+            COMMANDER_FCM_TOKEN,
+            FIELD_COMMANDER_FCM_TOKEN,
+            MARKER_MEMO,
+            "recipientPolicePhoneIds",
+            "locationLabel");
+
+    // then: 실제 DB의 마커·알림·이벤트와 요청 처리 결과도 유지한다.
     assertThat(readMarkerIds()).containsExactly(response.getId());
     Marker marker = markerMapper.findById(response.getId()).orElseThrow();
     assertThat(marker.getStatus()).isEqualTo("ACTIVE");

@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.surimap.common.auth.OrganizationType;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
@@ -33,7 +33,7 @@ class PolicePhoneHeartbeatIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbcTemplate;
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
   @Autowired private PolicePhoneFreshnessQuery freshnessQuery;
 
   @BeforeEach
@@ -95,7 +95,8 @@ class PolicePhoneHeartbeatIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("ONLINE"))
         .andExpect(
-            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
         .andExpect(jsonPath("$.sequence").value(1))
         .andExpect(jsonPath("$.version").value(2));
 
@@ -103,8 +104,8 @@ class PolicePhoneHeartbeatIntegrationTest {
         .publish(
             argThat(
                 request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
-                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.getIncidentId())));
 
     var row =
         freshnessQuery.byIncident(PolicePhoneFixtures.INCIDENT_ID).stream()
@@ -130,8 +131,7 @@ class PolicePhoneHeartbeatIntegrationTest {
                     "/api/police-phones/{policePhoneId}/heartbeat",
                     PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .header(
-                    "X-PolicePhone-Id",
-                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                    "X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """
@@ -152,7 +152,8 @@ class PolicePhoneHeartbeatIntegrationTest {
   @WithMockAccount(
       accountId = "11111111-1111-1111-1111-111111110009",
       policePhoneId = "00000000-0000-0000-0000-000000000301")
-  @DisplayName("registered phone heartbeat is rejected when the login account has no incident assignment")
+  @DisplayName(
+      "registered phone heartbeat is rejected when the login account has no incident assignment")
   void registeredPhoneWithUnassignedAccountRejected() throws Exception {
     mockMvc
         .perform(
@@ -160,8 +161,7 @@ class PolicePhoneHeartbeatIntegrationTest {
                     "/api/police-phones/{policePhoneId}/heartbeat",
                     PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .header(
-                    "X-PolicePhone-Id",
-                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                    "X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """

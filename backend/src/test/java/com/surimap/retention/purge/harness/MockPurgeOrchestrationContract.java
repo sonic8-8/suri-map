@@ -1,6 +1,6 @@
 package com.surimap.retention.purge.harness;
 
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.global.event.CapturingEventPublisher;
 import com.surimap.retention.purge.IncidentDataPurgeStatus;
 import com.surimap.retention.purge.IncidentPurgedPublishRequest;
 import com.surimap.retention.purge.PurgeHook;
@@ -12,17 +12,17 @@ import java.util.UUID;
 /**
  * 순수 in-memory mock 파기 오케스트레이션 계약.
  *
- * <p>PurgeCoordinator를 사용하지 않는 stub 구현. 픽스처 ID 안정성 검증을 위해 사용된다.
- * MockPurgeHookRegistry와 MockEventHub를 사용하며 결정론적 purgeRunId를 생성한다.
+ * <p>PurgeCoordinator를 사용하지 않는 stub 구현. 픽스처 ID 안정성 검증을 위해 사용된다. MockPurgeHookRegistry와
+ * CapturingEventPublisher를 사용하며 결정론적 purgeRunId를 생성한다.
  */
 public final class MockPurgeOrchestrationContract implements PurgeOrchestrationContract {
 
   private final MockPurgeHookRegistry registry;
-  private final MockEventHub eventHub;
+  private final CapturingEventPublisher eventHub;
 
   public MockPurgeOrchestrationContract() {
     this.registry = new MockPurgeHookRegistry();
-    this.eventHub = new MockEventHub();
+    this.eventHub = new CapturingEventPublisher();
   }
 
   @Override

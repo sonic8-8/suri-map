@@ -4,8 +4,8 @@ import com.surimap.api.controller.handover.request.CreateHandoverMemoRequest;
 import com.surimap.api.controller.handover.response.HandoverMemoListItemResponse;
 import com.surimap.api.controller.handover.response.HandoverMemoListResponse;
 import com.surimap.api.controller.handover.response.HandoverMemoResponse;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.handover.HandoverMemo;
 import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
@@ -39,7 +39,7 @@ public class HandoverMemoApiService {
   private final HandoverMemoMapper handoverMemoMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final IdempotentResponseCache idempotentResponseCache;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
@@ -47,7 +47,7 @@ public class HandoverMemoApiService {
       HandoverMemoMapper handoverMemoMapper,
       OperationalPeriodMapper operationalPeriodMapper,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      EventHub eventHub,
+      EventPublisher eventHub,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.handoverMemoMapper = handoverMemoMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
@@ -101,7 +101,8 @@ public class HandoverMemoApiService {
             .toList());
   }
 
-  private PublishRequest publishRequest(UUID incidentId, HandoverMemo memo, Instant occurredAt) {
+  private EventPublishRequest publishRequest(
+      UUID incidentId, HandoverMemo memo, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", memo.getId().toString());
     payload.put("incidentId", incidentId.toString());
@@ -110,15 +111,16 @@ public class HandoverMemoApiService {
     payload.put("version", memo.getVersion());
     payload.put("targetType", memo.getMemoTargetType());
     payload.put("targetId", memo.getMemoTargetId().toString());
-    return new PublishRequest(
-        eventIdFor(memo),
-        incidentId,
-        "HANDOVER_MEMO_CREATED",
-        PAYLOAD_FORMAT_VERSION,
-        "handover_memo",
-        memo.getId(),
-        occurredAt,
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(eventIdFor(memo))
+        .incidentId(incidentId)
+        .type("HANDOVER_MEMO_CREATED")
+        .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+        .sourceEntityType("handover_memo")
+        .sourceEntityId(memo.getId())
+        .occurredAt(occurredAt)
+        .payload(payload)
+        .build();
   }
 
   private UUID eventIdFor(HandoverMemo memo) {
@@ -212,8 +214,7 @@ public class HandoverMemoApiService {
 
   private <T> ResponseMetadata metadataFor(T response) {
     if (response instanceof HandoverMemoResponse memo) {
-      return new ResponseMetadata(
-          memo.id().toString(), ACTIVE, memo.version(), memo.version());
+      return new ResponseMetadata(memo.id().toString(), ACTIVE, memo.version(), memo.version());
     }
     throw HandoverApiException.writeConflict();
   }

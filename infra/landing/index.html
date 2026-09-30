@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>sonic8-8</title>
+  <style>
+    :root {
+      --background: #f4f6f8;
+      --surface: #ffffff;
+      --text: #18212a;
+      --muted: #66727e;
+      --line: #d9e0e6;
+      --app: #087f5b;
+      --ops: #1c5d99;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--background);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--background);
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .header-inner,
+    main {
+      width: min(1040px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      padding: 28px 0 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    main {
+      padding: 32px 0 48px;
+    }
+
+    section + section {
+      margin-top: 36px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.4;
+      letter-spacing: 0;
+    }
+
+    .server {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .service {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      min-height: 88px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--app);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    #operations .service {
+      border-left-color: var(--ops);
+    }
+
+    .service:hover,
+    .service:focus-visible {
+      border-color: var(--app);
+      outline: none;
+    }
+
+    #operations .service:hover,
+    #operations .service:focus-visible {
+      border-color: var(--ops);
+    }
+
+    .name {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .address {
+      display: block;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 16px;
+    }
+
+    .protected {
+      color: var(--ops);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    @media (max-width: 680px) {
+      .header-inner,
+      main {
+        width: min(100% - 28px, 1040px);
+      }
+
+      .header-inner {
+        padding: 22px 0 20px;
+      }
+
+      main {
+        padding-top: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .service {
+        min-height: 80px;
+      }
+
+      .protected {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>sonic8-8</h1>
+      <p>서비스와 운영 도구</p>
+    </div>
+  </header>
+
+  <main>
+    <section aria-labelledby="applications-heading">
+      <div class="section-heading">
+        <h2 id="applications-heading">App 서비스</h2>
+        <span class="server">App 서버</span>
+      </div>
+      <div class="grid">
+        <a class="service" href="https://suri-map.sonic8-8.com">
+          <span>
+            <span class="name">수리맵</span>
+            <span class="address">suri-map.sonic8-8.com</span>
+          </span>
+          <span class="meta"><span class="arrow" aria-hidden="true">↗</span></span>
+        </a>
+        <a class="service" href="https://suri-map.sonic8-8.com/mock-112/">
+          <span>
+            <span class="name">Mock 112</span>
+            <span class="address">수리맵 신고 연동 모의 서비스</span>
+          </span>
+          <span class="meta"><span class="arrow" aria-hidden="true">↗</span></span>
+        </a>
+        <a class="service" href="https://home-run.sonic8-8.com">
+          <span>
+            <span class="name">Home Run</span>
+            <span class="address">home-run.sonic8-8.com</span>
+          </span>
+          <span class="meta"><span class="arrow" aria-hidden="true">↗</span></span>
+        </a>
+        <a class="service" href="https://agile-runner.sonic8-8.com">
+          <span>
+            <span class="name">Agile Runner</span>
+            <span class="address">agile-runner.sonic8-8.com</span>
+          </span>
+          <span class="meta"><span class="arrow" aria-hidden="true">↗</span></span>
+        </a>
+      </div>
+    </section>
+
+    <section id="operations" aria-labelledby="operations-heading">
+      <div class="section-heading">
+        <h2 id="operations-heading">운영 도구</h2>
+        <span class="server">Ops 서버</span>
+      </div>
+      <div class="grid">
+        <a class="service" href="https://grafana.sonic8-8.com/d/suri-map-load-test/suri-map-load-test">
+          <span>
+            <span class="name">수리맵 부하 시험</span>
+            <span class="address">Grafana 대시보드</span>
+          </span>
+          <span class="meta">
+            <span class="protected">로그인 필요</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </span>
+        </a>
+        <a class="service" href="https://grafana.sonic8-8.com">
+          <span>
+            <span class="name">Grafana</span>
+            <span class="address">grafana.sonic8-8.com</span>
+          </span>
+          <span class="meta">
+            <span class="protected">로그인 필요</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </span>
+        </a>
+        <a class="service" href="https://jenkins.sonic8-8.com">
+          <span>
+            <span class="name">Jenkins</span>
+            <span class="address">jenkins.sonic8-8.com</span>
+          </span>
+          <span class="meta">
+            <span class="protected">로그인 필요</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

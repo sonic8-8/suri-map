@@ -1,10 +1,17 @@
 name: suri-map-runtime
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
 services:
   frontend:
     image: ${FRONTEND_IMAGE:-suri-map-frontend:develop}
     container_name: suri-map-frontend
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       backend:
         condition: service_started
@@ -22,6 +29,7 @@ services:
     image: ${TILESERVER_IMAGE:-maptiler/tileserver-gl:latest}
     container_name: suri-map-tileserver-gl
     restart: unless-stopped
+    logging: *default-logging
     command: ["--config", "/data/config.json"]
     ports:
       - "127.0.0.1:${TILESERVER_HOST_PORT:-8082}:8080"
@@ -44,6 +52,7 @@ services:
     image: ${MOCK_112_IMAGE:-suri-map-mock-112:develop}
     container_name: suri-map-mock-112
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       mock112-postgres:
         condition: service_healthy
@@ -87,6 +96,7 @@ services:
     image: ${BACKEND_IMAGE:-suri-map-backend:develop}
     container_name: suri-map-backend
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgis:
         condition: service_healthy
@@ -99,6 +109,8 @@ services:
       SERVER_PORT: 8080
       TZ: Asia/Seoul
       JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
+      SERVER_TOMCAT_MBEANREGISTRY_ENABLED: ${SERVER_TOMCAT_MBEANREGISTRY_ENABLED:-true}
+      MANAGEMENT_METRICS_DISTRIBUTION_SLO_HTTP_SERVER_REQUESTS: ${MANAGEMENT_METRICS_DISTRIBUTION_SLO_HTTP_SERVER_REQUESTS:-25ms,50ms,100ms,250ms,500ms,1s,2s,5s,10s}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgis:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -139,6 +151,7 @@ services:
     image: ${OBJECT_STORAGE_IMAGE:-minio/minio:latest}
     container_name: suri-map-object-storage
     restart: unless-stopped
+    logging: *default-logging
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${SURI_MAP_OBJECT_STORAGE_ACCESS_KEY}
@@ -162,6 +175,7 @@ services:
     image: postgis/postgis:16-3.4-alpine
     container_name: suri-map-postgis
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -184,6 +198,7 @@ services:
     image: postgres:16-alpine
     container_name: suri-map-mock112-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${MOCK112_POSTGRES_DB:-mock112}
       POSTGRES_USER: ${MOCK112_POSTGRES_USER:-mock112}
@@ -206,6 +221,7 @@ services:
     image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.6.1}
     container_name: suri-map-keycloak
     restart: unless-stopped
+    logging: *default-logging
     command: ["start-dev", "--import-realm"]
     depends_on:
       keycloak-postgres:
@@ -237,6 +253,7 @@ services:
     image: postgres:16-alpine
     container_name: suri-map-keycloak-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB:-keycloak}
       POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER:-keycloak}

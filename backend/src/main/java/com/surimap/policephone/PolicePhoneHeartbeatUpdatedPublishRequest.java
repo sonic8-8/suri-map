@@ -1,13 +1,13 @@
 package com.surimap.policephone;
 
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * PublishRequest source contract for POLICE_PHONE_HEARTBEAT_UPDATED.
+ * EventPublishRequest source contract for POLICE_PHONE_HEARTBEAT_UPDATED.
  *
  * <p>The payload includes id, status, version, policePhoneId, sequence, lastHeartbeatAt, and
  * lastSyncAt. Heartbeat success always reports ONLINE.
@@ -35,7 +35,7 @@ public record PolicePhoneHeartbeatUpdatedPublishRequest(
         result.lastSyncAt());
   }
 
-  public PublishRequest toPublishRequest(UUID incidentId) {
+  public EventPublishRequest toPublishRequest(UUID incidentId) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", id);
     payload.put("status", status.name());
@@ -45,14 +45,15 @@ public record PolicePhoneHeartbeatUpdatedPublishRequest(
     payload.put("lastHeartbeatAt", lastHeartbeatAt);
     payload.put("lastSyncAt", lastSyncAt);
 
-    return new PublishRequest(
-        id,
-        incidentId,
-        TYPE,
-        PAYLOAD_FORMAT_VERSION,
-        "police_phone",
-        policePhoneId,
-        lastHeartbeatAt,
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(id)
+        .incidentId(incidentId)
+        .type(TYPE)
+        .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+        .sourceEntityType("police_phone")
+        .sourceEntityId(policePhoneId)
+        .occurredAt(lastHeartbeatAt)
+        .payload(payload)
+        .build();
   }
 }

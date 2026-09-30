@@ -1,6 +1,6 @@
 package com.surimap.retention.purge;
 
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -20,7 +20,7 @@ public record IncidentPurgedPublishRequest(
     Objects.requireNonNull(purgedAt, "purgedAt는 null일 수 없습니다");
   }
 
-  public PublishRequest toPublishRequest() {
+  public EventPublishRequest toPublishRequest() {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", incidentId.toString());
     payload.put("status", "PURGED");
@@ -28,15 +28,16 @@ public record IncidentPurgedPublishRequest(
     payload.put("purgeRunId", purgeRunId.toString());
     payload.put("purgedAt", purgedAt.toString());
 
-    return new PublishRequest(
-        eventId(),
-        incidentId,
-        TYPE,
-        PAYLOAD_FORMAT_VERSION,
-        "incident_data_purge",
-        purgeRunId,
-        purgedAt,
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(eventId())
+        .incidentId(incidentId)
+        .type(TYPE)
+        .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+        .sourceEntityType("incident_data_purge")
+        .sourceEntityId(purgeRunId)
+        .occurredAt(purgedAt)
+        .payload(payload)
+        .build();
   }
 
   private UUID eventId() {

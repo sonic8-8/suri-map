@@ -16,10 +16,10 @@ import com.surimap.domain.marker.MarkerWriteAccessValidator;
 import com.surimap.domain.photo.MarkerPhoto;
 import com.surimap.domain.photo.PhotoMapper;
 import com.surimap.domain.photo.PhotoStatus;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.global.event.MarkerEventIds;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -51,7 +51,7 @@ public class PhotoService {
 
   private final ObjectStoragePort storagePort;
   private final MarkerAccessMapper markerAccessMapper;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final MarkerMapper markerMapper;
   private final Clock clock = Clock.systemUTC();
   private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
@@ -63,7 +63,7 @@ public class PhotoService {
   public PhotoService(
       ObjectStoragePort storagePort,
       MarkerAccessMapper markerAccessMapper,
-      EventHub eventHub,
+      EventPublisher eventHub,
       MarkerMapper markerMapper,
       PlatformTransactionManager transactionManager,
       PhotoMapper photoMapper,
@@ -437,15 +437,16 @@ public class PhotoService {
     payload.put("photoDelta", photoDelta);
 
     eventHub.publish(
-        new PublishRequest(
-            MarkerEventIds.eventId("MARKER_UPDATED", marker.getId(), marker.getVersion()),
-            marker.getIncidentId(),
-            "MARKER_UPDATED",
-            1,
-            "marker",
-            marker.getId(),
-            clock.instant(),
-            payload));
+        EventPublishRequest.builder()
+            .eventId(MarkerEventIds.eventId("MARKER_UPDATED", marker.getId(), marker.getVersion()))
+            .incidentId(marker.getIncidentId())
+            .type("MARKER_UPDATED")
+            .payloadFormatVersion(1)
+            .sourceEntityType("marker")
+            .sourceEntityId(marker.getId())
+            .occurredAt(clock.instant())
+            .payload(payload)
+            .build());
   }
 
   private void requireAttachableMarker(UUID markerId, MarkerPhoto photo) {
