@@ -3,8 +3,8 @@ package com.surimap.api.service.operationalperiod;
 import com.surimap.api.controller.operationalperiod.request.CreateOperationalPeriodRequest;
 import com.surimap.api.controller.operationalperiod.response.OperationalPeriodListResponse;
 import com.surimap.api.controller.operationalperiod.response.OperationalPeriodResponse;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.handover.HandoverMemo;
 import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
@@ -41,7 +41,7 @@ public class OperationalPeriodApiService {
   private final OperationalPeriodMapper mapper;
   private final HandoverMemoMapper handoverMemoMapper;
   private final EventPublisherPort eventPublisher;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -51,7 +51,7 @@ public class OperationalPeriodApiService {
       OperationalPeriodMapper mapper,
       HandoverMemoMapper handoverMemoMapper,
       EventPublisherPort eventPublisher,
-      EventHub eventHub,
+      EventPublisher eventHub,
       IncidentLifecycleGuard incidentLifecycleGuard,
       SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
@@ -128,9 +128,11 @@ public class OperationalPeriodApiService {
   }
 
   public OperationalPeriodListResponse list(UUID incidentId) {
-    UUID currentOpId = mapper.findActiveByIncident(incidentId).map(OperationalPeriod::getId).orElse(null);
+    UUID currentOpId =
+        mapper.findActiveByIncident(incidentId).map(OperationalPeriod::getId).orElse(null);
     return OperationalPeriodListResponse.from(
-        currentOpId, mapper.findAllByIncidentOrderBySequence(incidentId).stream().map(this::toRow).toList());
+        currentOpId,
+        mapper.findAllByIncidentOrderBySequence(incidentId).stream().map(this::toRow).toList());
   }
 
   private com.surimap.operationalperiod.query.OperationalPeriodRow toRow(OperationalPeriod op) {
@@ -226,7 +228,7 @@ public class OperationalPeriodApiService {
     eventHub.publish(handoverMemoPublishRequest(previous.getIncidentId(), memo, occurredAt));
   }
 
-  private PublishRequest handoverMemoPublishRequest(
+  private EventPublishRequest handoverMemoPublishRequest(
       UUID incidentId, HandoverMemo memo, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", memo.getId().toString());
@@ -236,15 +238,16 @@ public class OperationalPeriodApiService {
     payload.put("version", memo.getVersion());
     payload.put("targetType", memo.getMemoTargetType());
     payload.put("targetId", memo.getMemoTargetId().toString());
-    return new PublishRequest(
-        handoverMemoEventIdFor(memo),
-        incidentId,
-        "HANDOVER_MEMO_CREATED",
-        PAYLOAD_FORMAT_VERSION,
-        "handover_memo",
-        memo.getId(),
-        occurredAt,
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(handoverMemoEventIdFor(memo))
+        .incidentId(incidentId)
+        .type("HANDOVER_MEMO_CREATED")
+        .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+        .sourceEntityType("handover_memo")
+        .sourceEntityId(memo.getId())
+        .occurredAt(occurredAt)
+        .payload(payload)
+        .build();
   }
 
   private UUID handoverMemoEventIdFor(HandoverMemo memo) {

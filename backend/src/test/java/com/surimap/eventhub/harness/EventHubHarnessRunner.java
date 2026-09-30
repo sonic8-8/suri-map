@@ -3,9 +3,9 @@ package com.surimap.eventhub.harness;
 import java.util.Optional;
 
 /**
- * L2-T09B EventHub 하네스 러너.
+ * L2-T09B EventPublisher 하네스 러너.
  *
- * <p>다른 Lane 테스트에서 S4 EventHub 하네스 픽스처를 실행하는 데 사용한다.
+ * <p>다른 Lane 테스트에서 S4 EventPublisher 하네스 픽스처를 실행하는 데 사용한다.
  */
 public final class EventHubHarnessRunner {
 

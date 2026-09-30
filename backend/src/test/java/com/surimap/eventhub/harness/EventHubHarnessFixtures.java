@@ -1,7 +1,7 @@
 package com.surimap.eventhub.harness;
 
-import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.fixture.EventFixtures;
+import com.surimap.global.event.EventPublishRequest;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -9,8 +9,8 @@ import java.util.UUID;
 /**
  * L2-T09B S4 Realtime Event Hub 하네스 픽스처.
  *
- * <p>S4.json harness_fixtures 섹션에 정의된 시나리오별 요청 픽스처를 제공한다.
- * fixture ID는 {@link EventFixtures} 상수를 그대로 사용하며, 임의로 축약하거나 재명명하지 않는다.
+ * <p>S4.json harness_fixtures 섹션에 정의된 시나리오별 요청 픽스처를 제공한다. fixture ID는 {@link EventFixtures} 상수를 그대로
+ * 사용하며, 임의로 축약하거나 재명명하지 않는다.
  */
 public final class EventHubHarnessFixtures {
 
@@ -79,23 +79,24 @@ public final class EventHubHarnessFixtures {
       Instant occurredAt,
       Map<String, Object> payload) {
 
-    public PublishRequest toPublishRequest() {
-      return new PublishRequest(
-          eventId, incidentId, type, payloadFormatVersion, sourceEntityType, sourceEntityId,
-          occurredAt, payload);
+    public EventPublishRequest toPublishRequest() {
+      return EventPublishRequest.builder()
+          .eventId(eventId)
+          .incidentId(incidentId)
+          .type(type)
+          .payloadFormatVersion(payloadFormatVersion)
+          .sourceEntityType(sourceEntityType)
+          .sourceEntityId(sourceEntityId)
+          .occurredAt(occurredAt)
+          .payload(payload)
+          .build();
     }
   }
 
   /** publish() 결과 증거 레코드 */
   public record PublishEvidence(
-      UUID eventId,
-      UUID incidentId,
-      String type,
-      Map<String, Object> payload) {}
+      UUID eventId, UUID incidentId, String type, Map<String, Object> payload) {}
 
   /** SSE replay store 기록 증거 레코드 */
-  public record SseReplayEvidence(
-      UUID eventId,
-      UUID incidentId,
-      long replaySequence) {}
+  public record SseReplayEvidence(UUID eventId, UUID incidentId, long replaySequence) {}
 }

@@ -1,7 +1,8 @@
 package com.surimap.eventhub.stream;
 
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.validation.BaseEventValidator;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublishRequestValidator;
+import com.surimap.global.sse.ServerSentEventRefetchRequiredException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -34,9 +35,9 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
   @Override
   public SseReplayEvent save(SseReplayEvent event) {
     if (isIncidentPurged(event.incidentId())) {
-      throw new GoneRefetchRequiredException();
+      throw new ServerSentEventRefetchRequiredException();
     }
-    byEventId.put(event.envelope().eventId(), event);
+    byEventId.put(event.envelope().getEventId(), event);
     byIncident
         .computeIfAbsent(event.incidentId(), ignored -> new ConcurrentSkipListMap<>())
         .put(event.replaySequence(), event);
@@ -47,10 +48,10 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
   }
 
   @Override
-  public ReplayAppend append(UUID eventDispatchJobId, PublishRequest envelope) {
-    BaseEventValidator.validate(envelope);
-    if (isIncidentPurged(envelope.incidentId())) {
-      throw new GoneRefetchRequiredException();
+  public ReplayAppend append(UUID eventDispatchJobId, EventPublishRequest envelope) {
+    EventPublishRequestValidator.validate(envelope);
+    if (isIncidentPurged(envelope.getIncidentId())) {
+      throw new ServerSentEventRefetchRequiredException();
     }
 
     // computeIfAbsent is atomic: the sequence is allocated only when this thread wins the slot,
@@ -58,14 +59,14 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
     boolean[] created = {false};
     var event =
         byEventId.computeIfAbsent(
-            envelope.eventId(),
+            envelope.getEventId(),
             ignored -> {
-              long seq = nextReplaySequence(envelope.incidentId(), eventDispatchJobId);
+              long seq = nextReplaySequence(envelope.getIncidentId(), eventDispatchJobId);
               created[0] = true;
               return SseReplayEvent.active(
                   UUID.randomUUID(),
                   eventDispatchJobId,
-                  envelope.incidentId(),
+                  envelope.getIncidentId(),
                   seq,
                   envelope,
                   now());
@@ -73,7 +74,7 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
 
     if (created[0]) {
       byIncident
-          .computeIfAbsent(envelope.incidentId(), ignored -> new ConcurrentSkipListMap<>())
+          .computeIfAbsent(envelope.getIncidentId(), ignored -> new ConcurrentSkipListMap<>())
           .put(event.replaySequence(), event);
     }
     return toAppend(event, created[0]);
@@ -93,7 +94,7 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
   @Override
   public List<SseReplayEvent> replayAfter(UUID incidentId, long replaySequence) {
     if (isIncidentPurged(incidentId)) {
-      throw new GoneRefetchRequiredException();
+      throw new ServerSentEventRefetchRequiredException();
     }
     return byIncident
         .getOrDefault(incidentId, new ConcurrentSkipListMap<>())
@@ -108,7 +109,7 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
   public OptionalLong terminalReplaySequence(UUID incidentId) {
     return byIncident.getOrDefault(incidentId, new ConcurrentSkipListMap<>()).values().stream()
         .filter(event -> SseReplayEvent.ACTIVE.equals(event.replayStatus()))
-        .filter(event -> "INCIDENT_CLOSED".equals(event.envelope().type()))
+        .filter(event -> "INCIDENT_CLOSED".equals(event.envelope().getType()))
         .mapToLong(SseReplayEvent::replaySequence)
         .min();
   }
@@ -125,7 +126,7 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
     long purgedCount = 0L;
     if (removed != null) {
       purgedCount = removed.size();
-      removed.values().forEach(event -> byEventId.remove(event.envelope().eventId()));
+      removed.values().forEach(event -> byEventId.remove(event.envelope().getEventId()));
     }
     sequenceByIncident.remove(incidentId);
     purgedIncidentAt.put(incidentId, purgedAt);
@@ -151,6 +152,6 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
 
   private ReplayAppend toAppend(SseReplayEvent event, boolean isNew) {
     return new ReplayAppend(
-        event.envelope().eventId(), event.incidentId(), event.replaySequence(), event, isNew);
+        event.envelope().getEventId(), event.incidentId(), event.replaySequence(), event, isNew);
   }
 }

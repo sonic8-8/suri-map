@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.global.event.CapturingEventPublisher;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
@@ -39,7 +39,7 @@ class OfflinePackageInstallationApiRedTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private MockEventHub eventHub;
+  @Autowired private CapturingEventPublisher eventHub;
 
   @Autowired private OfflinePackageInstallationQuery installationQuery;
 
@@ -157,11 +157,11 @@ class OfflinePackageInstallationApiRedTest {
         .singleElement()
         .satisfies(
             event -> {
-              assertThat(event.type()).isEqualTo(OfflinePackageInstallationFixtures.EVENT_TYPE);
-              assertThat(event.payloadFormatVersion()).isEqualTo(1);
-              assertThat(event.sourceEntityType())
+              assertThat(event.getType()).isEqualTo(OfflinePackageInstallationFixtures.EVENT_TYPE);
+              assertThat(event.getPayloadFormatVersion()).isEqualTo(1);
+              assertThat(event.getSourceEntityType())
                   .isEqualTo(OfflinePackageInstallationFixtures.SOURCE_ENTITY_TYPE);
-              assertThat(event.payload())
+              assertThat(event.getPayload())
                   .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
                   .containsEntry("status", "READY")
                   .containsEntry("version", (long) OfflinePackageInstallationFixtures.VERSION)
@@ -310,8 +310,8 @@ class OfflinePackageInstallationApiRedTest {
 
     @Bean
     @Primary
-    MockEventHub mockEventHub() {
-      return new MockEventHub();
+    CapturingEventPublisher mockEventHub() {
+      return new CapturingEventPublisher();
     }
   }
 }

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.app.service.policephone.AppPolicePhoneHeartbeatService;
 import com.surimap.app.service.policephone.request.PolicePhoneHeartbeatServiceRequest;
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.global.event.CapturingEventPublisher;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -15,8 +15,9 @@ import org.junit.jupiter.api.Test;
 class AppPolicePhoneHeartbeatServiceTest {
 
   private final Clock clock = Clock.fixed(Instant.parse("2026-05-08T00:00:00Z"), ZoneOffset.UTC);
-  private final InMemoryPolicePhoneFixtureStore fixtureStore = new InMemoryPolicePhoneFixtureStore(clock);
-  private final MockEventHub eventHub = new MockEventHub();
+  private final InMemoryPolicePhoneFixtureStore fixtureStore =
+      new InMemoryPolicePhoneFixtureStore(clock);
+  private final CapturingEventPublisher eventHub = new CapturingEventPublisher();
   private final AppPolicePhoneHeartbeatService service =
       new AppPolicePhoneHeartbeatService(fixtureStore, eventHub, clock);
 

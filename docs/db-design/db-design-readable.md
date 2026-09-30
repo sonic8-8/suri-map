@@ -78,14 +78,14 @@
 | `incident_data_purge_hook_step` | 파기 작업 안에서 대상별 처리 결과·실패·삭제/보존 개수를 남긴다. 전체 상태만으로 개별 대상의 성공을 추정하지 않기 위한 기록이다. |
 | `location_data_access_audit` | 위치 데이터에 접근한 계정·사건·채널·목적·시각·보관 기한. 일반 운영 로그와 다른 기록이다. |
 
-[멱등성 SQL](../../backend/src/main/resources/mapper/sync/IdempotencyRecordMapper.xml), [패키지 SQL](../../backend/src/main/resources/mapper/offlinepackage/OfflinePackageMapper.xml), [전송 작업 SQL](../../backend/src/main/resources/mapper/event/EventDispatchJobMapper.xml), [파기 SQL](../../backend/src/main/resources/mapper/retention/PurgeRunMapper.xml)이 각 저장 경로다. 복구·보존 요구는 [오프라인 동기화](../features/offline-sync.md), [패키지](../features/offline-package.md), [데이터 파기·접근기록](../features/data-retention.md)에 남긴다.
+[멱등성 SQL](../../backend/src/main/resources/mapper/sync/IdempotencyRecordMapper.xml), [패키지 SQL](../../backend/src/main/resources/mapper/offlinepackage/OfflinePackageMapper.xml), [전송 작업 SQL](../../backend/src/main/resources/mapper/sse/ServerSentEventJobMapper.xml), [파기 SQL](../../backend/src/main/resources/mapper/retention/PurgeRunMapper.xml)이 각 저장 경로다. 복구·보존 요구는 [오프라인 동기화](../features/offline-sync.md), [패키지](../features/offline-package.md), [데이터 파기·접근기록](../features/data-retention.md)에 남긴다.
 
 ### 구현으로 오해하면 안 되는 옛 설계
 
 | 옛 문서의 설명 | 확인한 코드와 남은 요구 |
 |---|---|
 | `event_dispatch_target`에 대상별 재시도 상태 저장 | 해당 테이블의 migration·운영 SQL은 없다. 현재 Dispatcher는 SSE 작업 단위 상태를 기록한다. 대상별 실패·재시도 요구는 [이벤트 전달](../features/event-delivery.md)에서 후속 검토한다. |
-| `sse_replay_event`에 사건별 순번·재전송 이력 저장 | 해당 테이블의 migration·운영 SQL은 없다. [EventStreamConfig](../../backend/src/main/java/com/surimap/eventhub/stream/EventStreamConfig.java)가 메모리 저장소를 등록한다. DB 전송 작업의 존재만으로 재시작 후 재전송을 보장하지 않는다. |
+| `sse_replay_event`에 사건별 순번·재전송 이력 저장 | 해당 테이블의 migration·운영 SQL은 없다. [EventStreamConfig](../../backend/src/main/java/com/surimap/config/ServerSentEventConfig.java)가 메모리 저장소를 등록한다. DB 전송 작업의 존재만으로 재시작 후 재전송을 보장하지 않는다. |
 | `token_ciphertext`에 암호화된 FCM 토큰 저장 | [업무폰 Service](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java)는 `cipher:` 접두사만 붙인다. 컬럼명을 암호화 구현의 증거로 쓰지 않으며 토큰 보호 요구는 유지한다. |
 
 수리맵의 자체 `refresh_token` 테이블은 [migration](../../backend/src/main/resources/db/migration/V20260517_002__drop_legacy_refresh_token.sql)으로 제거됐다. 기존 읽기 문서도 Keycloak/OIDC의 인증 토큰 관리와 FCM을 구분했다. 현재 인증 연결과 남은 차이는 [인증 문서](../features/authentication.md)에서 확인한다.

@@ -1,7 +1,7 @@
 package com.surimap.incident.event;
 
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** L1 incident event publish 요청을 S4 EventHub outbox로 넘기는 adapter. */
+/** L1 incident event publish 요청을 S4 EventPublisher outbox로 넘기는 adapter. */
 @Component
 public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
 
@@ -17,9 +17,9 @@ public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
   private static final String INCIDENT_SOURCE_ENTITY_TYPE = "incident";
   private static final String ASSIGNMENT_SOURCE_ENTITY_TYPE = "incident_assignment";
 
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
 
-  public EventHubIncidentEventPublisher(EventHub eventHub) {
+  public EventHubIncidentEventPublisher(EventPublisher eventHub) {
     this.eventHub = eventHub;
   }
 
@@ -59,15 +59,16 @@ public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
       String sourceEntityType,
       Map<String, Object> payload) {
     eventHub.publish(
-        new PublishRequest(
-            eventIdFor(type, incidentId, version),
-            incidentId,
-            type,
-            PAYLOAD_FORMAT_VERSION,
-            sourceEntityType,
-            incidentId,
-            Instant.now(),
-            payload));
+        EventPublishRequest.builder()
+            .eventId(eventIdFor(type, incidentId, version))
+            .incidentId(incidentId)
+            .type(type)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType(sourceEntityType)
+            .sourceEntityId(incidentId)
+            .occurredAt(Instant.now())
+            .payload(payload)
+            .build());
   }
 
   private static Map<String, Object> basePayload(UUID id, String status, long version) {

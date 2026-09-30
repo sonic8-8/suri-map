@@ -11,7 +11,6 @@ import com.surimap.maparea.fixture.SearchAreaAssignmentFixtures;
 import com.surimap.maparea.fixture.SearchAreaAssignmentFixtures.ExpectedAssignmentEvent;
 import com.surimap.maparea.mock.SearchAreaAssignmentMock;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,16 +18,16 @@ import org.junit.jupiter.api.Test;
 /**
  * search_area_assignment write RED test (S2, SC-04, SC-10).
  *
- * <p>기준 문서: docs/spec/specs/S2.json §api_contracts POST
- * /search-areas/{searchAreaId}/assignments, docs/spec/specs/S2.json §events_published
- * SEARCH_AREA_ASSIGNMENT_CHANGED, docs/spec/harness-scenarios.md §2 SC-04 then 3항, SC-10.
+ * <p>기준 문서: docs/spec/specs/S2.json §api_contracts POST /search-areas/{searchAreaId}/assignments,
+ * docs/spec/specs/S2.json §events_published SEARCH_AREA_ASSIGNMENT_CHANGED,
+ * docs/spec/harness-scenarios.md §2 SC-04 then 3항, SC-10.
  *
  * <p>이 테스트는 SearchAreaAssignmentService / SearchAreaAssignmentServiceRequest 등 미구현 production
  * class를 import하므로 컴파일 오류로 RED 상태다.
  *
  * <p>GREEN 조건: {@code com.surimap.maparea.assignment.SearchAreaAssignmentService}와 {@code
- * com.surimap.maparea.assignment.SearchAreaAssignmentServiceRequest}가 구현되어 assignment history를
- * 보존하고 SEARCH_AREA_ASSIGNMENT_CHANGED PublishRequest를 생성하며 board 소비자용 query data를 노출한다.
+ * com.surimap.maparea.assignment.SearchAreaAssignmentServiceRequest}가 구현되어 assignment history를 보존하고
+ * SEARCH_AREA_ASSIGNMENT_CHANGED EventPublishRequest를 생성하며 board 소비자용 query data를 노출한다.
  */
 @DisplayName("SC-04/SC-10 search_area_assignment write & SEARCH_AREA_ASSIGNMENT_CHANGED (S2)")
 class SearchAreaAssignmentWriteRedTest {
@@ -160,8 +159,7 @@ class SearchAreaAssignmentWriteRedTest {
     guardedMock.stubResult(null); // null stub → default path uses request fields
     // unknown incidentId 요청: production adapter는 incident 존재 여부를 검증해야 한다
     // mock에서는 request 자체가 null이면 NPE로 거부됨을 확인
-    assertThatThrownBy(() -> guardedMock.assign(null))
-        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> guardedMock.assign(null)).isInstanceOf(NullPointerException.class);
   }
 
   // ── board source fixture 계약 ────────────────────────────────────────────

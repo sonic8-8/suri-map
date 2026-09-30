@@ -12,8 +12,8 @@ import java.util.List;
 /**
  * L3-T07 HandoverMemoCreateCommand mock test double.
  *
- * <p>실제 DB write와 EventHub 없이 HANDOVER_MEMO_CREATED PublishRequest capture와 context binding을
- * 검증한다.
+ * <p>실제 DB write와 EventPublisher 없이 HANDOVER_MEMO_CREATED EventPublishRequest capture와 context
+ * binding을 검증한다.
  */
 public final class HandoverMemoCreateCommandMock implements HandoverMemoCreateCommand {
 

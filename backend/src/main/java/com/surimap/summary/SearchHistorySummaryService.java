@@ -5,8 +5,8 @@ import com.surimap.domain.summary.SearchHistorySummaryPort;
 import com.surimap.domain.summary.SearchHistorySummaryPort.GenerationStatus;
 import com.surimap.domain.summary.SearchHistorySummaryPort.SummaryRequest;
 import com.surimap.domain.summary.SearchHistorySummaryPort.SummaryResult;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,14 +31,14 @@ public class SearchHistorySummaryService {
   private final SearchHistorySummaryMapper mapper;
   private final SearchHistorySummaryPort summaryPort;
   private final ForbiddenSummaryGuard forbiddenSummaryGuard;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final Clock clock;
 
   public SearchHistorySummaryService(
       SearchHistorySummaryMapper mapper,
       SearchHistorySummaryPort summaryPort,
       ForbiddenSummaryGuard forbiddenSummaryGuard,
-      EventHub eventHub,
+      EventPublisher eventHub,
       Clock clock) {
     this.mapper = mapper;
     this.summaryPort = summaryPort;
@@ -101,15 +101,16 @@ public class SearchHistorySummaryService {
   private void publishChanged(
       SearchHistorySummaryRow row, String status, String sourceReadiness, Instant occurredAt) {
     eventHub.publish(
-        new PublishRequest(
-            eventIdFor(row, status, sourceReadiness),
-            row.incidentId(),
-            SUMMARY_CHANGED,
-            PAYLOAD_FORMAT_VERSION,
-            SOURCE_ENTITY_TYPE,
-            row.summaryId(),
-            occurredAt,
-            payloadFor(row, status, sourceReadiness)));
+        EventPublishRequest.builder()
+            .eventId(eventIdFor(row, status, sourceReadiness))
+            .incidentId(row.incidentId())
+            .type(SUMMARY_CHANGED)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType(SOURCE_ENTITY_TYPE)
+            .sourceEntityId(row.summaryId())
+            .occurredAt(occurredAt)
+            .payload(payloadFor(row, status, sourceReadiness))
+            .build());
   }
 
   private UUID eventIdFor(SearchHistorySummaryRow row, String status, String sourceReadiness) {

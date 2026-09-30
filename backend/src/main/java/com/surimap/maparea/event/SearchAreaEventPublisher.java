@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * S2 수색 구역 이벤트 발행 포트.
  *
- * <p>S2는 SEARCH_AREA_CHANGED PublishRequest 생성·검증과 EventHub.publish 요청을 이 포트를 통해 수행한다.
+ * <p>S2는 SEARCH_AREA_CHANGED PublishRequest 생성·검증과 EventPublisher.publish 요청을 이 포트를 통해 수행한다.
  *
  * <p>실제 event_dispatch_job row와 fanout orchestration은 S4 소유다.
  *
@@ -36,8 +36,8 @@ public interface SearchAreaEventPublisher {
   /**
    * domain write 시 영향 받은 테이블 이름을 기록한다.
    *
-   * <p>Production EventHub adapter는 PublishRequest.mutatedTable을 사용한다. 테스트 collector는 이 method를
-   * override해 legacy RED test의 mutated table probe를 지원한다.
+   * <p>Production EventPublisher adapter는 PublishRequest.mutatedTable을 사용한다. 테스트 collector는 이
+   * method를 override해 legacy RED test의 mutated table probe를 지원한다.
    *
    * @param tableName 영향 받은 테이블 이름
    */

@@ -3,10 +3,10 @@ package com.surimap.eventhub;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.fixture.EventFixtures;
-import com.surimap.eventhub.validation.BaseEventValidator;
-import com.surimap.eventhub.validation.InvalidEventEnvelopeException;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublishRequestValidator;
+import com.surimap.global.event.InvalidEventPublishRequestException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * 이벤트 타입별 payload 스키마 검증 RED 테스트 (L2-T05 / S14P31C106-159).
  *
  * <p>PATH_APPENDED, SUPPORT_REQUEST_CREATED, POLICE_PHONE_HEARTBEAT_UPDATED 이벤트 타입에 대한 payload 검증을
- * 다룬다. 아직 존재하지 않는 {@code BaseEventValidator}를 대상으로 작성한 RED 테스트다.
+ * 다룬다. 아직 존재하지 않는 {@code EventPublishRequestValidator}를 대상으로 작성한 RED 테스트다.
  *
  * <p>참조:
  *
@@ -52,18 +52,21 @@ class OwnerPayloadSchemaValidationRedTest {
               "status", "RECORDING",
               "version", 7);
 
-      PublishRequest request =
-          new PublishRequest(
-              EventFixtures.SC09_EVENT_ID,
-              EventFixtures.INCIDENT_ID_01,
-              EventFixtures.SC09_EVENT_TYPE, // PATH_APPENDED
-              1,
-              "search_path",
-              UUID.fromString("30000000-0000-4000-8000-000000000501"),
-              OCCURRED_AT,
-              payload);
+      EventPublishRequest request =
+          EventPublishRequest.builder()
+              .eventId(EventFixtures.SC09_EVENT_ID)
+              .incidentId(EventFixtures.INCIDENT_ID_01)
+              .type(EventFixtures.SC09_EVENT_TYPE)
+              .payloadFormatVersion( // PATH_APPENDED
+                  1)
+              .sourceEntityType("search_path")
+              .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000501"))
+              .occurredAt(OCCURRED_AT)
+              .payload(payload)
+              .build();
 
-      assertThatCode(() -> BaseEventValidator.validate(request)).doesNotThrowAnyException();
+      assertThatCode(() -> EventPublishRequestValidator.validate(request))
+          .doesNotThrowAnyException();
     }
   }
 
@@ -85,18 +88,21 @@ class OwnerPayloadSchemaValidationRedTest {
               "status", "REQUESTED",
               "version", 1);
 
-      PublishRequest request =
-          new PublishRequest(
-              EventFixtures.SC08_EVENT_ID,
-              EventFixtures.INCIDENT_ID_01,
-              EventFixtures.SC08_EVENT_TYPE, // SUPPORT_REQUEST_CREATED
-              1,
-              "marker_notification",
-              UUID.fromString("50000000-0000-4000-8000-000000000801"),
-              OCCURRED_AT,
-              payload);
+      EventPublishRequest request =
+          EventPublishRequest.builder()
+              .eventId(EventFixtures.SC08_EVENT_ID)
+              .incidentId(EventFixtures.INCIDENT_ID_01)
+              .type(EventFixtures.SC08_EVENT_TYPE)
+              .payloadFormatVersion( // SUPPORT_REQUEST_CREATED
+                  1)
+              .sourceEntityType("marker_notification")
+              .sourceEntityId(UUID.fromString("50000000-0000-4000-8000-000000000801"))
+              .occurredAt(OCCURRED_AT)
+              .payload(payload)
+              .build();
 
-      assertThatCode(() -> BaseEventValidator.validate(request)).doesNotThrowAnyException();
+      assertThatCode(() -> EventPublishRequestValidator.validate(request))
+          .doesNotThrowAnyException();
     }
   }
 
@@ -109,7 +115,7 @@ class OwnerPayloadSchemaValidationRedTest {
   class PayloadVersionNullValidation {
 
     @Test
-    @DisplayName("payload에 version 값이 null이면 InvalidEventEnvelopeException이 발생한다")
+    @DisplayName("payload에 version 값이 null이면 InvalidEventPublishRequestException이 발생한다")
     void payloadVersionNullThrowsException() {
       // HashMap을 사용해 null 값 허용 (Map.of는 null 값 불가)
       Map<String, Object> payload = new HashMap<>();
@@ -117,19 +123,20 @@ class OwnerPayloadSchemaValidationRedTest {
       payload.put("status", "RECORDING");
       payload.put("version", null);
 
-      PublishRequest request =
-          new PublishRequest(
-              EventFixtures.SC09_EVENT_ID,
-              EventFixtures.INCIDENT_ID_01,
-              EventFixtures.SC09_EVENT_TYPE,
-              1,
-              "search_path",
-              UUID.fromString("30000000-0000-4000-8000-000000000501"),
-              OCCURRED_AT,
-              payload);
+      EventPublishRequest request =
+          EventPublishRequest.builder()
+              .eventId(EventFixtures.SC09_EVENT_ID)
+              .incidentId(EventFixtures.INCIDENT_ID_01)
+              .type(EventFixtures.SC09_EVENT_TYPE)
+              .payloadFormatVersion(1)
+              .sourceEntityType("search_path")
+              .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000501"))
+              .occurredAt(OCCURRED_AT)
+              .payload(payload)
+              .build();
 
-      assertThatThrownBy(() -> BaseEventValidator.validate(request))
-          .isInstanceOf(InvalidEventEnvelopeException.class);
+      assertThatThrownBy(() -> EventPublishRequestValidator.validate(request))
+          .isInstanceOf(InvalidEventPublishRequestException.class);
     }
   }
 }

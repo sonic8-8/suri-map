@@ -1,6 +1,6 @@
 package com.surimap.eventhub.stream;
 
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -10,7 +10,7 @@ public record SseReplayEvent(
     UUID eventDispatchJobId,
     UUID incidentId,
     long replaySequence,
-    PublishRequest envelope,
+    EventPublishRequest envelope,
     String replayStatus,
     Instant createdAt,
     Instant purgedAt) {
@@ -34,7 +34,7 @@ public record SseReplayEvent(
       UUID eventDispatchJobId,
       UUID incidentId,
       long replaySequence,
-      PublishRequest envelope,
+      EventPublishRequest envelope,
       Instant createdAt) {
     return new SseReplayEvent(
         id, eventDispatchJobId, incidentId, replaySequence, envelope, ACTIVE, createdAt, null);

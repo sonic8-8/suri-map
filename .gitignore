@@ -103,3 +103,4 @@ graphify-out/
 .playwright-mcp/*
 
 .frontend/release
+.gstack/

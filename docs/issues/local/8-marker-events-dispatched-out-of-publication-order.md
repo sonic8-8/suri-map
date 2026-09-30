@@ -6,54 +6,77 @@
 
 ## 문제 배경
 
-2026-09-28(KST), `d1f04fb7`을 Jenkins #35로 배포한 뒤 실제 HTTP·DB·SSE·브라우저를 연결해 발견 마커 4개를 생성했습니다. [생성 서비스](../../../backend/src/main/java/com/surimap/app/service/marker/AppMarkerService.java)는 `MARKER_CREATED`를 먼저 발행하고 `PERSON_FOUND`를 발행하지만, 4건 중 3건은 발견 알림에 더 작은 SSE 순번이 배정돼 먼저 전달됐습니다.
+발견 마커를 저장하면 [생성 서비스](../../../backend/src/main/java/com/surimap/app/service/marker/AppMarkerService.java)는 마커 생성 이벤트(`MARKER_CREATED`)를 먼저 발행하고 발견 알림(`PERSON_FOUND`)을 발행합니다. 서버는 전송 작업을 DB에 저장한 뒤 worker가 순번을 정해 SSE로 보냅니다. 이때 같은 요청에서 만든 두 이벤트는 발행 순서대로 전달돼야 합니다.
 
-마커·알림 저장과 화면 갱신은 4건 모두 성공했습니다. 이번에 관측한 것은 관련 이벤트의 호출 순서가 보존되지 않는 현상이며, 화면 누락·데이터 유실이나 전체 SSE 순번의 역전은 아닙니다.
+2026-09-28(KST) `d1f04fb7`의 Jenkins #35 배포 후 실제 HTTP·DB·SSE·브라우저를 연결해 발견 마커 4개를 생성했습니다. 그런데 3건은 발견 알림에 더 작은 SSE 순번이 배정돼 먼저 전달됐습니다. 마커·알림 저장과 화면 갱신은 모두 성공했지만, 같은 요청의 이벤트 순서를 신뢰할 수 없는 상태였습니다. 화면 누락·데이터 유실이나 전체 SSE 순번의 역전을 관측한 것은 아닙니다.
 
 ### 문제 해결: 체크리스트
 
-- [x] 실제 서버에서 발행 호출 순서와 DB·수신 순번의 차이를 확인했는가?
-- [x] 서비스의 발행 순서와 worker의 작업 선택 SQL을 대조했는가?
-- [x] 같은 저장 시각·역순 UUID로 재현하는 기존 Mapper·Worker 테스트를 추가했는가?
-- [x] 관련 이벤트의 순서 보존 방식을 정하고 수정했는가?
-- [ ] 수정 후 같은 HTTP·DB·브라우저 조건에서 순서를 다시 확인했는가?
+- [x] 같은 트랜잭션에서 저장 시각이 같고 UUID가 역순이어도 마커 생성 다음에 발견 알림을 전송하는가?
+- [x] 이미 확정한 SSE 순번·실패 작업의 재시도 우선순위·기존 데이터를 보존하는가?
+- [x] 배포 후 같은 4가지 브라우저 조건에서 DB 순번과 실제 수신 순서가 발행 순서에 맞는가?
 
-## 확인한 현상
+## 원인 분석과 선택지
 
-| 브라우저 조건 | 마커 생성 순번 | 발견 알림 순번 | 발행 호출 순서 유지 |
-|---|---:|---:|---|
-| 최초 진입 | 2 | 1 | 아니요 |
-| 새로고침 | 4 | 3 | 아니요 |
-| 다른 화면에서 복귀 | 5 | 6 | 예 |
-| 다시 새로고침 | 8 | 7 | 아니요 |
+처음에는 전송 작업을 고르는 기준과 실제 수신 순서를 대조했습니다. 수정 전 [작업 선택 SQL](../../../backend/src/main/resources/mapper/sse/ServerSentEventJobMapper.xml)의 `claimPending`은 순번이 확정되지 않은 작업을 `created_at, id` 순으로 골랐습니다. [전송 작업](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventJob.java)의 `id`는 `UUID.randomUUID()`로 생성하므로 발행 순서를 나타내지 않습니다.
 
-두 이벤트씩 같은 `created_at`을 가졌으며 8개 작업 모두 `COMPLETED`였습니다. 브라우저가 받은 각 이벤트의 SSE 순번도 DB와 일치했습니다. 사건은 `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001`이며 마커 ID와 전체 연결 검증은 [로컬 이슈 6](6-sse-registration-lost-during-reconnect.md)에 남겼습니다.
+실제 네 쌍은 각각 저장 시각이 같아 UUID 비교로 순서가 정해졌습니다. 브라우저 수신 순번도 DB와 일치했고, 8개 작업은 모두 `COMPLETED`였습니다. 전송 실패가 아니라 같은 시각의 작업을 고르는 기준에 문제가 있다는 근거였습니다. 당시에는 읽기 전용 조회와 코드 대조만 했으며 기존 행이나 SSE 순번을 바꾸지 않았습니다.
 
-## 코드·DB 대조 결과
+우연히 UUID가 기대 순서로 나오는 반복 결과로는 해결을 판단할 수 없습니다. 같은 시각·역순 UUID를 고정해 재현하고, 새 작업의 저장 순서를 별도로 기록하는 방식을 검토했습니다. 과거 작업의 발행 순서는 추정해 덮어쓰지 않고, 이미 확정한 순번과 재시도 우선순위를 유지하는 조건으로 수정했습니다.
 
-수정 전 [작업 선택 SQL](../../../backend/src/main/resources/mapper/event/EventDispatchJobMapper.xml)의 `claimPending`은 미확정 작업을 `created_at, id` 순으로 골랐습니다. [전송 작업](../../../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJob.java)의 `id`는 `UUID.randomUUID()`로 만듭니다. 실제 네 쌍은 저장 시각이 같아 UUID 비교로 순서가 정해졌으며, 관측한 순번도 그 정렬 순서와 일치합니다.
+# 댓글
 
-따라서 배포된 코드의 순번은 worker가 선택한 순서를 보존하지만, 같은 업무 트랜잭션 안의 발행 호출 순서를 기록하지는 않습니다. 반복 횟수를 늘려 우연히 기대 순서가 나오는 것으로 해결 판정하지 않습니다. 동일 시각과 역순 UUID를 고정해 검증하고, 기존 완료 이력·재시도 순번·동시 업무 트랜잭션에 미칠 영향을 함께 확인해야 합니다.
+## 변경 내용과 트레이드오프
 
-배포 직후 조사에서는 읽기 전용 DB 조회와 코드 대조까지만 진행했습니다. 이후 로컬 수정·검증은 아래와 같습니다. 서버 DB와 기존 행의 SSE 순번은 변경하지 않았습니다.
+- 변경: 새 전송 작업에 DB가 발급하는 저장 순서 번호를 추가하고, 저장 시각이 같으면 UUID보다 먼저 비교합니다.
+- 보존: 이미 확정한 SSE 순번과 실패한 앞 작업을 기다리는 동작은 유지합니다. 기존 행의 저장 순서는 추정하지 않고 비워 둡니다.
+- 한계: 같은 트랜잭션의 발행 순서를 보존하는 변경입니다. 과거 발행 순서를 복원하거나 서로 다른 트랜잭션의 커밋 순서를 보장하지 않습니다.
 
-## 수정과 검증 (2026-09-28)
+2026-09-28 [migration](../../../backend/src/main/resources/db/migration/V20260928_001__add_event_dispatch_job_insertion_order.sql)으로 `insertion_order`를 추가했습니다. `claimPending`은 같은 저장 시각의 새 작업을 이 번호로 정렬합니다. 기존 행은 `NULL`로 남겨 종전 UUID 정렬을 유지합니다. 공개 이벤트 UUID·SSE 순번·API 필드는 바꾸지 않았습니다.
 
-- **재현**: 기존 `EventDispatchJobMapperTest`에 같은 시각·역순 UUID를 고정했습니다. 먼저 저장한 `…9002`가 아니라 나중에 저장한 `…9001`을 선택해 수정 전 실패했습니다.
-- **변경**: [새 migration](../../../backend/src/main/resources/db/migration/V20260928_001__add_event_dispatch_job_insertion_order.sql)으로 `insertion_order`를 추가했습니다. 이후 INSERT에서 DB가 내부 번호를 발급하고, `claimPending`은 저장 시각이 같을 때 UUID보다 이 번호를 먼저 비교합니다. 이미 확정한 SSE 순번의 우선순위와 실패한 앞 작업을 기다리는 동작은 유지합니다.
-- **보존**: 기존 행의 저장 순서는 추정하지 않고 `NULL`로 둡니다. 같은 시각의 기존 행끼리는 종전 UUID 정렬을 유지하므로 과거의 발행 순서를 복원하는 수정은 아닙니다. 새 내부 번호는 공개 SSE 순번·이벤트 UUID와 다르며 API·이벤트 필드는 바꾸지 않았습니다.
+기존 행을 채우지 않도록 컬럼을 만든 다음 DB 기본값을 지정했습니다. PostgreSQL의 [기본값 변경](https://www.postgresql.org/docs/16/ddl-alter.html#DDL-ALTER-DEFAULT)은 이후 INSERT에 적용됩니다. 번호 발급에 사용하는 [sequence](https://www.postgresql.org/docs/16/functions-sequence.html)는 롤백 시 빈 번호를 남길 수 있으므로, 연속성을 검사하는 공개 SSE 순번과 구분해 내부 정렬에만 사용합니다.
 
-기존 행을 바꾸지 않도록 컬럼을 추가한 다음 기본값을 지정했습니다. PostgreSQL의 [기본값 변경](https://www.postgresql.org/docs/16/ddl-alter.html#DDL-ALTER-DEFAULT)은 이후 INSERT에 적용됩니다. [Sequence](https://www.postgresql.org/docs/16/functions-sequence.html)는 롤백으로 번호가 비어도 되므로 내부 정렬에만 사용하고, 연속성을 검사하는 공개 SSE 순번과 섞지 않습니다. 이번 수정은 같은 트랜잭션의 발행 순서를 보존하는 범위이며 서로 다른 트랜잭션의 커밋 순서를 보장하지 않습니다.
+## 검증 결과
 
-실제 PostgreSQL/PostGIS를 사용한 Mapper 12개·Service 21개·Worker 13개·Migration 1개, **총 47개가 통과했습니다**(실패·오류·건너뜀 0, 50초). Worker 테스트는 실제 `EventHub` 저장 → 업무 커밋 → 순번 확정 → 전송 경로에서 `MARKER_CREATED(1)` → `PERSON_FOUND(2)`를 확인합니다. 외부 전송 대상은 기록용 대역이며 실제 HTTP·브라우저 검증은 아닙니다. Migration 테스트는 완료·대기·실패·처리 중 작업과 원본 데이터, 이미 확정한 SSE 순번을 보존하는지 확인합니다.
+### 로컬 DB 검사: 역순 UUID에서도 먼저 저장한 작업부터 전송
 
-Java 17과 Docker를 사용한 백엔드 전체 검증도 **222개 클래스·1,298개 통과**입니다(실패·오류·건너뜀 0, 4분 8초, 기본 설정상 성능 태그 제외).
+기존 `EventDispatchJobMapperTest`에 같은 시각·역순 UUID를 고정했습니다. 수정 전에는 먼저 저장한 `…9002` 대신 나중에 저장한 `…9001`을 선택해 실패했고, 수정 후에는 저장 순서대로 선택했습니다.
+
+| 검증 | 결과 |
+|---|---|
+| 실제 PostgreSQL/PostGIS의 Mapper·Service·Worker·Migration | 각각 12개·21개·13개·1개, 총 47개 통과. 실패·오류·건너뜀 0, 50초 |
+| Worker의 저장 → 업무 커밋 → 순번 확정 → 전송 | `MARKER_CREATED(1)` 다음 `PERSON_FOUND(2)` 확인. 전송 대상은 기록용 대역 |
+| Migration의 기존 이력 보존 | 완료·대기·실패·처리 중 작업과 원본 데이터·기존 SSE 순번 보존 |
+| 전체 Backend | 222개 클래스·1,298개 통과. 실패·오류·건너뜀 0, 4분 8초. 기본 성능 태그 제외 |
+
+전체 검증은 Java 17과 Docker에서 아래 명령으로 수행했습니다. 변경 테스트 Java 3개의 포맷·공백과 관련 문서의 로컬 링크 111개도 확인했습니다. 이 단계는 실제 HTTP·브라우저 검증과 구분합니다.
 
 ```bash
 cd backend
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew --no-daemon test --console=plain
 ```
 
-변경한 테스트 Java 3개의 포맷, `git diff --check`, 관련 문서 3개의 로컬 링크 경로 111개도 확인했습니다.
+### 배포 후 비교: 4가지 조건 모두 마커 생성 다음 발견 알림 수신
 
-커밋·푸시·배포와 수정 후 실제 HTTP·DB·브라우저 재검증은 하지 않았습니다. DB 이력 재전송 연결은 이번 수정 범위가 아닙니다.
+수정분 7개 파일을 `e23992259dbfec85a99d3a7dc409efc814c42966`으로 커밋·푸시했고 Jenkins #36이 배포에 성공했습니다(256,137ms). Backend·Frontend 컨테이너 교체와 공개 웹·health 200을 확인했습니다.
+
+Flyway `20260928.001` 적용에는 14ms가 기록됐습니다. 부하 중 잠금 대기 시간을 보장하는 측정은 아닙니다. 기존 작업 600개의 새 컬럼은 `NULL`이었고, 추가 컬럼을 제외한 전체 행의 내용 해시가 배포 전후 같았습니다. 순번 없는 과거 작업 592개와 기존 순번 1–8을 보존했습니다.
+
+최초 시험과 같은 사건·브라우저 조건에서 새 마커 4개를 생성해 비교했습니다. 아래 각 쌍은 `마커 생성 / 발견 알림`의 SSE 순번입니다. 최초 시험의 마커 ID는 [로컬 이슈 6](6-sse-registration-lost-during-reconnect.md)에 보존했습니다.
+
+| 브라우저 조건 | 수정 전 | 수정 후 | 수정 후 수신 순서 |
+|---|---|---|---|
+| 최초 진입 | 2 / 1 | 9 / 10 | 마커 생성 → 발견 알림 |
+| 새로고침 | 4 / 3 | 11 / 12 | 마커 생성 → 발견 알림 |
+| 다른 화면에서 복귀 | 5 / 6 | 13 / 14 | 마커 생성 → 발견 알림 |
+| 다시 새로고침 | 8 / 7 | 15 / 16 | 마커 생성 → 발견 알림 |
+
+수정 후 4건 중 3건은 UUID로 정렬하면 발견 알림이 먼저인 조건이었지만, 모두 발행 순서대로 수신했습니다. DB 순번과 수신 순서도 일치해 위 해결 기준을 충족했습니다. 검증 메모와 함께 마커 4개·알림 4개·완료 작업 8개를 보존했으며, 상황판 재조회와 실제 지도·발견 알림 표시도 확인했습니다.
+
+최종 브라우저 실행의 타일 HTTP 오류·JavaScript 오류와 Backend 기동 이후 ERROR는 0건이었습니다. 이전 연결 제거 WARN은 23건 남았으며 새 연결은 정상 수신했습니다. 연결의 즉시 정리나 누수 검증을 완료한 결과는 아닙니다.
+
+### 검증 한계: 도구 실패와 별도 CORS 문제를 구분
+
+초기 시도는 Node.js의 DNS 조회가 10.52초 걸려 10초 연결 제한으로 실패했습니다. 저장은 0건이었으며, 이후 같은 비브라우저 앱 채널 요청을 `curl`로 보내 검증했습니다. 브라우저에서 대신 POST한 시도도 CORS에 막혀 저장은 0건이었습니다. 이를 순서 수정의 실패로 합치지 않고 [로컬 이슈 9](9-browser-post-rejected-by-cors.md)로 분리했습니다.
+
+배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T195005Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. [실행 스크립트·성공/실패 로그·화면 4개·배포 식별자](../../../_workspace/sse-order-verify-20260928.a9Jz2s/RESULTS.md)는 로컬 전용 자료입니다. 실제 Android·FCM·사진·부하와 DB 이력 재접속·재시작 복구는 이번 검증 범위가 아닙니다. GitHub에는 등록하지 않은 로컬 이슈입니다.

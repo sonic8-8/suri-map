@@ -52,9 +52,9 @@
 
 ### 연결별 오류 처리: 실패한 연결을 제외하고 나머지 전송을 계속
 
-[SseConnectionRegistry.java](../../../backend/src/main/java/com/surimap/eventhub/stream/SseConnectionRegistry.java)의 사건·계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송·종료는 계속합니다. 전송 실패 로그에는 이벤트 ID·순번·예외 타입을 남깁니다.
+[SseConnectionRegistry.java](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)의 사건·계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송·종료는 계속합니다. 전송 실패 로그에는 이벤트 ID·순번·예외 타입을 남깁니다.
 
-[SseEmitterLiveEventSink.java](../../../backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 `IOException`을 `UncheckedIOException`으로 전달해 연결 목록에서 실패를 처리하도록 변경했습니다. I/O 오류 이후 HTTP 연결을 완료하는 처리는 Servlet 컨테이너에 맡기고, 직접 호출하던 `completeWithError()`는 제거했습니다. 이는 [Spring MVC의 스트리밍 오류 처리 지침](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-async.html#mvc-ann-async-objects)에 따른 변경입니다.
+[SseEmitterLiveEventSink.java](https://github.com/sonic8-8/suri-map/blob/6c19af0d93430434258b0d65f8b3e2a7e44b1348/backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 `IOException`을 `UncheckedIOException`으로 전달해 연결 목록에서 실패를 처리하도록 변경했습니다. I/O 오류 이후 HTTP 연결을 완료하는 처리는 Servlet 컨테이너에 맡기고, 직접 호출하던 `completeWithError()`는 제거했습니다. 이는 [Spring MVC의 스트리밍 오류 처리 지침](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-async.html#mvc-ann-async-objects)에 따른 변경입니다.
 
 또한 `IllegalStateException`을 모두 연결 종료로 처리하지는 않습니다. 현재 사용하는 [Spring 6.2.18 구현](https://github.com/spring-projects/spring-framework/blob/v6.2.18/spring-webmvc/src/main/java/org/springframework/web/servlet/mvc/method/annotation/ResponseBodyEmitter.java#L191-L205)은 메시지 변환 등의 내부 오류도 이 예외로 감싸므로, 원인 예외가 들어 있으면 호출부에 그대로 전달합니다. 이를 무시하던 초기 수정은 추가 테스트에서 실패했고, 오류 구분을 보완한 뒤 통과했습니다.
 
@@ -66,8 +66,8 @@
 
 | 검증 대상 | 확인한 동작 | 결과 |
 |---|---|---|
-| [연결 관리 테스트](../../../backend/src/test/java/com/surimap/eventhub/stream/SseConnectionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
-| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/eventhub/EventDispatchJobWorkerTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
+| [연결 관리 테스트](../../../backend/src/test/java/com/surimap/global/sse/ServerSentEventConnectionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
+| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/global/sse/ServerSentEventJobWorkerTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
 | 전체 Backend 테스트 | `./gradlew test` | 1,227개 통과, 222개 클래스, 실패·오류·건너뜀 0건 |
 
 전체 테스트는 3분 29초가 걸렸습니다. 변경 Java 파일 4개의 포맷과 공백 검사도 통과했습니다. 테스트 종료 중 닫힌 DB 커넥션 경고 1건이 있었으며 테스트 실패는 없었습니다. 통합 테스트에서 확인한 `COMPLETED`는 서버의 전송 처리 완료이지, 실제 브라우저의 알림 표시 확인은 아닙니다.

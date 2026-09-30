@@ -13,7 +13,7 @@ import com.surimap.api.service.searcharea.SearchAreaApiService;
 import com.surimap.domain.marker.MarkerSource;
 import com.surimap.domain.marker.MarkerStatus;
 import com.surimap.domain.marker.MarkerType;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
 import com.surimap.incident.repository.IncidentMapper;
@@ -69,8 +69,7 @@ class OfflinePackageManifestSourceIntegrationTest {
   private static final UUID ASSIGNED_AREA_ID =
       UUID.fromString("cccccccc-0000-4000-8000-000000002901");
   private static final UUID MARKER_ID = UUID.fromString("55555555-0000-4000-8000-000000002901");
-  private static final UUID APP_MARKER_ID =
-      UUID.fromString("55555555-0000-4000-8000-000000002902");
+  private static final UUID APP_MARKER_ID = UUID.fromString("55555555-0000-4000-8000-000000002902");
   private static final UUID SOURCE_INCIDENT_ID =
       UUID.fromString("00000000-0000-4000-8000-000000002901");
   private static final UUID FIXTURE_SOURCE_INCIDENT_ID =
@@ -97,7 +96,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
   @MockitoBean private MarkerService markerService;
 
-  @MockitoBean private EventHub eventHub;
+  @MockitoBean private EventPublisher eventHub;
 
   @BeforeEach
   void reset() {
@@ -215,7 +214,8 @@ class OfflinePackageManifestSourceIntegrationTest {
     givenFixtureSourceRows();
 
     OfflinePackageManifestResponse manifest =
-        service.manifest(OfflinePackageRepository.INCIDENT_ID, OfflinePackageRepository.POLICE_PHONE_ID);
+        service.manifest(
+            OfflinePackageRepository.INCIDENT_ID, OfflinePackageRepository.POLICE_PHONE_ID);
     OffsetDateTime beforeReport = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     OfflinePackageInstallationResponse response =
@@ -291,19 +291,12 @@ class OfflinePackageManifestSourceIntegrationTest {
     when(operationalPeriodQuery.current(INCIDENT_ID)).thenReturn(Optional.empty());
 
     GeoJsonPolygon overallPolygon =
-        polygon(
-            "126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
+        polygon("126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
     when(searchAreaQuery.overallOf(INCIDENT_ID))
         .thenReturn(
             Optional.of(
                 new OverallSearchAreaResult(
-                    OVERALL_AREA_ID,
-                    INCIDENT_ID,
-                    "ACTIVE",
-                    4L,
-                    overallPolygon,
-                    List.of(),
-                    NOW)));
+                    OVERALL_AREA_ID, INCIDENT_ID, "ACTIVE", 4L, overallPolygon, List.of(), NOW)));
     SearchAreaRow assignedArea =
         new SearchAreaRow(
             ASSIGNED_AREA_ID,
@@ -314,14 +307,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             "TEAM",
             6L,
             polygon(
-                "126.915",
-                "35.161",
-                "126.920",
-                "35.161",
-                "126.920",
-                "35.166",
-                "126.915",
-                "35.166"),
+                "126.915", "35.161", "126.920", "35.161", "126.920", "35.166", "126.915", "35.166"),
             List.of(),
             NOW,
             1L);
@@ -413,19 +399,12 @@ class OfflinePackageManifestSourceIntegrationTest {
     when(operationalPeriodQuery.current(incidentId)).thenReturn(Optional.empty());
 
     GeoJsonPolygon overallPolygon =
-        polygon(
-            "126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
+        polygon("126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
     when(searchAreaQuery.overallOf(incidentId))
         .thenReturn(
             Optional.of(
                 new OverallSearchAreaResult(
-                    overallAreaId,
-                    incidentId,
-                    "ACTIVE",
-                    4L,
-                    overallPolygon,
-                    List.of(),
-                    NOW)));
+                    overallAreaId, incidentId, "ACTIVE", 4L, overallPolygon, List.of(), NOW)));
     SearchAreaRow assignedArea =
         new SearchAreaRow(
             assignedAreaId,
@@ -436,14 +415,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             "TEAM",
             6L,
             polygon(
-                "126.915",
-                "35.161",
-                "126.920",
-                "35.161",
-                "126.920",
-                "35.166",
-                "126.915",
-                "35.166"),
+                "126.915", "35.161", "126.920", "35.161", "126.920", "35.166", "126.915", "35.166"),
             List.of(),
             NOW,
             1L);
@@ -493,12 +465,7 @@ class OfflinePackageManifestSourceIntegrationTest {
     return new GeoJsonPolygon(
         "Polygon",
         List.of(
-            List.of(
-                coord(x1, y1),
-                coord(x2, y2),
-                coord(x3, y3),
-                coord(x4, y4),
-                coord(x1, y1))));
+            List.of(coord(x1, y1), coord(x2, y2), coord(x3, y3), coord(x4, y4), coord(x1, y1))));
   }
 
   private static List<BigDecimal> coord(String lon, String lat) {

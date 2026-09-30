@@ -5,8 +5,6 @@ import com.surimap.domain.path.SearchPathApiException;
 import com.surimap.domain.path.SearchPathEventType;
 import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.exception.SearchPathGuardException;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -21,9 +19,9 @@ public class SearchPathEventPublisher {
   private static final String PATH_APPENDED = "PATH_APPENDED";
   private static final String SEARCH_PATH_SEGMENT_UPDATED = "SEARCH_PATH_SEGMENT_UPDATED";
 
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
 
-  public SearchPathEventPublisher(EventHub eventHub) {
+  public SearchPathEventPublisher(EventPublisher eventHub) {
     this.eventHub = eventHub;
   }
 
@@ -41,29 +39,31 @@ public class SearchPathEventPublisher {
     validateSegment(path, segment);
     Instant occurredAt = Instant.now();
     eventHub.publish(
-        new PublishRequest(
-            eventIdFor(SEARCH_PATH_SEGMENT_UPDATED, segment.getId(), path.getVersion()),
-            path.getIncidentId(),
-            SEARCH_PATH_SEGMENT_UPDATED,
-            PAYLOAD_FORMAT_VERSION,
-            "search_path_segment",
-            segment.getId(),
-            occurredAt,
-            segmentPayload(path, segment, occurredAt)));
+        EventPublishRequest.builder()
+            .eventId(eventIdFor(SEARCH_PATH_SEGMENT_UPDATED, segment.getId(), path.getVersion()))
+            .incidentId(path.getIncidentId())
+            .type(SEARCH_PATH_SEGMENT_UPDATED)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType("search_path_segment")
+            .sourceEntityId(segment.getId())
+            .occurredAt(occurredAt)
+            .payload(segmentPayload(path, segment, occurredAt))
+            .build());
   }
 
   private void publishPathEvent(String eventType, SearchPath path) {
     Instant occurredAt = Instant.now();
     eventHub.publish(
-        new PublishRequest(
-            eventIdFor(eventType, path.getId(), path.getVersion()),
-            path.getIncidentId(),
-            eventType,
-            PAYLOAD_FORMAT_VERSION,
-            "search_path",
-            path.getId(),
-            occurredAt,
-            basePayload(path, occurredAt)));
+        EventPublishRequest.builder()
+            .eventId(eventIdFor(eventType, path.getId(), path.getVersion()))
+            .incidentId(path.getIncidentId())
+            .type(eventType)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType("search_path")
+            .sourceEntityId(path.getId())
+            .occurredAt(occurredAt)
+            .payload(basePayload(path, occurredAt))
+            .build());
   }
 
   private static void validateLifecycle(SearchPath path, SearchPathEventType eventType) {
@@ -74,9 +74,7 @@ public class SearchPathEventPublisher {
         || path.getOpId() == null) {
       throw new SearchPathGuardException("write_conflict");
     }
-    if (path.getAccountId() == null
-        || path.getStatus() == null
-        || path.getVersion() <= 0) {
+    if (path.getAccountId() == null || path.getStatus() == null || path.getVersion() <= 0) {
       throw new SearchPathGuardException("write_conflict");
     }
   }
@@ -121,8 +119,7 @@ public class SearchPathEventPublisher {
     return payload;
   }
 
-  private static Map<String, Object> basePayload(
-      SearchPath path, Instant occurredAt) {
+  private static Map<String, Object> basePayload(SearchPath path, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", path.getId().toString());
     payload.put("incidentId", path.getIncidentId().toString());

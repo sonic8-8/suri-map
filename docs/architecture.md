@@ -23,10 +23,10 @@
 1. 앱의 [묶음 기록기](../android/app/src/main/java/com/surimap/feature/search/data/SearchPathGpsBatchRecorder.kt)가 GPS 좌표를 모아 로컬 기록을 요청한다. Room에 기록과 Outbox를 저장하고 전송을 예약한다. 개별 좌표는 묶음이 만들어지기 전까지 메모리에 있으므로, 수집 즉시 모두 영속 저장된다고 설명하지 않는다.
 2. [OutboxWorker](../android/app/src/main/java/com/surimap/core/sync/OutboxWorker.kt)가 네트워크 조건에 맞춰 HTTP 요청을 보낸다. 로컬 저장 성공·서버 반영 성공·응답 확인은 서로 다른 단계다. 순서·중복·복구 한계는 [오프라인 동기화](features/offline-sync.md)를 참고한다.
 3. [SearchPathService](../backend/src/main/java/com/surimap/api/service/path/SearchPathService.java)가 새 GPS 좌표를 순서와 함께 저장한다. 이전 경로 전체를 매번 다시 저장하지 않고, 조회할 때 좌표를 연결해 경로 도형을 만든다. [수색 경로 기록](features/search-path.md)에 과거 도형 호환·남은 조회 비용·주기 구분을 남겼다.
-4. [DbEventHub](../backend/src/main/java/com/surimap/eventhub/adapter/DbEventHub.java)가 이벤트 전송 작업을 DB에 저장하고 커밋 뒤 [worker](../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobWorker.java)를 깨운다. worker는 [Service](../backend/src/main/java/com/surimap/eventhub/adapter/EventDispatchJobService.java)에서 사건별 SSE 순번을 커밋한 뒤 DB 트랜잭션 밖에서 전송한다. 주기 조회도 대기 작업을 찾는다.
+4. [DbEventHub](../backend/src/main/java/com/surimap/global/event/DatabaseEventPublisher.java)가 이벤트 전송 작업을 DB에 저장하고 커밋 뒤 [worker](../backend/src/main/java/com/surimap/global/sse/ServerSentEventJobWorker.java)를 깨운다. worker는 [Service](../backend/src/main/java/com/surimap/global/sse/ServerSentEventJobService.java)에서 사건별 SSE 순번을 커밋한 뒤 DB 트랜잭션 밖에서 전송한다. 주기 조회도 대기 작업을 찾는다.
 5. 웹은 [fetch 기반 SSE 수신기](../frontend/src/shared/api/eventStream.ts)로 이벤트를 받는다. [상황판 구독](../frontend/src/features/situationBoard/presentation/hooks/useSituationBoardData.ts)이 조회 캐시를 무효화하면 API를 다시 조회한다. 서버는 [조회 서비스](../backend/src/main/java/com/surimap/board/IncidentBoardQueryService.java)에서 여러 원본 데이터를 모아 응답을 조립한다.
 
-이 흐름은 호출 관계의 설명이다. DB 전송 작업의 완료가 화면 표시 완료를 뜻하지 않는다. 2026-09-28 로컬 구현에서는 [재전송 서비스](../backend/src/main/java/com/surimap/eventhub/stream/SseReplayService.java)가 DB 이력을 페이지 단위로 읽도록 연결했다. 실제 배포·서버 재시작 후 복구 검증과는 구분한다. 최신 화면 복구와 놓친 알림 복구의 차이는 [이벤트 전달](features/event-delivery.md)·[상황판 기록](features/situation-board.md)에서 확인한다.
+이 흐름은 호출 관계의 설명이다. DB 전송 작업의 완료가 화면 표시 완료를 뜻하지 않는다. 2026-09-28 로컬 구현에서는 [재전송 서비스](../backend/src/main/java/com/surimap/api/service/sse/ServerSentEventHistoryService.java)가 DB 이력을 페이지 단위로 읽도록 연결했다. 실제 배포·서버 재시작 후 복구 검증과는 구분한다. 최신 화면 복구와 놓친 알림 복구의 차이는 [이벤트 전달](features/event-delivery.md)·[상황판 기록](features/situation-board.md)에서 확인한다.
 
 ## 채널과 코드 배치
 

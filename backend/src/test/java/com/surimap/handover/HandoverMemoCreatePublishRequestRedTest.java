@@ -12,22 +12,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * L3-T07 HANDOVER_MEMO_CREATED PublishRequest contract RED test.
+ * L3-T07 HANDOVER_MEMO_CREATED EventPublishRequest contract RED test.
  *
  * <p>S8.json §api_contracts.events_published[HANDOVER_MEMO_CREATED] 기준.
  *
- * <p>harness fixture: sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated
- * - eventId: "evt-s8-handover-memo-001"
- * - type: "HANDOVER_MEMO_CREATED"
- * - payloadAlias: "memo-precinct-op2-001"
- * - payloadStatus: "ACTIVE"
- * - payloadVersion: 1
- * - opId: "op-precinct-001-op2"
+ * <p>harness fixture: sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated - eventId:
+ * "evt-s8-handover-memo-001" - type: "HANDOVER_MEMO_CREATED" - payloadAlias:
+ * "memo-precinct-op2-001" - payloadStatus: "ACTIVE" - payloadVersion: 1 - opId:
+ * "op-precinct-001-op2"
  *
- * <p>S8.json events_published[HANDOVER_MEMO_CREATED].payload_schema 필수 필드:
- * id, incidentId, opId, status, version, targetType
+ * <p>S8.json events_published[HANDOVER_MEMO_CREATED].payload_schema 필수 필드: id, incidentId, opId,
+ * status, version, targetType
  */
-@DisplayName("L3-T07 HANDOVER_MEMO_CREATED PublishRequest contract")
+@DisplayName("L3-T07 HANDOVER_MEMO_CREATED EventPublishRequest contract")
 class HandoverMemoCreatePublishRequestRedTest {
 
   private final HandoverMemoCreateCommandMock mock = new HandoverMemoCreateCommandMock();
@@ -99,7 +96,8 @@ class HandoverMemoCreatePublishRequestRedTest {
 
     HandoverMemoCreateResult result = mock.create(request);
 
-    // S8.json harness_fixtures.sc11_handover_ai_convergence.expectedQueries.HandoverMemoQuery.byContext
+    // S8.json
+    // harness_fixtures.sc11_handover_ai_convergence.expectedQueries.HandoverMemoQuery.byContext
     assertThat(result.id()).isEqualTo(HandoverMemoFixtures.MEMO_ID);
     assertThat(result.opId()).isEqualTo(HandoverMemoFixtures.OP2_ID);
     assertThat(result.version()).isEqualTo(HandoverMemoFixtures.MEMO_VERSION);

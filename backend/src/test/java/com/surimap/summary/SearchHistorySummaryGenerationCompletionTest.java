@@ -6,8 +6,8 @@ import com.surimap.domain.summary.ForbiddenSummaryGuard;
 import com.surimap.domain.summary.SearchHistorySummaryPort;
 import com.surimap.domain.summary.SearchHistorySummaryPort.SummaryRequest;
 import com.surimap.domain.summary.SearchHistorySummaryPort.SummaryResult;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.summary.fixture.SearchHistorySummaryFixtures;
 import com.surimap.summary.mock.MockSearchHistorySummaryAdapter;
 import java.time.Clock;
@@ -40,7 +40,8 @@ class SearchHistorySummaryGenerationCompletionTest {
   void providerSuccessSavesReadyContentAndEmitsChangedEvent() {
     CompletionHarness harness =
         CompletionHarness.withProvider(
-            MockSearchHistorySummaryAdapter.success(SearchHistorySummaryFixtures.SUCCESS_SUMMARY_TEXT));
+            MockSearchHistorySummaryAdapter.success(
+                SearchHistorySummaryFixtures.SUCCESS_SUMMARY_TEXT));
 
     harness.runGeneration();
 
@@ -76,7 +77,8 @@ class SearchHistorySummaryGenerationCompletionTest {
   }
 
   @Test
-  @DisplayName("ForbiddenSummaryGuard blocks disallowed phrases and persists FAILED with no content")
+  @DisplayName(
+      "ForbiddenSummaryGuard blocks disallowed phrases and persists FAILED with no content")
   void forbiddenSummaryGuardBlocksDisallowedPhrasesAndPersistsFailedWithNoContent() {
     CompletionHarness harness =
         CompletionHarness.withProvider(MockSearchHistorySummaryAdapter.forbiddenPhrase());
@@ -138,7 +140,12 @@ class SearchHistorySummaryGenerationCompletionTest {
 
     @Override
     public List<SearchHistorySummaryRow> findByOp(
-        UUID opId, UUID incidentId, String scopeType, UUID scopeId, UUID dutyShiftId, String status) {
+        UUID opId,
+        UUID incidentId,
+        String scopeType,
+        UUID scopeId,
+        UUID dutyShiftId,
+        String status) {
       return List.of(
           new SearchHistorySummaryRow(
               SearchHistorySummaryFixtures.SUMMARY_ID,
@@ -245,18 +252,18 @@ class SearchHistorySummaryGenerationCompletionTest {
         Instant updatedAt) {}
   }
 
-  private static final class RecordingEventHub implements EventHub {
+  private static final class RecordingEventHub implements EventPublisher {
     private final EventOrder order;
-    private final List<PublishRequest> published = new ArrayList<>();
+    private final List<EventPublishRequest> published = new ArrayList<>();
 
     private RecordingEventHub(EventOrder order) {
       this.order = order;
     }
 
     @Override
-    public void publish(PublishRequest request) {
+    public void publish(EventPublishRequest request) {
       published.add(request);
-      Object status = request.payload().get("status");
+      Object status = request.getPayload().get("status");
       if (status != null) {
         order.record("event:" + status);
       }
@@ -271,16 +278,16 @@ class SearchHistorySummaryGenerationCompletionTest {
           .as("%s should publish one SEARCH_HISTORY_SUMMARY_CHANGED event", label)
           .hasSize(1);
 
-      PublishRequest request = published.get(0);
-      assertThat(request.type()).isEqualTo(SearchHistorySummaryFixtures.SUMMARY_EVENT_TYPE);
-      assertThat(request.incidentId()).isEqualTo(SearchHistorySummaryFixtures.INCIDENT_ID);
-      assertThat(request.payload())
+      EventPublishRequest request = published.get(0);
+      assertThat(request.getType()).isEqualTo(SearchHistorySummaryFixtures.SUMMARY_EVENT_TYPE);
+      assertThat(request.getIncidentId()).isEqualTo(SearchHistorySummaryFixtures.INCIDENT_ID);
+      assertThat(request.getPayload())
           .containsEntry("status", expectedStatus)
           .containsEntry("sourceReadiness", "READY")
           .containsEntry("sourceHash", SOURCE_HASH)
           .containsEntry("version", SearchHistorySummaryFixtures.SUMMARY_VERSION);
-      assertPayloadValue(request.payload(), "id", SearchHistorySummaryFixtures.SUMMARY_ID);
-      assertPayloadValue(request.payload(), "opId", SearchHistorySummaryFixtures.OP_ID);
+      assertPayloadValue(request.getPayload(), "id", SearchHistorySummaryFixtures.SUMMARY_ID);
+      assertPayloadValue(request.getPayload(), "opId", SearchHistorySummaryFixtures.OP_ID);
     }
 
     private void assertPayloadValue(Map<String, Object> payload, String key, UUID expected) {

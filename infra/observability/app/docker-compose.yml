@@ -1,0 +1,60 @@
+name: suri-map-observability
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+  node-exporter:
+    image: prom/node-exporter@sha256:e9cff4fc67b1818f8c97adb115b9f12c9a54b533de86765d4a0effc01b357205
+    container_name: suri-map-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+      - "${APP_PRIVATE_IP:-10.0.0.2}:${NODE_EXPORTER_PORT:-19100}:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    logging: *default-logging
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor@sha256:3de2bd5203120b866d74a9b283b2ffb8ec382fbf9dc321814700c6ea6f44ec57
+    container_name: suri-map-cadvisor
+    restart: unless-stopped
+    ports:
+      - "${APP_PRIVATE_IP:-10.0.0.2}:${CADVISOR_PORT:-18080}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+      - /dev/kmsg:/dev/kmsg
+    logging: *default-logging
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: suri-map-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: postgis:5432/${POSTGRES_DB}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
+    ports:
+      - "${APP_PRIVATE_IP:-10.0.0.2}:${POSTGRES_EXPORTER_PORT:-19187}:9187"
+    networks:
+      - default
+      - suri-map-db
+    logging: *default-logging
+
+networks:
+  suri-map-db:
+    external: true
+    name: suri-map-runtime_db_net

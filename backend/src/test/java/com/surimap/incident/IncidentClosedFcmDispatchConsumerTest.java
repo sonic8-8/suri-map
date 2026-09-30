@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.surimap.client.fcm.MockFcmDispatcher;
-import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.global.event.EventPublishRequest;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.incident.service.IncidentClosedFcmDispatchConsumer;
 import com.surimap.policephone.FcmTokenStatus;
@@ -66,20 +66,21 @@ class IncidentClosedFcmDispatchConsumerTest {
     assertThat(captured.recipientPolicePhoneIds()).containsExactly(POLICE_PHONE_ID.toString());
   }
 
-  private PublishRequest incidentClosedEvent() {
+  private EventPublishRequest incidentClosedEvent() {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("status", "CLOSED");
     payload.put("version", 3);
     payload.put("closedAt", CLOSED_AT);
     payload.put("writeDisabledReason", "incident_closed");
-    return new PublishRequest(
-        EVENT_ID,
-        INCIDENT_ID,
-        "INCIDENT_CLOSED",
-        1,
-        "incident",
-        INCIDENT_ID,
-        Instant.parse(CLOSED_AT),
-        payload);
+    return EventPublishRequest.builder()
+        .eventId(EVENT_ID)
+        .incidentId(INCIDENT_ID)
+        .type("INCIDENT_CLOSED")
+        .payloadFormatVersion(1)
+        .sourceEntityType("incident")
+        .sourceEntityId(INCIDENT_ID)
+        .occurredAt(Instant.parse(CLOSED_AT))
+        .payload(payload)
+        .build();
   }
 }

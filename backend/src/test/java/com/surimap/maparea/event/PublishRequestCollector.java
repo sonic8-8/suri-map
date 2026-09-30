@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 /**
  * SearchAreaEventPublisher 테스트 더블.
  *
- * <p>실제 EventHub.publish 없이 발행된 이벤트를 메모리에 수집해 테스트에서 검증한다.
+ * <p>실제 EventPublisher.publish 없이 발행된 이벤트를 메모리에 수집해 테스트에서 검증한다.
  *
  * <p>기준 문서: docs/spec/specs/S2.json events_published.
  */

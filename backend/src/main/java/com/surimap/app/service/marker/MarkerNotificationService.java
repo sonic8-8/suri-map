@@ -207,7 +207,15 @@ public class MarkerNotificationService {
     String eventId =
         MarkerEventIds.eventId(eventType, payload.getId(), payload.getVersion()).toString();
     try {
-      fcmDispatcher.send(recipientTokens, createFcmPayload(eventType, payload), eventId);
+      FcmDispatcherPort.DispatchResult dispatchResult =
+          fcmDispatcher.send(recipientTokens, createFcmPayload(eventType, payload), eventId);
+      if (!dispatchResult.isFullySuccessful()) {
+        log.warn(
+            "failed to dispatch marker notification FCM eventId={} successCount={} failureCount={}",
+            eventId,
+            dispatchResult.successCount(),
+            dispatchResult.failureCount());
+      }
     } catch (RuntimeException exception) {
       log.warn("failed to dispatch marker notification FCM eventId={}", eventId, exception);
     }

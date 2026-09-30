@@ -13,7 +13,7 @@
 
 - 같은 공개 웹 주소의 요청은 내부 HTTP 통신과 혼동하지 않고 같은 출처로 판단해야 한다. [Frontend nginx](../../frontend/nginx.conf)는 호스트 nginx가 확인한 외부 프로토콜·포트를 Backend로 전달하고, [Backend 설정](../../backend/src/main/resources/application.yml)의 `server.forward-headers-strategy: native`는 Tomcat이 이 정보로 요청 주소를 판정하도록 한다.
 - 이 설정은 외부 호스트 nginx가 전달 헤더를 덮어쓰고 Frontend·Backend 포트를 외부에 직접 노출하지 않는 구성을 전제로 한다. Tomcat 기본값은 사설·루프백 프록시를 신뢰하며 특정 nginx 한 대만 제한한 설정은 아니다. Frontend는 별도 `Forwarded` 헤더를 제거한다. CORS 허용 목록·JWT·채널 권한은 이번 수정에서 바꾸지 않았다.
-- 2026-09-28 로컬 프록시·실제 Tomcat 검증에서 같은 HTTPS 출처의 통과와 다른 출처의 거부를 확인했다. 실제 Hetzner 배포와 화면 저장·후속 갱신은 아직 검증하지 않았다. 원인·실행 결과·남은 확인은 [CORS 문제 기록](../issues/local/9-browser-post-rejected-by-cors.md)을 따른다.
+- 2026-09-28 `070dfc90`을 Jenkins #37로 Hetzner에 배포했다. 같은 HTTPS 출처의 허용·다른 출처와 위조 전달 헤더의 거부, 실제 로그인·위치 보정 저장·다른 탭의 SSE 수신과 지도 갱신을 확인했다. DB 이력 재전송·재시작 복구 검증은 아니다. 원인·실행 결과·검증 한계는 [CORS 문제 기록](../issues/local/9-browser-post-rejected-by-cors.md)을 따른다.
 
 ## 권한 검사와 실패 순서
 

@@ -17,13 +17,13 @@ fail() {
 # --- s4-replay-evidence.txt ---
 [ -s "${REPLAY_FILE}" ] || fail "${REPLAY_FILE} is missing or empty"
 
-grep -qE '^Test Class : com\.surimap\.eventhub\.SseReplayServiceTest$' "${REPLAY_FILE}" \
+grep -qE '^Test Class : com\.surimap\.api\.service\.sse\.ServerSentEventHistoryServiceTest$' "${REPLAY_FILE}" \
     || fail "${REPLAY_FILE} does not identify the current replay test"
 
 # --- s4-fanout-evidence.txt ---
 [ -s "${FANOUT_FILE}" ] || fail "${FANOUT_FILE} is missing or empty"
 
-grep -qE '^Test Class : com\.surimap\.eventhub\.SseStreamServiceTest$' "${FANOUT_FILE}" \
+grep -qE '^Test Class : com\.surimap\.global\.sse\.ServerSentEventJobWorkerTest$' "${FANOUT_FILE}" \
     || fail "${FANOUT_FILE} does not identify the current dispatch test"
 
 # --- s4-release-note.txt ---

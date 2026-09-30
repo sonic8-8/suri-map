@@ -9,7 +9,7 @@ import com.surimap.api.controller.searcharea.request.SplitSearchAreaRequest;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.global.event.CapturingEventPublisher;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.geometry.policy.GeometryPolicy;
 import com.surimap.maparea.geometry.validation.GeometryValidator;
@@ -94,7 +94,7 @@ class SearchAreaApiServiceQueryTest {
   @Test
   @DisplayName("overall create and patch publish SEARCH_AREA_CHANGED without opId")
   void overall_create_and_patch_publish_search_area_changed_without_op_id() {
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     SearchAreaApiService publishingService =
         new SearchAreaApiService(
             new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
@@ -116,16 +116,16 @@ class SearchAreaApiServiceQueryTest {
         .hasSize(2)
         .allSatisfy(
             event -> {
-              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
-              assertThat(event.payload()).containsKey("overallAreaHash");
-              assertThat(event.payload()).doesNotContainKey("opId");
+              assertThat(event.getPayload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.getPayload()).containsKey("overallAreaHash");
+              assertThat(event.getPayload()).doesNotContainKey("opId");
             });
   }
 
   @Test
   @DisplayName("UNIT split publishes changed events for cancelled parent and TEAM children")
   void unit_split_publishes_search_area_changed_for_parent_and_children() {
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     SearchAreaApiService publishingService =
         new SearchAreaApiService(
             new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
@@ -139,9 +139,7 @@ class SearchAreaApiServiceQueryTest {
             unit.id(),
             new SplitSearchAreaRequest(
                 OP_ID,
-                List.of(
-                    polygon("126.911100", "35.161100"),
-                    polygon("126.911500", "35.161100")),
+                List.of(polygon("126.911100", "35.161100"), polygon("126.911500", "35.161100")),
                 "unit split",
                 1L,
                 CLIENT_TS.plusMinutes(3)),
@@ -149,7 +147,7 @@ class SearchAreaApiServiceQueryTest {
 
     assertThat(eventHub.findByType("SEARCH_AREA_CHANGED"))
         .hasSize(3)
-        .extracting(event -> event.payload().get("id"))
+        .extracting(event -> event.getPayload().get("id"))
         .containsExactlyInAnyOrderElementsOf(
             List.of(
                 split.parent().id().toString(),
@@ -158,17 +156,17 @@ class SearchAreaApiServiceQueryTest {
     assertThat(eventHub.findByType("SEARCH_AREA_CHANGED"))
         .allSatisfy(
             event -> {
-              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
-              assertThat(event.payload()).containsEntry("opId", OP_ID.toString());
-              assertThat(event.payload()).containsKey("geometry");
-              assertThat(event.payload()).doesNotContainKey("overallAreaHash");
+              assertThat(event.getPayload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.getPayload()).containsEntry("opId", OP_ID.toString());
+              assertThat(event.getPayload()).containsKey("geometry");
+              assertThat(event.getPayload()).doesNotContainKey("overallAreaHash");
             });
   }
 
   @Test
   @DisplayName("assign publishes SEARCH_AREA_ASSIGNMENT_CHANGED with assignee ids")
   void assign_publishes_search_area_assignment_changed() {
-    MockEventHub eventHub = new MockEventHub();
+    CapturingEventPublisher eventHub = new CapturingEventPublisher();
     SearchAreaApiService publishingService =
         new SearchAreaApiService(
             new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
@@ -187,13 +185,13 @@ class SearchAreaApiServiceQueryTest {
         .singleElement()
         .satisfies(
             event -> {
-              assertThat(event.sourceEntityType()).isEqualTo("search_area_assignment");
-              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
-              assertThat(event.payload()).containsEntry("opId", OP_ID.toString());
-              assertThat(event.payload()).containsEntry("searchAreaId", unit.id().toString());
-              assertThat(event.payload()).containsEntry("status", "ACTIVE");
-              assertThat(event.payload()).containsEntry("version", 2L);
-              assertThat(event.payload().get("assignedAccountIds"))
+              assertThat(event.getSourceEntityType()).isEqualTo("search_area_assignment");
+              assertThat(event.getPayload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.getPayload()).containsEntry("opId", OP_ID.toString());
+              assertThat(event.getPayload()).containsEntry("searchAreaId", unit.id().toString());
+              assertThat(event.getPayload()).containsEntry("status", "ACTIVE");
+              assertThat(event.getPayload()).containsEntry("version", 2L);
+              assertThat(event.getPayload().get("assignedAccountIds"))
                   .isEqualTo(List.of(ASSIGNEE_ID.toString()));
             });
   }
@@ -201,16 +199,15 @@ class SearchAreaApiServiceQueryTest {
   @Test
   @DisplayName("overall split uses the requested OP when the parent overall belongs to another OP")
   void overall_split_uses_requested_op_for_children_when_parent_overall_belongs_to_another_op() {
-    SearchAreaResponse overall = service.create(overallCreateRequest(OP_ID), "idem-overall-query-003");
+    SearchAreaResponse overall =
+        service.create(overallCreateRequest(OP_ID), "idem-overall-query-003");
 
     SearchAreaSplitResponse response =
         service.split(
             overall.id(),
             new SplitSearchAreaRequest(
                 OTHER_OP_ID,
-                List.of(
-                    polygon("126.910100", "35.160100"),
-                    polygon("126.910500", "35.160100")),
+                List.of(polygon("126.910100", "35.160100"), polygon("126.910500", "35.160100")),
                 "overall split",
                 1L,
                 CLIENT_TS.plusMinutes(21)),

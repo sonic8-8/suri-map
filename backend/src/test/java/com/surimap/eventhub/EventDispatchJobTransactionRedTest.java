@@ -1,11 +1,10 @@
 package com.surimap.eventhub;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.fixture.EventFixtures;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -32,8 +31,8 @@ import org.testcontainers.utility.DockerImageName;
  *
  * <p>S4.json AC-S4-01, AC-S4-07, duplicate_event_dedupe harness fixture를 기준으로 한다.
  *
- * <p>RED 조건: 실제 {@code EventHub} DB 구현체와 {@code event_dispatch_job} migration이 없으므로,
- * MockEventHub fallback이 주입될 때 DB 검증 assertion이 실패하거나 migration 실패로 Spring 컨텍스트가 기동되지
+ * <p>RED 조건: 실제 {@code EventPublisher} DB 구현체와 {@code event_dispatch_job} migration이 없으므로,
+ * CapturingEventPublisher fallback이 주입될 때 DB 검증 assertion이 실패하거나 migration 실패로 Spring 컨텍스트가 기동되지
  * 않아야 한다.
  *
  * <p>참조:
@@ -76,7 +75,7 @@ class EventDispatchJobTransactionRedTest {
     registry.add("spring.flyway.locations", () -> "classpath:db/migration");
   }
 
-  @Autowired private EventHub eventHub;
+  @Autowired private EventPublisher eventHub;
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -107,18 +106,20 @@ class EventDispatchJobTransactionRedTest {
 
     try {
       eventHub.publish(
-          new PublishRequest(
-              eventId,
-              incidentId,
-              EventFixtures.SC09_EVENT_TYPE,
-              1,
-              "search_path",
-              UUID.fromString("30000000-0000-4000-8000-000000000501"),
-              Instant.parse("2026-05-08T09:00:00Z"),
-              Map.of(
-                  "id", "30000000-0000-4000-8000-000000000501",
-                  "status", "RECORDING",
-                  "version", 7)));
+          EventPublishRequest.builder()
+              .eventId(eventId)
+              .incidentId(incidentId)
+              .type(EventFixtures.SC09_EVENT_TYPE)
+              .payloadFormatVersion(1)
+              .sourceEntityType("search_path")
+              .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000501"))
+              .occurredAt(Instant.parse("2026-05-08T09:00:00Z"))
+              .payload(
+                  Map.of(
+                      "id", "30000000-0000-4000-8000-000000000501",
+                      "status", "RECORDING",
+                      "version", 7))
+              .build());
       txManager.commit(status);
     } catch (Exception e) {
       txManager.rollback(status);
@@ -127,15 +128,13 @@ class EventDispatchJobTransactionRedTest {
 
     Integer count =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?",
-            Integer.class,
-            eventId);
+            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?", Integer.class, eventId);
 
-    // RED: MockEventHub는 DB에 row를 쓰지 않으므로 count == 0이어서 실패한다.
+    // RED: CapturingEventPublisher는 DB에 row를 쓰지 않으므로 count == 0이어서 실패한다.
     assertThat(count)
         .as(
             "publish 후 commit 시 event_dispatch_job에 row가 존재해야 한다 (AC-S4-01). "
-                + "MockEventHub는 DB에 기록하지 않으므로 RED 상태다.")
+                + "CapturingEventPublisher는 DB에 기록하지 않으므로 RED 상태다.")
         .isEqualTo(1);
   }
 
@@ -158,30 +157,30 @@ class EventDispatchJobTransactionRedTest {
     TransactionStatus status = txManager.getTransaction(def);
 
     eventHub.publish(
-        new PublishRequest(
-            eventId,
-            incidentId,
-            EventFixtures.SC08_EVENT_TYPE,
-            1,
-            "marker_notification",
-            UUID.fromString("50000000-0000-4000-8000-000000000801"),
-            Instant.parse("2026-05-08T09:00:00Z"),
-            Map.of(
-                "id", "50000000-0000-4000-8000-000000000801",
-                "status", "REQUESTED",
-                "version", 1)));
+        EventPublishRequest.builder()
+            .eventId(eventId)
+            .incidentId(incidentId)
+            .type(EventFixtures.SC08_EVENT_TYPE)
+            .payloadFormatVersion(1)
+            .sourceEntityType("marker_notification")
+            .sourceEntityId(UUID.fromString("50000000-0000-4000-8000-000000000801"))
+            .occurredAt(Instant.parse("2026-05-08T09:00:00Z"))
+            .payload(
+                Map.of(
+                    "id", "50000000-0000-4000-8000-000000000801",
+                    "status", "REQUESTED",
+                    "version", 1))
+            .build());
 
     // 명시적 rollback — domain write도 함께 취소되어야 한다 (AC-S4-07 원자성 역방향 검증)
     txManager.rollback(status);
 
     Integer count =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?",
-            Integer.class,
-            eventId);
+            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?", Integer.class, eventId);
 
     // RED: event_dispatch_job 테이블 자체가 존재하지 않으면 쿼리가 SQLException을 던져 실패한다.
-    //      테이블이 있어도 MockEventHub는 rollback 대상 row를 삽입하지 않으므로 '0 == 0' 통과처럼
+    //      테이블이 있어도 CapturingEventPublisher는 rollback 대상 row를 삽입하지 않으므로 '0 == 0' 통과처럼
     //      보이지만 이 테스트는 publishThenCommit 테스트가 실패 시 같이 체인 실패한다.
     //      coder는 실구현 후 rollback 시 row가 0임을 DB 레벨에서 확인해야 한다.
     assertThat(count)
@@ -206,19 +205,21 @@ class EventDispatchJobTransactionRedTest {
     UUID eventId = EventFixtures.DEDUPE_EVENT_ID;
     UUID incidentId = EventFixtures.INCIDENT_ID_01;
 
-    PublishRequest request =
-        new PublishRequest(
-            eventId,
-            incidentId,
-            "PATH_APPENDED",
-            1,
-            "search_path",
-            UUID.fromString("30000000-0000-4000-8000-000000000501"),
-            Instant.parse("2026-05-08T09:00:00Z"),
-            Map.of(
-                "id", "30000000-0000-4000-8000-000000000501",
-                "status", "RECORDING",
-                "version", 7));
+    EventPublishRequest request =
+        EventPublishRequest.builder()
+            .eventId(eventId)
+            .incidentId(incidentId)
+            .type("PATH_APPENDED")
+            .payloadFormatVersion(1)
+            .sourceEntityType("search_path")
+            .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000501"))
+            .occurredAt(Instant.parse("2026-05-08T09:00:00Z"))
+            .payload(
+                Map.of(
+                    "id", "30000000-0000-4000-8000-000000000501",
+                    "status", "RECORDING",
+                    "version", 7))
+            .build();
 
     // 첫 번째 publish — commit
     DefaultTransactionDefinition def1 = new DefaultTransactionDefinition();
@@ -247,17 +248,15 @@ class EventDispatchJobTransactionRedTest {
 
     Integer count =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?",
-            Integer.class,
-            eventId);
+            "SELECT COUNT(*) FROM event_dispatch_job WHERE event_id = ?", Integer.class, eventId);
 
     // RED: event_dispatch_job 테이블이 없으면 쿼리가 실패한다.
-    //      MockEventHub는 DB에 기록하지 않으므로 count == 0이어서 실패한다.
+    //      CapturingEventPublisher는 DB에 기록하지 않으므로 count == 0이어서 실패한다.
     assertThat(count)
         .as(
             "동일 eventId로 두 번 publish 시 event_dispatch_job row는 정확히 1개여야 한다 "
                 + "(S4.json duplicate_event_dedupe: eventDispatchJobRows == 1). "
-                + "MockEventHub는 DB row를 남기지 않으므로 RED 상태다.")
+                + "CapturingEventPublisher는 DB row를 남기지 않으므로 RED 상태다.")
         .isEqualTo(1);
   }
 
@@ -279,15 +278,18 @@ class EventDispatchJobTransactionRedTest {
 
     try {
       eventHub.publish(
-          new PublishRequest(
-              eventId,
-              incidentId,
-              "MARKER_CREATED",
-              1,
-              "marker",
-              MARKER_SOURCE_ENTITY_ID,
-              Instant.parse("2026-05-08T09:00:00Z"),
-              Map.of("id", MARKER_SOURCE_ENTITY_ID.toString(), "status", "ACTIVE", "version", 1)));
+          EventPublishRequest.builder()
+              .eventId(eventId)
+              .incidentId(incidentId)
+              .type("MARKER_CREATED")
+              .payloadFormatVersion(1)
+              .sourceEntityType("marker")
+              .sourceEntityId(MARKER_SOURCE_ENTITY_ID)
+              .occurredAt(Instant.parse("2026-05-08T09:00:00Z"))
+              .payload(
+                  Map.of(
+                      "id", MARKER_SOURCE_ENTITY_ID.toString(), "status", "ACTIVE", "version", 1))
+              .build());
       txManager.commit(status);
     } catch (Exception e) {
       txManager.rollback(status);
@@ -300,12 +302,12 @@ class EventDispatchJobTransactionRedTest {
             String.class,
             eventId);
 
-    // RED: 테이블/row가 없으면 쿼리가 실패한다. MockEventHub는 DB에 기록하지 않는다.
+    // RED: 테이블/row가 없으면 쿼리가 실패한다. CapturingEventPublisher는 DB에 기록하지 않는다.
     assertThat(dispatchStatus)
         .as(
             "event_dispatch_job row의 초기 dispatch_status는 PENDING이어야 한다 "
                 + "(S4.json domain_model dispatch_status note: PENDING|...). "
-                + "MockEventHub는 DB row를 남기지 않으므로 RED 상태다.")
+                + "CapturingEventPublisher는 DB row를 남기지 않으므로 RED 상태다.")
         .isEqualTo("PENDING");
   }
 
@@ -317,7 +319,7 @@ class EventDispatchJobTransactionRedTest {
   @Test
   @DisplayName(
       "publishedRow_envelopeFieldsMatchRequest — publish 후 event_dispatch_job row의"
-          + " envelope 필드가 PublishRequest와 일치한다")
+          + " envelope 필드가 EventPublishRequest와 일치한다")
   void publishedRow_envelopeFieldsMatchRequest() {
     UUID eventId = EventFixtures.SC09_EVENT_ID;
     UUID incidentId = EventFixtures.INCIDENT_ID_01;
@@ -330,18 +332,20 @@ class EventDispatchJobTransactionRedTest {
 
     try {
       eventHub.publish(
-          new PublishRequest(
-              eventId,
-              incidentId,
-              eventType,
-              payloadFormatVersion,
-              "search_path",
-              UUID.fromString("30000000-0000-4000-8000-000000000501"),
-              Instant.parse("2026-05-08T09:00:00Z"),
-              Map.of(
-                  "id", "30000000-0000-4000-8000-000000000501",
-                  "status", "RECORDING",
-                  "version", 7)));
+          EventPublishRequest.builder()
+              .eventId(eventId)
+              .incidentId(incidentId)
+              .type(eventType)
+              .payloadFormatVersion(payloadFormatVersion)
+              .sourceEntityType("search_path")
+              .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000501"))
+              .occurredAt(Instant.parse("2026-05-08T09:00:00Z"))
+              .payload(
+                  Map.of(
+                      "id", "30000000-0000-4000-8000-000000000501",
+                      "status", "RECORDING",
+                      "version", 7))
+              .build());
       txManager.commit(status);
     } catch (Exception e) {
       txManager.rollback(status);
@@ -364,11 +368,11 @@ class EventDispatchJobTransactionRedTest {
             eventType,
             payloadFormatVersion);
 
-    // RED: 테이블이 없으면 쿼리 실패. MockEventHub는 DB에 기록하지 않으므로 count == 0이어서 실패한다.
+    // RED: 테이블이 없으면 쿼리 실패. CapturingEventPublisher는 DB에 기록하지 않으므로 count == 0이어서 실패한다.
     assertThat(matchCount)
         .as(
-            "event_dispatch_job row의 envelope 필드가 PublishRequest와 일치해야 한다 (AC-S4-01). "
-                + "MockEventHub는 DB row를 남기지 않으므로 RED 상태다.")
+            "event_dispatch_job row의 envelope 필드가 EventPublishRequest와 일치해야 한다 (AC-S4-01). "
+                + "CapturingEventPublisher는 DB row를 남기지 않으므로 RED 상태다.")
         .isEqualTo(1);
   }
 }

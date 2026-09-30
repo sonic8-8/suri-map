@@ -1,7 +1,5 @@
 package com.surimap.global.event;
 
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.geometry.GeoJsonPoint;
@@ -20,9 +18,9 @@ public class MarkerEventPublisher {
   private static final String MARKER_SOURCE_ENTITY_TYPE = "marker";
   private static final String MARKER_NOTIFICATION_SOURCE_ENTITY_TYPE = "marker_notification";
 
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
 
-  public MarkerEventPublisher(EventHub eventHub) {
+  public MarkerEventPublisher(EventPublisher eventHub) {
     this.eventHub = eventHub;
   }
 
@@ -35,15 +33,16 @@ public class MarkerEventPublisher {
     }
 
     eventHub.publish(
-        new PublishRequest(
-            MarkerEventIds.eventId(eventType, payload.getId(), payload.getVersion()),
-            payload.getIncidentId(),
-            eventType,
-            PAYLOAD_FORMAT_VERSION,
-            sourceEntityType(eventType),
-            payload.getId(),
-            occurredAt(payload),
-            payloadFor(payload)));
+        EventPublishRequest.builder()
+            .eventId(MarkerEventIds.eventId(eventType, payload.getId(), payload.getVersion()))
+            .incidentId(payload.getIncidentId())
+            .type(eventType)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType(sourceEntityType(eventType))
+            .sourceEntityId(payload.getId())
+            .occurredAt(occurredAt(payload))
+            .payload(payloadFor(payload))
+            .build());
   }
 
   private static String sourceEntityType(String eventType) {

@@ -1,7 +1,7 @@
 package com.surimap.offlinepackage.consumer;
 
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.consumer.DomainEventConsumer;
+import com.surimap.global.event.DomainEventConsumer;
+import com.surimap.global.event.EventPublishRequest;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import org.springframework.stereotype.Component;
 
@@ -16,12 +16,12 @@ public class OfflinePackageSearchAreaChangedConsumer
   }
 
   @Override
-  public void consume(PublishRequest event) {
+  public void consume(EventPublishRequest event) {
     service.consumeSearchAreaChanged(event);
   }
 
   @Override
-  public boolean supports(PublishRequest event) {
-    return event != null && "SEARCH_AREA_CHANGED".equals(event.type());
+  public boolean supports(EventPublishRequest event) {
+    return event != null && "SEARCH_AREA_CHANGED".equals(event.getType());
   }
 }

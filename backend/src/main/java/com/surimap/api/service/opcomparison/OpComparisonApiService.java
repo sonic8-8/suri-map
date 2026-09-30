@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.opcomparison.request.CreateOpComparisonRequest;
 import com.surimap.api.controller.opcomparison.response.OpComparisonResponse;
-import com.surimap.eventhub.dto.PublishRequest;
-import com.surimap.eventhub.port.EventHub;
+import com.surimap.global.event.EventPublishRequest;
+import com.surimap.global.event.EventPublisher;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.opcomparison.OpComparisonAnalysisMapper;
 import com.surimap.opcomparison.OpComparisonAnalysisRecord;
@@ -54,11 +54,12 @@ public class OpComparisonApiService {
   private final OpComparisonSourceCollector sourceCollector;
   private final OpComparisonRegionFactMapper regionFactMapper;
   private final OpComparisonNarrativePort narrativePort;
-  private final EventHub eventHub;
+  private final EventPublisher eventHub;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final ObjectMapper objectMapper;
   private final Clock clock;
-  private final OpComparisonMetricsCalculator metricsCalculator = new OpComparisonMetricsCalculator();
+  private final OpComparisonMetricsCalculator metricsCalculator =
+      new OpComparisonMetricsCalculator();
   private final OpComparisonThresholdFilter thresholdFilter = new OpComparisonThresholdFilter();
   private final OpComparisonEvidenceBuilder evidenceBuilder = new OpComparisonEvidenceBuilder();
   private final IdempotentResponseCache idempotentResponseCache;
@@ -69,7 +70,7 @@ public class OpComparisonApiService {
       OpComparisonSourceCollector sourceCollector,
       OpComparisonRegionFactMapper regionFactMapper,
       OpComparisonNarrativePort narrativePort,
-      EventHub eventHub,
+      EventPublisher eventHub,
       IncidentLifecycleGuard incidentLifecycleGuard,
       ObjectMapper objectMapper,
       Clock clock,
@@ -102,7 +103,8 @@ public class OpComparisonApiService {
     OpComparisonSourceSnapshot snapshot =
         sourceCollector.collect(request.incidentId(), request.operationalPeriodIds());
     String requestHash =
-        requestHash(snapshot.incidentId(), snapshot.operationalPeriodIds(), snapshot.sourceDataHash());
+        requestHash(
+            snapshot.incidentId(), snapshot.operationalPeriodIds(), snapshot.sourceDataHash());
     var existing = analysisMapper.findByRequestHash(requestHash);
     if (existing.isPresent()) {
       return OpComparisonResponse.from(existing.get(), objectMapper);
@@ -113,7 +115,9 @@ public class OpComparisonApiService {
       analysisMapper.insert(initial);
     } catch (DuplicateKeyException ignored) {
       return OpComparisonResponse.from(
-          analysisMapper.findByRequestHash(requestHash).orElseThrow(OpComparisonApiException::writeConflict),
+          analysisMapper
+              .findByRequestHash(requestHash)
+              .orElseThrow(OpComparisonApiException::writeConflict),
           objectMapper);
     }
 
@@ -147,7 +151,12 @@ public class OpComparisonApiService {
         deterministicAt);
     OpComparisonAnalysisRecord deterministic =
         withDeterministicResult(
-            initial, metricsJson, diffFactsJson, regionFactsJson, threshold.narrativeStatus(), deterministicAt);
+            initial,
+            metricsJson,
+            diffFactsJson,
+            regionFactsJson,
+            threshold.narrativeStatus(),
+            deterministicAt);
 
     if (threshold.narrativeStatus() != OpComparisonNarrativeStatus.GENERATING) {
       return deterministic;
@@ -169,7 +178,8 @@ public class OpComparisonApiService {
         failureReason,
         narrativeAt,
         narrativeAt);
-    return withNarrativeResult(deterministic, narrativeStatus, observationsJson, failureReason, narrativeAt);
+    return withNarrativeResult(
+        deterministic, narrativeStatus, observationsJson, failureReason, narrativeAt);
   }
 
   private OpComparisonNarrativeResult generateNarrative(OpComparisonEvidencePackage evidence) {
@@ -265,15 +275,16 @@ public class OpComparisonApiService {
 
   private void publishChanged(OpComparisonAnalysisRecord record) {
     eventHub.publish(
-        new PublishRequest(
-            eventIdFor(record),
-            record.incidentId(),
-            EVENT_TYPE,
-            PAYLOAD_FORMAT_VERSION,
-            SOURCE_ENTITY_TYPE,
-            record.id(),
-            clock.instant(),
-            payloadFor(record)));
+        EventPublishRequest.builder()
+            .eventId(eventIdFor(record))
+            .incidentId(record.incidentId())
+            .type(EVENT_TYPE)
+            .payloadFormatVersion(PAYLOAD_FORMAT_VERSION)
+            .sourceEntityType(SOURCE_ENTITY_TYPE)
+            .sourceEntityId(record.id())
+            .occurredAt(clock.instant())
+            .payload(payloadFor(record))
+            .build());
   }
 
   private UUID eventIdFor(OpComparisonAnalysisRecord record) {
@@ -299,9 +310,7 @@ public class OpComparisonApiService {
     try {
       return objectMapper.readValue(
           opIdsJson,
-          objectMapper
-              .getTypeFactory()
-              .constructCollectionType(List.class, String.class));
+          objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
     } catch (JsonProcessingException exception) {
       throw new IllegalStateException("OP comparison op id JSON cannot be parsed", exception);
     }
@@ -325,10 +334,7 @@ public class OpComparisonApiService {
           operation::run,
           response ->
               new ResponseMetadata(
-                  response.comparisonId().toString(),
-                  response.status(),
-                  response.version(),
-                  0L));
+                  response.comparisonId().toString(), response.status(), response.version(), 0L));
     }
     IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
     if (existing != null) {
@@ -352,13 +358,18 @@ public class OpComparisonApiService {
   }
 
   private String requestHash(UUID incidentId, List<UUID> opIds, String sourceDataHash) {
-    return sha256("op-comparison:" + incidentId + ":" + normalizedOpIds(opIds) + ":" + sourceDataHash);
+    return sha256(
+        "op-comparison:" + incidentId + ":" + normalizedOpIds(opIds) + ":" + sourceDataHash);
   }
 
   private String normalizedOpIds(List<UUID> opIds) {
     return opIds == null
         ? ""
-        : opIds.stream().map(UUID::toString).sorted().reduce((left, right) -> left + "," + right).orElse("");
+        : opIds.stream()
+            .map(UUID::toString)
+            .sorted()
+            .reduce((left, right) -> left + "," + right)
+            .orElse("");
   }
 
   private String toJson(Object value) {

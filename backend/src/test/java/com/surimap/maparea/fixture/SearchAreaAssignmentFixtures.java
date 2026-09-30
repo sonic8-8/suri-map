@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * S2 search_area_assignment fixture IDs, 상태, 이벤트 모음.
  *
- * <p>기준 문서: docs/spec/specs/S2.json harness_constraints.
- * docs/spec/harness-scenarios.md §2 SC-04, SC-10.
+ * <p>기준 문서: docs/spec/specs/S2.json harness_constraints. docs/spec/harness-scenarios.md §2 SC-04,
+ * SC-10.
  */
 public final class SearchAreaAssignmentFixtures {
 
@@ -17,8 +17,7 @@ public final class SearchAreaAssignmentFixtures {
   /** SC-04 배정 assignment alias (harness-scenarios.md §6 mock 112 배정 사건). */
   public static final String ASSIGNMENT_ALIAS = "saa-precinct-a1-001";
 
-  public static final UUID ASSIGNMENT_ID =
-      UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+  public static final UUID ASSIGNMENT_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
 
   /** 배정된 계정 alias (acct-precinct-cmd). */
   public static final String ASSIGNEE_ACCOUNT_ALIAS = "acct-precinct-cmd";
@@ -50,7 +49,7 @@ public final class SearchAreaAssignmentFixtures {
   /**
    * SC-04 구역 배정 성공 시 발행되는 SEARCH_AREA_ASSIGNMENT_CHANGED 이벤트 envelope.
    *
-   * <p>S4 EventHub.publish PublishRequest의 id/status/version/opId 수렴 비교 기준.
+   * <p>S4 EventPublisher.publish EventPublishRequest의 id/status/version/opId 수렴 비교 기준.
    */
   public static ExpectedAssignmentEvent assignmentChangedEvent() {
     return new ExpectedAssignmentEvent(

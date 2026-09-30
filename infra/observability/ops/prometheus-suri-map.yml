@@ -1,0 +1,39 @@
+- job_name: suri-map-backend
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  static_configs:
+    - targets:
+        - 10.0.0.2:19091
+      labels:
+        environment: development
+        service: suri-map
+
+- job_name: suri-map-node
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  static_configs:
+    - targets:
+        - 10.0.0.2:19100
+      labels:
+        environment: development
+        service: suri-map
+
+- job_name: suri-map-cadvisor
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  static_configs:
+    - targets:
+        - 10.0.0.2:18080
+      labels:
+        environment: development
+        service: suri-map
+
+- job_name: suri-map-postgres
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  static_configs:
+    - targets:
+        - 10.0.0.2:19187
+      labels:
+        environment: development
+        service: suri-map

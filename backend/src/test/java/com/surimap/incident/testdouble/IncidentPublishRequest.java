@@ -1,6 +1,6 @@
 package com.surimap.incident.testdouble;
 
-/** L1 사건 흐름 하네스가 사용하는 S4 PublishRequest capture 모델. */
+/** L1 사건 흐름 하네스가 사용하는 S4 EventPublishRequest capture 모델. */
 public record IncidentPublishRequest(
     String eventId, String type, String incidentId, String payloadId, String status, long version) {
 

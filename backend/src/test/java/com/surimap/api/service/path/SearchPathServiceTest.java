@@ -51,7 +51,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private SearchPathService searchPathService;
 
   @Test
-  @DisplayName("batch append stages PATH_APPENDED EventHub job")
+  @DisplayName("batch append stages PATH_APPENDED EventPublisher job")
   void batch_append_stages_event_dispatch_job() {
     SearchPathPointsAppendServiceResponse appended =
         searchPathService.appendPoints(batchRequest("idem-path-event-append"));
@@ -90,7 +90,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
+  @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventPublisher job")
   void segment_correction_stages_event_dispatch_job() {
     SearchPathPointsAppendServiceResponse batch =
         searchPathService.appendPoints(batchRequest("idem-path-event-segment-batch"));

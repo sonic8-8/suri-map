@@ -26,7 +26,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class GeometryValidationService {
 
-  // TODO L3-T01/T02A/T02B: API write path, PublishRequest, search_area_history transaction wiring은
+  // TODO L3-T01/T02A/T02B: API write path, EventPublishRequest, search_area_history transaction
+  // wiring은
   // 별도 task에서 연결한다.
 
   /** 좌표와 Polygon ring 수준의 1차 검증기 */
