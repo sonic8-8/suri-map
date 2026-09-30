@@ -425,6 +425,14 @@ def cleanup_sql():
     return """
 BEGIN;
 
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM marker
+        WHERE created_by_account_id::text LIKE 'a1000000-0000-4000-8000-%'
+           OR police_phone_id::text LIKE 'b1000000-0000-4000-8000-%')
+    THEN RAISE EXCEPTION 'Remove owned board-test markers before resetting GPS fixtures';
+    END IF;
+END $$;
+
 DELETE FROM idempotency_record
 WHERE idempotency_key LIKE 'load-test-%';
 

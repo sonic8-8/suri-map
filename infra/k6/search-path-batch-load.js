@@ -2,6 +2,7 @@ import { check, sleep } from "k6";
 import execution from "k6/execution";
 import { SharedArray } from "k6/data";
 import http from "k6/http";
+import { sha256 } from "k6/crypto";
 import { Trend } from "k6/metrics";
 
 // Runtime configuration
@@ -11,6 +12,7 @@ const PATH_APPEND_REQUESTER_FIXTURES_FILE =
   __ENV.PATH_APPEND_REQUESTER_FIXTURES_FILE ||
   "/secrets/path-append-requester-fixtures.json";
 const RUN_ID = requiredEnv("RUN_ID");
+const BOARD_MEASUREMENT = __ENV.BOARD_MEASUREMENT === "true";
 const SCENARIO = (__ENV.SCENARIO || "periodic").toLowerCase();
 if (
   ![
@@ -80,7 +82,7 @@ const recoveryBacklogDrainDuration = new Trend(
 );
 
 // Requester fixtures
-const pathAppendRequesterFixtures = new SharedArray(
+export const pathAppendRequesterFixtures = new SharedArray(
   "path-append-requester-fixtures",
   () => {
     const loaded = JSON.parse(open(PATH_APPEND_REQUESTER_FIXTURES_FILE));
@@ -104,12 +106,23 @@ if (POLICE_PHONE_COUNT > pathAppendRequesterFixtures.length) {
 }
 const prepopulatedPathFixture =
   SCENARIO === "prepopulated-long-path" ? readPrepopulatedPathFixture() : null;
+if (
+  BOARD_MEASUREMENT &&
+  (SCENARIO !== "prepopulated-long-path" ||
+    !/^[A-Za-z0-9_-]{1,80}$/.test(RUN_ID))
+) {
+  throw new Error(
+    "Board measurement requires prepopulated-long-path and a safe RUN_ID",
+  );
+}
 
 // k6 options
 export const options = {
-  hosts: {
-    "suri-map.sonic8-8.com": APP_PRIVATE_IP,
-  },
+  hosts: BOARD_MEASUREMENT
+    ? {}
+    : {
+        "suri-map.sonic8-8.com": APP_PRIVATE_IP,
+      },
   scenarios: {
     [SCENARIO]: buildScenarioOptions(SCENARIO),
   },
@@ -310,6 +323,7 @@ function appendPathBatch(
   }
 
   const points = buildGpsPoints(requesterIndex, batchIndex, batchPhase);
+  const requestId = `load-test-${RUN_ID}-${batchPhase}-${requesterIndex}-${batchIndex}`;
   const body = JSON.stringify({
     incidentId: INCIDENT_ID,
     opId: OPERATIONAL_PERIOD_ID,
@@ -319,19 +333,40 @@ function appendPathBatch(
   });
 
   // When: 경로 좌표 묶음 추가 요청을 보낸다.
+  if (BOARD_MEASUREMENT) {
+    console.log(
+      JSON.stringify({
+        stage: "path_write_started",
+        runId: RUN_ID,
+        requestId,
+        incidentId: INCIDENT_ID,
+        sourceEntityType: "search_path",
+        sourceEntityId: requesterFixture.pathId,
+        coordinateHash: sha256(
+          JSON.stringify(points.map((point) => [point.lon, point.lat])),
+          "hex",
+        ),
+        pointCount: points.length,
+        requesterIndex,
+        batchIndex,
+        wallTimeMs: Date.now(),
+      }),
+    );
+  }
   const response = http.post(`${BASE_URL}/api/search-paths/batch`, body, {
     headers: {
       Authorization: `Bearer ${requesterFixture.accessToken}`,
       "Content-Type": "application/json",
       "X-Client-Channel": "APP",
       "X-PolicePhone-Id": requesterFixture.policePhoneId,
-      "Idempotency-Key": `load-test-${RUN_ID}-${batchPhase}-${requesterIndex}-${batchIndex}`,
+      "Idempotency-Key": requestId,
     },
     tags: {
       name: "POST /api/search-paths/batch",
     },
     timeout: "10s",
   });
+  const responseReceivedAtMs = Date.now();
 
   // Then: 모든 좌표가 수락되고 제외된 좌표가 없는지 확인한다.
   let responseBody = null;
@@ -350,15 +385,42 @@ function appendPathBatch(
   const noPointsExcluded =
     responseBody !== null && responseBody.excludedPointCount === 0;
 
-  check(response, {
+  const accepted = check(response, {
     "path batch status is 200": () => statusAccepted,
     "path batch accepts every point": () => allPointsAccepted,
     "path batch excludes no point": () => noPointsExcluded,
   });
+  if (BOARD_MEASUREMENT) {
+    const identityAccepted =
+      responseBody !== null &&
+      responseBody.id === requesterFixture.pathId &&
+      Number.isSafeInteger(responseBody.version) &&
+      responseBody.version > 0;
+    console.log(
+      JSON.stringify({
+        stage:
+          accepted && identityAccepted
+            ? "path_write_completed"
+            : "path_write_failed",
+        runId: RUN_ID,
+        requestId,
+        incidentId: INCIDENT_ID,
+        sourceEntityType: "search_path",
+        sourceEntityId: requesterFixture.pathId,
+        sourceVersion: identityAccepted ? responseBody.version : null,
+        wallTimeMs: responseReceivedAtMs,
+        status: response.status,
+        requesterIndex,
+        batchIndex,
+      }),
+    );
+    if (!accepted || !identityAccepted)
+      execution.test.abort("board_path_write_failed");
+  }
 }
 
 // GPS point generation
-function buildGpsPoints(requesterIndex, batchIndex, batchPhase) {
+export function buildGpsPoints(requesterIndex, batchIndex, batchPhase) {
   let lastPointTimestampMs;
   if (batchPhase === "breakpoint" || batchPhase === "prepopulated-long-path") {
     lastPointTimestampMs = Date.now();

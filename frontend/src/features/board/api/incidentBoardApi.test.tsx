@@ -12,6 +12,36 @@ import {
 } from './incidentBoardApi';
 
 describe('incident board API', () => {
+  test.each([false, true])('조회 계측은 성공·실패를 구분하고 원래 응답과 오류를 유지한다 (실패=%s)', async (fail) => {
+    // given: 계측만 켜고 실제 네트워크 대신 기존 API 대역을 사용한다.
+    const response = incidentBoardResponse();
+    const client = fakeApiClient(response);
+    const error = new Error('test request failed');
+    if (fail) vi.mocked(client.get).mockRejectedValueOnce(error);
+    const records: Array<{ stage: string; requestId: string }> = [];
+    const collect = (event: Event) => {
+      if (event instanceof CustomEvent) records.push(event.detail);
+    };
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+    window.addEventListener('suri-map:board-measurement', collect);
+    try {
+      // when: 동일한 API 경로로 조회한다.
+      const request = createIncidentBoardApi(client).fetchIncidentBoard({ incidentId: 'incident-1' });
+      if (fail) await expect(request).rejects.toBe(error);
+      else await expect(request).resolves.toBe(response);
+
+      // then: 시작·종료가 같은 요청 ID로 연결되며 본문·인증 정보는 기록하지 않는다.
+      expect(records.map((record) => record.stage)).toEqual([
+        'board_read_started', fail ? 'board_read_failed' : 'board_read_completed',
+      ]);
+      expect(records[0].requestId).toBe(records[1].requestId);
+      expect(JSON.stringify(records)).not.toMatch(/coordinates|Authorization|test request failed/);
+    } finally {
+      delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+      window.removeEventListener('suri-map:board-measurement', collect);
+    }
+  });
+
   test('fetches incident board with canonical query parameters', async () => {
     const response = incidentBoardResponse();
     const client = fakeApiClient(response);

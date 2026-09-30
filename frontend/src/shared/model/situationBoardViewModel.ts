@@ -65,6 +65,8 @@ export type LegendItem = {
 
 export type MovementPath = {
   id: string;
+  searchPathId?: string | null;
+  searchPathVersion?: number | null;
   accountId: string;
   freshnessStatus: 'ONLINE' | 'STALE' | 'LOST' | 'UNKNOWN';
   routeColor: string | null;

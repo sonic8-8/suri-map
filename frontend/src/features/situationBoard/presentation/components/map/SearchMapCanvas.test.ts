@@ -7,6 +7,7 @@ import * as config from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
 import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
+import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
 import {
   canCorrectReferenceMarker,
   createManualSearchPathPoints,
@@ -16,6 +17,199 @@ import {
   SearchMapCanvas,
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
+
+test('계측을 켜도 이전 도형을 새 갱신의 렌더링으로 기록하지 않고 미관측 갱신을 구분한다', () => {
+  // given: 실제 WebGL 대신 렌더링 이벤트와 조회 결과를 제어한다.
+  const listeners = new Map<string, () => void>();
+  const records: Array<{ stage: string; updateId: string; entityIds: string[] }> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent) records.push(event.detail);
+  };
+  const queryRenderedFeatures = vi.fn(() => renderedFeatures);
+  const map = {
+    on: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    once: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    off: vi.fn(),
+    getLayer: vi.fn(() => ({})),
+    queryRenderedFeatures,
+  } as unknown as maplibregl.Map;
+  const data: BoardMapFeatureCollection = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {
+          entityId: 'segment-1',
+          searchPathId: 'path-1',
+          searchPathVersion: '7',
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [126, 35],
+            [126.1, 35.1],
+          ],
+        },
+      },
+    ],
+  };
+  let renderedFeatures: Array<{ source: string; properties: Record<string, unknown> | null }> = [];
+  const sourceId = 'operational-movement-path';
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    expect(measureBoardMapUpdate(map, sourceId, ['path-layer'], data)).toBe(data);
+    expect(map.on).not.toHaveBeenCalled();
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+    const previous = measureBoardMapUpdate(map, sourceId, ['path-layer'], data);
+    const current = measureBoardMapUpdate(map, sourceId, ['path-layer'], data);
+    expect(records.at(-1)).toMatchObject({
+      stage: 'map_data_submitted',
+      entities: [{ id: 'segment-1', sourceEntityType: 'search_path', sourceEntityId: 'path-1', sourceVersion: 7 }],
+    });
+
+    // when: ID는 같지만 이전 데이터인 도형을 관측한 다음 새 데이터를 관측한다.
+    renderedFeatures = [{ source: sourceId, properties: previous.features[0].properties }];
+    listeners.get('render')?.();
+    expect(records.filter((record) => record.stage === 'map_features_rendered')).toHaveLength(0);
+    renderedFeatures = [{ source: sourceId, properties: current.features[0].properties }];
+    listeners.get('render')?.();
+    listeners.get('render')?.();
+
+    // then: 새 갱신은 한 번만 기록하고 원본 도형은 바꾸지 않는다.
+    expect(records.filter((record) => record.stage === 'map_features_rendered')).toEqual([
+      expect.objectContaining({
+        entityIds: ['segment-1'],
+        updateId: current.features[0].properties?.__boardMeasurementUpdateId,
+      }),
+    ]);
+    expect(records.filter((record) => record.stage === 'map_update_replaced')).toHaveLength(1);
+    expect(data.features[0].properties).toEqual({
+      entityId: 'segment-1',
+      searchPathId: 'path-1',
+      searchPathVersion: '7',
+    });
+    expect(current.features[0].geometry).toBe(data.features[0].geometry);
+
+    measureBoardMapUpdate(map, sourceId, ['path-layer'], data);
+    listeners.get('idle')?.();
+    expect(records.at(-1)).toMatchObject({ stage: 'map_update_unobserved_at_idle', entityIds: ['segment-1'] });
+    measureBoardMapUpdate(map, sourceId, ['path-layer'], data);
+    listeners.get('remove')?.();
+    expect(records.at(-1)?.stage).toBe('map_update_cancelled');
+    expect(map.off).toHaveBeenCalledTimes(2);
+    measureBoardMapUpdate(map, 'operational-marker', ['marker-layer'], {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { id: 'marker-1', version: 3 },
+          geometry: { type: 'Point', coordinates: [126, 35] },
+        },
+      ],
+    });
+    expect(records.at(-1)).toMatchObject({
+      entities: [{ id: 'marker-1', sourceEntityType: 'marker', sourceEntityId: 'marker-1', sourceVersion: 3 }],
+    });
+    measureBoardMapUpdate(map, sourceId, ['path-layer'], {
+      ...data,
+      features: [{ ...data.features[0], properties: { entityId: 'segment-unknown' } }],
+    });
+    expect(records.at(-1)).toMatchObject({
+      entities: [{ id: 'segment-unknown', sourceEntityType: 'search_path', sourceEntityId: null, sourceVersion: null }],
+    });
+    listeners.get('remove')?.();
+    expect(JSON.stringify(records)).not.toContain('coordinates');
+  } finally {
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+  }
+});
+
+test('경로 일부가 보여도 새 좌표가 화면 밖이거나 해당 위치의 도형이 다르면 좌표 표시로 세지 않는다', async () => {
+  // given: 기존 좌표 두 개 뒤에 새 좌표 여섯 개를 붙인 경로다.
+  const originalCrypto = globalThis.crypto;
+  const digest = vi.fn(async () => new Uint8Array(32).fill(0xab).buffer);
+  vi.stubGlobal('crypto', { randomUUID: () => originalCrypto.randomUUID(), subtle: { digest } });
+  const listeners = new Map<string, () => void>();
+  const records: Array<Record<string, unknown>> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent) records.push(event.detail);
+  };
+  const coordinates: Array<[number, number]> = Array.from({ length: 8 }, (_, index) => [126 + index * 0.001, 35]);
+  const source = 'operational-movement-path';
+  let properties: Record<string, unknown> | null = null;
+  let offscreen = false;
+  let matchingPixels = true;
+  const map = {
+    on: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    once: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    off: vi.fn(),
+    getLayer: vi.fn(() => ({})),
+    getCanvas: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
+    project: vi.fn(() => ({ x: offscreen ? 900 : 400, y: 300 })),
+    queryRenderedFeatures: vi.fn((_point: unknown, options?: unknown) =>
+      options && !matchingPixels ? [] : [{ source, properties }],
+    ),
+  } as unknown as maplibregl.Map;
+  const data: BoardMapFeatureCollection = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { entityId: 'segment-1', searchPathId: 'path-1', searchPathVersion: '7' },
+        geometry: { type: 'LineString', coordinates },
+      },
+    ],
+  };
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    // when: 정상, 화면 밖, 해당 좌표에서 도형 미관측을 같은 경로 ID로 각각 확인한다.
+    for (const mode of ['visible', 'outside', 'old-part-only']) {
+      offscreen = mode === 'outside';
+      matchingPixels = mode !== 'old-part-only';
+      const measured = measureBoardMapUpdate(map, source, ['path-layer'], data);
+      properties = measured.features[0].properties;
+      listeners.get('render')?.();
+      await vi.waitFor(() =>
+        expect(
+          records.some(
+            (record) =>
+              record.stage === 'map_coordinates_checked' && record.updateId === properties?.__boardMeasurementUpdateId,
+          ),
+        ).toBe(true),
+      );
+    }
+    // then: 마지막 여섯 좌표의 해시는 같아도 화면 범위와 위치별 관측은 별도로 판정한다.
+    const checks = records.filter((record) => record.stage === 'map_coordinates_checked');
+    expect(digest).toHaveBeenCalledWith('SHA-256', new TextEncoder().encode(JSON.stringify(coordinates.slice(-6))));
+    const hash = 'ab'.repeat(32);
+    expect(
+      checks.map((record) => [
+        record.pointCount,
+        record.coordinateHash,
+        record.inViewport,
+        record.renderedAtCoordinates,
+      ]),
+    ).toEqual([
+      [6, hash, true, true],
+      [6, hash, false, false],
+      [6, hash, true, false],
+    ]);
+    expect(JSON.stringify(records)).not.toContain('126.00');
+    expect(data.features[0].properties.__boardMeasurementUpdateId).toBeUndefined();
+    digest.mockRejectedValueOnce(new Error('synthetic hashing failure'));
+    properties = measureBoardMapUpdate(map, source, ['path-layer'], data).features[0].properties;
+    listeners.get('render')?.();
+    await vi.waitFor(() => expect(records.some((record) => record.stage === 'map_coordinate_check_failed')).toBe(true));
+    expect(window.__SURI_MAP_COORDINATE_CHECKS_PENDING__).toBe(0);
+  } finally {
+    listeners.get('remove')?.();
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+    vi.unstubAllGlobals();
+  }
+});
 
 test('상황판에서 자체 타일을 사용할 때 로그인 인증 정보를 함께 보낸다', () => {
   vi.spyOn(config, 'getVWorldApiKey').mockReturnValue('');

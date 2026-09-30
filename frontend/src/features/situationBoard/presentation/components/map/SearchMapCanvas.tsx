@@ -88,6 +88,7 @@ import {
   filterSearchAreasByLegendFilters,
 } from './searchMapLayerFilters';
 import styles from './SearchMapCanvas.module.css';
+import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
 
 const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
 const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
@@ -155,6 +156,12 @@ const MOVEMENT_PATH_FOOT_GLOW_LAYER_ID = 'operational-movement-path-foot-glow';
 const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
 const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-glow';
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
+const MOVEMENT_PATH_MEASUREMENT_LAYER_IDS = [
+  MOVEMENT_PATH_COMPARE_LAYER_ID,
+  MOVEMENT_PATH_VEHICLE_LAYER_ID,
+  MOVEMENT_PATH_FOOT_LAYER_ID,
+  MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+];
 const MOVEMENT_CURRENT_POSITION_SOURCE_ID = 'operational-movement-current-position';
 const MOVEMENT_CURRENT_POSITION_VEHICLE_GLOW_LAYER_ID = 'operational-movement-current-position-vehicle-glow';
 const MOVEMENT_CURRENT_POSITION_VEHICLE_LAYER_ID = 'operational-movement-current-position-vehicle';
@@ -476,7 +483,10 @@ function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | 
   }
   map.addSource(sourceId, {
     type: 'geojson',
-    data,
+    data:
+      sourceId === MOVEMENT_PATH_SOURCE_ID && typeof data !== 'string'
+        ? measureBoardMapUpdate(map, sourceId, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS, data)
+        : data,
   });
 }
 
@@ -486,7 +496,11 @@ function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, 
     return;
   }
 
-  (source as GeoJSONSource).setData(data);
+  (source as GeoJSONSource).setData(
+    sourceId === MOVEMENT_PATH_SOURCE_ID
+      ? measureBoardMapUpdate(map, sourceId, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS, data)
+      : data,
+  );
 }
 
 export function syncOperationalGeoJsonSourceDataWhenAvailable(

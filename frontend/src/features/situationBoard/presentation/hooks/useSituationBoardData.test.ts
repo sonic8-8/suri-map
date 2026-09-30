@@ -28,6 +28,38 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
+test('SSE 계측을 켜면 중복 수신도 기록하되 같은 이벤트의 재조회는 반복하지 않는다', () => {
+  // given: 계측 수집기를 연결한 상황판이다.
+  vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
+  readBoard.mockReturnValue(boardResponse({}));
+  const records: Array<{ stage: string; duplicate: boolean; eventId: string }> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent) records.push(event.detail);
+  };
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    renderHook(() => useSituationBoardData('incident-001', []));
+    const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
+    const event = { ...boardEvent(), payload: { version: 7, coordinates: [127, 35] } };
+
+    // when: 같은 SSE 이벤트를 두 번 수신한다.
+    subscription.onEvent(event, { lastEventId: '901', eventType: event.type });
+    subscription.onEvent(event, { lastEventId: '901', eventType: event.type });
+
+    // then: 수신 2회와 실제 재조회 요청 1회를 구분하고 payload를 기록하지 않는다.
+    expect(records.map((record) => record.duplicate)).toEqual([false, true]);
+    expect(records.every((record) => record.stage === 'sse_received' && record.eventId === event.eventId)).toBe(true);
+    expect(invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(records[0]).toMatchObject({ sourceEntityType: 'marker', sourceEntityId: 'marker-001', sourceVersion: 7 });
+    expect(JSON.stringify(records)).not.toContain('payload');
+    expect(JSON.stringify(records)).not.toContain('coordinates');
+  } finally {
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+  }
+});
+
 test('다른 사건으로 이동하면, 이전 구독을 닫고 수신 순번 없이 연결한다', () => {
   // given: 첫 사건에서 순번 901을 수신한 상황판이다.
   const openStream = vi.mocked(openIncidentBoardEventStream);

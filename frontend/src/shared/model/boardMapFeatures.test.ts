@@ -8,6 +8,22 @@ import {
 import type { BoardMovementPath } from './boardMapSlots';
 
 describe('boardMapFeatures', () => {
+  test('구간 도형을 만들면, 구간 ID와 원본 경로의 ID·버전을 구분해 유지한다', () => {
+    // given: 원본 경로의 일부를 나타내는 구간이다.
+    const path = createMovementPath({ id: 'segment-1', searchPathId: 'path-1', searchPathVersion: 7 });
+
+    // when: 지도 도형으로 변환한다.
+    const collection = createMovementPathFeatureCollection([path], OP_ID);
+
+    // then: 원본 경로의 버전을 구간 버전이나 렌더링 ID로 바꾸지 않는다.
+    expect(collection.features[0].properties).toMatchObject({
+      entityId: 'segment-1', searchPathId: 'path-1', searchPathVersion: '7',
+    });
+    expect(collection.features[0].geometry.coordinates).toBe(path.coordinates);
+    const unknown = createMovementPathFeatureCollection([createMovementPath()], OP_ID);
+    expect(unknown.features[0].properties).not.toHaveProperty('searchPathVersion');
+  });
+
   test('uses deterministic fallback colors when no assigned area color exists', () => {
     const paths = applyRouteColorsByAssignee(
       [

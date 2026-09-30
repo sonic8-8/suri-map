@@ -8,6 +8,7 @@ import {
   incidentBoardQueryKeys,
 } from '../../../board/api/incidentBoardApi';
 import { openIncidentBoardEventStream } from '../../../board/api/incidentBoardEventStream';
+import { recordBoardMeasurement } from '../../../board/model/boardMeasurement';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import {
   createIncidentScopedFallbackBoard,
@@ -118,6 +119,13 @@ export function useSituationBoardData(
         },
         onEvent: (event, meta) => {
           if (cancelled) return;
+          recordBoardMeasurement('sse_received', {
+            incidentId, eventId: event.eventId, eventType: meta.eventType,
+            sequence: meta.lastEventId, sourceEntityId: event.sourceEntityId,
+            sourceEntityType: event.sourceEntityType,
+            sourceVersion: typeof event.payload?.version === 'number' ? event.payload.version : null,
+            duplicate: receivedEventIds.has(event.eventId),
+          });
           if (receivedEventIds.has(event.eventId)) {
             if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
             return;

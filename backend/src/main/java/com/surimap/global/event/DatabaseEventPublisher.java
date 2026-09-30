@@ -5,7 +5,9 @@ import com.surimap.global.sse.ServerSentEventJobMapper;
 import com.surimap.global.sse.ServerSentEventJobWorker;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -26,6 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * CapturingEventPublisher fallback은 비활성화된다.
  */
 @Component
+@Slf4j
 public class DatabaseEventPublisher implements EventPublisher {
 
   private final ServerSentEventJobMapper mapper;
@@ -79,8 +82,21 @@ public class DatabaseEventPublisher implements EventPublisher {
 
     ServerSentEventJob job = ServerSentEventJob.from(request);
     mapper.insert(job);
+    recordEventStage("outbox_insert_returned", request.getEventId(), job.getId());
     dispatchLocalConsumers(request);
-    wakeWorkerAfterCommit();
+    wakeWorkerAfterCommit(request.getEventId(), job.getId());
+  }
+
+  private static void recordEventStage(String stage, UUID eventId, UUID jobId) {
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "board_event stage={} eventId={} jobId={} wallTimeMs={} monotonicNs={}",
+          stage,
+          eventId,
+          jobId,
+          System.currentTimeMillis(),
+          System.nanoTime());
+    }
   }
 
   private void dispatchLocalConsumers(EventPublishRequest request) {
@@ -89,20 +105,30 @@ public class DatabaseEventPublisher implements EventPublisher {
         .forEach(consumer -> consumer.consume(request));
   }
 
-  private void wakeWorkerAfterCommit() {
-    if (worker == null) {
+  private void wakeWorkerAfterCommit(UUID eventId, UUID jobId) {
+    if (worker == null && !log.isDebugEnabled()) {
       return;
     }
     if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      boolean actualTransaction = TransactionSynchronizationManager.isActualTransactionActive();
       TransactionSynchronizationManager.registerSynchronization(
           new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-              worker.wake();
+              if (actualTransaction) {
+                // DB의 정확한 commit timestamp가 아니라 커밋 후 콜백 관측 시각이다.
+                recordEventStage("transaction_after_commit", eventId, jobId);
+              }
+              if (worker != null) {
+                worker.wake();
+              }
             }
           });
       return;
     }
-    worker.wake();
+    recordEventStage("no_transaction_synchronization", eventId, jobId);
+    if (worker != null) {
+      worker.wake();
+    }
   }
 }

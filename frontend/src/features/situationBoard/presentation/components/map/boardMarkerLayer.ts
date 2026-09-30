@@ -9,6 +9,7 @@ import {
   type MarkerShellState,
 } from '../../../../../shared/ui/markerGlyph/MarkerGlyph';
 import styles from './SearchMapCanvas.module.css';
+import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
 
 type MarkerTypeKey = 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
 type MarkerPosition = [number, number];
@@ -16,6 +17,7 @@ type MarkerFeature = {
   type: 'Feature';
   properties: {
     id: string;
+    version: number | null;
     markerType: MarkerTypeKey;
     markerState: MarkerShellState;
     glyphName: MarkerGlyphName;
@@ -301,6 +303,7 @@ function createMarkerFeatureCollection(
           type: 'Feature' as const,
           properties: {
             id: marker.id,
+            version: marker.version ?? null,
             markerType,
             glyphName,
             markerState,
@@ -362,7 +365,7 @@ function addMarkerSource(map: maplibregl.Map, data: MarkerFeatureCollection) {
 
   map.addSource(MARKER_SOURCE_ID, {
     type: 'geojson',
-    data,
+    data: measureBoardMapUpdate(map, MARKER_SOURCE_ID, [MARKER_LAYER_ID], data),
   });
 }
 
@@ -372,7 +375,7 @@ function setMarkerSourceData(map: maplibregl.Map, data: MarkerFeatureCollection)
     return;
   }
 
-  (source as GeoJSONSource).setData(data);
+  (source as GeoJSONSource).setData(measureBoardMapUpdate(map, MARKER_SOURCE_ID, [MARKER_LAYER_ID], data));
 }
 
 function addMarkerLayer(map: maplibregl.Map) {
