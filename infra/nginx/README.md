@@ -1,6 +1,24 @@
-# 수리맵 호스트 Nginx 설정
+# 수리맵 Nginx 설정
 
 외부 HTTPS 요청은 Hetzner App 서버의 호스트 Nginx → `127.0.0.1:18081`의 Frontend Nginx → Backend 순서로 전달된다. [Frontend 설정](../../frontend/nginx.conf)과 호스트 설정은 별개다.
+
+## 컨테이너 주소 갱신
+
+Frontend Nginx는 Docker DNS(`127.0.0.11`)와 upstream의 `resolve`로 Backend·사진 저장소·mock112·Keycloak 주소를 갱신한다. IPv4 Compose 네트워크를 전제로 하며, 이 기능을 지원하는 현재 운영 버전 `nginx:1.27.5-alpine`을 Dockerfile에 명시했다. 근거는 [Docker DNS](https://docs.docker.com/engine/network/#dns-services)와 [Nginx resolve](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#resolve) 문서다.
+
+`valid=5s`는 DNS 응답의 캐시 유효기간이다. 주소 변경 감지 대기를 줄이면서 요청마다 DNS를 조회하지 않기 위한 초기 설정이며, 공식 권장값이나 5초 복구 보장이 아니다. DNS 갱신 전 요청·이미 열린 연결의 무중단까지 보장하지 않으며, 끊긴 SSE는 클라이언트가 재연결해야 한다. URI·전달 헤더·버퍼링 설정은 유지한다.
+
+로컬 Docker가 연결된 상태에서 저장소 루트에서 실행한다. Python 표준 라이브러리와 실제 Nginx를 사용하며 별도 테스트 패키지는 필요 없다.
+
+```sh
+docker pull nginx:1.27.5-alpine
+docker pull python:3.12-alpine
+python3 infra/nginx/container-address-change.test.py
+```
+
+검사는 전용 네트워크 `10.254.231.0/24`와 임시 컨테이너를 만든 뒤 종료 시 제거한다. 해당 대역이 사용 중이면 다른 네트워크를 변경하지 않고 실패한다. 옛 IP는 404를 반환하는 대역이 사용하고 새 IP는 정상 응답하도록 만들어, 수동 reload 없이 HTTP·SSE 요청이 새 주소로 전달되는지 확인한다. 검사 종료 한도 15초는 운영 SLA가 아니다. 실제 Backend·Keycloak·MinIO·DB·브라우저 동작이나 부하 검증을 대신하지 않는다. 이 검사는 `npm test`나 Jenkins에 자동 연결하지 않았다.
+
+이 설정은 Frontend 이미지에 포함된다. 코드 저장만으로 운영 Nginx가 바뀌지 않으며, 배포 후 실제 상황판 복구를 별도로 확인한다. 최초 현상과 로컬 결과는 [로컬 이슈 17](../../docs/issues/local/17-nginx-stale-container-address.md)에 남긴다.
 
 ## API 오류 상태 보존
 

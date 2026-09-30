@@ -16,7 +16,7 @@ RUN V_WORLD_API_KEY="${V_WORLD_API_KEY}" \
     VITE_KEYCLOAK_BASE_URL="${VITE_KEYCLOAK_BASE_URL:-$SURI_MAP_KEYCLOAK_REALM_URL}" \
     npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.27.5-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
