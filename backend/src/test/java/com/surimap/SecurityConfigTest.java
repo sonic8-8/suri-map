@@ -1,5 +1,6 @@
 package com.surimap;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,6 +11,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import com.sun.net.httpserver.HttpServer;
 import com.surimap.account.security.KeycloakJwtAuthenticationConverter;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
@@ -20,14 +30,22 @@ import com.surimap.common.health.HealthController;
 import com.surimap.config.SecurityConfig;
 import com.surimap.support.auth.WithMockAccount;
 import jakarta.servlet.DispatcherType;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpSession;
@@ -36,6 +54,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -239,6 +259,94 @@ class SecurityConfigTest {
   }
 
   @Test
+  @ExtendWith(OutputCaptureExtension.class)
+  @DisplayName("인증 키 서버가 일시 중단되면, 유효한 토큰을 인증 실패로 처리하지 않는다")
+  void unavailable_key_server_does_not_reject_valid_tokens_as_invalid(CapturedOutput output)
+      throws Exception {
+    // given: 실제 서명한 유효 토큰과 잠시 503을 반환하는 인증 키 서버다.
+    RSAKey signingKey = new RSAKeyGenerator(2048).keyID("test-key").generate();
+    String token = createSignedWebAccountToken(signingKey, Instant.now().plusSeconds(600));
+    byte[] keys = new JWKSet(signingKey.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
+    AtomicInteger keyServerStatus = new AtomicInteger(503);
+    HttpServer keyServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    keyServer.createContext(
+        "/certs",
+        exchange -> {
+          exchange.getResponseHeaders().set("Content-Type", "application/json");
+          exchange.sendResponseHeaders(keyServerStatus.get(), keys.length);
+          exchange.getResponseBody().write(keys);
+          exchange.close();
+        });
+    keyServer.start();
+    try {
+      NimbusJwtDecoder decoder =
+          NimbusJwtDecoder.withJwkSetUri(
+                  "http://127.0.0.1:" + keyServer.getAddress().getPort() + "/certs")
+              .build();
+      decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer("https://issuer.test"));
+      when(jwtDecoder.decode(token)).thenAnswer(invocation -> decoder.decode(token));
+
+      // when: 키 조회가 실패하는 동안 JSON API와 SSE 연결을 요청한다.
+      int apiStatus =
+          mockMvc
+              .perform(
+                  get("/api/auth-harness/context")
+                      .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                      .header("X-Client-Channel", "WEB"))
+              .andExpect(jsonPath("$.error").value("authentication_unavailable"))
+              .andReturn()
+              .getResponse()
+              .getStatus();
+      int streamStatus =
+          mockMvc
+              .perform(
+                  get("/api/auth-harness/events")
+                      .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                      .header("X-Client-Channel", "WEB"))
+              .andExpect(jsonPath("$.error").value("authentication_unavailable"))
+              .andExpect(request().asyncNotStarted())
+              .andReturn()
+              .getResponse()
+              .getStatus();
+      keyServerStatus.set(200);
+      int recoveredStatus =
+          mockMvc
+              .perform(
+                  get("/api/auth-harness/context")
+                      .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                      .header("X-Client-Channel", "WEB"))
+              .andReturn()
+              .getResponse()
+              .getStatus();
+      String expiredToken =
+          createSignedWebAccountToken(signingKey, Instant.now().minusSeconds(600));
+      RSAKey wrongSigningKey = new RSAKeyGenerator(2048).keyID("test-key").generate();
+      String wrongSignatureToken =
+          createSignedWebAccountToken(wrongSigningKey, Instant.now().plusSeconds(600));
+      for (String invalidToken : List.of(expiredToken, wrongSignatureToken)) {
+        when(jwtDecoder.decode(invalidToken))
+            .thenAnswer(invocation -> decoder.decode(invalidToken));
+        mockMvc
+            .perform(
+                get("/api/auth-harness/events")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + invalidToken)
+                    .header("X-Client-Channel", "WEB"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(request().asyncNotStarted());
+      }
+      // then: 같은 토큰은 서버 복구 후 통과하며, 중단 중에는 인증 실패와 구분한다.
+      assertThat(recoveredStatus).isEqualTo(200);
+      assertThat(apiStatus).isEqualTo(503);
+      assertThat(streamStatus).isEqualTo(503);
+      assertThat(output.getOut())
+          .contains("causeType=RemoteKeySourceException")
+          .doesNotContain(token);
+    } finally {
+      keyServer.stop(0);
+    }
+  }
+
+  @Test
   @DisplayName("토큰 검증에 실패하면, SSE 연결을 시작하지 않는다")
   void invalid_jwt_cannot_open_sse_stream() throws Exception {
     // given: 외부 JWT 검증기가 거부하는 토큰이다.
@@ -431,6 +539,23 @@ class SecurityConfigTest {
         .claim("accountType", "COMMAND")
         .claim("organizationType", "POLICE_SUBSTATION")
         .build();
+  }
+
+  private static String createSignedWebAccountToken(RSAKey signingKey, Instant expiresAt)
+      throws Exception {
+    SignedJWT jwt =
+        new SignedJWT(
+            new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(signingKey.getKeyID()).build(),
+            new JWTClaimsSet.Builder()
+                .issuer("https://issuer.test")
+                .subject("test-account")
+                .expirationTime(Date.from(expiresAt))
+                .claim("accountId", "11111111-1111-1111-1111-111111110001")
+                .claim("accountType", "COMMAND")
+                .claim("organizationType", "POLICE_SUBSTATION")
+                .build());
+    jwt.sign(new RSASSASigner(signingKey));
+    return jwt.serialize();
   }
 
   @RestController
