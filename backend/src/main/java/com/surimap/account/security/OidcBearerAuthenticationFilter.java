@@ -7,12 +7,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+@Slf4j
 public class OidcBearerAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtDecoder jwtDecoder;
@@ -31,34 +37,36 @@ public class OidcBearerAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
     if (SecurityContextHolder.getContext().getAuthentication() == null) {
-      extractBearerToken(request.getHeader("Authorization"))
-          .filter(OidcBearerAuthenticationFilter::hasThreeTokenSegments)
-          .flatMap(
-              accessToken ->
-                  authenticate(
-                      accessToken,
-                      request.getHeader("X-Client-Channel"),
-                      request.getHeader("X-PolicePhone-Id")))
-          .ifPresent(
-              authentication -> {
-                var context = SecurityContextHolder.createEmptyContext();
-                context.setAuthentication(authentication);
-                SecurityContextHolder.setContext(context);
-                // 같은 HTTP 요청의 비동기 종료 처리에서도 인증 정보를 복원한다.
-                securityContextRepository.saveContext(context, request, response);
-              });
+      try {
+        extractBearerToken(request.getHeader("Authorization"))
+            .filter(OidcBearerAuthenticationFilter::hasThreeTokenSegments)
+            .flatMap(
+                accessToken ->
+                    authenticate(
+                        accessToken,
+                        request.getHeader("X-Client-Channel"),
+                        request.getHeader("X-PolicePhone-Id")))
+            .ifPresent(
+                authentication -> {
+                  SecurityContext context = SecurityContextHolder.createEmptyContext();
+                  context.setAuthentication(authentication);
+                  SecurityContextHolder.setContext(context);
+                  // 같은 HTTP 요청의 비동기 종료 처리에서도 인증 정보를 복원한다.
+                  securityContextRepository.saveContext(context, request, response);
+                });
+      } catch (JwtException exception) {
+        Throwable cause = exception.getCause();
+        log.warn(
+            "JWT validation unavailable: failureType={}, causeType={}",
+            exception.getClass().getSimpleName(),
+            cause == null ? "none" : cause.getClass().getSimpleName());
+        response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("{\"error\":\"authentication_unavailable\"}");
+        return;
+      }
     }
     filterChain.doFilter(request, response);
-  }
-
-  private Optional<SuriMapAuthentication> authenticate(
-      String accessToken, String channelHeader, String policePhoneHeader) {
-    try {
-      return authenticationConverter.convert(
-          jwtDecoder.decode(accessToken), channelHeader, policePhoneHeader);
-    } catch (JwtException exception) {
-      return Optional.empty();
-    }
   }
 
   private static Optional<String> extractBearerToken(String authorization) {
@@ -74,5 +82,15 @@ public class OidcBearerAuthenticationFilter extends OncePerRequestFilter {
 
   private static boolean hasThreeTokenSegments(String accessToken) {
     return accessToken.chars().filter(character -> character == '.').count() == 2;
+  }
+
+  private Optional<SuriMapAuthentication> authenticate(
+      String accessToken, String channelHeader, String policePhoneHeader) {
+    try {
+      return authenticationConverter.convert(
+          jwtDecoder.decode(accessToken), channelHeader, policePhoneHeader);
+    } catch (BadJwtException exception) {
+      return Optional.empty();
+    }
   }
 }
