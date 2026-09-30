@@ -11,21 +11,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 @ConditionalOnProperty(
     name = "surimap.eventhub.dispatch.enabled",
     havingValue = "true",
     matchIfMissing = true)
 public class ServerSentEventJobWorker implements SmartLifecycle {
-
-  private static final Logger log = LoggerFactory.getLogger(ServerSentEventJobWorker.class);
 
   private final ServerSentEventJobService service;
   private static final String INCIDENT_CLOSED = "INCIDENT_CLOSED";
@@ -162,11 +160,16 @@ public class ServerSentEventJobWorker implements SmartLifecycle {
 
   private void dispatchJob(ServerSentEventJob job) {
     try {
+      recordEventStage("dispatch_started", job);
       long sequence = service.getOrAssignServerSentEventSequence(job.getId());
       // 프록시를 거친 서비스 호출이 커밋된 뒤, DB 트랜잭션 밖에서 전송한다.
       dispatchLiveEvent(job.toPublishRequest(), sequence);
+      // 연결 대기열 등록까지의 관측이며 소켓 쓰기·브라우저 수신 완료가 아니다.
+      recordEventStage("live_dispatch_returned", job);
       service.completeJob(job.getId());
+      recordEventStage("dispatch_job_completed", job);
     } catch (RuntimeException exception) {
+      recordEventStage("dispatch_failed", job);
       log.warn(
           "event_dispatch_job SSE dispatch failed. jobId={}, eventId={}, eventType={}",
           job.getId(),
@@ -174,6 +177,18 @@ public class ServerSentEventJobWorker implements SmartLifecycle {
           job.getEventType(),
           exception);
       service.failJob(job.getId());
+    }
+  }
+
+  private static void recordEventStage(String stage, ServerSentEventJob job) {
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "board_event stage={} eventId={} jobId={} wallTimeMs={} monotonicNs={}",
+          stage,
+          job.getEventId(),
+          job.getId(),
+          System.currentTimeMillis(),
+          System.nanoTime());
     }
   }
 
@@ -187,7 +202,7 @@ public class ServerSentEventJobWorker implements SmartLifecycle {
         INCIDENT_CLOSED.equals(request.getType()) || INCIDENT_PURGED.equals(request.getType());
     UUID incidentId = request.getIncidentId();
     String eventType = request.getType();
-    var message =
+    ServerSentEventMessage message =
         ServerSentEventMessage.builder()
             .id(Long.toString(serverSentEventSequence))
             .event(request.getType())

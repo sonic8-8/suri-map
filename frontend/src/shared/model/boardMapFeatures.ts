@@ -282,6 +282,9 @@ function createMovementPathFeature(
     endedAt: path.endedAt ?? '',
   };
 
+  if (path.searchPathId) properties.searchPathId = path.searchPathId;
+  if (path.searchPathVersion != null) properties.searchPathVersion = String(path.searchPathVersion);
+
   if (options.includeLabel) {
     properties.label = path.label;
   }

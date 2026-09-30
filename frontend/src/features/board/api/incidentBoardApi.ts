@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
+import { isBoardMeasurementEnabled, recordBoardMeasurement } from '../model/boardMeasurement';
 
 export type BoardSlotName =
   | 'overall_search_area'
@@ -133,10 +134,25 @@ export const incidentBoardQueryKeys = {
 
 export function createIncidentBoardApi(client: ApiClient = apiClient): IncidentBoardApi {
   return {
-    fetchIncidentBoard: (query) =>
-      client.get<IncidentBoardResponse>(`/incidents/${requireIncidentId(query.incidentId)}/board`, {
-        query: toApiQuery(query),
-      }),
+    fetchIncidentBoard: async (query) => {
+      const path = `/incidents/${requireIncidentId(query.incidentId)}/board`;
+      const requestId = isBoardMeasurementEnabled() ? crypto.randomUUID() : null;
+      if (requestId) recordBoardMeasurement('board_read_started', { requestId, incidentId: query.incidentId });
+      try {
+        const response = await client.get<IncidentBoardResponse>(path, { query: toApiQuery(query) });
+        if (requestId) {
+          recordBoardMeasurement('board_read_completed', {
+            requestId, incidentId: response.incidentId, boardResponseVersion: response.boardResponseVersion,
+            rows: (['path', 'marker'] as const).flatMap((slot) => normalizeSlotRows(slot, response.slots[slot])
+              .map((row) => ({ slot, id: row.id, version: row.version, latestEventId: row.latestEventId }))),
+          });
+        }
+        return response;
+      } catch (error) {
+        if (requestId) recordBoardMeasurement('board_read_failed', { requestId, incidentId: query.incidentId });
+        throw error;
+      }
+    },
   };
 }
 

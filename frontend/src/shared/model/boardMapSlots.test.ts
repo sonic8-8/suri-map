@@ -42,6 +42,8 @@ describe('createBoardMovementPaths', () => {
     expect(paths).toHaveLength(2);
     expect(paths[0]).toMatchObject({
       id: SEGMENT_VEHICLE_ID,
+      searchPathId: PATH_ID,
+      searchPathVersion: 7,
       accountId: ACCOUNT_ID,
       opId: OP_ID,
       movementType: 'VEHICLE',
@@ -54,6 +56,8 @@ describe('createBoardMovementPaths', () => {
     });
     expect(paths[1]).toMatchObject({
       id: SEGMENT_FOOT_ID,
+      searchPathId: PATH_ID,
+      searchPathVersion: 7,
       accountId: ACCOUNT_ID,
       opId: OP_ID,
       movementType: 'FOOT',
@@ -147,6 +151,7 @@ function createBoardWithPathSegments(): BoardResponseLike {
       path: [
         {
           id: PATH_ID,
+          version: 7,
           opId: OP_ID,
           accountId: ACCOUNT_ID,
           geometry: {

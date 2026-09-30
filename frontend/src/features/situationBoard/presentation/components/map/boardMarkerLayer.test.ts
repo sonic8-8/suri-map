@@ -10,6 +10,32 @@ import {
 } from './boardMarkerLayer';
 
 describe('boardMarkerLayer marker visuals', () => {
+  it('마커 도형을 갱신하면, 조회한 마커의 ID와 버전을 지도 데이터에 유지한다', async () => {
+    // given: 사진과 표시 대상이 없어 DOM 마커를 만들지 않는 지도 대역이다.
+    const source = { setData: vi.fn() };
+    const map = createMarkerMap({ source });
+    map.hasImage.mockReturnValue(true);
+    const marker = {
+      id: 'marker-1', version: 7, title: 'test', summary: 'test',
+      occurredAt: '2026-10-01T00:00:00Z', timeLabel: '09:00', coordinates: [126, 35] as [number, number],
+    };
+
+    // when: 실제 마커 도형 생성·source 갱신 경로를 호출한다.
+    syncMarkerElementsWhenAvailable(
+      map as unknown as maplibregl.Map, [marker], [], { current: new Map() }, false, markerHandlers(),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // then: 버전을 잃거나 새 버전으로 추정하지 않으며 입력 좌표를 유지한다.
+    expect(source.setData).toHaveBeenCalledWith(expect.objectContaining({
+      features: [expect.objectContaining({
+        properties: expect.objectContaining({ id: 'marker-1', version: 7 }),
+        geometry: { type: 'Point', coordinates: marker.coordinates },
+      })],
+    }));
+  });
+
   it('reads the rendered marker id from a padded map click hit area', () => {
     const queryCalls: unknown[] = [];
     const map = {

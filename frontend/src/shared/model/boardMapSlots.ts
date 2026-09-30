@@ -22,6 +22,9 @@ export type BoardPolicePhoneFreshnessStatus = 'ONLINE' | 'STALE' | 'LOST' | 'UNK
 
 export type BoardMovementPath = {
   id: string;
+  // id는 표시 구간 ID일 수 있다. 조회 원본의 경로 ID·버전과 구분한다.
+  searchPathId?: string | null;
+  searchPathVersion?: number | null;
   accountId: string;
   freshnessStatus: BoardPolicePhoneFreshnessStatus;
   routeColor: string | null;
@@ -73,6 +76,8 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
         return [
           {
             id: readString(segment, 'id') ?? readString(segment, 'segmentId') ?? `${rowId}:segment-${segmentIndex + 1}`,
+            searchPathId: readString(row, 'id') ?? readString(row, 'pathId'),
+            searchPathVersion: readNumber(row, 'version'),
             accountId,
             freshnessStatus: freshnessStatusByAccountId.get(accountId)?.status ?? 'UNKNOWN',
             routeColor: null,
@@ -95,6 +100,8 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
     return [
       {
         id: readString(row, 'id') ?? readString(row, 'pathId') ?? `${board.incidentId}:path-${pathIndex + 1}`,
+        searchPathId: readString(row, 'id') ?? readString(row, 'pathId'),
+        searchPathVersion: readNumber(row, 'version'),
         accountId,
         freshnessStatus: freshnessStatusByAccountId.get(accountId)?.status ?? 'UNKNOWN',
         routeColor: null,
