@@ -30,7 +30,7 @@ describe('frontend nginx runtime routing', () => {
     expect(mockRouteIndex).toBeGreaterThan(-1);
     expect(fallbackIndex).toBeGreaterThan(-1);
     expect(mockRouteIndex).toBeLessThan(fallbackIndex);
-    expect(nginxConfig).toContain('proxy_pass http://mock-112:18112;');
+    expect(nginxConfig).toContain('proxy_pass http://mock112;');
     expect(nginxConfig).toContain('set $mock112_forwarded_proto $http_x_forwarded_proto;');
     expect(nginxConfig).toContain('proxy_set_header X-Forwarded-Host $host;');
     expect(nginxConfig).toContain('proxy_set_header X-Forwarded-Proto $mock112_forwarded_proto;');
@@ -46,7 +46,7 @@ describe('frontend nginx runtime routing', () => {
     expect(uploadRouteIndex).toBeLessThan(fallbackIndex);
     expect(nginxConfig).toContain('return 308 /suri-map-photo/;');
     expect(nginxConfig).toContain('proxy_request_buffering off;');
-    expect(nginxConfig).toContain('proxy_pass http://object-storage:9000;');
+    expect(nginxConfig).toContain('proxy_pass http://object_storage;');
   });
 
   test('proxies Keycloak public route before SPA fallback including admin console', () => {
@@ -58,7 +58,7 @@ describe('frontend nginx runtime routing', () => {
     expect(nginxConfig).toContain('return 308 /keycloak/;');
     expect(nginxConfig).not.toContain('location /keycloak/admin/');
     expect(keycloakRouteIndex).toBeLessThan(fallbackIndex);
-    expect(nginxConfig).toContain('proxy_pass http://keycloak:8080;');
+    expect(nginxConfig).toContain('proxy_pass http://keycloak;');
     expect(nginxConfig).not.toContain('X-Forwarded-Prefix');
   });
 });

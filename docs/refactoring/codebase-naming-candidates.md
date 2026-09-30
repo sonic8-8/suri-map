@@ -257,6 +257,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
+| [nginx.conf.test.ts의 `frontend nginx runtime routing`·`EC2 TLS reverse proxy`](../../frontend/nginx.conf.test.ts) | 실제 HTTP가 아니라 설정 문자열을 검사하며, 상대 redirect 검사는 EC2 전용이 아니다. 검증 범위와 한글 동작명이 드러나도록 후속 정리한다. 주소 변경의 실제 HTTP 검사는 별도 Docker 검사와 구분한다. |
 | [useMarkerNotificationQueue의 shownMarkerNotificationIdsRef](../../frontend/src/app/useMarkerNotificationQueue.ts) | 팝업 표시를 확인하지 않고 알림을 받는 즉시 ID를 기록한다. `shown`은 표시 완료로 오해하게 하므로 수신 중복 방지 역할에 맞춰 명명한다. 알림 수신과 표시를 구분하는 복구 정책은 [이벤트 전달 문서](../features/event-delivery.md)에서 정하며, 이름만 바꿔 복구 동작을 해결한 것으로 보지 않는다. |
 | [상황판의 `재연결` 버튼](../../frontend/src/features/situationBoard/presentation/pages/SituationBoardPage.tsx)·[isInitialReconnecting](../../frontend/src/features/situationBoard/presentation/hooks/useSituationBoardData.ts) | 2026-09-24 확인: 실제 동작은 최초 실패 후 `boardQuery.refetch()` 호출이다. SSE 연결 재시작으로 오해할 수 있으므로 최초 조회 재시도에 맞춰 버튼·상태·CSS 이름을 함께 검토한다. 후보만 등록하며 이름·동작은 변경하지 않았다. |
 | [Sc11OpSearchHistorySummaryHarnessRedTest.test.tsx](../../frontend/src/features/board/components/Sc11OpSearchHistorySummaryHarnessRedTest.test.tsx) | `Red` 제거, 수색 이력 요약 렌더링 검증 기준으로 명명 |
