@@ -4,6 +4,8 @@ import com.surimap.global.sse.ServerSentEventConnectionRegistry;
 import com.surimap.global.sse.ServerSentEventStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -19,6 +21,7 @@ public class ServerSentEventConfig implements WebMvcConfigurer {
 
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
+    ScheduledExecutorService heartbeatScheduler = serverSentEventHeartbeatScheduler();
     registry.addInterceptor(
         new AsyncHandlerInterceptor() {
           @Override
@@ -36,7 +39,7 @@ public class ServerSentEventConfig implements WebMvcConfigurer {
                 return;
               }
               try {
-                stream.start(request.getAsyncContext());
+                stream.start(request.getAsyncContext(), heartbeatScheduler);
               } catch (RuntimeException exception) {
                 stream.completeWithError(exception);
               }
@@ -48,5 +51,13 @@ public class ServerSentEventConfig implements WebMvcConfigurer {
   @Bean
   ServerSentEventConnectionRegistry serverSentEventConnectionRegistry() {
     return new ServerSentEventConnectionRegistry();
+  }
+
+  @Bean(destroyMethod = "shutdownNow")
+  ScheduledThreadPoolExecutor serverSentEventHeartbeatScheduler() {
+    ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1);
+    // 종료한 연결을 다음 실행 시각까지 예약 큐에 붙잡아 두지 않는다.
+    scheduler.setRemoveOnCancelPolicy(true);
+    return scheduler;
   }
 }
