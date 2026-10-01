@@ -72,6 +72,18 @@
         <result property="createdAt" column="created_at" javaType="java.time.Instant"/>
     </resultMap>
 
+    <!-- GPS 행의 식별자는 경로 안의 수집 순번이다. pointId 재사용도 원본대로 보존한다. -->
+    <resultMap id="gpsPointDetailsMap" type="com.surimap.domain.path.GpsPoint" extends="gpsPointMap">
+        <id column="point_order" javaType="_int"/>
+    </resultMap>
+
+    <resultMap id="searchPathDetailsMap" type="com.surimap.domain.path.SearchPath"
+               extends="searchPathMap" autoMapping="false">
+        <collection property="points" resultMap="gpsPointDetailsMap" columnPrefix="gps_" notNullColumn="point_order"/>
+        <collection property="segments" resultMap="searchPathSegmentMap" columnPrefix="segment_" notNullColumn="id"/>
+        <collection property="excludedPoints" resultMap="searchPathExcludedPointMap" columnPrefix="excluded_" notNullColumn="id"/>
+    </resultMap>
+
     <select id="findActiveDutyShiftIdByAccount" resultType="java.util.UUID">
         SELECT ds.id
         FROM duty_shift ds
@@ -222,17 +234,76 @@
         FOR UPDATE OF sp
     </select>
 
-    <select id="findAllPaths" resultMap="searchPathMap">
+    <!-- 한 SQL의 스냅샷으로 버전과 하위 데이터를 읽는다.
+         각 컬렉션을 UNION ALL로 나열해 GPS × 구간 × 제외 좌표의 행 증폭을 피한다. -->
+    <sql id="searchPathDetailsSelect">
         SELECT
-        <include refid="searchPathReadColumns"/>
+        <include refid="searchPathReadColumns"/>,
+        (detail.gps).point_order AS gps_point_order,
+        (detail.gps).point_id AS gps_point_id,
+        (detail.gps).client_ts AS gps_client_ts,
+        (detail.gps).lon AS gps_lon,
+        (detail.gps).lat AS gps_lat,
+        (detail.gps).speed_mps AS gps_speed_mps,
+        (detail.gps).horizontal_accuracy_m AS gps_horizontal_accuracy_m,
+        (detail.gps).location_provider AS gps_location_provider,
+        (detail.gps).elapsed_realtime_nanos AS gps_elapsed_realtime_nanos,
+        (detail.segment).id AS segment_id,
+        (detail.segment).search_path_id AS segment_search_path_id,
+        (detail.segment).movement_type AS segment_movement_type,
+        (detail.segment).movement_type_source AS segment_movement_type_source,
+        ST_AsEWKT((detail.segment).geometry) AS segment_geometry,
+        (detail.segment).started_at AS segment_started_at,
+        (detail.segment).ended_at AS segment_ended_at,
+        (detail.segment).corrected_by_account_id AS segment_corrected_by_account_id,
+        (detail.segment).corrected_at AS segment_corrected_at,
+        (detail.segment).version AS segment_version,
+        (detail.segment).created_at AS segment_created_at,
+        (detail.segment).updated_at AS segment_updated_at,
+        (detail.excluded).id AS excluded_id,
+        (detail.excluded).search_path_id AS excluded_search_path_id,
+        (detail.excluded).point_id AS excluded_point_id,
+        (detail.excluded).reason AS excluded_reason,
+        (detail.excluded).client_ts AS excluded_client_ts,
+        (detail.excluded).lon AS excluded_lon,
+        (detail.excluded).lat AS excluded_lat,
+        (detail.excluded).speed_mps AS excluded_speed_mps,
+        (detail.excluded).horizontal_accuracy_m AS excluded_horizontal_accuracy_m,
+        (detail.excluded).location_provider AS excluded_location_provider,
+        (detail.excluded).elapsed_realtime_nanos AS excluded_elapsed_realtime_nanos,
+        (detail.excluded).created_at AS excluded_created_at,
+        (detail.excluded).updated_at AS excluded_updated_at
         <include refid="searchPathReadJoins"/>
-        ORDER BY sp.updated_at DESC, sp.id ASC
+        LEFT JOIN LATERAL (
+            SELECT 0 AS kind, gps.point_order, NULL::timestamptz AS sort_time, NULL::uuid AS sort_id,
+                   gps, NULL::search_path_segment AS segment, NULL::search_path_excluded_point AS excluded
+            FROM search_path_gps_point gps
+            WHERE gps.search_path_id = sp.id
+            UNION ALL
+            SELECT 1, NULL, segment.started_at, segment.id,
+                   NULL::search_path_gps_point, segment, NULL::search_path_excluded_point
+            FROM search_path_segment segment
+            WHERE segment.search_path_id = sp.id
+            UNION ALL
+            SELECT 2, NULL, excluded.client_ts, excluded.id,
+                   NULL::search_path_gps_point, NULL::search_path_segment, excluded
+            FROM search_path_excluded_point excluded
+            WHERE excluded.search_path_id = sp.id
+        ) detail ON TRUE
+    </sql>
+
+    <sql id="searchPathDetailsOrder">
+        ORDER BY sp.updated_at DESC, sp.id ASC,
+                 detail.kind ASC, detail.point_order ASC, detail.sort_time ASC, detail.sort_id ASC
+    </sql>
+
+    <select id="findAllPaths" resultMap="searchPathDetailsMap" resultOrdered="true">
+        <include refid="searchPathDetailsSelect"/>
+        <include refid="searchPathDetailsOrder"/>
     </select>
 
-    <select id="findPaths" resultMap="searchPathMap">
-        SELECT
-        <include refid="searchPathReadColumns"/>
-        <include refid="searchPathReadJoins"/>
+    <select id="findPaths" resultMap="searchPathDetailsMap" resultOrdered="true">
+        <include refid="searchPathDetailsSelect"/>
         <where>
             <if test="incidentId != null">
                 op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
@@ -244,7 +315,7 @@
                 AND sp.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
             </if>
         </where>
-        ORDER BY sp.updated_at DESC, sp.id ASC
+        <include refid="searchPathDetailsOrder"/>
     </select>
 
     <insert id="insertGpsPoints">

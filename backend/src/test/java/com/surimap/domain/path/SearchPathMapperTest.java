@@ -124,6 +124,13 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     assertThat(searchPathMapper.findPaths(NONMATCHING_ID, null, null)).isEmpty();
     assertThat(searchPathMapper.findPaths(null, NONMATCHING_ID, null)).isEmpty();
     assertThat(searchPathMapper.findPaths(null, null, NONMATCHING_ID)).isEmpty();
+    assertThat(searchPathMapper.findAllPaths())
+        .allSatisfy(
+            found -> {
+              assertThat(found.getPoints()).isEmpty();
+              assertThat(found.getSegments()).isEmpty();
+              assertThat(found.getExcludedPoints()).isEmpty();
+            });
   }
 
   @Test
@@ -206,6 +213,39 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
               assertThat(found.getSearchPathId()).isEqualTo(PATH_ID);
               assertThat(found.getEventType()).isEqualTo("STARTED");
             });
+
+    // given: 시각 순서와 수집 순서가 다른 GPS 좌표도 같은 경로에 저장한다.
+    List<GpsPoint> points =
+        List.of(
+            gpsPoint("later-clock", "126.913001", "35.162001", "1.25", 4, "2026-04-28T00:00:05Z"),
+            gpsPoint(
+                "later-clock", "126.913002", "35.162002", "1.75", null, "2026-04-28T00:00:00Z"));
+    searchPathMapper.insertGpsPoints(PATH_ID, 0, points, STARTED_AT);
+
+    // when: 조건별 조회와 전체 조회 모두 버전과 하위 객체를 한꺼번에 읽는다.
+    for (List<SearchPath> paths :
+        List.of(
+            searchPathMapper.findPaths(INCIDENT_ID, OP_ID, ACCOUNT_ID),
+            searchPathMapper.findAllPaths())) {
+      // then: 하위 객체를 중복·누락 없이 조립하고 GPS 수집 순서와 모든 원본 필드를 보존한다.
+      assertThat(paths)
+          .singleElement()
+          .satisfies(
+              found -> {
+                assertThat(found.getVersion()).isEqualTo(1L);
+                assertThat(found.getPoints()).usingRecursiveComparison().isEqualTo(points);
+                assertThat(found.getSegments())
+                    .usingRecursiveComparison()
+                    .withEqualsForType(
+                        (left, right) ->
+                            left.getSRID() == right.getSRID() && left.equalsExact(right),
+                        Geometry.class)
+                    .isEqualTo(List.of(segment));
+                assertThat(found.getExcludedPoints())
+                    .usingRecursiveComparison()
+                    .isEqualTo(List.of(excludedPoint));
+              });
+    }
   }
 
   @Test

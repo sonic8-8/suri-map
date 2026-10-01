@@ -24,15 +24,38 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import org.apache.ibatis.executor.Executor;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.plugin.Interceptor;
+import org.apache.ibatis.plugin.Intercepts;
+import org.apache.ibatis.plugin.Invocation;
+import org.apache.ibatis.plugin.Signature;
+import org.apache.ibatis.session.ResultHandler;
+import org.apache.ibatis.session.RowBounds;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.locationtech.jts.geom.Geometry;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @DisplayName("SearchPath service")
 @Tag("integration")
 @Sql(scripts = "/sql/path/search-path-context.sql")
+@Import(SearchPathServiceTest.QueryPauseConfig.class)
 class SearchPathServiceTest extends PostGisIntegrationTestSupport {
 
   private static final UUID INCIDENT_ID = SearchPathFixtures.INCIDENT_ID;
@@ -49,6 +72,89 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathService searchPathService;
+  @Autowired private PlatformTransactionManager transactionManager;
+  @Autowired private PathQueryPause queryPause;
+
+  @ParameterizedTest(name = "전체 조회={0}, 기존 트랜잭션={1}")
+  @CsvSource({"false,false", "true,false", "false,true", "true,true"})
+  @DisplayName("경로 조회 중 좌표가 저장되어도 버전과 좌표·구간은 같은 저장 상태를 유지한다")
+  void query_during_append_keeps_version_and_path_details_consistent(
+      boolean queryAll, boolean existingTransaction) throws Exception {
+    // given: 실제 서비스로 저장한 경로의 버전·좌표·구간을 기준값으로 보관한다.
+    searchPathService.appendPoints(batchRequest("idem-path-snapshot-first"));
+    Supplier<Object> query = queryAll ? () -> searchPathService.findAll() : this::queryPaths;
+    Object before = query.get();
+    TransactionTemplate read = new TransactionTemplate(transactionManager);
+    read.setReadOnly(true);
+    ExecutorService reader = Executors.newSingleThreadExecutor();
+    queryPause.listRead = new CountDownLatch(1);
+    queryPause.writeCommitted = new CountDownLatch(1);
+    Object observed;
+    try {
+      // when: 실제 목록 SQL이 반환된 직후 다른 연결에서 다음 묶음을 저장하고 조회를 재개한다.
+      Future<Object> pending =
+          reader.submit(
+              () -> {
+                queryPause.readerThread = Thread.currentThread();
+                return existingTransaction ? read.execute(status -> query.get()) : query.get();
+              });
+      assertThat(queryPause.listRead.await(15, TimeUnit.SECONDS)).as("목록 조회 완료").isTrue();
+      SearchPathPointsAppendServiceResponse appended =
+          searchPathService.appendPoints(nextVehicleBatchRequest());
+      assertThat(appended.getAcceptedPointCount()).isEqualTo(3);
+      queryPause.writeCommitted.countDown();
+      observed = pending.get(15, TimeUnit.SECONDS);
+    } finally {
+      queryPause.writeCommitted.countDown();
+      queryPause.readerThread = null;
+      reader.shutdownNow();
+      assertThat(reader.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
+    }
+    // then: 진행 중이던 조회는 기존 저장 상태, 이후 새 조회는 새 저장 상태를 반환한다.
+    assertThat(observed)
+        .usingRecursiveComparison()
+        .withEqualsForType(
+            (left, right) -> left.getSRID() == right.getSRID() && left.equalsExact(right),
+            Geometry.class)
+        .isEqualTo(before);
+    SearchPathQueryRowServiceResponse latest = queryPaths().getPaths().get(0);
+    assertThat(latest.getVersion()).isEqualTo(3L);
+    assertThat(latest.getGeometry()).hasSize(11);
+    assertThat(latest.getSegments()).hasSize(3);
+  }
+
+  @TestConfiguration
+  static class QueryPauseConfig {
+    @Bean
+    PathQueryPause pathQueryPause() {
+      return new PathQueryPause();
+    }
+  }
+
+  @Intercepts(
+      @Signature(
+          type = Executor.class,
+          method = "query",
+          args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}))
+  static class PathQueryPause implements Interceptor {
+    volatile Thread readerThread;
+    CountDownLatch listRead;
+    CountDownLatch writeCommitted;
+
+    @Override
+    public Object intercept(Invocation invocation) throws Throwable {
+      Object result = invocation.proceed();
+      String statementId = ((MappedStatement) invocation.getArgs()[0]).getId();
+      if (Thread.currentThread() == readerThread
+          && (statementId.endsWith("SearchPathMapper.findPaths")
+              || statementId.endsWith("SearchPathMapper.findAllPaths"))) {
+        listRead.countDown();
+        if (!writeCommitted.await(15, TimeUnit.SECONDS))
+          throw new IllegalStateException("write_not_committed");
+      }
+      return result;
+    }
+  }
 
   @Test
   @DisplayName("batch append stages PATH_APPENDED EventPublisher job")
