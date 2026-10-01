@@ -13,6 +13,7 @@
 - [현재 서비스](../../backend/src/main/java/com/surimap/api/service/path/SearchPathService.java)는 새 묶음의 GPS 좌표를 순서와 함께 저장한다. 좌표를 추가할 때마다 이전 경로 전체를 읽고 LineString을 다시 만드는 방식은 [Issue #16](../issues/16-search-path-append-time-increases-with-length.md)에서 변경했다. 새 구간·제외 좌표도 묶어서 저장하며, 조회할 때 GPS 좌표를 순서대로 연결한다.
 - GPS 원본 없이 도형만 있는 과거 경로는 조회용 fallback으로 읽는다. 그 경로에 새 좌표를 붙이는 요청은 `write_conflict`로 거부한다. 도형에서 측정 시각·속도 등 원본 값을 임의로 복원하지 않는다.
 - **남은 읽기 비용**: 경로마다 좌표·구간·제외 좌표를 따로 조회하고 전체 도형을 조립한다. 쓰기 최적화가 긴 경로·여러 경로의 조회 성능까지 보장하지 않는다. 옛 `sinceVersion`·`limit`·`geometryMode=SIMPLIFIED` 요구는 현재 조회 인자에 없고 정렬도 시작 시각이 아닌 버전 내림차순이다. 간략 표시 때문에 저장 원본을 바꾸지 않는 요구는 유지한다.
+- **객체 생성 비용 수정 (2026-10-02, 배포 전)**: GPS 조회에서 MyBatis가 protected 생성자를 호출할 때마다 접근 예외를 처리하고 재시도하는 비용을 확인했다. [공통 객체 생성 설정](../../backend/src/main/java/com/surimap/config/MyBatisConfig.java)에 [Spring 기반 생성 방식](../../backend/src/main/java/com/surimap/config/mybatis/MyBatisObjectFactory.java)을 연결해 기본 생성자 접근을 호출 전에 준비한다. 생성자 제한·SQL·응답 형식은 유지한다. [실제 Mapper 검사](../../backend/src/test/java/com/surimap/domain/path/SearchPathMapperTest.java)에서 좌표 값과 순서를 보존하면서 반복 접근 예외가 사라짐을 확인했다. 누적 경로의 실제 HTTP 조회 개선량과 남은 읽기 비용은 배포 후 별도로 확인한다.
 
 ## 측정 시각과 품질 검사
 
