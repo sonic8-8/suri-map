@@ -7,17 +7,25 @@ import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.sql.PreparedStatement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordingFile;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.reflection.factory.DefaultObjectFactory;
+import org.apache.ibatis.scripting.defaults.DefaultParameterHandler;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -56,6 +64,57 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Autowired private SearchPathMapper searchPathMapper;
+  @Autowired private SqlSessionFactory sqlSessionFactory;
+
+  @ParameterizedTest
+  @ValueSource(strings = {"findPaths", "findAllPaths"})
+  @DisplayName("GPS 좌표가 여러 개 있어도 조회 SQL은 경로 전체 도형을 한 번만 반환한다")
+  void multiple_gps_points_do_not_repeat_stored_path_geometry(String queryMethod) {
+    // given: GPS와 경로 전체 도형이 함께 저장된 실제 DB 조건을 만든다.
+    insertPath(lineString());
+    List<GpsPoint> points =
+        List.of(
+            gpsPoint("first", "126.950000", "37.560000", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint("second", "126.950050", "37.560050", "1.25", 4, "2026-04-28T00:00:05Z"),
+            gpsPoint("third", "126.950100", "37.560100", "1.25", 4, "2026-04-28T00:00:10Z"));
+    searchPathMapper.insertGpsPoints(PATH_ID, 0, points, STARTED_AT);
+    Map<String, UUID> parameters =
+        Map.of("incidentId", INCIDENT_ID, "opId", OP_ID, "accountId", ACCOUNT_ID);
+    MappedStatement statement =
+        sqlSessionFactory
+            .getConfiguration()
+            .getMappedStatement(SearchPathMapper.class.getName() + "." + queryMethod);
+    BoundSql boundSql = statement.getBoundSql(parameters);
+
+    // when: 운영 Mapper의 SQL과 UUID 바인딩을 그대로 실행해 DB가 반환한 도형을 읽는다.
+    List<String> returnedGeometries =
+        jdbcTemplate.query(
+            connection -> {
+              PreparedStatement prepared = connection.prepareStatement(boundSql.getSql());
+              new DefaultParameterHandler(statement, parameters, boundSql).setParameters(prepared);
+              return prepared;
+            },
+            (row, index) -> row.getString("geometry"));
+
+    // then: 객체 조립으로 가려지기 전의 SQL 결과에도 전체 도형이 중복되지 않는다.
+    assertThat(returnedGeometries)
+        .filteredOn(geometry -> geometry != null)
+        .containsExactly("SRID=4326;LINESTRING(126.95 37.56,126.9501 37.5601)");
+    List<SearchPath> paths =
+        queryMethod.equals("findPaths")
+            ? searchPathMapper.findPaths(INCIDENT_ID, OP_ID, ACCOUNT_ID)
+            : searchPathMapper.findAllPaths();
+    assertThat(paths)
+        .singleElement()
+        .satisfies(
+            path -> {
+              assertThat(path.getGeometry().equalsExact(lineString())).isTrue();
+              assertThat(path.getGeometry().getSRID()).isEqualTo(4326);
+              assertThat(path.getPoints()).usingRecursiveComparison().isEqualTo(points);
+              assertThat(path.getSegments()).isEmpty();
+              assertThat(path.getExcludedPoints()).isEmpty();
+            });
+  }
 
   @Test
   @DisplayName("SearchPath를 저장하면 같은 값으로 조회한다")

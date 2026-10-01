@@ -195,7 +195,6 @@
         sp.status,
         sp.started_at,
         sp.ended_at,
-        ST_AsEWKT(sp.geometry) AS geometry,
         sp.version,
         sp.created_at,
         sp.updated_at
@@ -211,7 +210,8 @@
 
     <select id="findPathById" resultMap="searchPathMap">
         SELECT
-        <include refid="searchPathReadColumns"/>
+        <include refid="searchPathReadColumns"/>,
+        ST_AsEWKT(sp.geometry) AS geometry
         <include refid="searchPathReadJoins"/>
         WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
@@ -235,10 +235,12 @@
     </select>
 
     <!-- 한 SQL의 스냅샷으로 버전과 하위 데이터를 읽는다.
-         각 컬렉션을 UNION ALL로 나열해 GPS × 구간 × 제외 좌표의 행 증폭을 피한다. -->
+         각 컬렉션을 UNION ALL로 나열해 GPS × 구간 × 제외 좌표의 행 증폭을 피한다.
+         kind=-1인 첫 행에만 전체 도형을 담아 하위 행마다 도형이 반복되지 않게 한다. -->
     <sql id="searchPathDetailsSelect">
         SELECT
         <include refid="searchPathReadColumns"/>,
+        CASE WHEN detail.kind = -1 THEN ST_AsEWKT(sp.geometry) END AS geometry,
         (detail.gps).point_order AS gps_point_order,
         (detail.gps).point_id AS gps_point_id,
         (detail.gps).client_ts AS gps_client_ts,
@@ -275,8 +277,11 @@
         (detail.excluded).updated_at AS excluded_updated_at
         <include refid="searchPathReadJoins"/>
         LEFT JOIN LATERAL (
-            SELECT 0 AS kind, gps.point_order, NULL::timestamptz AS sort_time, NULL::uuid AS sort_id,
-                   gps, NULL::search_path_segment AS segment, NULL::search_path_excluded_point AS excluded
+            SELECT -1 AS kind, NULL::integer AS point_order, NULL::timestamptz AS sort_time, NULL::uuid AS sort_id,
+                   NULL::search_path_gps_point AS gps, NULL::search_path_segment AS segment, NULL::search_path_excluded_point AS excluded
+            UNION ALL
+            SELECT 0, gps.point_order, NULL, NULL,
+                   gps, NULL::search_path_segment, NULL::search_path_excluded_point
             FROM search_path_gps_point gps
             WHERE gps.search_path_id = sp.id
             UNION ALL
