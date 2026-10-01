@@ -16,6 +16,8 @@ import urllib.parse
 import uuid
 
 
+# Root-run diagnostics must not leave root-owned cache files in Jenkins deployment sources.
+sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location(
     "path_fixtures", Path(__file__).with_name("prepare-search-path-batch-fixtures.py")
 )
@@ -281,7 +283,17 @@ def cleanup_account(path):
 
 def self_check():
     # One local check, no Docker, Keycloak, credentials, or extra test framework.
+    import shutil
     from unittest.mock import patch
+
+    with tempfile.TemporaryDirectory(prefix="suri-board-import-check-") as directory:
+        for source in (Path(__file__), Path(path_fixtures.__file__)):
+            shutil.copyfile(source, Path(directory) / source.name)
+        subprocess.run(
+            [sys.executable, "-I", str(Path(directory) / Path(__file__).name), "--help"],
+            check=True, stdout=subprocess.DEVNULL,
+        )
+        assert not list(Path(directory).rglob("*.pyc")), "Tool import must not leave bytecode in deployment sources"
 
     command = "python3 /srv/apps/suri-map/infra/k6/prepare-situation-board-account.py check-marker-safety"
     backend = "a" * 64 + "/2026-10-01T00:00:00.000000000Z"
@@ -361,7 +373,7 @@ def self_check():
             pass
         else:
             raise AssertionError("Altered cleanup identity was accepted")
-    print("PASS: SSH command restrictions, preflight, mock FCM runtime/restart refusals and cleanup identity checks (no external calls).")
+    print("PASS: no import bytecode, SSH command restrictions, preflight, mock FCM runtime/restart refusals and cleanup identity checks (no external calls).")
 
 
 def main():
