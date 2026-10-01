@@ -107,7 +107,7 @@ describe('incident board API', () => {
       incidentId: 'inc-precinct-first-001',
       includeSlots: ['path', 'marker'],
       sinceVersion: 33,
-    });
+    }, expect.any(AbortSignal));
     expect(
       incidentBoardQueryKeys.detail({
         incidentId: 'inc-precinct-first-001',

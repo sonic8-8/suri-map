@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import sys
@@ -102,6 +103,18 @@ def check_marker_safety(expected_backend=None):
     report = inspect_notification_targets()
     check_preflight(report)
     return {**report, "backendIdentity": identity, "fcmProvider": "mock"}
+
+
+def expected_backend_from_ssh_command(command):
+    # Match the writer's exact request; never execute SSH_ORIGINAL_COMMAND in a shell.
+    allowed = "python3 /srv/apps/suri-map/infra/k6/prepare-situation-board-account.py check-marker-safety"
+    match = re.fullmatch(
+        re.escape(allowed) + r"(?: --expected-backend ([a-f0-9]{64}/[0-9TZ:.+-]{1,40}))?",
+        command,
+    )
+    if match is None:
+        raise RuntimeError("SSH command not permitted")
+    return match.group(1)
 
 
 def account_identity(run_id):
@@ -270,6 +283,22 @@ def self_check():
     # One local check, no Docker, Keycloak, credentials, or extra test framework.
     from unittest.mock import patch
 
+    command = "python3 /srv/apps/suri-map/infra/k6/prepare-situation-board-account.py check-marker-safety"
+    backend = "a" * 64 + "/2026-10-01T00:00:00.000000000Z"
+    assert expected_backend_from_ssh_command(command) is None
+    assert expected_backend_from_ssh_command(command + " --expected-backend " + backend) == backend
+    for denied in (
+        "", "id", "internal-sftp", command.replace("check-marker-safety", "cleanup"),
+        command + "; id", command + "\nid", command + " --manifest /tmp/account.json",
+        command + " --expected-backend $(id)", command + " --expected-backend " + backend + "\n",
+    ):
+        try:
+            expected_backend_from_ssh_command(denied)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("Unexpected SSH command was accepted")
+
     original = {"attributes": [{"name": "username"}]}
     state = dict(original)
     def profile_request(admin, method, endpoint, expected, json_body=None):
@@ -332,13 +361,13 @@ def self_check():
             pass
         else:
             raise AssertionError("Altered cleanup identity was accepted")
-    print("PASS: preflight, mock FCM runtime/restart refusals and cleanup identity checks (no external calls).")
+    print("PASS: SSH command restrictions, preflight, mock FCM runtime/restart refusals and cleanup identity checks (no external calls).")
 
 
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("inspect", "check-marker-safety", "prepare", "cleanup", "self-check"))
+    parser.add_argument("action", choices=("inspect", "check-marker-safety", "ssh-check-marker-safety", "prepare", "cleanup", "self-check"))
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--expected-backend", help="Identity from the first check-marker-safety result.")
     parser.add_argument("--allow-temporary-profile-edit", action="store_true",
@@ -350,6 +379,9 @@ def main():
         self_check()
     elif args.action == "check-marker-safety":
         print(json.dumps(check_marker_safety(args.expected_backend), sort_keys=True))
+    elif args.action == "ssh-check-marker-safety":
+        expected_backend = expected_backend_from_ssh_command(os.environ.get("SSH_ORIGINAL_COMMAND", ""))
+        print(json.dumps(check_marker_safety(expected_backend), sort_keys=True))
     elif args.action == "inspect":
         report = inspect_notification_targets()
         print(json.dumps(report, sort_keys=True))

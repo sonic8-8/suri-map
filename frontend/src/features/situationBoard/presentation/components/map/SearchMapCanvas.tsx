@@ -13,7 +13,7 @@ import { ApiHttpError, createIdempotencyKey } from '../../../../../shared/api/cl
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
-import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
+import { refreshIncidentBoards } from '../../../../board/api/incidentBoardApi';
 import {
   useCreateMarkerMutation,
   useUpdateMarkerMutation,
@@ -1290,7 +1290,7 @@ export function SearchMapCanvas({
         request: createReferenceMarkerCorrectionRequest(marker, coordinates),
         idempotencyKey: createReferenceMarkerCorrectionIdempotencyKey(marker.id),
       });
-      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      await refreshIncidentBoards(queryClient, { incidentId });
       setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'saved' });
     } catch {
       setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'error' });
@@ -1413,7 +1413,7 @@ export function SearchMapCanvas({
         },
         idempotencyKey: createIdempotencyKey('web-manual-path'),
       });
-      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      await refreshIncidentBoards(queryClient, { incidentId });
       setRouteEditorEndedAtLocal(toDatetimeLocalValue(routeEndedAt));
       setRouteEditorStatus('saved');
     } catch (error) {
@@ -1474,7 +1474,7 @@ export function SearchMapCanvas({
         idempotencyKey: createIdempotencyKey('web-manual-marker'),
         policePhoneId: context.policePhoneId,
       });
-      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      await refreshIncidentBoards(queryClient, { incidentId });
       setRouteEditorStatus('saved');
     } catch {
       setRouteEditorStatus('error');
@@ -1576,13 +1576,13 @@ export function SearchMapCanvas({
       if (options.closeComposerOnSuccess) {
         handleCloseMapMemoComposer();
         void Promise.all([
-          queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) }),
+          refreshIncidentBoards(queryClient, { incidentId }),
           queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
         ]);
         return;
       }
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) }),
+        refreshIncidentBoards(queryClient, { incidentId }),
         queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
       ]);
       setMapMemoContent('');
