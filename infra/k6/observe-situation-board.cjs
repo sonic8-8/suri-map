@@ -269,6 +269,51 @@ async function waitUntilReady(condition, state) {
   }
 }
 
+async function registerCoordinateCheckTargets(
+  page,
+  message,
+  runId,
+  markerCount,
+  timeOrigin,
+) {
+  assert(
+    message.stage === "coordinate_check_targets" && message.runId === runId,
+    "invalid_coordinate_check_targets",
+  );
+  for (const [field, count] of [
+    ["searchPathIds", 468],
+    ["markerIds", markerCount],
+  ]) {
+    const ids = message[field];
+    assert(
+      Array.isArray(ids) &&
+        ids.length === count &&
+        new Set(ids).size === count &&
+        ids.every((id) => typeof id === "string" && /^[a-f0-9-]{36}$/.test(id)),
+      "invalid_coordinate_check_targets",
+    );
+  }
+  // Pass only the validated identifiers, not the remote message or secret fixtures.
+  await page.evaluate(
+    (paths, markers, expectedTimeOrigin) => {
+      if (
+        performance.timeOrigin !== expectedTimeOrigin ||
+        !window.__SURI_MAP_MEASUREMENT_ENABLED__ ||
+        window.__SURI_MAP_COORDINATE_CHECK_SCOPE__ !== "test-writes" ||
+        window.__SURI_MAP_COORDINATE_CHECK_TARGETS__
+      )
+        throw new Error("coordinate_targets_not_ready");
+      window.__SURI_MAP_COORDINATE_CHECK_TARGETS__ = {
+        searchPathIds: new Set(paths),
+        markerIds: new Set(markers),
+      };
+    },
+    message.searchPathIds,
+    message.markerIds,
+    timeOrigin,
+  );
+}
+
 async function observe(
   accountFile,
   outputDirectory,
@@ -314,6 +359,7 @@ async function observe(
   let writer;
   let writerExit;
   let writerClosed;
+  let coordinateTargetsReady = false;
   const state = { records: 0, counts: {}, failure: null };
   const interrupt = () => {
     state.failure ??= "observation_interrupted";
@@ -442,16 +488,61 @@ async function observe(
         { stdio: ["pipe", "pipe", "ignore"] },
       );
       let writerOutput = "";
+      let remoteReport;
+      let targetsReceived = false;
+      let targetsRegistration = Promise.resolve();
       writer.stdout.on("data", (chunk) => {
-        if (writerOutput.length + chunk.length > 8192)
+        if (writerOutput.length + chunk.length > 65536) {
           state.failure ??= "invalid_writer_result";
-        else writerOutput += chunk.toString("utf8");
+          return;
+        }
+        writerOutput += chunk.toString("utf8");
+        while (writerOutput.includes("\n")) {
+          const end = writerOutput.indexOf("\n");
+          const line = writerOutput.slice(0, end);
+          writerOutput = writerOutput.slice(end + 1);
+          try {
+            const message = JSON.parse(line);
+            if (message.stage === "coordinate_check_targets") {
+              assert(
+                !targetsReceived && !remoteReport,
+                "duplicate_coordinate_check_targets",
+              );
+              targetsReceived = true;
+              targetsRegistration = registerCoordinateCheckTargets(
+                page,
+                message,
+                runId,
+                appHost ? Math.ceil(seconds / 10) : 0,
+                pageTimeOrigin,
+              )
+                .then(() => {
+                  if (state.failure) return;
+                  writer.stdin.write("TARGETS_READY\n");
+                  coordinateTargetsReady = true;
+                })
+                .catch(() => {
+                  state.failure ??= "coordinate_targets_not_ready";
+                });
+            } else {
+              assert(!remoteReport, "duplicate_writer_result");
+              remoteReport = message;
+            }
+          } catch {
+            state.failure ??= "invalid_writer_result";
+          }
+        }
       });
       writerClosed = new Promise((resolve) =>
-        writer.once("close", (code) => {
+        writer.once("close", async (code) => {
+          await targetsRegistration;
           writerExit = code;
           try {
-            const report = JSON.parse(writerOutput);
+            assert(
+              !writerOutput.trim() && remoteReport,
+              "invalid_writer_result",
+            );
+            const report = remoteReport;
             assert(
               report.runId === runId && report.containerStopped === true,
               "writer_stop_unconfirmed",
@@ -471,7 +562,7 @@ async function observe(
             ) {
               result.remoteWriter.failure = report.failure;
             }
-            if (report.result !== "COLLECTED")
+            if (report.result !== "COLLECTED" || !coordinateTargetsReady)
               state.failure ??= "path_writer_failed";
           } catch {
             state.failure = "remote_writer_stop_unconfirmed";
@@ -516,7 +607,10 @@ async function observe(
           // Bounded observation after writes, not a delivery SLA or a PASS.
           postWriteDeadline ??= performance.now() + setupTimeoutMs;
           if (performance.now() >= postWriteDeadline) break;
-        } else if (performance.now() >= nextPermissionAt) {
+        } else if (
+          coordinateTargetsReady &&
+          performance.now() >= nextPermissionAt
+        ) {
           if (!writer.stdin.write("CONTINUE\n"))
             throw new Error("writer_control_backlog");
           nextPermissionAt = performance.now() + 1000;
@@ -563,7 +657,10 @@ async function observe(
       state.failure ??= "collector_drain_failed";
     }
     try {
-      if (page && new URL(page.url()).pathname === `/incidents/${incidentId}/board`)
+      if (
+        page &&
+        new URL(page.url()).pathname === `/incidents/${incidentId}/board`
+      )
         fs.writeFileSync(
           path.join(outputDirectory, "board-after.png"),
           await page.screenshot(),
@@ -622,6 +719,63 @@ async function selfCheck() {
   const collector = await installCollector(page, directory, "null");
   try {
     await page.goto("about:blank");
+    const targets = {
+      stage: "coordinate_check_targets",
+      runId: "self-check",
+      searchPathIds: Array.from(
+        { length: 468 },
+        (_, i) => `e1000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+      ),
+      markerIds: ["e2000000-0000-4000-8000-000000000001"],
+    };
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    await assert.rejects(
+      registerCoordinateCheckTargets(page, targets, "wrong-run", 1, timeOrigin),
+    );
+    await assert.rejects(
+      registerCoordinateCheckTargets(
+        page,
+        { ...targets, searchPathIds: [] },
+        "self-check",
+        1,
+        timeOrigin,
+      ),
+    );
+    await assert.rejects(
+      registerCoordinateCheckTargets(
+        page,
+        targets,
+        "self-check",
+        1,
+        timeOrigin,
+      ),
+    ); // Old bundle must not authorize writes.
+    await page.evaluate(() => {
+      window.__SURI_MAP_COORDINATE_CHECK_SCOPE__ = "test-writes";
+    });
+    await registerCoordinateCheckTargets(
+      page,
+      targets,
+      "self-check",
+      1,
+      timeOrigin,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => [
+        window.__SURI_MAP_COORDINATE_CHECK_TARGETS__.searchPathIds.size,
+        window.__SURI_MAP_COORDINATE_CHECK_TARGETS__.markerIds.size,
+      ]),
+      [468, 1],
+    );
+    await assert.rejects(
+      registerCoordinateCheckTargets(
+        page,
+        targets,
+        "self-check",
+        1,
+        timeOrigin,
+      ),
+    );
     await page.evaluate((eventName) => {
       const stamp = {
         timeOriginMs: performance.timeOrigin,
