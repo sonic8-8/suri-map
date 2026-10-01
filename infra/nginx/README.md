@@ -36,6 +36,16 @@ include /etc/nginx/snippets/suri-map-api.locations.conf;
 
 이 조각은 Jenkins에서 자동 설치하지 않는다. 커밋·푸시만으로 호스트 설정이 갱신되지 않으며, 애플리케이션 재배포와 호스트 설정 적용을 구분한다. 배경과 검증 결과는 [로컬 이슈 12](../../docs/issues/local/12-api-errors-replaced-with-successful-html-response.md)에 기록한다.
 
+## SSE 연결의 유휴 대기
+
+같은 조각에서 `/api/incidents/events`와 `/api/incidents/{id}/events`를 일반 API보다 먼저 매칭한다. SSE만 버퍼링·캐시·gzip을 끄고 읽기·쓰기 제한을 1시간으로 둔다. 읽기 제한은 기존 Frontend Nginx와 맞춘 값이며, 공식 권장값이나 1시간 무중단 보장이 아니다. 다른 프록시·네트워크의 종료와 클라이언트 재연결은 별도로 검증한다. Backend heartbeat를 추가한 변경도 아니다.
+
+명시하지 않으면 Nginx의 [기본 읽기 제한 60초](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_read_timeout)가 적용돼, 이벤트가 없는 연결을 호스트에서 닫을 수 있다. 전체 응답 시간이 아니라 데이터 수신 사이의 간격에 적용된다. 일반 API의 오류 전달과 헤더는 그대로 유지한다.
+
+로컬 Docker에서 `python3 infra/nginx/host-api.test.py`로 검사한다. 기존 `nginx:1.27.5-alpine`·`python:3.12-alpine` 이미지를 사용하며 임시 컨테이너만 만들고 제거한다. 검사에서는 상위 읽기 제한을 1초로 줄이고, 2초간 새 데이터가 없어도 다음 SSE를 받는지 확인한다. 실제 계정·사건 경로의 선택, 즉시 전달, 오류 상태·헤더 보존, 비 API 경로도 검사한다. 가속한 회귀 검사이지 운영 1시간 유지 검증은 아니다.
+
+2026-10-01 호스트에 적용한 뒤 실제 상황판의 SSE 2개는 90초 동안 유지됐다. 그러나 공개 주소의 SSE 단독 검사는 약 136초에 끊겼고, Cloudflare를 우회하되 호스트 Nginx를 통과한 TLS 연결은 150초 동안 유지됐다. 호스트의 60초 제한 수정과 공개 경로의 장시간 연결 해결을 구분한다. 앞단 프록시의 유휴 읽기 제한이 다음 확인 대상이며, heartbeat는 아직 추가하지 않았다.
+
 ## 과거 환경의 설정
 
 `apply-suri-map-host-nginx.sh`와 `suri-map-sse.locations.conf`는 과거 EC2의 단일 사이트·Backend 8081 포트 구성을 대상으로 한다. 현재 Hetzner의 다중 서비스 `apps.conf`에 그대로 실행하지 않는다. 타일 위치 예시도 현재 포트·인증 경로와 대조한 뒤 사용한다.

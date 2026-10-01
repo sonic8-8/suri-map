@@ -2,6 +2,9 @@ package com.surimap.global.sse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -18,7 +21,10 @@ import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.config.SecurityConfig;
 import com.surimap.config.ServerSentEventConfig;
 import com.surimap.global.event.EventPublishRequest;
+import jakarta.servlet.AsyncContext;
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.ServletResponse;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,6 +37,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -38,11 +45,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.WebServer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -60,6 +75,167 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 /** 실제 Controller·Security filter·MVC·Tomcat·TCP 검사. 토큰 해석·사건 권한·DB 조회는 제외한다. */
 class ServerSentEventStreamTest {
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  @DisplayName("연결 확인 주석은 누적되거나 업무 이벤트와 섞이지 않고 종료 시 예약을 취소한다")
+  void heartbeat_backpressure_preserves_event_frames_and_cancels_on_close(boolean incidentStream)
+      throws Exception {
+    // given: 실제 전송 객체를 사용하되 Servlet 쓰기 가능 여부와 예약 시각만 제어한다.
+    AsyncContext context = mock(AsyncContext.class);
+    ServletResponse servletResponse = mock(ServletResponse.class);
+    ServletOutputStream output = mock(ServletOutputStream.class);
+    AtomicBoolean ready = new AtomicBoolean(true);
+    AtomicReference<String> pauseAfter = new AtomicReference<>(":heartbeat\n\n");
+    ArrayDeque<Runnable> transmissions = new ArrayDeque<>();
+    List<String> frames = new ArrayList<>();
+    when(context.getResponse()).thenReturn(servletResponse);
+    when(servletResponse.getOutputStream()).thenReturn(output);
+    when(output.isReady()).thenAnswer(ignored -> ready.get());
+    doAnswer(
+            call -> {
+              transmissions.add(call.getArgument(0));
+              return null;
+            })
+        .when(context)
+        .start(any(Runnable.class));
+    doAnswer(
+            call -> {
+              String frame = new String((byte[]) call.getArgument(0), StandardCharsets.UTF_8);
+              frames.add(frame);
+              if (frame.equals(pauseAfter.get())) ready.set(false);
+              return null;
+            })
+        .when(output)
+        .write(any(byte[].class));
+    ScheduledThreadPoolExecutor scheduler = mock(ScheduledThreadPoolExecutor.class);
+    ScheduledFuture<?> timer = mock(ScheduledFuture.class);
+    ArgumentCaptor<Runnable> heartbeat = ArgumentCaptor.forClass(Runnable.class);
+    doReturn(timer)
+        .when(scheduler)
+        .scheduleWithFixedDelay(heartbeat.capture(), eq(15L), eq(15L), eq(TimeUnit.SECONDS));
+    AtomicReference<ServerSentEventConnection> connection = new AtomicReference<>();
+    AutoCloseable registration = mock(AutoCloseable.class);
+    ServerSentEventStream stream =
+        new ServerSentEventStream(
+            response -> {
+              ServerSentEventConnection sender =
+                  new ServerSentEventConnection(response, incidentStream);
+              connection.set(sender);
+              response.attachRegistration(registration);
+              sender.start(true, null, null);
+            });
+    stream.start(context, scheduler);
+    transmissions.remove().run();
+
+    // when: 주석 쓰기가 멈춘 동안 확인 요청을 반복하고 순번 7의 업무 이벤트를 보낸다.
+    heartbeat.getValue().run();
+    transmissions.remove().run();
+    heartbeat.getValue().run();
+    heartbeat.getValue().run();
+    ServerSentEventMessage event =
+        ServerSentEventMessage.builder()
+            .id("7")
+            .event("SEARCH_PATH_UPDATED")
+            .data(largeEvent(UUID.randomUUID()))
+            .build();
+    connection.get().send(event);
+    transmissions.remove().run();
+    assertThat(frames).containsExactly(":connected\n\n", ":heartbeat\n\n");
+    ready.set(true);
+    stream.requestTransmission();
+    transmissions.remove().run();
+
+    // then: 쓰던 주석을 중복하지 않고 이벤트와 대기 주석 하나만 보낸다. 순번도 보존한다.
+    assertThat(frames)
+        .containsExactly(
+            ":connected\n\n",
+            ":heartbeat\n\n",
+            ServerSentEventFormatter.format(event),
+            ":heartbeat\n\n");
+
+    // when: 반대로 업무 프레임 쓰기가 멈춘 중간에도 주석이 끼어들지 않아야 한다.
+    ready.set(true);
+    stream.requestTransmission();
+    transmissions.remove().run();
+    ServerSentEventMessage nextEvent =
+        ServerSentEventMessage.builder()
+            .id("8")
+            .event(event.getEvent())
+            .data(event.getData())
+            .build();
+    pauseAfter.set(ServerSentEventFormatter.format(nextEvent));
+    connection.get().send(nextEvent);
+    transmissions.remove().run();
+    heartbeat.getValue().run();
+    transmissions.remove().run();
+    assertThat(frames).hasSize(5);
+    ready.set(true);
+    stream.requestTransmission();
+    transmissions.remove().run();
+    // then: 순번 8을 중복하지 않고 그 뒤에만 주석을 보낸다.
+    assertThat(frames.subList(4, frames.size()))
+        .containsExactly(ServerSentEventFormatter.format(nextEvent), ":heartbeat\n\n");
+    stream.complete();
+    verify(timer).cancel(false);
+    verify(registration).close();
+    heartbeat.getValue().run();
+    assertThat(transmissions).isEmpty();
+  }
+
+  @Test
+  @DisplayName("이미 종료한 연결은 시작과 종료가 겹쳐도 연결 확인 예약을 남기지 않는다")
+  void closed_stream_cancels_heartbeat_scheduled_during_start() {
+    // given: 비동기 응답을 시작하기 전에 종료된 연결을 준비한다.
+    ServerSentEventStream stream = new ServerSentEventStream(ignored -> {});
+    stream.complete();
+    ScheduledThreadPoolExecutor scheduler = mock(ScheduledThreadPoolExecutor.class);
+    ScheduledFuture<?> timer = mock(ScheduledFuture.class);
+    doReturn(timer)
+        .when(scheduler)
+        .scheduleWithFixedDelay(any(Runnable.class), eq(15L), eq(15L), eq(TimeUnit.SECONDS));
+    // when: 시작과 종료 경합에서 뒤늦게 예약이 등록된다.
+    stream.start(mock(AsyncContext.class), scheduler);
+    // then: 등록된 예약은 즉시 취소한다.
+    verify(timer).cancel(false);
+  }
+
+  @Test
+  @DisplayName("업무 이벤트가 없어도 사건·계정 SSE는 실제 HTTP로 15초 뒤 연결 확인 주석을 받는다")
+  void idle_incident_and_account_streams_receive_scheduled_heartbeat_over_http() throws Exception {
+    // given: 실제 MVC·Tomcat 연결을 열고 DB 조회와 토큰 해석만 대역을 사용한다.
+    AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
+    WebServer server = createServer(context);
+    HttpURLConnection incident = null;
+    HttpURLConnection account = null;
+    try {
+      server.start();
+      incident = open(server.getPort(), "/api/incidents/" + UUID.randomUUID() + "/events");
+      account = open(server.getPort(), "/api/incidents/events");
+      // 15초 예약 전송을 관찰할 테스트 제한이며 운영 장애 감지 기준이 아니다.
+      incident.setReadTimeout(20000);
+      account.setReadTimeout(20000);
+      BufferedReader incidentReader =
+          new BufferedReader(
+              new InputStreamReader(incident.getInputStream(), StandardCharsets.UTF_8));
+      BufferedReader accountReader =
+          new BufferedReader(
+              new InputStreamReader(account.getInputStream(), StandardCharsets.UTF_8));
+      assertThat(readFrame(incidentReader)).isEqualTo(":connected\n");
+      assertThat(readFrame(accountReader)).isEqualTo(":connected\n");
+      // when: 새 업무 이벤트 없이 다음 프레임을 기다린다.
+      String incidentFrame = readFrame(incidentReader);
+      String accountFrame = readFrame(accountReader);
+      // then: id·event·data 필드 없이 연결 확인 주석만 받는다.
+      assertThat(incidentFrame).isEqualTo(":heartbeat\n");
+      assertThat(accountFrame).isEqualTo(":heartbeat\n");
+    } finally {
+      if (incident != null) incident.disconnect();
+      if (account != null) account.disconnect();
+      server.stop();
+      context.close();
+    }
+  }
+
   @ParameterizedTest(name = "{1}")
   @CsvSource({
     "live, 실시간 전송: 수신을 재개하면 대기 중인 이벤트를 순서대로 받는다",
@@ -71,37 +247,7 @@ class ServerSentEventStreamTest {
       String source, String expectedBehavior) throws Exception {
     // given: 작업 스레드 4개와 읽기를 멈출 연결 4개를 준비한다. 운영 권장값이 아니다.
     var context = new AnnotationConfigWebApplicationContext();
-    context
-        .getEnvironment()
-        .getPropertySources()
-        .addFirst(
-            new MapPropertySource(
-                "test", Map.of("surimap.cors.allowed-origin-patterns", "http://localhost")));
-    context.register(HttpServer.class);
-    var factory = new TomcatServletWebServerFactory(0);
-    factory.setAddress(InetAddress.getByName("127.0.0.1"));
-    factory.addConnectorCustomizers(
-        connector -> {
-          connector.setProperty("maxThreads", "4");
-          connector.setProperty("minSpareThreads", "4");
-          connector.setProperty("socket.txBufSize", "1024");
-        });
-    var server =
-        factory.getWebServer(
-            servletContext -> {
-              context.setServletContext(servletContext);
-              var security =
-                  servletContext.addFilter(
-                      "springSecurityFilterChain",
-                      new DelegatingFilterProxy("springSecurityFilterChain", context));
-              security.setAsyncSupported(true);
-              security.addMappingForUrlPatterns(
-                  EnumSet.of(DispatcherType.REQUEST, DispatcherType.ASYNC), false, "/*");
-              var servlet = servletContext.addServlet("dispatcher", new DispatcherServlet(context));
-              servlet.setLoadOnStartup(1);
-              servlet.setAsyncSupported(true);
-              servlet.addMapping("/");
-            });
+    WebServer server = createServer(context);
     var sockets = new ArrayList<Socket>();
     var readers = new ArrayList<BufferedReader>();
     var executor = Executors.newSingleThreadExecutor();
@@ -252,6 +398,41 @@ class ServerSentEventStreamTest {
       server.stop();
       context.close();
     }
+  }
+
+  private static WebServer createServer(AnnotationConfigWebApplicationContext context)
+      throws IOException {
+    context
+        .getEnvironment()
+        .getPropertySources()
+        .addFirst(
+            new MapPropertySource(
+                "test", Map.of("surimap.cors.allowed-origin-patterns", "http://localhost")));
+    context.register(HttpServer.class);
+    TomcatServletWebServerFactory factory = new TomcatServletWebServerFactory(0);
+    factory.setAddress(InetAddress.getByName("127.0.0.1"));
+    factory.addConnectorCustomizers(
+        connector -> {
+          connector.setProperty("maxThreads", "4");
+          connector.setProperty("minSpareThreads", "4");
+          connector.setProperty("socket.txBufSize", "1024");
+        });
+    return factory.getWebServer(
+        servletContext -> {
+          context.setServletContext(servletContext);
+          jakarta.servlet.FilterRegistration.Dynamic security =
+              servletContext.addFilter(
+                  "springSecurityFilterChain",
+                  new DelegatingFilterProxy("springSecurityFilterChain", context));
+          security.setAsyncSupported(true);
+          security.addMappingForUrlPatterns(
+              EnumSet.of(DispatcherType.REQUEST, DispatcherType.ASYNC), false, "/*");
+          jakarta.servlet.ServletRegistration.Dynamic servlet =
+              servletContext.addServlet("dispatcher", new DispatcherServlet(context));
+          servlet.setLoadOnStartup(1);
+          servlet.setAsyncSupported(true);
+          servlet.addMapping("/");
+        });
   }
 
   private static EventPublishRequest largeEvent(UUID incidentId) {
