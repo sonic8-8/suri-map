@@ -419,6 +419,11 @@ async function observe(
       }),
       { mode: 0o600, flag: "wx" },
     );
+    fs.writeFileSync(
+      path.join(outputDirectory, "board-before.png"),
+      await page.screenshot(),
+      { mode: 0o600, flag: "wx" },
+    );
     state.measurementStarted = true;
     if (opsHost) {
       if (state.failure) throw new Error("observation_failed");
@@ -556,6 +561,16 @@ async function observe(
         state.failure ??= "collector_failed";
     } catch {
       state.failure ??= "collector_drain_failed";
+    }
+    try {
+      if (page && new URL(page.url()).pathname === `/incidents/${incidentId}/board`)
+        fs.writeFileSync(
+          path.join(outputDirectory, "board-after.png"),
+          await page.screenshot(),
+          { mode: 0o600, flag: "wx" },
+        );
+    } catch {
+      state.failure ??= "screenshot_failed";
     }
     if (state.failure) result.result = "FAILED";
     Object.assign(result, {

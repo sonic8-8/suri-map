@@ -6,6 +6,7 @@ import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import {
   useIncidentBoardQuery,
   incidentBoardQueryKeys,
+  refreshIncidentBoards,
 } from '../../../board/api/incidentBoardApi';
 import { openIncidentBoardEventStream } from '../../../board/api/incidentBoardEventStream';
 import { recordBoardMeasurement } from '../../../board/model/boardMeasurement';
@@ -88,7 +89,7 @@ export function useSituationBoardData(
   useEffect(() => {
     if (prevRefreshVersionRef.current === refreshVersion) return;
     prevRefreshVersionRef.current = refreshVersion;
-    void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
+    void refreshIncidentBoards(queryClient);
   }, [refreshVersion, queryClient]);
 
   // SSE: 도메인 이벤트 수신 시 board 재조회
@@ -107,15 +108,13 @@ export function useSituationBoardData(
 
       const accessToken = getStoredAccessToken();
 
-      const queryKey = incidentBoardQueryKeys.detail({ incidentId });
-
       const subscription = openIncidentBoardEventStream({
         incidentId,
         accessToken,
         lastEventId: lastReceivedSseEventId,
         onOpen: () => {
           // 최초 조회 또는 재전송 복구 이후, 연결이 열리기 전까지의 변경도 반영한다.
-          if (!cancelled) void queryClient.invalidateQueries({ queryKey });
+          if (!cancelled) void refreshIncidentBoards(queryClient, { incidentId });
         },
         onEvent: (event, meta) => {
           if (cancelled) return;
@@ -130,7 +129,7 @@ export function useSituationBoardData(
             if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
             return;
           }
-          void queryClient.invalidateQueries({ queryKey });
+          void refreshIncidentBoards(queryClient, { incidentId });
           receivedEventIds.add(event.eventId);
           if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
           if (meta.eventType === 'INCIDENT_CLOSED' || meta.eventType === 'INCIDENT_PURGED') {
@@ -141,11 +140,12 @@ export function useSituationBoardData(
         onRefetchRequired: ({ reason }) => {
           if (cancelled) return;
           if (reason === 'gone_refetch_required') lastReceivedSseEventId = null;
-          void queryClient.invalidateQueries({ queryKey });
+          void refreshIncidentBoards(queryClient, { incidentId });
         },
         onError: (error) => {
           if (error instanceof ApiHttpError && (error.status === 401 || error.status === 403)) {
             cancelled = true;
+            void queryClient.cancelQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }), exact: true });
           }
         },
       });
@@ -236,7 +236,7 @@ export function useSituationBoardData(
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
     retryInitialLoad: () => {
-      void boardQuery.refetch();
+      void boardQuery.refetch({ cancelRefetch: false });
     },
   };
 }

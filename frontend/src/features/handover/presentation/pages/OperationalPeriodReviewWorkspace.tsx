@@ -22,7 +22,7 @@ import {
   useIncidentBoardQuery,
   type IncidentBoardResponse,
   type SituationBoardResponseDto,
-  incidentBoardQueryKeys,
+  refreshIncidentBoards,
 } from '../../../board/api/incidentBoardApi';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import { getHandoverIncidentDetail, type HandoverIncidentDetailDto } from '../../data/getHandoverIncidentDetail';
@@ -719,7 +719,7 @@ export function OperationalPeriodReviewWorkspace({
       );
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
-      void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
+      void refreshIncidentBoards(queryClient);
     } catch (error) {
       setCreateOpErrorMessage(getApiErrorMessage(error, '새 OP를 열지 못했습니다.'));
     } finally {

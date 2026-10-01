@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type Query, type QueryClient } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
 import { isBoardMeasurementEnabled, recordBoardMeasurement } from '../model/boardMeasurement';
 
@@ -95,7 +95,7 @@ export interface IncidentBoardQuery {
 }
 
 export interface IncidentBoardApi {
-  fetchIncidentBoard(query: IncidentBoardQuery): Promise<IncidentBoardResponse>;
+  fetchIncidentBoard(query: IncidentBoardQuery, signal?: AbortSignal): Promise<IncidentBoardResponse>;
 }
 
 type IncidentBoardQueryOptions = {
@@ -134,12 +134,12 @@ export const incidentBoardQueryKeys = {
 
 export function createIncidentBoardApi(client: ApiClient = apiClient): IncidentBoardApi {
   return {
-    fetchIncidentBoard: async (query) => {
+    fetchIncidentBoard: async (query, signal) => {
       const path = `/incidents/${requireIncidentId(query.incidentId)}/board`;
       const requestId = isBoardMeasurementEnabled() ? crypto.randomUUID() : null;
       if (requestId) recordBoardMeasurement('board_read_started', { requestId, incidentId: query.incidentId });
       try {
-        const response = await client.get<IncidentBoardResponse>(path, { query: toApiQuery(query) });
+        const response = await client.get<IncidentBoardResponse>(path, { query: toApiQuery(query), signal });
         if (requestId) {
           recordBoardMeasurement('board_read_completed', {
             requestId, incidentId: response.incidentId, boardResponseVersion: response.boardResponseVersion,
@@ -158,6 +158,19 @@ export function createIncidentBoardApi(client: ApiClient = apiClient): IncidentB
 
 export const incidentBoardApi = createIncidentBoardApi();
 
+const pendingBoardRefreshes = new WeakMap<Query, { completion: Promise<void>; followup?: Promise<void> }>();
+
+export function refreshIncidentBoards(queryClient: QueryClient, query?: IncidentBoardQuery): Promise<void> {
+  const queryKey = query ? incidentBoardQueryKeys.detail(query) : incidentBoardQueryKeys.all;
+  // 사용하지 않는 조회는 오래된 상태로만 표시하고, 열린 화면의 조회만 실행한다.
+  void queryClient.invalidateQueries({ queryKey, refetchType: 'none' });
+  const completions = queryClient.getQueryCache().findAll({ queryKey, type: 'active' }).map((boardQuery) =>
+    // 오류는 Query 상태로 화면에 표시한다. 실패 직후 후속 조회를 반복하지 않는다.
+    refreshIncidentBoardQuery(queryClient, boardQuery).catch(() => undefined),
+  );
+  return Promise.all(completions).then(() => undefined);
+}
+
 export function useIncidentBoardQuery(
   query: IncidentBoardQuery,
   api: IncidentBoardApi = incidentBoardApi,
@@ -165,7 +178,7 @@ export function useIncidentBoardQuery(
 ) {
   return useQuery({
     queryKey: incidentBoardQueryKeys.detail(query),
-    queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
+    queryFn: ({ signal }) => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }, signal),
     enabled: Boolean(query.incidentId),
     placeholderData: (previousData) =>
       query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
@@ -177,7 +190,7 @@ export function useIncidentBoardQuery(
 export function useIncidentBoard(query: IncidentBoardQuery, api: IncidentBoardApi = incidentBoardApi) {
   return useQuery({
     queryKey: incidentBoardQueryKeys.detail(query),
-    queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
+    queryFn: ({ signal }) => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }, signal),
     enabled: Boolean(query.incidentId),
     placeholderData: (previousData) =>
       query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
@@ -211,6 +224,31 @@ export function mapIncidentBoardResponse(response: IncidentBoardResponse): Incid
     cursorsBySlot,
     hostRows,
   };
+}
+
+function refreshIncidentBoardQuery(queryClient: QueryClient, boardQuery: Query): Promise<void> {
+  let pending = pendingBoardRefreshes.get(boardQuery);
+  if (!pending) {
+    const alreadyFetching = boardQuery.state.fetchStatus !== 'idle';
+    const completion = queryClient.refetchQueries(
+      { queryKey: boardQuery.queryKey, exact: true, type: 'active' },
+      { cancelRefetch: false, throwOnError: true },
+    ).then(async () => {
+      // 오프라인 보류는 성공이 아니며, 취소를 이전 데이터 복원 성공으로 취급하지 않는다.
+      await boardQuery.promise;
+    });
+    pending = { completion: completion.finally(() => pendingBoardRefreshes.delete(boardQuery)) };
+    pendingBoardRefreshes.set(boardQuery, pending);
+    if (!alreadyFetching) return pending.completion;
+  }
+
+  // 현재 요청 중 받은 여러 변경은 후속 요청 하나로 합친다.
+  // 호출자는 자기 변경을 반영한 조회까지만 기다린다. 이후 변경이 저장 완료를 막지 않는다.
+  pending.followup ??= pending.completion.then(() => {
+    if (!boardQuery.isActive() || queryClient.getQueryCache().get(boardQuery.queryHash) !== boardQuery) return;
+    return refreshIncidentBoardQuery(queryClient, boardQuery);
+  });
+  return pending.followup;
 }
 
 function toApiQuery(query: IncidentBoardQuery): ApiQuery {

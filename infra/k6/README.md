@@ -354,12 +354,16 @@ SQL
 
 ### 서버 단계별 계측
 
-`DatabaseEventPublisher`와 `ServerSentEventJobWorker`의 Lombok `@Slf4j`로 이벤트 ID별 관측 로그를 남긴다. 기본 INFO 설정에서는 계측 로그를 출력하지 않는다. 시험 배포에서 다음 두 클래스만 DEBUG로 설정하면 아래 단계를 기록한다. 기존 INFO·WARN 진단 로그는 유지한다. 아직 Hetzner에 배포하거나 이 설정을 적용하지 않았다.
+`DatabaseEventPublisher`와 `ServerSentEventJobWorker`의 Lombok `@Slf4j`로 이벤트 ID별 관측 로그를 남긴다. 기본 INFO 설정에서는 계측 로그를 출력하지 않는다. 시험 배포에서 다음 두 클래스만 DEBUG로 설정하면 아래 단계를 기록한다. 기존 INFO·WARN 진단 로그는 유지한다.
 
 ```properties
 logging.level.com.surimap.global.event.DatabaseEventPublisher=DEBUG
 logging.level.com.surimap.global.sse.ServerSentEventJobWorker=DEBUG
 ```
+
+Compose 환경에서는 [측정용 override](board-measurement.compose.yml)를 runtime Compose 뒤에 추가한다. 두 클래스의 이름을 logging group으로 묶어 환경변수의 대소문자 제약을 피한다. 적용 전에 병합 설정에서 두 환경변수 외에 바뀌는 값이 없는지 확인하고, `up -d --no-deps --pull never backend`로 Backend만 재생성한다. 실행 중인 시험에는 적용하지 않는다. 측정 후 override 없이 같은 명령을 실행해 DEBUG를 제거한다. 설정 방식은 [Spring Boot logging groups](https://docs.spring.io/spring-boot/3.5/reference/features/logging.html#features.logging.log-groups)를 따른다.
+
+2026-10-01 실제 서버에 계측 코드를 배포하고 이 설정을 적용했다가 원복했다. 쓰기 전 상황판 사전 검사에서 커넥션 풀 대기 오류를 발견해 GPS·마커 쓰기는 시작하지 않았다. 따라서 실제 쓰기의 단계별 로그 연결은 미검증이다.
 
 | `stage` | 기록하는 시점 |
 |---|---|
@@ -428,6 +432,7 @@ node infra/k6/observe-situation-board.cjs --self-check
 
 - `browser-measurements.jsonl`: 허용한 단계·식별자·시각만 저장한다. 좌표·토큰·본문은 제외한다.
 - `ready.json`: 현재 페이지의 조회·지도 관측과 SSE 연결 2개를 확인한 시점이다. 이후에도 정상이라는 보장은 아니다.
+- `board-before.png`, `board-after.png`: 준비 완료 뒤와 종료 전의 상황판 화면이다. 준비 실패·브라우저 무응답이면 생성되지 않을 수 있다. 화면의 인물·위치 정보가 포함될 수 있으므로 원본을 바로 공개하지 않는다.
 - `result.json`: 기록 완료는 `COLLECTED`, 조회·수집 실패·관찰 중 페이지 이동·SSE 연결 종료는 `FAILED`다. 새 경로·마커 반영을 검증한 `PASS`가 아니며 `newDataVerified`는 `false`다.
 
 준비 제한 45초는 기존 로그인 검증 도구의 대기 한도이고 제품 지연 기준이 아니다. 미저장 기록이 1,024개 쌓이면 조용히 버리지 않고 실패로 중단한다. 이 수치도 서버 용량 기준이 아닌 수집기 메모리 보호 한도다. 파일 쓰기 비용을 포함하므로 비교할 때 같은 수집 설정을 유지한다.
@@ -466,7 +471,7 @@ node infra/k6/observe-situation-board.cjs \
   ACCOUNT.json _workspace/board-run-new 300 OPS_SSH_ALIAS NEW_RUN_ID APP_SSH_ALIAS_ON_OPS
 ```
 
-- Ops의 같은 디렉터리에 `situation-board-write-load.js`, `prepare-situation-board-marker-fixtures.py`, `prepare-situation-board-account.py`, `prepare-search-path-batch-fixtures.py`도 둔다. App에는 두 준비 도구 `prepare-situation-board-account.py`·`prepare-search-path-batch-fixtures.py`를 `/srv/apps/suri-map/infra/k6/`에 둔다. Ops→App의 비대화형 SSH가 필요하다.
+- Ops의 같은 디렉터리에 `situation-board-write-load.js`, `prepare-situation-board-marker-fixtures.py`, `prepare-situation-board-account.py`, `prepare-search-path-batch-fixtures.py`도 둔다. App의 안전 검사는 아래 제한된 SSH 경로를 사용한다. Ops→App의 비대화형 SSH가 필요하다.
 - [situation-board-write-load.js](situation-board-write-load.js)는 기존 GPS 함수를 재사용하고 사진 없는 지원 요청을 10초마다 추가한다. 첫 업무폰의 GPS 시험 좌표를 사용한다. 마커 생성 ID·멱등성 키는 실행 전에 파일로 남기며 생성 응답의 ID·사건·차수·업무폰·버전 1·사진 없음이 일치해야 한다.
 - 두 종류의 쓰기는 k6의 [여러 시나리오](https://grafana.com/docs/k6/latest/using-k6/scenarios/)로 함께 실행한다. 마커는 [constant-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate/) 1회/10초, VU 1개다. 빈도는 프로젝트 합의이지 k6 권장값이 아니다. 5분의 마지막 시점에 31번째 요청을 예약하지 않도록 마커 예약 종료만 1ms 앞당긴다. GPS 측정 시간은 그대로이며 이는 서비스 지연 기준이 아니다.
 - 각 마커 요청 전에 Ops loopback의 일회성 승인 창구가 App의 `check-marker-safety`를 SSH로 실행한다. 첫 검사와 같은 Backend인지, 기존 mock FCM·활성 토큰 0개·열린 사건/차수인지 확인한다. 실패·검사 불가·중복 승인이면 마커를 보내지 않고 두 쓰기를 중단한다. 이 창구는 시험 중에만 존재하며 제품 API를 추가하지 않는다.
@@ -481,6 +486,20 @@ node infra/k6/observe-situation-board.cjs \
 로컬 SSH 프로세스 종료만으로 성공 처리하지 않는다. Ops의 `containerStopped: true` 결과를 확인할 수 없으면 `remote_writer_stop_unconfirmed`로 남기고 실제 컨테이너를 확인해야 한다. 시험 생성 컨테이너는 종료 확인 후 제거하며 DB 기록·결과 파일은 자동 삭제하지 않는다. GPS·마커는 같은 컨테이너에서 함께 중단한다. 모의 상황판 발생기는 아직 연결하지 않았다.
 
 Ops 결과는 `/srv/ops/k6/results/board-<RUN_ID>/`의 `write-requests.jsonl`, `k6.log`, `writer-result.json`에 남는다. 마커 모드에서는 정리에 필요한 `marker-fixture.json`과 전송 전 검사 결과 `marker-safety.jsonl`도 보존한다. 디렉터리는 `700`, 파일은 `600`으로 제한한다. `COLLECTED`는 도구 실행·기록 완료이며 지도 반영 성공 판정이 아니다.
+
+### 안전 검사 전용 SSH
+
+Ops의 `suri-map-board-check` 별칭을 위 `APP_SSH_ALIAS_ON_OPS`로 사용한다. 이 키로는 안전 검사만 실행할 수 있으며 계정 준비·정리나 파일 복사는 할 수 없다.
+
+- 개인키는 Ops의 `/root/.ssh/suri-map-board-check`에만 둔다(권한 `600`). 기존 관리자·Jenkins 키를 재사용하거나 복사하지 않는다.
+- App의 `authorized_keys`에는 이 키에만 `from="178.105.112.254"`, `restrict`, 고정 `command`를 적용한다. [OpenSSH의 키별 제한](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT)으로 Ops IP 제한, PTY·포트·agent·X11 전달과 사용자 rc 실행 금지를 설정한다. SSH 데몬의 공용 설정은 바꾸지 않는다.
+- 강제 명령은 `/usr/bin/python3 -I /usr/local/libexec/suri-map-board-check/prepare-situation-board-account.py ssh-check-marker-safety`다. 디렉터리는 root 소유 `700`, 두 Python 준비 도구는 root 소유 `600`으로 두며 Jenkins의 소스 동기화와 분리한다. 변경 시 관리자가 소스 해시와 검증 결과를 대조해 설치한다.
+- 실행기가 보내는 기존 명령 문자열과 선택적 `--expected-backend`만 검사한다. 문자열에 적힌 `/srv/apps/suri-map/infra/k6/` 경로를 실행하거나 셸로 평가하지 않는다. 실제 실행은 위 root 전용 복사본의 안전 검사 함수다.
+- Ops는 기존 관리용 SSH로 확인한 App 호스트 공개키를 전용 `known_hosts` 파일에 고정하고 `StrictHostKeyChecking=yes`, `IdentitiesOnly=yes`를 사용한다. 처음 보는 호스트 키를 자동 승인하지 않는다.
+
+자체 검사는 `python3 -I infra/k6/prepare-situation-board-account.py self-check`로 실행한다. 실제 SSH 검증은 정상 검사·같은 Backend 확인·다른 Backend 거부와 일반 명령·추가 인자·SFTP·PTY·포트 전달 차단을 구분한다. 안전 검사 성공은 GPS·마커 쓰기나 지도 반영 시험 성공이 아니다.
+
+시험을 끝내고 이 접속이 더 필요 없으면 App에서 `surimap-board-marker-safety` 키의 지문을 대조해 해당 한 줄만 제거한다. 그다음 Ops의 전용 키·공개키·known_hosts와 해당 Host 블록을 정리한다. 다른 키 변경을 덮을 수 있으므로 예전 `authorized_keys` 백업 전체를 그대로 복원하지 않는다.
 
 ### 요청과 지도 관측 기록 대조
 

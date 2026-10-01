@@ -1,0 +1,6 @@
+# Apply only while measuring; omit this override to restore normal logging.
+services:
+  backend:
+    environment:
+      LOGGING_GROUP_BOARDMEASUREMENT: com.surimap.global.event.DatabaseEventPublisher,com.surimap.global.sse.ServerSentEventJobWorker
+      LOGGING_LEVEL_BOARDMEASUREMENT: DEBUG
