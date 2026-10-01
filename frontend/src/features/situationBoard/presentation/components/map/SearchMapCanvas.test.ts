@@ -18,6 +18,102 @@ import {
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
 
+test('누적 경로는 표시 여부만 확인하고 이번 시험의 새 GPS와 마커만 좌표를 검사한다', async () => {
+  // given: 과거 구간 1,000개와 기존 마커를 지도에 전달한 뒤 시험 대상을 등록한다.
+  const listeners = new Map<string, () => void>();
+  const records: Array<Record<string, unknown>> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent) records.push(event.detail);
+  };
+  let rendered: Array<{ source: string; properties: Record<string, unknown> | null }> = [];
+  const query = vi.fn(() => rendered);
+  const map = {
+    on: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    once: vi.fn((name: string, listener: () => void) => listeners.set(name, listener)),
+    off: vi.fn(),
+    getLayer: vi.fn(() => ({})),
+    queryRenderedFeatures: query,
+    getCanvas: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
+    project: vi.fn(() => ({ x: 400, y: 300 })),
+  } as unknown as maplibregl.Map;
+  const source = 'operational-movement-path';
+  const coordinates: Array<[number, number]> = Array.from({ length: 6 }, (_, i) => [126 + i * 0.001, 35]);
+  const data: BoardMapFeatureCollection = {
+    type: 'FeatureCollection',
+    features: Array.from({ length: 1000 }, (_, i) => ({
+      type: 'Feature',
+      properties: { entityId: `segment-${i}`, searchPathId: 'test-path', searchPathVersion: '1' },
+      geometry: { type: 'LineString', coordinates },
+    })),
+  };
+  const submit = (collection: BoardMapFeatureCollection, sourceId = source) => {
+    const measured = measureBoardMapUpdate(map, sourceId, ['layer'], collection);
+    rendered = measured.features.map((feature) => ({ source: sourceId, properties: feature.properties }));
+    listeners.get('render')?.();
+  };
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    submit(data);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(records.some((r) => r.stage === 'map_features_rendered')).toBe(true);
+    expect(records.some((r) => r.stage === 'map_coordinates_checked')).toBe(false);
+    Object.assign(window, {
+      __SURI_MAP_COORDINATE_CHECK_TARGETS__: {
+        searchPathIds: new Set(['test-path']),
+        markerIds: new Set(['new-marker']),
+      },
+    });
+    query.mockClear();
+
+    // when: 경로 버전만 변경된 과거 구간과 새 좌표·다른 업무폰의 구간을 함께 받는다.
+    const updated: BoardMapFeatureCollection = {
+      ...data,
+      features: data.features.map((f) => ({
+        ...f,
+        properties: { ...f.properties, searchPathVersion: '2' },
+      })),
+    };
+    updated.features[0] = {
+      ...updated.features[0],
+      geometry: { type: 'LineString', coordinates: coordinates.map(([x, y]) => [x + 0.1, y]) },
+    };
+    updated.features.push({
+      ...data.features[0],
+      properties: { entityId: 'other-segment', searchPathId: 'other-path' },
+    });
+    submit(updated);
+    const markers: BoardMapFeatureCollection = {
+      type: 'FeatureCollection',
+      features: ['old-marker', 'new-marker'].map((id) => ({
+        type: 'Feature',
+        properties: { id, version: '1' },
+        geometry: { type: 'Point', coordinates: [126, 35] },
+      })),
+    };
+    submit(markers, 'operational-marker');
+    await vi.waitFor(() => expect(records.filter((r) => r.stage === 'map_coordinates_checked')).toHaveLength(2));
+
+    // then: 새 GPS 6개와 시험 마커 1개만 검사하고, 같은 응답을 다시 받아도 중복 검사하지 않는다.
+    expect(query).toHaveBeenCalledTimes(9); // source 조회 2회 + 좌표 7개
+    expect(
+      records
+        .filter((r) => r.stage === 'map_coordinates_checked')
+        .map((r) => r.entityId)
+        .sort(),
+    ).toEqual(['new-marker', 'segment-0']);
+    submit(updated);
+    submit(markers, 'operational-marker');
+    expect(query).toHaveBeenCalledTimes(11);
+    expect(records.filter((r) => r.stage === 'map_coordinates_checked')).toHaveLength(2);
+  } finally {
+    listeners.get('remove')?.();
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    Reflect.deleteProperty(window, '__SURI_MAP_COORDINATE_CHECK_TARGETS__');
+    window.removeEventListener('suri-map:board-measurement', collect);
+  }
+});
+
 test('계측을 켜도 이전 도형을 새 갱신의 렌더링으로 기록하지 않고 미관측 갱신을 구분한다', () => {
   // given: 실제 WebGL 대신 렌더링 이벤트와 조회 결과를 제어한다.
   const listeners = new Map<string, () => void>();
@@ -162,13 +258,19 @@ test('경로 일부가 보여도 새 좌표가 화면 밖이거나 해당 위치
     ],
   };
   window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.__SURI_MAP_COORDINATE_CHECK_TARGETS__ = { searchPathIds: new Set(['path-1']), markerIds: new Set() };
   window.addEventListener('suri-map:board-measurement', collect);
   try {
     // when: 정상, 화면 밖, 해당 좌표에서 도형 미관측을 같은 경로 ID로 각각 확인한다.
     for (const mode of ['visible', 'outside', 'old-part-only']) {
       offscreen = mode === 'outside';
       matchingPixels = mode !== 'old-part-only';
-      const measured = measureBoardMapUpdate(map, source, ['path-layer'], data);
+      const measured = measureBoardMapUpdate(map, source, ['path-layer'], {
+        ...data,
+        features: [
+          { ...data.features[0], properties: { ...data.features[0].properties, entityId: `segment-${mode}` } },
+        ],
+      });
       properties = measured.features[0].properties;
       listeners.get('render')?.();
       await vi.waitFor(() =>
@@ -206,6 +308,7 @@ test('경로 일부가 보여도 새 좌표가 화면 밖이거나 해당 위치
   } finally {
     listeners.get('remove')?.();
     delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    delete window.__SURI_MAP_COORDINATE_CHECK_TARGETS__;
     window.removeEventListener('suri-map:board-measurement', collect);
     vi.unstubAllGlobals();
   }

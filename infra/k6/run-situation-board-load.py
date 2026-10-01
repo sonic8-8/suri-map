@@ -88,6 +88,31 @@ def docker(*args, timeout=15):
     ).stdout.strip()
 
 
+def coordinate_check_targets(requesters, markers):
+    # Only identifiers leave Ops. Never forward fixture access tokens or accounts.
+    path_ids = [row["pathId"] for row in requesters[:468]]
+    marker_ids = [row["id"] for row in markers]
+    if (len(path_ids) != 468 or len(set(path_ids)) != 468
+            or len(set(marker_ids)) != len(marker_ids)
+            or any(not isinstance(value, str) or not re.fullmatch(r"[a-f0-9-]{36}", value)
+                   for value in path_ids + marker_ids)):
+        raise RuntimeError("invalid_coordinate_check_targets")
+    return {"searchPathIds": path_ids, "markerIds": marker_ids}
+
+
+def wait_for_coordinate_targets(fd, timeout=45):
+    pending = b""
+    deadline = time.monotonic() + timeout
+    while b"\n" not in pending:
+        pending += read_permission(fd, deadline - time.monotonic())
+        if len(pending) > 4096:
+            raise RuntimeError("invalid_browser_permission")
+    first, pending = pending.split(b"\n", 1)
+    if first != b"TARGETS_READY":
+        raise RuntimeError("coordinate_targets_not_ready")
+    return pending
+
+
 def check_marker_safety(app_host, expected_backend=None):
     command = "python3 /srv/apps/suri-map/infra/k6/prepare-situation-board-account.py check-marker-safety"
     if expected_backend:
@@ -172,6 +197,7 @@ def run(run_id, seconds, app_host=None):
             raise RuntimeError("writer_container_already_exists")
         extra = []
         script = "search-path-batch-load.js"
+        fixture = {"markers": []}
         if app_host:
             spec = importlib.util.spec_from_file_location("marker_fixtures", Path(__file__).with_name("prepare-situation-board-marker-fixtures.py"))
             fixtures = importlib.util.module_from_spec(spec)
@@ -218,6 +244,13 @@ def run(run_id, seconds, app_host=None):
             raise RuntimeError("invalid_container_identity")
         result["containerId"] = container_id
         result["containerStopped"] = False
+        with (ROOT / "secrets" / "path-append-requester-fixtures.json").open() as file:
+            targets = coordinate_check_targets(json.load(file), fixture["markers"])
+        print(json.dumps({"stage": "coordinate_check_targets", "runId": run_id, **targets}), flush=True)
+        # No workload starts until the exact page has installed the target identifiers.
+        if pending:
+            raise RuntimeError("coordinate_targets_not_ready")
+        pending = wait_for_coordinate_targets(sys.stdin.fileno())
         with (output / "k6.log").open("x") as log:
             permission_deadline, pending = fresh_permission(sys.stdin.fileno(), pending)
             docker("start", container_id, timeout=LEASE_SECONDS)
@@ -248,6 +281,7 @@ def run(run_id, seconds, app_host=None):
             "browser_requested_stop", "write_scenario_failed", "start_permission_missing",
             "writer_container_already_exists", "invalid_container_identity", "container_stop_unconfirmed",
             "controller_interrupted", "marker_safety_check_failed",
+            "invalid_coordinate_check_targets", "coordinate_targets_not_ready",
         }
         result["failure"] = str(error) if str(error) in known_failures else "writer_or_control_failed"
         result["errorType"] = type(error).__name__
@@ -304,6 +338,21 @@ def run(run_id, seconds, app_host=None):
 
 
 def self_check():
+    requesters = [{"pathId": str(uuid.uuid4()), "accessToken": "SECRET"} for _ in range(468)]
+    targets = coordinate_check_targets(requesters, [{"id": str(uuid.uuid4())}])
+    assert len(targets["searchPathIds"]) == 468 and "SECRET" not in json.dumps(targets)
+    for message, allowed in ((b"TARGETS_READY\nCONTINUE\n", True), (b"CONTINUE\n", False), (b"STOP\n", False), (b"", False)):
+        read_fd, write_fd = os.pipe()
+        try:
+            os.write(write_fd, message)
+            try:
+                pending = wait_for_coordinate_targets(read_fd, timeout=0.02)
+                assert allowed and pending == b"CONTINUE\n"
+            except RuntimeError:
+                assert not allowed
+        finally:
+            os.close(read_fd)
+            os.close(write_fd)
     for initial, fresh, allowed in ((b"", b"CONTINUE\nSTOP\n", False), (b"CONT", b"INUE\nCONTINUE\n", True)):
         read_fd, write_fd = os.pipe()
         os.write(write_fd, initial)

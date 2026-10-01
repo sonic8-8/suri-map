@@ -5,6 +5,11 @@ declare global {
   interface Window {
     __SURI_MAP_MEASUREMENT_ENABLED__?: boolean;
     __SURI_MAP_COORDINATE_CHECKS_PENDING__?: number;
+    __SURI_MAP_COORDINATE_CHECK_SCOPE__?: 'test-writes';
+    __SURI_MAP_COORDINATE_CHECK_TARGETS__?: {
+      searchPathIds: Set<string>;
+      markerIds: Set<string>;
+    };
   }
 }
 
@@ -26,10 +31,11 @@ type PendingMapUpdate = {
   updateId: string;
   layerIds: string[];
   remainingIds: Set<string>;
-  features: Map<string, Feature>;
+  coordinateChecks: Map<string, { feature: Feature; coordinateSignature: string }>;
 };
 
 const pendingMapUpdates = new WeakMap<MapLibreMap, Map<string, PendingMapUpdate>>();
+const knownCoordinateSignatures = new WeakMap<MapLibreMap, Map<string, string>>();
 const revisionProperty = '__boardMeasurementUpdateId';
 
 // 지도에 전달한 이전 데이터와 새 데이터를 구분한다. 좌표와 API 데이터는 변경하지 않는다.
@@ -40,8 +46,11 @@ export function measureBoardMapUpdate(
   data: FeatureCollection,
 ): FeatureCollection {
   if (!isBoardMeasurementEnabled()) return data;
+  window.__SURI_MAP_COORDINATE_CHECK_SCOPE__ = 'test-writes';
   const existingUpdates = pendingMapUpdates.get(map);
   const updates = existingUpdates ?? new Map<string, PendingMapUpdate>();
+  const coordinateSignatures = knownCoordinateSignatures.get(map) ?? new Map<string, string>();
+  knownCoordinateSignatures.set(map, coordinateSignatures);
   if (!existingUpdates) {
     pendingMapUpdates.set(map, updates);
     const observeRenderedFeatures = () => {
@@ -58,8 +67,12 @@ export function measureBoardMapUpdate(
           const id = feature.properties?.entityId ?? feature.properties?.id;
           if (typeof id === 'string' && update.remainingIds.delete(id)) {
             observedIds.add(id);
-            const submitted = update.features.get(id);
-            if (submitted) recordRenderedCoordinates(map, source, layers, update.updateId, id, submitted);
+            const submitted = update.coordinateChecks.get(id);
+            if (submitted) {
+              // ponytail: 새 좌표도 render에서 동기 검사한다. 대량 신규 입력에서 지연이 재현되면 분할한다.
+              recordRenderedCoordinates(map, source, layers, update.updateId, id, submitted.feature);
+              coordinateSignatures.set(`${source}:${id}`, submitted.coordinateSignature);
+            }
           }
         }
         if (observedIds.size > 0) {
@@ -96,6 +109,7 @@ export function measureBoardMapUpdate(
       map.off('render', observeRenderedFeatures);
       map.off('idle', finishUnobservedUpdates);
       pendingMapUpdates.delete(map);
+      knownCoordinateSignatures.delete(map);
     });
   }
   const previous = updates.get(sourceId);
@@ -111,12 +125,29 @@ export function measureBoardMapUpdate(
     const id = feature.properties?.entityId ?? feature.properties?.id;
     return typeof id === 'string' ? [id] : [];
   });
-  const features = new Map<string, Feature>();
+  const coordinateChecks: PendingMapUpdate['coordinateChecks'] = new Map();
+  const targets = window.__SURI_MAP_COORDINATE_CHECK_TARGETS__;
   for (const feature of data.features) {
     const id = feature.properties?.entityId ?? feature.properties?.id;
-    if (typeof id === 'string') features.set(id, feature);
+    const coordinates = getMeasuredCoordinates(sourceId, feature);
+    if (typeof id !== 'string' || !coordinates) continue;
+    const coordinateSignature = JSON.stringify(coordinates);
+    const key = `${sourceId}:${id}`;
+    // 전송을 허용하기 전의 자료는 기준값이다. 표시 확인은 아래 전체 entityIds로 유지한다.
+    if (!targets) {
+      coordinateSignatures.set(key, coordinateSignature);
+      continue;
+    }
+    const searchPathId = feature.properties?.searchPathId;
+    const isTarget =
+      sourceId === 'operational-movement-path'
+        ? typeof searchPathId === 'string' && targets.searchPathIds.has(searchPathId)
+        : targets.markerIds.has(id);
+    if (isTarget && coordinateSignatures.get(key) !== coordinateSignature) {
+      coordinateChecks.set(id, { feature, coordinateSignature });
+    }
   }
-  updates.set(sourceId, { updateId, layerIds, remainingIds: new Set(entityIds), features });
+  updates.set(sourceId, { updateId, layerIds, remainingIds: new Set(entityIds), coordinateChecks });
   const entities = data.features.flatMap((feature) => {
     const properties = feature.properties;
     const id = properties?.entityId ?? properties?.id;
@@ -161,14 +192,8 @@ function recordRenderedCoordinates(
   entityId: string,
   feature: Feature,
 ) {
-  const geometry = feature.geometry;
-  let coordinates: number[][];
-  if (sourceId === 'operational-movement-path' && geometry.type === 'LineString' && geometry.coordinates.length >= 6) {
-    coordinates = geometry.coordinates.slice(-6);
-  } else if (sourceId === 'operational-marker' && geometry.type === 'Point') {
-    coordinates = [geometry.coordinates];
-  } else return;
-  if (coordinates.some((point) => point.length !== 2 || point.some((value) => !Number.isFinite(value)))) return;
+  const coordinates = getMeasuredCoordinates(sourceId, feature);
+  if (!coordinates) return;
 
   const canvas = map.getCanvas();
   const pixels = coordinates.map(([longitude, latitude]) => map.project([longitude, latitude]));
@@ -209,4 +234,16 @@ function recordRenderedCoordinates(
     .finally(() => {
       window.__SURI_MAP_COORDINATE_CHECKS_PENDING__ = (window.__SURI_MAP_COORDINATE_CHECKS_PENDING__ ?? 1) - 1;
     });
+}
+
+function getMeasuredCoordinates(sourceId: string, feature: Feature): number[][] | null {
+  const geometry = feature.geometry;
+  let coordinates: number[][];
+  if (sourceId === 'operational-movement-path' && geometry.type === 'LineString' && geometry.coordinates.length >= 6) {
+    coordinates = geometry.coordinates.slice(-6);
+  } else if (sourceId === 'operational-marker' && geometry.type === 'Point') {
+    coordinates = [geometry.coordinates];
+  } else return null;
+  if (coordinates.some((point) => point.length !== 2 || point.some((value) => !Number.isFinite(value)))) return null;
+  return coordinates;
 }
