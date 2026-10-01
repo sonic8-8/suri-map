@@ -4,14 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import jdk.jfr.Recording;
+import jdk.jfr.consumer.RecordingFile;
+import org.apache.ibatis.reflection.factory.DefaultObjectFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -290,8 +296,10 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("GPS 측정값을 저장하면 수집 순서와 원본 값을 유지한다")
-  void insertAndFindGpsPointsPreservesMeasurements() {
+  @DisplayName("GPS 조회는 생성자 접근 예외 없이 수집 순서와 원본 값을 유지한다")
+  void saved_gps_points_are_read_without_constructor_access_exceptions(
+      @TempDir Path temporaryDirectory) throws IOException {
+    // given: 수집 순서가 있는 좌표와 정확도가 없는 좌표를 실제 DB에 저장한다.
     SearchPath path =
         SearchPath.builder()
             .id(PATH_ID)
@@ -316,7 +324,45 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
 
     searchPathMapper.insertGpsPoints(PATH_ID, 0, points, STARTED_AT);
 
-    List<GpsPoint> found = searchPathMapper.findGpsPointsByPathId(PATH_ID);
+    // when: 기본 MyBatis의 예외 1건을 대조군으로 기록하고 실제 Mapper로 조회한다.
+    Path recordingPath = temporaryDirectory.resolve("gps-query.jfr");
+    long threadId = Thread.currentThread().getId();
+    List<GpsPoint> found;
+    try (Recording recording = new Recording()) {
+      recording.enable("jdk.JavaExceptionThrow").withStackTrace();
+      recording.start();
+      new DefaultObjectFactory().create(GpsPoint.class);
+      found = searchPathMapper.findGpsPointsByPathId(PATH_ID);
+      recording.stop();
+      recording.dump(recordingPath);
+    }
+
+    // then: 대조군 외에 생성자 접근 예외가 없고 저장한 순서와 측정값을 보존한다.
+    long constructorAccessExceptions =
+        RecordingFile.readAllEvents(recordingPath).stream()
+            .filter(event -> event.getEventType().getName().equals("jdk.JavaExceptionThrow"))
+            .filter(event -> event.getThread().getJavaThreadId() == threadId)
+            .filter(
+                event ->
+                    event
+                        .getClass("thrownClass")
+                        .getName()
+                        .equals("java.lang.IllegalAccessException"))
+            .filter(
+                event ->
+                    event.getStackTrace() != null
+                        && event.getStackTrace().getFrames().stream()
+                            .anyMatch(
+                                frame ->
+                                    frame
+                                        .getMethod()
+                                        .getType()
+                                        .getName()
+                                        .equals("java.lang.reflect.Constructor")))
+            .count();
+    assertThat(constructorAccessExceptions)
+        .as("기본 MyBatis 대조군의 1건 외에 실제 조회에서 발생한 생성자 접근 예외")
+        .isEqualTo(1);
     assertThat(found).hasSize(2);
     assertGpsPoint(found.get(0), points.get(0));
     assertGpsPoint(found.get(1), points.get(1));

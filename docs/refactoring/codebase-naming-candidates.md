@@ -214,6 +214,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 후보 | 확인한 차이 |
 |---|---|
+| [SearchPathMapperTest](../../backend/src/test/java/com/surimap/domain/path/SearchPathMapperTest.java)의 `findPathsFiltersByIncidentOpPolicePhoneAndAccount` | 2026-10-02 확인: 실제 조회 조건은 사건·차수·계정이며 이름의 PolicePhone 조건은 없다. 해당 테스트 정리 때 실제 검증 조건·밑줄 메서드명으로 맞추고, 클래스의 영문 DisplayName도 기존 규칙에 맞춰 제거한다. 이번에는 후보만 등록했다. |
 | [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것 |
 | [GeometryPolicy.s2HarnessDefault](../../backend/src/main/java/com/surimap/maparea/geometry/policy/GeometryPolicy.java) | 운영 검증 설정에서도 쓰는 값에 Spec 번호·시험용 기본값 이름이 남음. 적용 범위 확인 |
 | [DefaultIncidentBoardSourceRowCollector](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `geometryHash`·`latestEventId` 생성 | 좌표 해시·실제 이벤트 조회로 오해할 수 있으나 ID·상태·버전으로 값을 만듦. 공개 필드 호환성과 실제 추적 요구를 함께 검토 |
