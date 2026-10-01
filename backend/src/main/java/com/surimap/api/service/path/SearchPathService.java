@@ -69,13 +69,16 @@ public class SearchPathService {
     this.idempotentResponseCache = idempotentResponseCache;
   }
 
+  // 기존 fetch-size 설정으로 JDBC 결과를 나눠 받도록 읽기 동안 트랜잭션을 유지한다.
+  @Transactional(readOnly = true)
   public List<SearchPath> findAll() {
-    return searchPathMapper.findAllPaths().stream().map(this::loadSearchPathDetails).toList();
+    return searchPathMapper.findAllPaths().stream().map(this::assignSegmentPointRanges).toList();
   }
 
+  @Transactional(readOnly = true)
   public List<SearchPath> findByQuery(UUID incidentId, UUID opId, UUID accountId) {
     return searchPathMapper.findPaths(incidentId, opId, accountId).stream()
-        .map(this::loadSearchPathDetails)
+        .map(this::assignSegmentPointRanges)
         .toList();
   }
 
@@ -208,6 +211,7 @@ public class SearchPathService {
         response.getVersion());
   }
 
+  @Transactional(readOnly = true)
   public SearchPathQueryServiceResponse query(SearchPathQueryServiceRequest request) {
     List<SearchPathQueryRowServiceResponse> rows =
         findByQuery(request.getIncidentId(), request.getOpId(), request.getAccountId()).stream()
@@ -502,15 +506,9 @@ public class SearchPathService {
     return List.copyOf(persistedSegments);
   }
 
-  private SearchPath loadSearchPathDetails(SearchPath record) {
-    List<GpsPoint> points = searchPathMapper.findGpsPointsByPathId(record.getId());
-    List<SearchPathSegment> segments =
-        segmentsFrom(searchPathMapper.findSegmentsByPathId(record.getId()), points);
-    List<SearchPathExcludedPoint> excludedPoints = excludedPointsFrom(record.getId());
+  private SearchPath assignSegmentPointRanges(SearchPath record) {
     return record.toBuilder()
-        .points(points)
-        .excludedPoints(excludedPoints)
-        .segments(segments)
+        .segments(segmentsFrom(record.getSegments(), record.getPoints()))
         .build();
   }
 
@@ -536,10 +534,6 @@ public class SearchPathService {
     if (!persistedPoints.isEmpty()) {
       searchPathMapper.insertExcludedPoints(persistedPoints);
     }
-  }
-
-  private List<SearchPathExcludedPoint> excludedPointsFrom(UUID pathId) {
-    return searchPathMapper.findExcludedPointsByPathId(pathId);
   }
 
   private List<SearchPathSegment> segmentsFrom(
