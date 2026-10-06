@@ -23,6 +23,8 @@ public class SearchPathSegment {
   private UUID correctedByAccountId;
   private OffsetDateTime correctedAt;
   private long version = 1L;
+  // 기존 구간은 전환 시점의 경로 버전, 이후에는 실제 추가·보정이 확정된 경로 버전이다.
+  private Long lastChangedPathVersion;
   private Instant createdAt;
   private Instant updatedAt;
   private int startIndex = -1;
@@ -42,6 +44,7 @@ public class SearchPathSegment {
       UUID correctedByAccountId,
       OffsetDateTime correctedAt,
       Long version,
+      Long lastChangedPathVersion,
       Instant createdAt,
       Instant updatedAt,
       Integer startIndex,
@@ -58,6 +61,7 @@ public class SearchPathSegment {
     this.correctedByAccountId = correctedByAccountId;
     this.correctedAt = correctedAt;
     this.version = version == null ? 1L : version;
+    this.lastChangedPathVersion = lastChangedPathVersion;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.startIndex = startIndex == null ? -1 : startIndex;
@@ -81,5 +85,9 @@ public class SearchPathSegment {
     this.correctedByAccountId = correctedByAccountId;
     this.correctedAt = correctedAt;
     this.version += 1L;
+  }
+
+  public void recordPathChange(long pathVersion) {
+    this.lastChangedPathVersion = pathVersion;
   }
 }

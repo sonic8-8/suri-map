@@ -40,6 +40,7 @@ export function useSituationBoardPageState({
     isOverallSearchAreaMissing,
     retryInitialLoad,
     syncStatus,
+    pathLoading,
   } = useSituationBoardData(incidentId, savedAreaDrafts, refreshVersion + areaRefreshVersion);
   const incidentDetail = useIncidentDetail(incidentId);
   const workspaceMode = useBoardWorkspaceMode({
@@ -70,6 +71,7 @@ export function useSituationBoardPageState({
 
   return {
     activeOperationalPeriodId,
+    pathLoading,
     apiBoard,
     areaEditMapProps: workspaceMode.areaEditMapProps,
     board,

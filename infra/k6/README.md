@@ -18,6 +18,8 @@
 
 Fixture는 App 서버에서 준비한다.
 
+`--prepopulated-path-duration`으로 기존 경로를 채울 때는 구간의 GPS 순번과 변경 경로 버전도 저장한다. 현재 준비 스크립트는 `V20261006_001` 이후 schema가 필요하다. 아직 해당 migration을 적용하지 않은 서버에서 새 스크립트를 먼저 실행하지 않는다. 실제 데이터 보완·서버 전환은 [경로 저장 준비](../../docs/features/search-path.md#좌표-저장과-도형-조립)를 따른다.
+
 ```bash
 python3 prepare-search-path-batch-fixtures.py
 ```

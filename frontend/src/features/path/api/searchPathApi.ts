@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
+import { refreshSearchPathPages } from './searchPathPagesApi';
 
 export interface SearchPathListQuery {
   incidentId: string;
@@ -196,6 +197,7 @@ export function useCorrectSearchPathSegmentMutation(api: SearchPathApi = searchP
       api.correctSegment(searchPathSegmentId, request, idempotencyKey),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: searchPathQueryKeys.all });
+      refreshSearchPathPages(queryClient);
     },
   });
 }
@@ -205,8 +207,9 @@ export function useCreateManualSearchPathMutation(api: SearchPathApi = searchPat
   return useMutation({
     mutationFn: ({ request, idempotencyKey }: CreateManualSearchPathMutationVariables) =>
       api.createManualPath(request, idempotencyKey),
-    onSuccess: () => {
+    onSuccess: (_response, { request }) => {
       void queryClient.invalidateQueries({ queryKey: searchPathQueryKeys.all });
+      refreshSearchPathPages(queryClient, request.incidentId);
     },
   });
 }

@@ -40,6 +40,7 @@ type DashboardMapShellProps = {
   selectedSearchAreaLegendFilters: SearchAreaLegendFilterId[];
   selectedSupportRequestTypes: SupportRequestTypeId[];
   movementPaths: MovementPath[];
+  pathLoading?: boolean;
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
@@ -77,6 +78,7 @@ export function DashboardMapShell({
   selectedSearchAreaLegendFilters,
   selectedSupportRequestTypes,
   movementPaths,
+  pathLoading = false,
   recentMarkers,
   operationalPeriods,
   focusedMarkerId,
@@ -188,6 +190,7 @@ export function DashboardMapShell({
           incidentId={incidentId}
           layerVisibility={layerVisibility}
           movementPaths={movementPaths}
+          pathLoading={pathLoading}
           recentMarkers={recentMarkers}
           operationalPeriods={operationalPeriods}
           focusedMarkerId={focusedMarkerId}

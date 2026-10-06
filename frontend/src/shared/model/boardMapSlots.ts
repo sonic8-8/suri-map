@@ -24,7 +24,7 @@ export type BoardMovementPath = {
   id: string;
   // id는 표시 구간 ID일 수 있다. 조회 원본의 경로 ID·버전과 구분한다.
   searchPathId?: string | null;
-  searchPathVersion?: number | null;
+  searchPathVersion?: number | string | null;
   accountId: string;
   freshnessStatus: BoardPolicePhoneFreshnessStatus;
   routeColor: string | null;
@@ -77,7 +77,7 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
           {
             id: readString(segment, 'id') ?? readString(segment, 'segmentId') ?? `${rowId}:segment-${segmentIndex + 1}`,
             searchPathId: readString(row, 'id') ?? readString(row, 'pathId'),
-            searchPathVersion: readNumber(row, 'version'),
+            searchPathVersion: readString(row, 'version') ?? readNumber(row, 'version'),
             accountId,
             freshnessStatus: freshnessStatusByAccountId.get(accountId)?.status ?? 'UNKNOWN',
             routeColor: null,
@@ -123,6 +123,11 @@ function readConnectedSegmentCoordinates(
   const coordinates = readLineStringCoordinates(segments[segmentIndex]);
   if (!coordinates) return null;
   if (segmentIndex === 0) return coordinates;
+
+  const start = readNumber(segments[segmentIndex], 'startPointOrder');
+  const previousEnd = readNumber(segments[segmentIndex - 1], 'endPointOrder');
+  // 새 페이지 응답은 저장 순번으로 실제 이웃임을 확인한 구간만 연결한다.
+  if (start !== null && (previousEnd === null || start !== previousEnd + 1)) return coordinates;
 
   const previousCoordinates = readLineStringCoordinates(segments[segmentIndex - 1]);
   const previousLastCoordinate = previousCoordinates?.at(-1);

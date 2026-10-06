@@ -32,13 +32,15 @@ export class ApiHttpError extends Error {
   readonly status: number;
   readonly code: string;
   readonly body: unknown;
+  readonly retryAfter: string | null;
 
-  constructor(status: number, code: string, body: unknown) {
+  constructor(status: number, code: string, body: unknown, retryAfter: string | null = null) {
     super(code);
     this.name = 'ApiHttpError';
     this.status = status;
     this.code = code;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -119,7 +121,13 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     if (response.status === 401 && (!isLocalDevAccessToken(authorizationToken) || !isLocalDevLoginEnabled())) {
       clearExpiredApiSession();
     }
-    return parseResponse<TResponse>(response);
+    try {
+      return await parseResponse<TResponse>(response);
+    } catch (error) {
+      // 응답 본문을 받는 도중 연결이 끊어진 경우도 조회 복구 대상으로 구분한다.
+      if (error instanceof TypeError) throw new ApiNetworkError(error);
+      throw error;
+    }
   }
 
   return {
@@ -227,9 +235,13 @@ async function parseResponse<TResponse>(response: Response): Promise<TResponse> 
     return undefined as TResponse;
   }
 
-  const body = await parseBody(response);
+  // 오류 본문이 JSON이 아니거나 깨졌더라도 HTTP 상태·Retry-After는 보존한다.
+  const body = await parseBody(response).catch((error: unknown) => {
+    if (response.ok) throw error;
+    return undefined;
+  });
   if (!response.ok) {
-    throw new ApiHttpError(response.status, errorCode(body, response.status), body);
+    throw new ApiHttpError(response.status, errorCode(body, response.status), body, response.headers.get('Retry-After'));
   }
   return body as TResponse;
 }

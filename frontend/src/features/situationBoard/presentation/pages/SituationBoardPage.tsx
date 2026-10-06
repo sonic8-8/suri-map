@@ -345,6 +345,8 @@ export function SituationBoardPage({
           selectedSearchAreaLegendFilters={boardState.selectedSearchAreaLegendFilters}
           selectedSupportRequestTypes={boardState.selectedSupportRequestTypes}
           movementPaths={shouldHideSituationBoardMapData ? [] : boardState.board.movementPaths}
+          pathLoading={boardState.pathLoading}
+          pathNotice={boardState.syncStatus?.label}
           recentMarkers={shouldHideSituationBoardMapData ? [] : boardState.mapRecentMarkers}
           operationalPeriods={shouldHideSituationBoardMapData ? [] : boardState.board.operationalPeriods}
           focusedMarkerId={shouldHideSituationBoardMapData ? null : focusedMarkerRequest.markerId}

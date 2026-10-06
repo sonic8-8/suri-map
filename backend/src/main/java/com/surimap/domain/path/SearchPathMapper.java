@@ -10,6 +10,8 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface SearchPathMapper {
 
+  boolean hasInvalidBoardCursors(@Param("segments") List<SearchPathSegment> segments);
+
   Optional<UUID> findActiveDutyShiftIdByAccount(
       @Param("opId") UUID opId, @Param("accountId") UUID accountId);
 
@@ -39,6 +41,24 @@ public interface SearchPathMapper {
   Optional<SearchPath> findPathMetadataForUpdate(@Param("id") UUID id);
 
   List<SearchPath> findAllPaths();
+
+  List<SearchPath> findBoardPathMetadata(
+      @Param("incidentId") UUID incidentId,
+      @Param("opIds") List<UUID> opIds,
+      @Param("limit") int limit);
+
+  boolean hasUnpreparedBoardPaths(
+      @Param("incidentId") UUID incidentId, @Param("opIds") List<UUID> opIds);
+
+  List<SearchPathSegment> findBoardSegments(
+      @Param("pathId") UUID pathId,
+      @Param("before") Integer before,
+      @Param("lowerVersion") Long lowerVersion,
+      @Param("upperVersion") Long upperVersion,
+      @Param("limit") int limit);
+
+  List<GpsPoint> findGpsPointsInRange(
+      @Param("pathId") UUID pathId, @Param("start") int start, @Param("end") int end);
 
   List<SearchPath> findPaths(
       @Param("incidentId") UUID incidentId,

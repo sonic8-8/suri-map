@@ -86,7 +86,12 @@ class SseSequenceMigrationTest extends PostGisIntegrationTestSupport {
     jobMapper.assignSseSequenceIfAbsent(jobIds.get(1), assignedSequence);
 
     // when: 저장 순서를 위한 실제 main migration을 이어서 적용한다.
-    Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+    Flyway.configure()
+        .dataSource(dataSource)
+        .locations("classpath:db/migration")
+        .target("20260928.001")
+        .load()
+        .migrate();
 
     // then: 기존 내용·확정 순번은 바뀌지 않고 알 수 없는 과거 저장 순서는 비워 둔다.
     assertThat(readJobContents(incidentId)).isEqualTo(jobsBefore);

@@ -675,6 +675,8 @@ WITH segment_history AS (
     SELECT
         search_path_id,
         point_order / {POINTS_PER_BATCH} AS batch_index,
+        min(point_order) AS start_point_order,
+        max(point_order) AS end_point_order,
         min(client_ts) AS started_at,
         max(client_ts) AS ended_at,
         ST_MakeLine(
@@ -696,6 +698,9 @@ INSERT INTO search_path_segment (
     corrected_by_account_id,
     corrected_at,
     version,
+    start_point_order,
+    end_point_order,
+    last_changed_path_version,
     created_at,
     updated_at
 )
@@ -710,6 +715,9 @@ SELECT
     NULL,
     NULL,
     1,
+    start_point_order,
+    end_point_order,
+    {batch_count + 1},
     started_at,
     ended_at
 FROM segment_history;

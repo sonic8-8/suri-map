@@ -27,6 +27,19 @@
   transform: translate(-50%, -50%);
 }
 
+.pathNotice {
+  position: absolute;
+  z-index: 12;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 100px);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #172438;
+  color: #f1f4f7;
+  pointer-events: none;
+}
+
 .terminalNotice strong {
   color: #f1f4f7;
   font-size: 18px;

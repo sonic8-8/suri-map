@@ -9,7 +9,15 @@ import { createIncidentScopedFallbackBoard } from '../constants/mockSituationBoa
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import { openIncidentBoardEventStream, type BoardEventEnvelope } from '../../../board/api/incidentBoardEventStream';
 import { shouldSubscribeIncidentBoardEvents, useSituationBoardData } from './useSituationBoardData';
-import { incidentBoardQueryKeys, refreshIncidentBoards } from '../../../board/api/incidentBoardApi';
+import { incidentBoardQueryKeys, boardSlotsWithoutPaths } from '../../../board/api/incidentBoardApi';
+import { refreshSituationBoards } from '../../../../app/board/refreshSituationBoards';
+
+// 이 파일은 기존 board/SSE 갱신을 검증한다. 경로 페이지 실행은 별도 실제 QueryClient 검사로 다룬다.
+vi.mock('../../../path/api/searchPathPagesApi', () => ({
+  useSearchPathPages: () => ({ data: { paths: [], hasMoreSegments: false }, isError: false }),
+  refreshSearchPathPages: vi.fn(),
+  restrictSearchPathPages: vi.fn(),
+}));
 
 const { fetchBoard } = vi.hoisted(() => {
   const fetchBoard = vi.fn<typeof fetch>();
@@ -26,7 +34,7 @@ let queryClient: QueryClient;
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } } });
   vi.spyOn(queryClient, 'invalidateQueries');
-  queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-001' }), boardResponse({}));
+  queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-001', includeSlots: boardSlotsWithoutPaths }), boardResponse({}));
   fetchBoard.mockImplementation(() => new Promise<Response>(() => {}));
 });
 
@@ -99,7 +107,7 @@ test('같은 조회를 쓰는 화면이 남아 있으면, 진행 중 요청과 �
   vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
   const first = renderBoardHook(() => useSituationBoardData('incident-001', []));
   const second = renderBoardHook(() => useSituationBoardData('incident-001', []));
-  void queryClient.refetchQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId: 'incident-001' }), exact: true });
+  void queryClient.refetchQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId: 'incident-001', includeSlots: boardSlotsWithoutPaths }), exact: true });
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
   act(() => subscription.onEvent(boardEvent(), { lastEventId: '901', eventType: 'PERSON_FOUND' }));
   const signal = fetchBoard.mock.calls[0][1]?.signal;
@@ -126,7 +134,7 @@ test('후속 조회 중 새 변경이 와도, 이미 반영한 저장 작업의 
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
   act(() => subscription.onOpen?.());
   let saveRefreshCompleted = false;
-  void refreshIncidentBoards(queryClient, { incidentId: 'incident-001' }).then(() => { saveRefreshCompleted = true; });
+  void refreshSituationBoards(queryClient, { incidentId: 'incident-001' }).then(() => { saveRefreshCompleted = true; });
   await act(async () => responses[0](Response.json({ ...boardResponse({}), boardResponseVersion: 2 })));
   await waitFor(() => expect(fetchBoard).toHaveBeenCalledTimes(2));
   expect(saveRefreshCompleted).toBe(false);
@@ -178,15 +186,19 @@ test('조회가 실패하면, 대기 중 변경으로 즉시 재요청하지 않
   // when: 진행 중이던 조회가 HTTP 500으로 실패한다.
   await act(async () => responses[0](Response.json({ error: 'server_error' }, { status: 500 })));
 
-  // then: 실패를 숨기거나 즉시 재요청하지 않으며, 다음 갱신은 다시 수행할 수 있다.
+  // then: 새 이벤트가 재시도 대기를 우회하지 않고, 자동 복구 후 미반영 변경도 조회한다.
   await waitFor(() => expect(result.current.syncStatus?.tone).toBe('error'));
   expect(result.current.apiBoard?.boardResponseVersion).toBe(1);
   expect(fetchBoard).toHaveBeenCalledTimes(1);
   act(() => subscription.onEvent({ ...boardEvent(), eventId: 'next-event' }, { lastEventId: '902', eventType: 'PERSON_FOUND' }));
-  await act(async () => responses[1](Response.json({ ...boardResponse({}), boardResponseVersion: 3 })));
+  expect(fetchBoard).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(fetchBoard).toHaveBeenCalledTimes(2), { timeout: 2500 });
+  await act(async () => responses[1](Response.json({ ...boardResponse({}), boardResponseVersion: 2 })));
+  await waitFor(() => expect(fetchBoard).toHaveBeenCalledTimes(3));
+  await act(async () => responses[2](Response.json({ ...boardResponse({}), boardResponseVersion: 3 })));
   await waitFor(() => expect(result.current.apiBoard?.boardResponseVersion).toBe(3));
   expect(result.current.syncStatus).toBeNull();
-  expect(fetchBoard).toHaveBeenCalledTimes(2);
+  expect(fetchBoard).toHaveBeenCalledTimes(3);
 });
 
 test.each(['INCIDENT_CLOSED', 'INCIDENT_PURGED'])(
@@ -265,7 +277,7 @@ test('다른 사건으로 이동하면, 이전 구독을 닫고 수신 순번 �
   openStream.mock.calls[0][0].onEvent(boardEvent(), { lastEventId: '901', eventType: 'PERSON_FOUND' });
 
   // when: 이미 조회된 다른 사건의 상황판으로 이동한다.
-  queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-002' }), { ...boardResponse({}), incidentId: 'incident-002' });
+  queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-002', includeSlots: boardSlotsWithoutPaths }), { ...boardResponse({}), incidentId: 'incident-002' });
   rerender({ incidentId: 'incident-002' });
 
   // then: 이전 사건의 순번을 새 사건에 보내지 않는다.

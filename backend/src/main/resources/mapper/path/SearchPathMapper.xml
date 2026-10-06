@@ -33,6 +33,9 @@
 
     <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
         <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="startIndex" column="start_point_order" javaType="_int"/>
+        <result property="endIndex" column="end_point_order" javaType="_int"/>
+        <result property="lastChangedPathVersion" column="last_changed_path_version" javaType="java.lang.Long"/>
         <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="movementType" column="movement_type" javaType="com.surimap.domain.path.MovementType"/>
         <result property="movementTypeSource" column="movement_type_source" javaType="com.surimap.domain.path.MovementTypeSource"/>
@@ -260,6 +263,9 @@
         (detail.segment).corrected_by_account_id AS segment_corrected_by_account_id,
         (detail.segment).corrected_at AS segment_corrected_at,
         (detail.segment).version AS segment_version,
+        (detail.segment).start_point_order AS segment_start_point_order,
+        (detail.segment).end_point_order AS segment_end_point_order,
+        (detail.segment).last_changed_path_version AS segment_last_changed_path_version,
         (detail.segment).created_at AS segment_created_at,
         (detail.segment).updated_at AS segment_updated_at,
         (detail.excluded).id AS excluded_id,
@@ -301,6 +307,81 @@
         ORDER BY sp.updated_at DESC, sp.id ASC,
                  detail.kind ASC, detail.point_order ASC, detail.sort_time ASC, detail.sort_id ASC
     </sql>
+
+    <sql id="boardPathScope">
+        op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <choose>
+            <when test="opIds != null and !opIds.isEmpty()">
+                AND op.id IN
+                <foreach collection="opIds" item="opId" open="(" separator="," close=")">
+                    #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </foreach>
+            </when>
+            <otherwise>AND FALSE</otherwise>
+        </choose>
+    </sql>
+
+    <select id="hasInvalidBoardCursors" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM (VALUES
+                <foreach collection="segments" item="segment" separator=",">
+                    (#{segment.searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::uuid,
+                     #{segment.startIndex}::integer)
+                </foreach>
+            ) AS requested(path_id, start_order)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM search_path_segment s
+                WHERE s.search_path_id = requested.path_id AND s.start_point_order = requested.start_order
+            )
+        )
+    </select>
+
+    <select id="findBoardPathMetadata" resultMap="searchPathMap">
+        SELECT sp.id, op.incident_id, op.id AS op_id, sp.account_id, sp.status, sp.version
+        <include refid="searchPathReadJoins"/>
+        WHERE <include refid="boardPathScope"/>
+        ORDER BY sp.id LIMIT #{limit}
+    </select>
+
+    <select id="hasUnpreparedBoardPaths" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 <include refid="searchPathReadJoins"/>
+            WHERE <include refid="boardPathScope"/>
+            AND (
+                EXISTS (SELECT 1 FROM search_path_segment s WHERE s.search_path_id = sp.id
+                    AND (s.start_point_order IS NULL OR s.end_point_order IS NULL
+                         OR s.last_changed_path_version IS NULL OR s.last_changed_path_version &gt; sp.version))
+                OR (sp.geometry IS NOT NULL AND NOT EXISTS
+                    (SELECT 1 FROM search_path_gps_point g WHERE g.search_path_id = sp.id))
+                OR (EXISTS (SELECT 1 FROM search_path_gps_point g WHERE g.search_path_id = sp.id)
+                    AND NOT EXISTS (SELECT 1 FROM search_path_segment s WHERE s.search_path_id = sp.id))
+            )
+        )
+    </select>
+
+    <!-- 좌표는 응답에 담을 구간 범위를 확정한 뒤 별도로 읽는다. lookahead에 도형을 싣지 않는다. -->
+    <select id="findBoardSegments" resultMap="searchPathSegmentMap">
+        SELECT id, search_path_id, start_point_order, end_point_order, last_changed_path_version,
+               movement_type, version, started_at, ended_at
+        FROM search_path_segment
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="before != null">AND start_point_order &lt; #{before}</if>
+        <if test="lowerVersion != null">
+            AND last_changed_path_version &gt; #{lowerVersion}
+            AND last_changed_path_version &lt;= #{upperVersion}
+        </if>
+        ORDER BY start_point_order DESC, id
+        LIMIT #{limit}
+    </select>
+
+    <select id="findGpsPointsInRange" resultMap="gpsPointMap">
+        SELECT point_id, client_ts, lon, lat, speed_mps, horizontal_accuracy_m,
+               location_provider, elapsed_realtime_nanos
+        FROM search_path_gps_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND point_order BETWEEN #{start} AND #{end}
+        ORDER BY point_order
+    </select>
 
     <select id="findAllPaths" resultMap="searchPathDetailsMap" resultOrdered="true">
         <include refid="searchPathDetailsSelect"/>
@@ -384,6 +465,9 @@
         INSERT INTO search_path_segment (
             id,
             search_path_id,
+            start_point_order,
+            end_point_order,
+            last_changed_path_version,
             movement_type,
             movement_type_source,
             geometry,
@@ -400,6 +484,9 @@
             (
                 #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
                 #{segment.searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+                NULLIF(#{segment.startIndex}, -1),
+                NULLIF(#{segment.endIndex}, -1),
+                #{segment.lastChangedPathVersion},
                 #{segment.movementType},
                 #{segment.movementTypeSource},
                 ST_GeomFromEWKT(#{segment.geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
@@ -418,6 +505,9 @@
         SELECT
             id,
             search_path_id,
+            start_point_order,
+            end_point_order,
+            last_changed_path_version,
             movement_type,
             movement_type_source,
             ST_AsEWKT(geometry) AS geometry,
@@ -439,6 +529,7 @@
             corrected_by_account_id = #{segment.correctedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             corrected_at = #{segment.correctedAt},
             version = #{segment.version},
+            last_changed_path_version = #{segment.lastChangedPathVersion},
             updated_at = #{updatedAt}
         WHERE id = #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND version = #{expectedVersion}
@@ -448,6 +539,9 @@
         SELECT
             id,
             search_path_id,
+            start_point_order,
+            end_point_order,
+            last_changed_path_version,
             movement_type,
             movement_type_source,
             ST_AsEWKT(geometry) AS geometry,

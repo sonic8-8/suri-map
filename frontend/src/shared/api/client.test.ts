@@ -3,6 +3,21 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiHttpError, ApiNetworkError, createApiClient, getStoredAccessToken } from './client';
 
 describe('createApiClient', () => {
+  it('오류 JSON이 깨져도 HTTP 상태와 Retry-After를 보존한다', async () => {
+    // given: 프록시가 JSON 형식에 맞지 않는 오류 본문을 보냈다.
+    const client = createApiClient({ fetch: async () => new Response('{broken', {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    }) });
+    // when / then: 본문 파싱 오류 대신 실제 HTTP 오류로 복구를 판단한다.
+    await expect(client.get('/test')).rejects.toMatchObject({ status: 503, code: 'http_503', retryAfter: '60' });
+  });
+
+  it('성공한 응답의 JSON이 깨지면, 정상 데이터로 반환하지 않는다', async () => {
+    const client = createApiClient({ fetch: async () => new Response('{broken', {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    }) });
+    await expect(client.get('/test')).rejects.toBeInstanceOf(SyntaxError);
+  });
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();

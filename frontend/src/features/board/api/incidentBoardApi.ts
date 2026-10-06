@@ -1,6 +1,7 @@
 import { useQuery, type Query, type QueryClient } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
 import { isBoardMeasurementEnabled, recordBoardMeasurement } from '../model/boardMeasurement';
+import { isRetryableBoardRead, boardReadRetryDelay, waitForBoardReadRetry } from '../model/boardReadRecovery';
 
 export type BoardSlotName =
   | 'overall_search_area'
@@ -46,6 +47,8 @@ const boardSlotRegistry: readonly BoardSlotName[] = [
   'search_history_summary',
   'incident_terminal',
 ];
+
+export const boardSlotsWithoutPaths = boardSlotRegistry.filter((slot) => slot !== 'path');
 
 export interface BoardSourceRowCursor {
   readonly id: string;
@@ -100,6 +103,7 @@ export interface IncidentBoardApi {
 
 type IncidentBoardQueryOptions = {
   refetchInterval?: number | false;
+  recoverReads?: boolean;
 };
 
 export type IncidentBoardSlotRow = IncidentBoardSlotPayload & {
@@ -161,7 +165,8 @@ export const incidentBoardApi = createIncidentBoardApi();
 const pendingBoardRefreshes = new WeakMap<Query, { completion: Promise<void>; followup?: Promise<void> }>();
 
 export function refreshIncidentBoards(queryClient: QueryClient, query?: IncidentBoardQuery): Promise<void> {
-  const queryKey = query ? incidentBoardQueryKeys.detail(query) : incidentBoardQueryKeys.all;
+  // 사건 단위 갱신은 includeSlots·선택 차수가 다른 실제 소비 화면도 포함한다.
+  const queryKey = query ? [...incidentBoardQueryKeys.all, 'detail', query.incidentId ?? ''] : incidentBoardQueryKeys.all;
   // 사용하지 않는 조회는 오래된 상태로만 표시하고, 열린 화면의 조회만 실행한다.
   void queryClient.invalidateQueries({ queryKey, refetchType: 'none' });
   const completions = queryClient.getQueryCache().findAll({ queryKey, type: 'active' }).map((boardQuery) =>
@@ -178,11 +183,17 @@ export function useIncidentBoardQuery(
 ) {
   return useQuery({
     queryKey: incidentBoardQueryKeys.detail(query),
-    queryFn: ({ signal }) => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }, signal),
+    queryFn: async ({ signal, client, queryKey }) => {
+      const failures = client.getQueryState(queryKey)?.fetchFailureCount ?? 0;
+      if (options.recoverReads && failures > 0) await waitForBoardReadRetry(0, signal);
+      return api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }, signal);
+    },
     enabled: Boolean(query.incidentId),
     placeholderData: (previousData) =>
       query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
-    retry: false,
+    retry: options.recoverReads ? (_failureCount, error) => isRetryableBoardRead(error) : false,
+    retryDelay: (failureCount, error) => boardReadRetryDelay(failureCount + 1, error),
+    networkMode: options.recoverReads ? 'always' : 'online',
     refetchInterval: options.refetchInterval,
   });
 }
