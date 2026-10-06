@@ -31,6 +31,8 @@ export type HandoverComparisonMapProps = {
   rightPanelWidthPx?: number;
   incidentId: string;
   board: IncidentBoardResponse | null;
+  pathLoading?: boolean;
+  pathNotice?: string | null;
   focusedOpId: string | null;
   selectedOpIds: string[];
   comparisonHighlightGeometryGeojson?: string | null;
@@ -85,6 +87,8 @@ export function HandoverComparisonMap({
   rightPanelWidthPx,
   incidentId,
   board,
+  pathLoading = false,
+  pathNotice,
   focusedOpId,
   selectedOpIds,
   comparisonHighlightGeometryGeojson = null,
@@ -444,7 +448,10 @@ export function HandoverComparisonMap({
           onZoomOut={() => mapRef.current?.zoomOut()}
         />
       )}
-      {!isSharedSituationBoardMap && !hasVisibleEvidence ? (
+      {!isSharedSituationBoardMap && pathNotice ? (
+        <aside className={styles.emptyOverlay} role="status"><span>{pathNotice}</span></aside>
+      ) : null}
+      {!isSharedSituationBoardMap && !hasVisibleEvidence && !pathLoading && !pathNotice ? (
         <aside className={styles.emptyOverlay} aria-live="polite">
           <strong>현재 OP 데이터가 없습니다.</strong>
           <span>OP를 최대 2개까지 켜면 수색 경로, 구역, 마커가 표시됩니다.</span>

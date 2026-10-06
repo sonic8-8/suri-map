@@ -181,6 +181,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 ## 인증·파기·수색 구역·경로·상황판
 
+2026-10-06 경로 범위 검토 후보: `SearchPathService.segmentIndexes()`는 명사형 이름 뒤에 좌표 검색과 미일치 시 범위 추정을 함께 숨긴다. `effectiveCoordinates()`도 중복 끝점의 단일 좌표 취급을 드러내지 않는다. 저장 구현 후에는 영속화한 순번을 우선 사용하고 순번이 없는 기존 자료만 검색·추정한다. 실제 서버 전환 후 이 fallback의 유지 여부와 동작이 드러나는 이름을 정한다. 이름은 아직 변경하지 않았다.
+
 2026-09-21 S1-2 → S1-3 → S2 → S3-1 → S3-2를 확인하며 추가했다. 아래 테스트·지원 파일은 이름 패턴으로 찾은 후보이며, 이번에 모두 실행하거나 내부 검증을 검토한 것은 아니다. 기존 `RedTest`·`Sc*`·Runner 항목은 중복 등록하지 않았다. 테스트 지원 환경이 분명한 `PostGisIntegrationTestSupport`까지 일괄 변경하지 않는다.
 
 | 영역 | 추가 후보·확인할 점 |
@@ -214,12 +216,15 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 후보 | 확인한 차이 |
 |---|---|
-| [SearchPathMapperTest](../../backend/src/test/java/com/surimap/domain/path/SearchPathMapperTest.java)의 `findPathsFiltersByIncidentOpPolicePhoneAndAccount` | 2026-10-02 확인: 실제 조회 조건은 사건·차수·계정이며 이름의 PolicePhone 조건은 없다. 해당 테스트 정리 때 실제 검증 조건·밑줄 메서드명으로 맞추고, 클래스의 영문 DisplayName도 기존 규칙에 맞춰 제거한다. 이번에는 후보만 등록했다. |
-| [SearchPathServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathServiceTest.java)의 영문 `DisplayName` | 2026-10-02 조회 일관성 진단 중 확인. 클래스의 표시명은 제거하고 남은 영문 메서드 표시명은 검증 조건·기대 결과를 한글로 표현할 후보다. 기존 검증을 유지하며 실제 변경은 해당 테스트 정리 때 진행한다. |
+| [SearchPathMapperTest](../../backend/src/test/java/com/surimap/domain/path/SearchPathMapperTest.java)의 `findPathsFiltersByIncidentOpPolicePhoneAndAccount` | 2026-10-02 확인: 실제 조회 조건은 사건·차수·계정이며 이름의 PolicePhone 조건은 없다. 해당 테스트 정리 때 실제 검증 조건·밑줄 메서드명으로 맞춘다. 2026-10-06 클래스의 영문 DisplayName만 제거했다. |
+| [SearchPathServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathServiceTest.java)의 영문 `DisplayName` | 2026-10-02 조회 일관성 진단 중 확인. 2026-10-06 클래스 표시명은 제거했다. 남은 영문 메서드 표시명은 기존 검증을 유지하며 조건·기대 결과를 한글로 표현할 후보다. |
+| [SseSequenceMigrationTest](../../backend/src/test/java/com/surimap/database/SseSequenceMigrationTest.java) | 2026-10-06 전체 회귀 검사에서 확인. 프로젝트 SSE 이름을 풀어 쓰는 합의와 맞지 않는 `Sse` 접두사다. 실제 검증 대상인 순번·저장 순서 migration을 드러내는 이름으로 정리한다. 이번에는 검증 대상 migration의 버전만 고정하고 이름은 유지했다. |
 | [SearchPathQueryPerformanceServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathQueryPerformanceServiceTest.java) | 2026-10-02 조회 시간 초과 수정 중 확인. 실제 대상은 `SearchPathService`이며 이름에 해당하는 별도 서비스는 없다. 기존 Service 테스트로의 통합·성능 태그 유지와 클래스 영문 표시명 제거를 검토한다. 이번에는 이름·실행 범위를 바꾸지 않았다. |
 | [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것 |
 | [GeometryPolicy.s2HarnessDefault](../../backend/src/main/java/com/surimap/maparea/geometry/policy/GeometryPolicy.java) | 운영 검증 설정에서도 쓰는 값에 Spec 번호·시험용 기본값 이름이 남음. 적용 범위 확인 |
 | [DefaultIncidentBoardSourceRowCollector](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `geometryHash`·`latestEventId` 생성 | 좌표 해시·실제 이벤트 조회로 오해할 수 있으나 ID·상태·버전으로 값을 만듦. 공개 필드 호환성과 실제 추적 요구를 함께 검토 |
+| [IncidentBoardController](../../backend/src/main/java/com/surimap/board/IncidentBoardController.java)의 `sinceVersion`·[BoardAssembler](../../backend/src/main/java/com/surimap/board/BoardAssembler.java)의 `boardResponseVersion` | 2026-10-02 확인: `sinceVersion`은 수집기로 전달되지만 조회 필터로 사용되지 않는다. 응답 버전은 서로 다른 원본 행 버전의 최댓값이므로 사건 전체의 변경 순번이 아니다. 증분 조회 기준처럼 사용하는 것을 피하고, 갱신 설계 때 역할·공개 필드 호환성을 함께 검토한다. 이번에는 후보만 등록했다. |
+| [boardMapFeatures.ts](../../frontend/src/shared/model/boardMapFeatures.ts)의 `createMovementCurrentPositionFeature`·`currentPosition` | 2026-10-02 확인: 받은 경로 중 계정별로 선택한 항목의 끝점이며 실제 현재 위치나 미수신 구간까지 포함한 최신 위치를 보장하지 않는다. 부분 로딩 설계에서 마지막 기록 지점·측정 시각과의 관계를 확인하고 이름을 정한다. 연결된 `geometryType`·source/layer·계측 소비자를 대조하기 전에는 변경하지 않는다. 이번에는 후보만 등록했다. |
 | [OfflinePackageRepositoryReadOnlyQueryTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageRepositoryReadOnlyQueryTest.java) | 읽기 전용 조회뿐 아니라 manifest의 타일 계산·담당 구역 필터도 검증한다. 실제 검증 대상에 맞춘 이름·통합과 영문 DisplayName을 검토한다. 커넥션 대기 회귀는 실제 DB를 쓰는 `OfflinePackageServiceTest`로 구분했으며 기존 테스트 이름은 바꾸지 않았다. |
 
 ## 지도·AI 연동·GPS 수집
@@ -257,6 +262,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [DeviceRequiredException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceRequiredException.java) / [DeviceNotRegisteredException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceNotRegisteredException.java) / [DeviceNotAssignedException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceNotAssignedException.java) | 위 별칭 가드의 `device_*` 오류 응답과 함께 확인 |
 
 ## Frontend
+
+- `SearchAreaInspectorCard.tsx`의 `pathCount`: 실제로는 구역과 겹치는 이동 구간 배열의 길이다. 수색 경로 ID 고유 개수와 구간 개수를 구분해 이름·표시 단위를 함께 확인한다. 2026-10-07 페이지 연결에서는 부분 수신 안내만 추가했으며 집계 의미는 변경하지 않았다.
 
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
@@ -316,6 +323,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 이미 합의한 k6 이름은 유지한다.
 
 ## 반영 이력 요약
+
+- 2026-10-03 경로 버전 경합 수정과 함께 [AppSearchPathServiceTest](../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)의 클래스 영문 표시명을 제거하고 메서드명을 밑줄로 구분했다. 기존 8개 검증과 한글 메서드 표시명은 유지하며 실제 DB 동시 쓰기 검사 11개를 추가했다.
 
 - 2026-09-30 SSE 운영 코드의 이름·패키지·Worker 책임 분리를 반영했다. `EventDispatchJobOwnershipRedTest`는 옛 패키지명·접두어·자체 문자열·메서드 존재만 검사하므로 제거했다. 실제 대체 빈 등록은 `PolicePhoneHeartbeatConfigTest`, DB 저장·트랜잭션·재전송은 기존 동작 테스트로 확인한다. 발행 입력 검증·기록용 발행자 테스트는 `EventPublishRequestValidatorTest`·`CapturingEventPublisherTest`로 정리했다. Docker에서 최종 전체 테스트 1,348개가 통과했다(4분 45초, 실패·오류·건너뜀 0, 기본 성능 태그 제외). 변경된 테스트 이름의 CI 결과 수집·검증도 통과했다. 배포·브라우저 검증은 별도다.
 

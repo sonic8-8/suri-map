@@ -1,13 +1,16 @@
 package com.surimap.domain.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -31,9 +34,12 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
-@DisplayName("SearchPath mapper")
 @Sql(scripts = "/sql/path/search-path-context.sql")
 class SearchPathMapperTest extends PostGisIntegrationTestSupport {
 
@@ -65,6 +71,170 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
 
   @Autowired private SearchPathMapper searchPathMapper;
   @Autowired private SqlSessionFactory sqlSessionFactory;
+  @Autowired private PlatformTransactionManager transactionManager;
+
+  @ParameterizedTest
+  @ValueSource(strings = {"missing", "ambiguous", "overlap", "gap"})
+  @DisplayName("GPS 범위를 확정할 수 없으면 일부 구간도 보완하지 않고 원본을 유지한다")
+  void unresolved_ranges_abort_backfill_without_partial_changes(String invalidData) {
+    // given: 실제 원본에 누락·중복 후보·겹친 구간·순번 공백 중 하나가 있다.
+    insertLegacySegmentWithGps();
+    switch (invalidData) {
+      case "missing" ->
+          jdbcTemplate.update(
+              "DELETE FROM search_path_gps_point WHERE search_path_id = ? AND point_order = 1",
+              PATH_ID);
+      case "ambiguous" ->
+          searchPathMapper.insertGpsPoints(
+              PATH_ID,
+              2,
+              List.of(
+                  gpsPoint(
+                      "repeat-first", "126.950000", "37.560000", "1.25", 4, "2026-04-28T00:00:00Z"),
+                  gpsPoint(
+                      "repeat-second",
+                      "126.950100",
+                      "37.560100",
+                      "1.25",
+                      4,
+                      "2026-04-28T00:00:05Z")),
+              STARTED_AT);
+      case "overlap" ->
+          searchPathMapper.insertSegments(
+              List.of(
+                  searchPathMapper.findSegmentById(SEGMENT_ID).orElseThrow().toBuilder()
+                      .id(SECOND_SEGMENT_ID)
+                      .build()));
+      case "gap" ->
+          jdbcTemplate.update(
+              "UPDATE search_path_gps_point SET point_order = 2 WHERE search_path_id = ? AND point_order = 1",
+              PATH_ID);
+      default -> throw new IllegalArgumentException(invalidData);
+    }
+    List<Map<String, Object>> before =
+        jdbcTemplate.queryForList("SELECT * FROM search_path_segment ORDER BY id");
+
+    // when: 불확실한 자료에 보완 SQL을 실행한다.
+    assertThatThrownBy(this::backfillSegmentProgress)
+        .rootCause()
+        .isInstanceOfSatisfying(
+            SQLException.class, error -> assertThat(error.getSQLState()).isEqualTo("23514"));
+
+    // then: 정상으로 보이는 구간을 포함해 어떤 행도 부분 변경하지 않는다.
+    assertThat(jdbcTemplate.queryForList("SELECT * FROM search_path_segment ORDER BY id"))
+        .isEqualTo(before);
+    assertThat(searchPathMapper.findPathById(PATH_ID).orElseThrow().getVersion()).isEqualTo(41L);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2})
+  @DisplayName("같은 좌표·시각이 반복되어도 생성 ID로 확인된 원본 GPS 개수를 보존한다")
+  void backfill_distinguishes_single_point_from_repeated_points(int pointCount) {
+    // given: LineString의 모양만으로는 한 점과 같은 위치의 두 점을 구분할 수 없다.
+    insertLegacySegmentWithGps();
+    jdbcTemplate.update("DELETE FROM search_path_gps_point WHERE search_path_id = ?", PATH_ID);
+    List<GpsPoint> points =
+        java.util.stream.IntStream.range(0, pointCount)
+            .mapToObj(
+                index ->
+                    gpsPoint(
+                        "same-" + index,
+                        "126.950000",
+                        "37.560000",
+                        "1.25",
+                        4,
+                        "2026-04-28T00:00:00Z"))
+            .toList();
+    searchPathMapper.insertGpsPoints(PATH_ID, 0, points, STARTED_AT);
+    UUID generatedId =
+        UUID.nameUUIDFromBytes(
+            ("search-path-segment:" + PATH_ID + ":0:" + (pointCount - 1))
+                .getBytes(StandardCharsets.UTF_8));
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET id = ?, ended_at = started_at,"
+            + " geometry = ST_GeomFromText('LINESTRING(126.95 37.56,126.95 37.56)',4326) WHERE id = ?",
+        generatedId,
+        SEGMENT_ID);
+
+    // when: 원본 순번·좌표·측정 시각·생성 ID를 함께 대조해 보완한다.
+    backfillSegmentProgress();
+
+    // then: 도형 점 개수가 아니라 실제 수집한 원본 개수가 유지된다.
+    SearchPathSegment found = searchPathMapper.findSegmentById(generatedId).orElseThrow();
+    assertThat(found.getStartIndex()).isZero();
+    assertThat(found.getEndIndex()).isEqualTo(pointCount - 1);
+    assertThat(found.getLastChangedPathVersion()).isEqualTo(41L);
+  }
+
+  @Test
+  @DisplayName("기존 구간을 보완하면 GPS 순번과 현재 경로 버전만 채우고 원본은 유지한다")
+  void backfill_initializes_progress_without_rewriting_existing_path_or_segment() {
+    // given: 경로 버전 41, 자체 버전 7인 기존 구간과 원본 GPS다.
+    insertLegacySegmentWithGps();
+    Map<String, Object> originalPath =
+        jdbcTemplate.queryForMap("SELECT * FROM search_path WHERE id = ?", PATH_ID);
+    String originalSegment =
+        jdbcTemplate.queryForObject(
+            "SELECT (to_jsonb(s) - 'start_point_order' - 'end_point_order'"
+                + " - 'last_changed_path_version')::text FROM search_path_segment s WHERE id = ?",
+            String.class,
+            SEGMENT_ID);
+
+    // when: 배포에 사용할 보완 SQL을 실행한다.
+    backfillSegmentProgress();
+
+    // then: 과거 버전을 재구성하거나 도형을 바꾸지 않고 현재 버전에서 추적을 시작한다.
+    SearchPathSegment found = searchPathMapper.findSegmentById(SEGMENT_ID).orElseThrow();
+    assertThat(found.getStartIndex()).isZero();
+    assertThat(found.getEndIndex()).isEqualTo(1);
+    assertThat(found.getLastChangedPathVersion()).isEqualTo(41L);
+    assertThat(jdbcTemplate.queryForMap("SELECT * FROM search_path WHERE id = ?", PATH_ID))
+        .isEqualTo(originalPath);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT (to_jsonb(s) - 'start_point_order' - 'end_point_order'"
+                    + " - 'last_changed_path_version')::text FROM search_path_segment s WHERE id = ?",
+                String.class,
+                SEGMENT_ID))
+        .isEqualTo(originalSegment);
+  }
+
+  @Test
+  @DisplayName("저장한 구간을 다시 조회하면 시작·끝 GPS 순번을 유지한다")
+  void saved_segment_keeps_gps_point_range_after_reload() {
+    // given: GPS 저장 순번 4~5에 해당하는 구간을 준비한다.
+    insertPath(null);
+    SearchPathSegment segment =
+        SearchPathSegment.builder()
+            .id(SEGMENT_ID)
+            .searchPathId(PATH_ID)
+            .movementType(MovementType.FOOT)
+            .movementTypeSource(MovementTypeSource.AUTO)
+            .geometry(lineString())
+            .startedAt(STARTED_AT)
+            .endedAt(STARTED_AT.plusSeconds(5))
+            .startIndex(4)
+            .endIndex(5)
+            .createdAt(STARTED_AT)
+            .updatedAt(STARTED_AT)
+            .build();
+
+    // when: 실제 Mapper로 저장하고 단건·목록·전체 경로 조회로 다시 읽는다.
+    searchPathMapper.insertSegments(List.of(segment));
+    List<SearchPathSegment> reloaded =
+        List.of(
+            searchPathMapper.findSegmentById(SEGMENT_ID).orElseThrow(),
+            searchPathMapper.findSegmentsByPathId(PATH_ID).get(0),
+            searchPathMapper.findPaths(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getSegments().get(0));
+
+    // then: 도형을 검색해 추정하지 않아도 저장한 순번이 그대로 반환된다.
+    assertThat(reloaded)
+        .allSatisfy(
+            found -> {
+              assertThat(found.getStartIndex()).isEqualTo(4);
+              assertThat(found.getEndIndex()).isEqualTo(5);
+            });
+  }
 
   @ParameterizedTest
   @ValueSource(strings = {"findPaths", "findAllPaths"})
@@ -466,6 +636,42 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     assertGpsPoint(found.get(0), points.get(0));
     assertGpsPoint(found.get(1), points.get(1));
     assertThat(found.get(1).getHorizontalAccuracyM()).isNull();
+  }
+
+  private void insertLegacySegmentWithGps() {
+    insertPath(null);
+    jdbcTemplate.update("UPDATE search_path SET version = 41 WHERE id = ?", PATH_ID);
+    searchPathMapper.insertGpsPoints(
+        PATH_ID,
+        0,
+        List.of(
+            gpsPoint("first", "126.950000", "37.560000", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint("second", "126.950100", "37.560100", "1.25", 4, "2026-04-28T00:00:05Z")),
+        STARTED_AT);
+    searchPathMapper.insertSegments(
+        List.of(
+            SearchPathSegment.builder()
+                .id(SEGMENT_ID)
+                .searchPathId(PATH_ID)
+                .movementType(MovementType.FOOT)
+                .movementTypeSource(MovementTypeSource.AUTO)
+                .geometry(lineString())
+                .startedAt(STARTED_AT)
+                .endedAt(STARTED_AT.plusSeconds(5))
+                .version(7L)
+                .createdAt(STARTED_AT)
+                .updatedAt(STARTED_AT)
+                .build()));
+  }
+
+  private void backfillSegmentProgress() {
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(
+            status ->
+                new ResourceDatabasePopulator(
+                        new ClassPathResource(
+                            "db/migration/V20261006_002__backfill_search_path_segment_progress.sql"))
+                    .execute(jdbcTemplate.getDataSource()));
   }
 
   private GpsPoint gpsPoint(

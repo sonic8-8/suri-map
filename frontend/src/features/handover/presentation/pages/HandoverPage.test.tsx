@@ -7,6 +7,9 @@ import { getHandoverIncidentDetail } from '../../data/getHandoverIncidentDetail'
 import { HandoverPage } from './HandoverPage';
 import { SearchHistoryPage } from '../../../searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
+import { useIncidentBoardEvents } from '../../../../app/board/useIncidentBoardEvents';
+
+vi.mock('../../../../app/board/useIncidentBoardEvents', () => ({ useIncidentBoardEvents: vi.fn() }));
 import {
   handoverApi,
   useDutyShiftListQuery,
@@ -21,6 +24,14 @@ import {
 vi.mock('../../../board/api/incidentBoardApi', () => ({
   incidentBoardQueryKeys: { all: ['incidentBoard'] },
   useIncidentBoardQuery: vi.fn(),
+}));
+
+// 화면 선택·메모 동작 검사는 합성된 조회 결과를 입력으로 사용한다.
+vi.mock('../../../../app/board/usePagedIncidentBoardQuery', () => ({
+  usePagedIncidentBoardQuery: (query: Parameters<typeof useIncidentBoardQuery>[0], snapshot?: IncidentBoardResponse | null) => {
+    const result = useIncidentBoardQuery({ ...query, incidentId: snapshot ? null : query.incidentId });
+    return { ...result, data: snapshot ?? result.data, pathLoading: false, pathSyncStatus: null };
+  },
 }));
 
 vi.mock('../../../operationalPeriod/api/handoverApi', () => ({
@@ -174,6 +185,7 @@ describe('HandoverPage', () => {
       incidentId: INCIDENT_ID,
       opIds: undefined,
     });
+    expect(useIncidentBoardEvents).toHaveBeenLastCalledWith(INCIDENT_ID, false);
 
     expect(onSharedMapPropsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -250,6 +262,7 @@ describe('HandoverPage', () => {
     expect(await screen.findByRole('heading', { name: 'OP 2차 인수인계' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'OP 요약' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'OP 비교' })).not.toBeInTheDocument();
+    expect(useIncidentBoardEvents).toHaveBeenLastCalledWith(INCIDENT_ID, true);
   });
 
   test('standalone handover starts with only the current OP selected', async () => {

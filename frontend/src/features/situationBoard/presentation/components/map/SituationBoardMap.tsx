@@ -31,6 +31,8 @@ type SituationBoardMapProps = {
   selectedSearchAreaLegendFilters: SearchAreaLegendFilterId[];
   selectedSupportRequestTypes: SupportRequestTypeId[];
   movementPaths: MovementPath[];
+  pathLoading?: boolean;
+  pathNotice?: string | null;
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
@@ -69,6 +71,8 @@ export function SituationBoardMap({
   selectedSearchAreaLegendFilters,
   selectedSupportRequestTypes,
   movementPaths,
+  pathLoading = false,
+  pathNotice,
   recentMarkers,
   operationalPeriods,
   focusedMarkerId,
@@ -108,6 +112,7 @@ export function SituationBoardMap({
         selectedSearchAreaLegendFilters={selectedSearchAreaLegendFilters}
         selectedSupportRequestTypes={selectedSupportRequestTypes}
         movementPaths={movementPaths}
+        pathLoading={pathLoading}
         recentMarkers={recentMarkers}
         operationalPeriods={operationalPeriods}
         focusedMarkerId={focusedMarkerId}
@@ -131,6 +136,7 @@ export function SituationBoardMap({
         onToggleMapExpanded={onToggleMapExpanded}
         selectedSearchAreaId={selectedSearchAreaId}
       />
+      {!isTerminalBoard && pathNotice && <aside className={styles.pathNotice} role="status">{pathNotice}</aside>}
       {isTerminalBoard ? (
         <aside className={styles.terminalNotice} aria-label="종료 사건 지도 상태">
           <strong>종료된 사건</strong>

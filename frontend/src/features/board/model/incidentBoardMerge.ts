@@ -26,6 +26,7 @@ const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
 export function mergeWithPreviousCriticalSlots<TBoard extends MergeableIncidentBoard>(
   current: TBoard | null,
   previous: TBoard | null,
+  excludedSlots: readonly BoardSlotName[] = [],
 ) {
   if (!current || !previous || current.incidentId !== previous.incidentId) {
     return current;
@@ -38,6 +39,7 @@ export function mergeWithPreviousCriticalSlots<TBoard extends MergeableIncidentB
   let changed = false;
 
   CRITICAL_BOARD_SLOTS.forEach((slot) => {
+    if (excludedSlots.includes(slot)) return;
     if (shouldKeepPreviousSlot(slots[slot], previous.slots[slot])) {
       slots[slot] = previous.slots[slot];
       changed = true;

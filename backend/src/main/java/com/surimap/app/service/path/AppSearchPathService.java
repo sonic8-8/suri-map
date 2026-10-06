@@ -44,15 +44,34 @@ public class AppSearchPathService {
   @Transactional
   public SearchPathStartServiceResponse start(SearchPathStartServiceRequest request) {
     requireIdempotencyKey(request.getIdempotencyKey());
-    return idempotentResponseCache
-        .replayOrRun(
-            "POST /api/search-paths",
-            request.getIdempotencyKey(),
-            request,
-            201,
-            SearchPathStartServiceResponse.class,
-            () -> SearchPathStartServiceResponse.from(startNewPath(request)),
-            this::metadataForStart);
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/search-paths",
+        request.getIdempotencyKey(),
+        request,
+        201,
+        SearchPathStartServiceResponse.class,
+        () -> SearchPathStartServiceResponse.from(startNewPath(request)),
+        this::metadataForStart);
+  }
+
+  @Transactional
+  public SearchPathStatusUpdateServiceResponse updateStatus(
+      SearchPathStatusUpdateServiceRequest request) {
+    requireIdempotencyKey(request.getIdempotencyKey());
+    return idempotentResponseCache.replayOrRun(
+        "PATCH /api/search-paths/" + request.getSearchPathId(),
+        request.getIdempotencyKey(),
+        request,
+        200,
+        SearchPathStatusUpdateServiceResponse.class,
+        () -> SearchPathStatusUpdateServiceResponse.from(patchLoadedPath(request)),
+        this::metadataForStatusUpdate);
+  }
+
+  private void requireIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new SearchPathGuardException("write_conflict");
+    }
   }
 
   private SearchPath startNewPath(SearchPathStartServiceRequest request) {
@@ -83,19 +102,12 @@ public class AppSearchPathService {
     return path;
   }
 
-  @Transactional
-  public SearchPathStatusUpdateServiceResponse updateStatus(
-      SearchPathStatusUpdateServiceRequest request) {
-    requireIdempotencyKey(request.getIdempotencyKey());
-    return idempotentResponseCache
-        .replayOrRun(
-            "PATCH /api/search-paths/" + request.getSearchPathId(),
-            request.getIdempotencyKey(),
-            request,
-            200,
-            SearchPathStatusUpdateServiceResponse.class,
-            () -> SearchPathStatusUpdateServiceResponse.from(patchLoadedPath(request)),
-            this::metadataForStatusUpdate);
+  private ResponseMetadata metadataForStart(SearchPathStartServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus().name(),
+        response.getVersion(),
+        response.getVersion());
   }
 
   private SearchPath patchLoadedPath(SearchPathStatusUpdateServiceRequest request) {
@@ -104,7 +116,7 @@ public class AppSearchPathService {
     }
     SearchPath current =
         searchPathMapper
-            .findPathById(request.getSearchPathId())
+            .findPathMetadataForUpdate(request.getSearchPathId())
             .orElseThrow(() -> new SearchPathGuardException("write_conflict"));
     if (current.getAccountId() != null && !current.getAccountId().equals(request.getAccountId())) {
       throw new SearchPathGuardException("write_conflict");
@@ -112,25 +124,12 @@ public class AppSearchPathService {
     return transition(current, request);
   }
 
-  private SearchPath transition(SearchPath current, SearchPathStatusUpdateServiceRequest request) {
-    SearchPathStatus nextStatus = nextStatus(current.getStatus(), request.getAction());
-    Instant clientTs = request.getClientTs() == null ? Instant.now() : request.getClientTs();
-    SearchPath patched =
-        SearchPath.builder()
-            .id(current.getId())
-            .incidentId(current.getIncidentId())
-            .opId(current.getOpId())
-            .accountId(current.getAccountId())
-            .status(nextStatus)
-            .version(current.getVersion() + 1)
-            .startedAt(current.getStartedAt())
-            .endedAt(nextStatus == SearchPathStatus.ENDED ? clientTs : null)
-            .build();
-
-    persistLifecycleTransition(patched, eventName(request.getAction()), clientTs);
-    publish(patched, publishEventType(request.getAction()));
-
-    return patched;
+  private ResponseMetadata metadataForStatusUpdate(SearchPathStatusUpdateServiceResponse response) {
+    return new ResponseMetadata(
+        response.getId().toString(),
+        response.getStatus().name(),
+        response.getVersion(),
+        response.getVersion());
   }
 
   private void persistStartedPath(SearchPath path) {
@@ -155,11 +154,29 @@ public class AppSearchPathService {
     persistLifecycleEvent(path, "STARTED", path.getStartedAt(), Instant.now());
   }
 
-  private void persistLifecycleTransition(SearchPath path, String eventType, Instant clientTs) {
-    Instant updatedAt = Instant.now();
-    searchPathMapper.updateLifecycleStatus(
-        path.getId(), path.getStatus().name(), path.getEndedAt(), path.getVersion(), updatedAt);
-    persistLifecycleEvent(path, eventType, clientTs, updatedAt);
+  private void publish(SearchPath path, SearchPathEventType eventType) {
+    eventPublisher.publishLifecycle(path, eventType);
+  }
+
+  private SearchPath transition(SearchPath current, SearchPathStatusUpdateServiceRequest request) {
+    SearchPathStatus nextStatus = nextStatus(current.getStatus(), request.getAction());
+    Instant clientTs = request.getClientTs() == null ? Instant.now() : request.getClientTs();
+    SearchPath patched =
+        SearchPath.builder()
+            .id(current.getId())
+            .incidentId(current.getIncidentId())
+            .opId(current.getOpId())
+            .accountId(current.getAccountId())
+            .status(nextStatus)
+            .version(current.getVersion() + 1)
+            .startedAt(current.getStartedAt())
+            .endedAt(nextStatus == SearchPathStatus.ENDED ? clientTs : null)
+            .build();
+
+    persistLifecycleTransition(patched, eventName(request.getAction()), clientTs);
+    publish(patched, publishEventType(request.getAction()));
+
+    return patched;
   }
 
   private void persistLifecycleEvent(
@@ -175,12 +192,6 @@ public class AppSearchPathService {
             .version(path.getVersion())
             .createdAt(serverReceivedAt)
             .build());
-  }
-
-  private void requireIdempotencyKey(String idempotencyKey) {
-    if (idempotencyKey == null || idempotencyKey.isBlank()) {
-      throw new SearchPathGuardException("write_conflict");
-    }
   }
 
   private SearchPathStatus nextStatus(
@@ -207,6 +218,13 @@ public class AppSearchPathService {
     };
   }
 
+  private void persistLifecycleTransition(SearchPath path, String eventType, Instant clientTs) {
+    Instant updatedAt = Instant.now();
+    searchPathMapper.updateLifecycleStatus(
+        path.getId(), path.getStatus().name(), path.getEndedAt(), path.getVersion(), updatedAt);
+    persistLifecycleEvent(path, eventType, clientTs, updatedAt);
+  }
+
   private String eventName(SearchPathLifecycleAction action) {
     return switch (action) {
       case PAUSE -> "PAUSED";
@@ -223,29 +241,8 @@ public class AppSearchPathService {
     };
   }
 
-  private void publish(SearchPath path, SearchPathEventType eventType) {
-    eventPublisher.publishLifecycle(path, eventType);
-  }
-
   private UUID lifecycleEventId(UUID pathId, String eventType, long version) {
     String seed = "search-path-lifecycle:%s:%s:%d".formatted(pathId, eventType, version);
     return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
-
-  private ResponseMetadata metadataForStart(SearchPathStartServiceResponse response) {
-    return new ResponseMetadata(
-        response.getId().toString(),
-        response.getStatus().name(),
-        response.getVersion(),
-        response.getVersion());
-  }
-
-  private ResponseMetadata metadataForStatusUpdate(SearchPathStatusUpdateServiceResponse response) {
-    return new ResponseMetadata(
-        response.getId().toString(),
-        response.getStatus().name(),
-        response.getVersion(),
-        response.getVersion());
-  }
-
 }

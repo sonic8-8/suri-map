@@ -19,11 +19,12 @@ import {
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import type { IncidentAssignmentSummary } from '../../../incident/api/incidentReadApi';
 import {
-  useIncidentBoardQuery,
   type IncidentBoardResponse,
   type SituationBoardResponseDto,
-  refreshIncidentBoards,
 } from '../../../board/api/incidentBoardApi';
+import { refreshSituationBoards } from '../../../../app/board/refreshSituationBoards';
+import { usePagedIncidentBoardQuery } from '../../../../app/board/usePagedIncidentBoardQuery';
+import { useIncidentBoardEvents } from '../../../../app/board/useIncidentBoardEvents';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import { getHandoverIncidentDetail, type HandoverIncidentDetailDto } from '../../data/getHandoverIncidentDetail';
 import {
@@ -199,7 +200,7 @@ export function OperationalPeriodReviewWorkspace({
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
   const createComparisonMutation = useCreateOpComparisonMutation();
-  const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
+  const stableBoardRef = useRef<IncidentBoardResponse | null>(null);
   const incidentStateRef = useRef(incidentId);
   const effectiveBoardSnapshot = sharedMapMode ? null : boardSnapshot;
   const currentBoardSnapshot = useMemo<SituationBoardResponseDto | null>(() => {
@@ -212,23 +213,19 @@ export function OperationalPeriodReviewWorkspace({
     () => uniqueNonEmptyStrings([...activeSelectedOpIds, ...(activeFocusedOpId ? [activeFocusedOpId] : [])]),
     [activeFocusedOpId, activeSelectedOpIds],
   );
-  const boardQuery = useIncidentBoardQuery({
-    incidentId: currentBoardSnapshot ? null : incidentId,
-    opIds: !currentBoardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
-  });
+  const boardQuery = usePagedIncidentBoardQuery({
+    incidentId,
+    opIds: isOpSelectionHydrated || requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
+  }, currentBoardSnapshot as unknown as IncidentBoardResponse | null);
   const currentBoard = useMemo<IncidentBoardResponse | null>(() => {
-    const data = (boardQuery.data ?? null) as IncidentBoardResponse | null;
+    const data = (boardQuery.data ?? null) as unknown as IncidentBoardResponse | null;
     return data && data.incidentId === incidentId ? data : null;
   }, [boardQuery.data, incidentId]);
   const board = useMemo<IncidentBoardResponse | null>(() => {
-    if (currentBoardSnapshot) {
-      stableBoardRef.current = currentBoardSnapshot as unknown as SituationBoardResponseDto;
-      return currentBoardSnapshot as unknown as IncidentBoardResponse;
-    }
-
-    const mergedBoard = mergeWithPreviousCriticalSlots(
-      currentBoard as SituationBoardResponseDto | null,
+    const mergedBoard = boardQuery.isLocationRestricted ? currentBoard : mergeWithPreviousCriticalSlots(
+      currentBoard,
       stableBoardRef.current,
+      ['path'],
     );
 
     if (mergedBoard) {
@@ -236,7 +233,7 @@ export function OperationalPeriodReviewWorkspace({
     }
 
     return mergedBoard as unknown as IncidentBoardResponse | null;
-  }, [currentBoard, currentBoardSnapshot]);
+  }, [currentBoard, currentBoardSnapshot, boardQuery.isLocationRestricted]);
   const effectiveSelectedOpIds = useMemo(() => {
     const explicitSelectedOpIds = uniqueNonEmptyStrings(activeSelectedOpIds);
     if (explicitSelectedOpIds.length > 0) {
@@ -250,6 +247,8 @@ export function OperationalPeriodReviewWorkspace({
     const initialSelectedOpId = currentOpId ?? board?.activeOpId ?? null;
     return initialSelectedOpId ? [initialSelectedOpId] : [];
   }, [activeSelectedOpIds, board?.activeOpId, currentOpId, isOpSelectionHydrated]);
+  // 상황판 안에서는 부모 구독을 공유하고, 단독 화면에서만 직접 구독한다.
+  useIncidentBoardEvents(incidentId, !embedded && !currentBoardSnapshot && Boolean(board) && !boardQuery.isLocationRestricted);
   const focusedOpEvidenceIds = useMemo(
     () => (activeFocusedOpId ? [activeFocusedOpId] : effectiveSelectedOpIds.slice(0, 1)),
     [activeFocusedOpId, effectiveSelectedOpIds],
@@ -394,6 +393,8 @@ export function OperationalPeriodReviewWorkspace({
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
       baseMapMode: 'shared-base-map',
+      pathLoading: boardQuery.pathLoading,
+      pathNotice: boardQuery.pathSyncStatus?.label,
       incidentId,
       board,
       focusedOpId: activeFocusedOpId,
@@ -404,6 +405,8 @@ export function OperationalPeriodReviewWorkspace({
     }),
     [
       activeFocusedOpId,
+      boardQuery.pathLoading,
+      boardQuery.pathSyncStatus?.label,
       board,
       effectiveSelectedOpIds,
       floatingRightPanelWidthPx,
@@ -424,7 +427,7 @@ export function OperationalPeriodReviewWorkspace({
       ? formatOperationalPeriodLabel(currentOperationalPeriod)
       : null,
   });
-  const syncStatus = createHandoverSyncStatus({
+  const syncStatus = boardQuery.pathSyncStatus ?? createHandoverSyncStatus({
     boardHasData: board !== null,
     boardIsError: boardQuery.isError,
     boardIsFetching: boardQuery.isFetching,
@@ -719,7 +722,7 @@ export function OperationalPeriodReviewWorkspace({
       );
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
-      void refreshIncidentBoards(queryClient);
+      void refreshSituationBoards(queryClient);
     } catch (error) {
       setCreateOpErrorMessage(getApiErrorMessage(error, '새 OP를 열지 못했습니다.'));
     } finally {
@@ -849,6 +852,8 @@ export function OperationalPeriodReviewWorkspace({
           <section className={styles.mapArea} aria-label="선택 OP 수색 이력 지도">
             <div className={styles.mapViewport}>
               <HandoverComparisonMap
+                pathLoading={boardQuery.pathLoading}
+                pathNotice={boardQuery.pathSyncStatus?.label}
                 incidentId={incidentId}
                 board={board}
                 isMapExpanded={isMapExpanded}
@@ -901,7 +906,7 @@ export function OperationalPeriodReviewWorkspace({
                       <>
                         <span>
                           <Route size={14} aria-hidden="true" />
-                          경로 {evidenceSummary.pathCount}건
+                          {boardQuery.pathLoading ? '받은 경로' : '경로'} {evidenceSummary.pathCount}건
                         </span>
                         <span>
                           <MapPin size={14} aria-hidden="true" />

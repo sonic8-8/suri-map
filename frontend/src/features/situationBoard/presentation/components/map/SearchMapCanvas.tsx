@@ -13,7 +13,7 @@ import { ApiHttpError, createIdempotencyKey } from '../../../../../shared/api/cl
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
-import { refreshIncidentBoards } from '../../../../board/api/incidentBoardApi';
+import { refreshSituationBoards } from '../../../../../app/board/refreshSituationBoards';
 import {
   useCreateMarkerMutation,
   useUpdateMarkerMutation,
@@ -973,6 +973,7 @@ type SearchMapCanvasProps = {
   incidentId: string;
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
+  pathLoading?: boolean;
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
@@ -1001,6 +1002,7 @@ export function SearchMapCanvas({
   incidentId,
   layerVisibility,
   movementPaths,
+  pathLoading = false,
   recentMarkers,
   operationalPeriods,
   focusedMarkerId,
@@ -1290,7 +1292,7 @@ export function SearchMapCanvas({
         request: createReferenceMarkerCorrectionRequest(marker, coordinates),
         idempotencyKey: createReferenceMarkerCorrectionIdempotencyKey(marker.id),
       });
-      await refreshIncidentBoards(queryClient, { incidentId });
+      await refreshSituationBoards(queryClient, { incidentId });
       setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'saved' });
     } catch {
       setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'error' });
@@ -1413,7 +1415,7 @@ export function SearchMapCanvas({
         },
         idempotencyKey: createIdempotencyKey('web-manual-path'),
       });
-      await refreshIncidentBoards(queryClient, { incidentId });
+      await refreshSituationBoards(queryClient, { incidentId });
       setRouteEditorEndedAtLocal(toDatetimeLocalValue(routeEndedAt));
       setRouteEditorStatus('saved');
     } catch (error) {
@@ -1474,7 +1476,7 @@ export function SearchMapCanvas({
         idempotencyKey: createIdempotencyKey('web-manual-marker'),
         policePhoneId: context.policePhoneId,
       });
-      await refreshIncidentBoards(queryClient, { incidentId });
+      await refreshSituationBoards(queryClient, { incidentId });
       setRouteEditorStatus('saved');
     } catch {
       setRouteEditorStatus('error');
@@ -1576,13 +1578,13 @@ export function SearchMapCanvas({
       if (options.closeComposerOnSuccess) {
         handleCloseMapMemoComposer();
         void Promise.all([
-          refreshIncidentBoards(queryClient, { incidentId }),
+          refreshSituationBoards(queryClient, { incidentId }),
           queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
         ]);
         return;
       }
       await Promise.all([
-        refreshIncidentBoards(queryClient, { incidentId }),
+        refreshSituationBoards(queryClient, { incidentId }),
         queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
       ]);
       setMapMemoContent('');
@@ -2117,6 +2119,7 @@ export function SearchMapCanvas({
                     selectedSearchAreaId={selectedSearchAreaId}
                     savedAreaDrafts={savedAreaDrafts}
                     movementPaths={movementPaths}
+                    pathLoading={pathLoading}
                     recentMarkers={recentMarkers}
                     operationalPeriods={operationalPeriods}
                     isMemoDisabled={!selectedSearchAreaMemoOpId || isMapMemoSaving}

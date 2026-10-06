@@ -15,6 +15,7 @@ import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceR
 import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.SearchPathApiException;
+import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.sync.idempotency.IdempotencyMismatchException;
@@ -52,7 +53,6 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@DisplayName("SearchPath service")
 @Tag("integration")
 @Sql(scripts = "/sql/path/search-path-context.sql")
 @Import(SearchPathServiceTest.QueryPauseConfig.class)
@@ -74,6 +74,113 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private SearchPathService searchPathService;
   @Autowired private PlatformTransactionManager transactionManager;
   @Autowired private PathQueryPause queryPause;
+
+  @Test
+  @DisplayName("좌표 추가와 구간 보정이 롤백되면 순번·변경 버전도 함께 되돌린다")
+  void rolled_back_append_and_correction_preserve_segment_progress() {
+    // given: 기존 두 구간이 경로 버전 2에서 저장되어 있다.
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("progress-before-rollback"));
+
+    // when: 추가·보정 저장 후 바깥 트랜잭션의 실패로 전체 작업을 되돌린다.
+    assertThatThrownBy(
+            () ->
+                new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(
+                        status -> {
+                          searchPathService.appendPoints(nextVehicleBatchRequest());
+                          searchPathService.correctSegment(
+                              segmentCorrectionRequest(
+                                  first.getSegments().get(0).getId(),
+                                  "progress-rollback-correction"));
+                          throw new IllegalStateException("rollback");
+                        }))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("rollback");
+
+    // then: 새 구간이 남지 않고 기존 구간·경로의 버전도 변경 전과 같다.
+    List<SearchPathSegment> segments =
+        searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getSegments();
+    assertThat(segments)
+        .extracting(SearchPathSegment::getLastChangedPathVersion)
+        .containsExactly(2L, 2L);
+    assertThat(segments).extracting(SearchPathSegment::getVersion).containsExactly(1L, 1L);
+    assertThat(segments).extracting(SearchPathSegment::getStartIndex).containsExactly(0, 4);
+    assertThat(segments).extracting(SearchPathSegment::getEndIndex).containsExactly(3, 7);
+    assertThat(queryPaths().getPaths().get(0).getVersion()).isEqualTo(2L);
+    assertThat(queryPaths().getPaths().get(0).getGeometry()).hasSize(8);
+  }
+
+  @Test
+  @DisplayName("좌표와 측정 시각이 같아도 별도로 수집한 두 점의 저장 순번을 유지한다")
+  void identical_coordinates_and_timestamps_keep_both_stored_point_orders() {
+    // given: 좌표·측정 시각은 같지만 서로 다른 수집 기록이다.
+    SearchPathPointsAppendServiceRequest request =
+        pointsAppendRequest(
+            "same-location",
+            List.of(
+                point("first", "126.913000", "35.162000", 1.2, "2026-04-28T09:00:00+09:00"),
+                point("second", "126.913000", "35.162000", 1.2, "2026-04-28T09:00:00+09:00")));
+
+    // when: 묶음을 저장한 후 다시 조회한다.
+    searchPathService.appendPoints(request);
+    List<SearchPathSegment> segments =
+        searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getSegments();
+
+    // then: 도형이 같다는 이유로 단일 좌표 구간으로 축소하지 않는다.
+    assertThat(segments)
+        .singleElement()
+        .satisfies(
+            segment -> {
+              assertThat(segment.getStartIndex()).isZero();
+              assertThat(segment.getEndIndex()).isEqualTo(1);
+              assertThat(segment.getStartPointId()).isEqualTo("first");
+              assertThat(segment.getEndPointId()).isEqualTo("second");
+            });
+  }
+
+  @Test
+  @DisplayName("좌표를 추가하면 새 구간에만 해당 경로 버전을 기록하고 재전송해도 유지한다")
+  void append_records_path_version_only_on_new_segments_and_preserves_it_on_replay() {
+    // given: 버전 2에서 생성한 두 구간이 있는 경로다.
+    searchPathService.appendPoints(batchRequest("idem-path-progress-first"));
+
+    // when: 다음 묶음을 추가한 뒤 같은 요청을 재전송한다.
+    searchPathService.appendPoints(nextVehicleBatchRequest());
+    searchPathService.appendPoints(nextVehicleBatchRequest());
+
+    // then: 기존 구간의 추적값은 2이고 새 구간만 3이며 재전송으로 증가하지 않는다.
+    assertThat(searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getSegments())
+        .extracting(SearchPathSegment::getLastChangedPathVersion)
+        .containsExactly(2L, 2L, 3L);
+    assertThat(queryPaths().getPaths().get(0).getVersion()).isEqualTo(3L);
+  }
+
+  @Test
+  @DisplayName("구간을 보정하면 대상의 변경 경로 버전만 갱신하고 GPS 범위와 다른 구간은 유지한다")
+  void correction_updates_only_target_path_version_and_keeps_point_ranges() {
+    // given: 서로 다른 경로 버전에서 생성한 세 구간이다.
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(batchRequest("idem-path-progress-correction"));
+    searchPathService.appendPoints(nextVehicleBatchRequest());
+    SearchPathSegmentCorrectionServiceRequest correction =
+        segmentCorrectionRequest(first.getSegments().get(0).getId(), "idem-progress-correction");
+
+    // when: 첫 구간을 보정하고 같은 요청을 재전송한다.
+    searchPathService.correctSegment(correction);
+    searchPathService.correctSegment(correction);
+
+    // then: 보정 대상만 경로 버전 4를 기록하고 자체 버전은 2로 증가한다.
+    List<SearchPathSegment> segments =
+        searchPathService.findByQuery(INCIDENT_ID, OP_ID, ACCOUNT_ID).get(0).getSegments();
+    assertThat(segments)
+        .extracting(SearchPathSegment::getLastChangedPathVersion)
+        .containsExactly(4L, 2L, 3L);
+    assertThat(segments).extracting(SearchPathSegment::getVersion).containsExactly(2L, 1L, 1L);
+    assertThat(segments).extracting(SearchPathSegment::getStartIndex).containsExactly(0, 4, 8);
+    assertThat(segments).extracting(SearchPathSegment::getEndIndex).containsExactly(3, 7, 10);
+    assertThat(queryPaths().getPaths().get(0).getVersion()).isEqualTo(4L);
+  }
 
   @ParameterizedTest(name = "전체 조회={0}, 기존 트랜잭션={1}")
   @CsvSource({"false,false", "true,false", "false,true", "true,true"})

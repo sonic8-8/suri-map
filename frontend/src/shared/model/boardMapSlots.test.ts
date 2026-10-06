@@ -34,6 +34,20 @@ describe('readSlotRows', () => {
 });
 
 describe('createBoardMovementPaths', () => {
+  test('이웃 구간을 아직 받지 않았으면, 떨어진 구간 사이를 직선으로 잇지 않는다', () => {
+    // given: 앞 구간과 뒤 구간만 받은 상태다.
+    const board = createBoardWithPathSegments();
+    const path = (board.slots.path as Record<string, unknown>[])[0];
+    const segments = path.segments as Record<string, unknown>[];
+    segments[0] = { ...segments[0], startPointOrder: 0, endPointOrder: 1 };
+    segments[1] = { ...segments[1], startPointOrder: 6, endPointOrder: 7,
+      geometry: { type: 'LineString', coordinates: [[127, 36], [128, 37]] } };
+    // when / then: 미수신 영역에는 선을 만들지 않는다.
+    expect(createBoardMovementPaths(board)[1].coordinates).toEqual([[127, 36], [128, 37]]);
+    // 실제 이웃 구간을 받으면 묶음 사이 연결을 복구한다.
+    segments[1].startPointOrder = 2;
+    expect(createBoardMovementPaths(board)[1].coordinates[0]).toEqual([126.914, 35.163]);
+  });
   test('path slot segment geometry를 segment별 이동 경로로 변환한다', () => {
     const board = createBoardWithPathSegments();
 

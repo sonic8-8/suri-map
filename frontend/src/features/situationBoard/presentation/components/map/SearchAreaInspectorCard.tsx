@@ -28,6 +28,7 @@ type SearchAreaInspectorCardProps = {
   selectedSearchAreaId: string | null;
   savedAreaDrafts: CompletedAreaDraft[];
   movementPaths: MovementPath[];
+  pathLoading?: boolean;
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
   variant?: 'layer' | 'mapPopup';
@@ -552,6 +553,7 @@ export function SearchAreaInspectorCard({
   selectedSearchAreaId,
   savedAreaDrafts,
   movementPaths,
+  pathLoading = false,
   recentMarkers,
   operationalPeriods,
   variant = 'layer',
@@ -641,7 +643,7 @@ export function SearchAreaInspectorCard({
                 <SearchAreaChip
                   className={styles.infoChip}
                   icon={<Route size={14} strokeWidth={2.4} aria-hidden="true" />}
-                  label={`경로 ${summary.pathCount}개`}
+                  label={`${pathLoading ? '받은 경로' : '경로'} ${summary.pathCount}개`}
                 />
               </div>
             </div>
@@ -652,6 +654,7 @@ export function SearchAreaInspectorCard({
         </header>
 
         <div className={styles.summaryRow}>
+          {pathLoading && <p role="status">경로를 불러오는 중입니다. 개수와 시각은 현재 받은 구간 기준입니다.</p>}
           <section className={styles.timeSection} aria-label="시간 정보">
             <div className={styles.sectionLabel}>시간 정보</div>
             <div className={styles.timePanel}>
