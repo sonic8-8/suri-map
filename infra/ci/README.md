@@ -2,11 +2,29 @@
 
 Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
-`Checkout → Backend Test CI → Sync → Deploy`
+`Checkout → Backend Test CI → Sync → Build Images → Approve Backend Deployment → Deploy Backend → Verify Backend → Deploy Web`
 
 실행 정의는 Jenkins 작업 설정에 저장된 **inline 스크립트**다. [hetzner.Jenkinsfile](hetzner.Jenkinsfile)은 이 설정을 보관·대조하는 파일이며, Jenkins가 저장소에서 자동으로 읽는 파일은 아니다. 변경할 때는 Jenkins 문법 검사 → 작업 설정 저장 → 저장된 스크립트 재조회·대조를 마친 뒤 빌드를 실행한다.
 
 기존 [infra/Jenkinsfile](../Jenkinsfile)은 다른 배포 설정을 포함하며 현재 작업에서 사용하지 않는다. 이 파일을 수정하는 것만으로 Hetzner CI가 바뀌지 않는다. 테스트 연결이 빠졌던 원인과 실제 빌드별 결과는 [로컬 이슈 10](../../docs/issues/local/10-jenkins-backend-tests-not-connected.md)에 기록한다.
+
+## 경로 조회 전환의 배포 대기
+
+Backend와 웹을 동시에 시작하지 않도록 배포를 분리한다. 현재 파이프라인에서는 모든 빌드가 두 확인 단계에서 멈추며, 승인 없이 다음 단계로 넘어가지 않는다. 전환 후 일반 자동 배포로 복귀할지는 별도로 결정한다.
+
+| 단계 | 수행·확인할 내용 |
+|---|---|
+| Build Images | 이미지만 만든다. 실행 중 앱은 바꾸지 않는다. |
+| Approve Backend Deployment | 기존 이미지·설정 보존, 외부 쓰기 차단, 기존 Backend·시험 writer 중단, 진행 중 쓰기 종료, 최종 DB 백업을 확인한 뒤 승인한다. |
+| Deploy Backend | `up -d --no-deps backend`로 Backend만 시작한다. Flyway는 이때 실행된다. |
+| Verify Backend | migration 성공·원본 데이터 보존·조회 설정·인증된 실제 HTTP 응답을 검증하고 기록한 뒤 승인한다. health 정상만으로 진행하지 않는다. |
+| Deploy Web | `up -d --no-deps frontend mock-112`로 웹과 시연 서버를 시작한다. 검증한 Backend와 DB·인증·저장소는 재생성하지 않는다. |
+
+대기에는 Jenkins 기본 [input 단계](https://www.jenkins.io/doc/pipeline/steps/pipeline-input-step/)를 사용한다. 승인자·승인/중단은 빌드에 남지만, 버튼을 누르는 것이 외부 쓰기 차단·백업·검증을 실행하거나 결과를 입증하지는 않는다. 검증 기록을 별도로 남기고 대기 중 다른 배포나 설정 변경을 하지 않는다. `disableConcurrentBuilds()`는 이 작업의 동시 빌드만 막는다.
+
+중간 배포 단계부터 다시 실행해 확인 절차를 건너뛰지 않도록 `disableRestartFromStage()`를 적용한다. 새 빌드는 처음부터 검증한다. 이 전환용 구조는 기존 최상위 `agent any`를 유지하므로 승인 대기 중에도 실행 슬롯 하나를 점유한다.
+
+기존 DB·Keycloak·저장소가 준비된 서버 전환용이다. `--no-deps`이므로 새 서버의 기반 서비스 설치를 대신하지 않는다. Backend 시작 후 검증을 중단해도 DB·앱을 자동으로 되돌리지 않는다. 쓰기 차단을 유지하고 migration 상태·보존한 백업·이후 기록을 확인해 복구 범위를 정한다. 최종 SUCCESS도 실제 브라우저·Smoke 통과를 뜻하지 않는다.
 
 ## DB 테스트 실행
 
@@ -39,7 +57,7 @@ docker run --rm \
 
 Jenkins는 `docker create` → `docker start --attach`로 실행하고, 실패해도 컨테이너를 지우기 전에 결과를 복사한다. 테스트의 실패 종료 코드는 보고서 회수 여부와 관계없이 유지한다. 복사 후 해당 테스트 컨테이너와 익명 Gradle 볼륨을 정리한다.
 
-다음 중 하나라도 해당하면 App 서버의 `Sync`·`Deploy`를 실행하지 않는다.
+다음 중 하나라도 해당하면 App 서버의 `Sync`와 이후 이미지 빌드·배포 단계를 실행하지 않는다.
 
 - 테스트 실행이 실패했거나 JUnit에 실패한 테스트가 있다.
 - JUnit 결과가 없거나 비어 있다. HTML 테스트 보고서·JaCoCo XML·HTML의 필수 파일도 있어야 한다.

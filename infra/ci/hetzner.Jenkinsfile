@@ -61,6 +61,8 @@ pipeline {
   options {
     timestamps()
     disableConcurrentBuilds()
+    // Stage restart must not bypass the cutover checks below.
+    disableRestartFromStage()
   }
 
   environment {
@@ -175,9 +177,9 @@ rsync -az --delete \
       }
     }
 
-    stage('Deploy') {
+    stage('Build Images') {
       steps {
-        script { env.FAILED_STAGE = 'Deploy' }
+        script { env.FAILED_STAGE = 'Build Images' }
         withCredentials([sshUserPrivateKey(credentialsId: 'app-deploy-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
           sh '''
 set -eu
@@ -187,7 +189,61 @@ cd /srv/apps/suri-map/source
 docker build -t suri-map-frontend:develop -f frontend/Dockerfile frontend
 docker build -t suri-map-backend:develop -f backend/Dockerfile .
 docker build -t suri-map-mock-112:develop -f mock-112/Dockerfile mock-112
+REMOTE
+          '''
+        }
+      }
+    }
+
+    stage('Approve Backend Deployment') {
+      steps {
+        script { env.FAILED_STAGE = 'Approve Backend Deployment' }
+        input(
+          id: 'backendDeploymentReady',
+          message: '기존 이미지·설정 보존, 외부 쓰기 차단, 기존 Backend·시험 writer 중단, 진행 중 쓰기 종료와 최종 DB 백업을 확인했습니까? 확인 전에는 진행하지 마세요. 승인만으로 이 작업들이 실행되지는 않습니다.',
+          ok: '준비 확인 후 Backend 배포'
+        )
+      }
+    }
+
+    stage('Deploy Backend') {
+      steps {
+        script { env.FAILED_STAGE = 'Deploy Backend' }
+        withCredentials([sshUserPrivateKey(credentialsId: 'app-deploy-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+          sh '''
+set -eu
+ssh -i "${SSH_KEY}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@${APP_HOST}" <<'REMOTE'
+set -eu
 cd /srv/apps/suri-map
+# Start only the new writer. Do not publish the new web or recreate the databases.
+docker compose --env-file .env -f source/infra/docker/docker-compose.runtime.yml up -d --no-deps backend
+REMOTE
+          '''
+        }
+      }
+    }
+
+    stage('Verify Backend') {
+      steps {
+        script { env.FAILED_STAGE = 'Verify Backend' }
+        input(
+          id: 'backendVerified',
+          message: '새 Backend의 Flyway 성공, 원본 데이터 보존, 조회 설정과 인증된 실제 API 응답을 확인하고 검증 기록을 남겼습니까? health 정상만으로 승인하지 마세요. 실패하면 중단하고 쓰기 차단을 유지하세요. 구 이미지로 자동 복구하지 않습니다.',
+          ok: '검증 확인 후 웹 배포'
+        )
+      }
+    }
+
+    stage('Deploy Web') {
+      steps {
+        script { env.FAILED_STAGE = 'Deploy Web' }
+        withCredentials([sshUserPrivateKey(credentialsId: 'app-deploy-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+          sh '''
+set -eu
+ssh -i "${SSH_KEY}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@${APP_HOST}" <<'REMOTE'
+set -eu
+cd /srv/apps/suri-map
+# Keep the verified Backend and existing infrastructure unchanged.
 mkdir -p tileserver/styles tileserver/fonts tileserver/data
 if [ ! -f tileserver/config.json ]; then
   cp source/infra/docker/tileserver/config.json tileserver/config.json
@@ -195,12 +251,13 @@ fi
 if [ -d source/infra/docker/tileserver/styles ]; then
   cp -R source/infra/docker/tileserver/styles/. tileserver/styles/
 fi
-docker compose --env-file .env -f source/infra/docker/docker-compose.runtime.yml up -d
+docker compose --env-file .env -f source/infra/docker/docker-compose.runtime.yml up -d --no-deps frontend mock-112
 REMOTE
           '''
         }
       }
     }
+
   }
 
   post {
