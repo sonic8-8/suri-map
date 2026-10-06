@@ -93,7 +93,7 @@ export function useSearchPathPages(
       const runner = { dirty: true };
       runners.set(query.queryHash, runner);
       // 차수 선택 변경 직후에도 공통 경로를 지우지 않고 표시한다.
-      client.setQueryData(key, state);
+      state = client.setQueryData<SearchPathPages>(key, state) ?? state;
       let preferChanges = false;
       let failures = 0;
       try {
@@ -115,7 +115,8 @@ export function useSearchPathPages(
             signal.throwIfAborted();
             const page = parseSearchPathPage(value, kind, key[2]);
             state = mergeSearchPathPage(state, page, kind);
-            client.setQueryData(key, state);
+            // 캐시가 재사용한 객체로 이어가야 다음 페이지에서 변경 없는 경로의 재비교를 피한다.
+            state = client.setQueryData<SearchPathPages>(key, state) ?? state;
             failures = 0;
             preferChanges = kind === 'segments';
             readOptions.recordMeasurement('path_page_completed', {
@@ -139,7 +140,7 @@ export function useSearchPathPages(
               restricted,
               paths: restricted ? [] : state.paths,
             };
-            client.setQueryData(key, state);
+            state = client.setQueryData<SearchPathPages>(key, state) ?? state;
             readOptions.recordMeasurement('path_page_failed', { incidentId, requestId, kind });
             if (!readOptions.isRetryable(error)) throw error;
             failures += 1;

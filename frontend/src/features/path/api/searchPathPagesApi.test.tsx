@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager, replaceEqualDeep } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -21,6 +21,7 @@ import {
   type LoadedSearchPath,
   type SearchPathPage,
   type SearchPathPageRow,
+  type SearchPathPages,
 } from '../model/searchPathPages';
 
 let client: QueryClient;
@@ -67,6 +68,76 @@ function row(overrides: Partial<SearchPathPageRow> = {}): SearchPathPageRow {
 function page(paths: SearchPathPageRow[] = [], hasMore = false): SearchPathPage {
   return { paths, nextSearchPathId: null, hasMore };
 }
+
+test('과거 구간을 이어 받은 뒤 다른 경로가 바뀌면, 변경 없는 경로는 캐시 객체를 재사용한다', async () => {
+  // given: 두 경로의 최근 구간을 받은 뒤, 각 경로의 과거 구간을 차례로 받는다.
+  const segment = (id: string, start: number): SearchPathPageRow['segments'][number] => ({
+    id,
+    version: '1',
+    startPointOrder: start,
+    endPointOrder: start + 1,
+    movementType: 'FOOT',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [127, 35],
+        [127.01, 35.01],
+      ],
+    },
+    startedAt: '2026-10-07T00:00:00Z',
+    endedAt: '2026-10-07T00:00:05Z',
+  });
+  const first = row({
+    segments: [segment('first-recent', 2)],
+    segmentsProgress: { beforeStartPointOrder: 2, completed: false },
+  });
+  const second = row({
+    id: 'path-2',
+    accountId: 'account-2',
+    segments: [segment('second-recent', 2)],
+    segmentsProgress: { beforeStartPointOrder: 2, completed: false },
+  });
+  let comparedUnchangedPath = false;
+  // 캐시의 공개 비교 설정으로 비용 발생 조건을 관찰하고, 실제 기본 비교를 실행한다.
+  client.setQueryDefaults(searchPathPagesKey('incident-1', ['op-1']), {
+    structuralSharing: (previous: unknown, incoming: unknown) => {
+      const before = previous as SearchPathPages | undefined;
+      const after = incoming as SearchPathPages;
+      if (before?.paths[0]?.segments.length === 2 && after.paths[1]?.segments.length === 2) {
+        comparedUnchangedPath ||= before.paths[0] !== after.paths[0];
+      }
+      return replaceEqualDeep(previous, incoming);
+    },
+  });
+  vi.spyOn(apiClient, 'post')
+    .mockResolvedValueOnce(page([first, second], true))
+    .mockResolvedValueOnce(page()) // 최초 변경분 확인: 새 변경 없음
+    .mockResolvedValueOnce(page([row({ segments: [segment('first-earlier', 0)] })], true))
+    .mockResolvedValueOnce(
+      page([
+        row({
+          ...second,
+          segments: [segment('second-earlier', 0)],
+          segmentsProgress: { beforeStartPointOrder: 0, completed: true },
+        }),
+      ]),
+    );
+
+  // when: 실제 조회 훅이 모든 페이지를 받아 캐시에 반영한다.
+  const { result } = renderPaths();
+  await waitFor(() => expect(result.current.isFetching).toBe(false));
+
+  // then: 기존 경로를 불필요하게 재비교하지 않고 구간 순서·내용·완료 상태를 유지한다.
+  expect(comparedUnchangedPath).toBe(false);
+  expect(result.current.data?.paths.map((path) => path.segments)).toEqual([
+    [segment('first-earlier', 0), segment('first-recent', 2)],
+    [segment('second-earlier', 0), segment('second-recent', 2)],
+  ]);
+  expect(result.current.data?.paths.map((path) => path.segmentsProgress?.completed)).toEqual([true, true]);
+  expect(result.current.data?.hasMoreSegments).toBe(false);
+  expect(result.current.data?.hasMoreChanges).toBe(false);
+  expect(result.current.data?.error).toBeNull();
+});
 
 test('다른 최초 기준의 캐시가 이력을 모두 받았어도, 현재 기준의 미수신 구간을 계속 조회한다', async () => {
   // given: 기준 1까지는 모두 받았지만, 기준 5에서는 마지막 구간만 받은 상태다.
