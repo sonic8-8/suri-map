@@ -3,12 +3,14 @@ import { cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import maplibregl from 'maplibre-gl';
+import { GeoJSONVT } from '@maplibre/geojson-vt';
 import * as config from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
 import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
 import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
 import {
+  addGeoJsonSource,
   canCorrectReferenceMarker,
   createManualSearchPathPoints,
   createReferenceMarkerCorrectionRequest,
@@ -17,6 +19,47 @@ import {
   SearchMapCanvas,
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
+
+test('지도를 축소해도 짧은 수색 구간은 표시용 타일에 남고 다른 도형의 단순화 설정은 유지한다', () => {
+  // given: 실제 source 생성 함수와 MapLibre의 타일 변환기를 짧은 GPS 구간에 연결한다.
+  const data: BoardMapFeatureCollection = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { entityId: 'short-segment' },
+      geometry: {
+        type: 'LineString',
+        coordinates: Array.from({ length: 6 }, (_, i) => [126.918 + i * 0.000025, 35.16 + i * 0.000005]),
+      },
+    }],
+  };
+  const original = JSON.stringify(data);
+  const addSource = vi.fn();
+  const map = { getSource: vi.fn(), addSource } as unknown as maplibregl.Map;
+
+  // when: 수색 경로 source를 생성하고 실제 라이브러리 설정으로 표시용 타일을 만든다.
+  addGeoJsonSource(map, 'operational-movement-path', data);
+  const options: maplibregl.GeoJSONSourceSpecification = addSource.mock.calls[0][1];
+  const source = new maplibregl.GeoJSONSource(
+    'path', options,
+    { getActor: vi.fn() } as unknown as ConstructorParameters<typeof maplibregl.GeoJSONSource>[2],
+    new maplibregl.Evented(),
+  );
+  const index = new GeoJSONVT(data, source.workerOptions.geojsonVtOptions);
+
+  // then: 기본 축척과 확대 축척 모두 같은 구간을 보존하고 원본 좌표는 바꾸지 않는다.
+  for (const zoom of [10, 11, 15]) {
+    const scale = 2 ** zoom;
+    const latitude = 35.16 * Math.PI / 180;
+    const x = Math.floor((126.918 + 180) / 360 * scale);
+    const y = Math.floor((1 - Math.asinh(Math.tan(latitude)) / Math.PI) / 2 * scale);
+    expect(index.getTile(zoom, x, y)?.features.map(feature => feature.tags?.entityId), `zoom ${zoom}`)
+      .toEqual(['short-segment']);
+  }
+  expect(JSON.stringify(data)).toBe(original);
+  addGeoJsonSource(map, 'operational-overall_search_area', emptyFeatureCollection());
+  expect(addSource.mock.calls[1][1]).not.toHaveProperty('tolerance');
+});
 
 test('부분 갱신이 연속으로 오면, 아직 표시되지 않은 이전 변경분도 계속 계측한다', () => {
   // given: 실제 계측 함수를 연결하고 첫 변경분의 render를 보류한다.
