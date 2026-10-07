@@ -477,12 +477,14 @@ export type LayerVisibility = {
   marker: boolean;
 };
 
-function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | OperationalFeatureCollection) {
+export function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | OperationalFeatureCollection) {
   if (map.getSource(sourceId)) {
     return;
   }
   map.addSource(sourceId, {
     type: 'geojson',
+    // 짧게 나뉜 경로가 축소된 지도에서 단순화로 통째로 사라지지 않게 한다.
+    ...(sourceId === MOVEMENT_PATH_SOURCE_ID ? { tolerance: 0 } : {}),
     data:
       sourceId === MOVEMENT_PATH_SOURCE_ID && typeof data !== 'string'
         ? EMPTY_OPERATIONAL_FEATURE_COLLECTION
