@@ -99,6 +99,43 @@ export function createMovementPathFeatureCollection(
   };
 }
 
+// 화면별로 유지한다. 전체 배열의 순서는 보존하고 변하지 않은 도형 생성은 생략한다.
+export function createMovementPathFeatureMapper(options: MovementPathFeatureOptions = {}) {
+  let previousOpId: string | null | undefined;
+  let cache = new WeakMap<BoardMovementPath, { order: number; feature: BoardMapFeature }>();
+  return (paths: BoardMovementPath[], activeOpId: string | null): BoardMapFeatureCollection => {
+    if (previousOpId !== activeOpId || paths.length === 0) {
+      cache = new WeakMap();
+      previousOpId = activeOpId;
+    }
+    const features: BoardMapFeature[] = [];
+    let group = 0;
+    for (let start = 0; start < paths.length; group += 1) {
+      const pathId = paths[start].searchPathId ?? paths[start].id;
+      let end = start + 1;
+      while (end < paths.length && (paths[end].searchPathId ?? paths[end].id) === pathId) end += 1;
+      for (let index = start; index < end; index += 1) {
+        const path = paths[index];
+        if (path.coordinates.length < 2) continue;
+        // 경로 사이에는 정수, 같은 경로의 구간 사이에는 그 안의 소수로 순서를 지정한다.
+        // 한 경로에 구간이 추가돼도 다른 경로의 그리기 순서 값은 변하지 않는다.
+        const order = group + (index - start) / (end - start + 1);
+        const cached = cache.get(path);
+        if (cached?.order === order) {
+          features.push(cached.feature);
+        } else {
+          const feature = createMovementPathFeature(path, activeOpId, options);
+          feature.properties.drawOrder = String(order);
+          cache.set(path, { order, feature });
+          features.push(feature);
+        }
+      }
+      start = end;
+    }
+    return { type: 'FeatureCollection', features };
+  };
+}
+
 export function createMovementCurrentPositionFeatureCollection(
   movementPaths: BoardMovementPath[],
   activeOperationalPeriodId: string | null,

@@ -3,11 +3,52 @@ import {
   applyRouteColorsByAssignee,
   createMovementCurrentPositionFeatureCollection,
   createMovementPathFeatureCollection,
+  createMovementPathFeatureMapper,
   createRouteColorAssigneeKey,
 } from './boardMapFeatures';
 import type { BoardMovementPath } from './boardMapSlots';
 
 describe('boardMapFeatures', () => {
+  test('과거 구간을 앞에 붙여도, 그리기 순서와 다른 경로의 도형 재사용을 유지한다', () => {
+    // given: 첫 경로의 두 구간과 다른 경로 한 개를 변환했다.
+    const mapFeatures = createMovementPathFeatureMapper({ includeLabel: true });
+    const first = createMovementPath({ id: 'a-2', searchPathId: 'path-a' });
+    const second = createMovementPath({ id: 'a-3', searchPathId: 'path-a' });
+    const other = createMovementPath({ id: 'b-1', searchPathId: 'path-b' });
+    const previous = mapFeatures([first, second, other], OP_ID);
+
+    // when: 첫 경로의 과거 구간을 앞에 추가한다.
+    const paths = [createMovementPath({ id: 'a-1', searchPathId: 'path-a' }), first, second, other];
+    const current = mapFeatures(paths, OP_ID);
+
+    // then: worker의 삽입 순서가 바뀌어도 정렬 값으로 원래 순서를 복원할 수 있다.
+    const reordered = [...current.features].reverse().sort((a, b) => Number(a.properties.drawOrder) - Number(b.properties.drawOrder));
+    expect(reordered.map(item => item.properties.entityId)).toEqual(['a-1', 'a-2', 'a-3', 'b-1']);
+    expect(current.features[3]).toBe(previous.features[2]);
+    expect(current.features.map(item => {
+      const properties = { ...item.properties };
+      delete properties.drawOrder;
+      return { ...item, properties };
+    })).toEqual(createMovementPathFeatureCollection(paths, OP_ID, { includeLabel: true }).features);
+  });
+
+  test('차수·빈 결과가 바뀌면, 도형 속성과 재사용 자료를 초기화한다', () => {
+    // given: 동일 경로 객체를 서로 다른 활성 차수에서 사용한다.
+    const mapFeatures = createMovementPathFeatureMapper();
+    const path = createMovementPath();
+    const initial = mapFeatures([path], OP_ID);
+
+    // when: 활성 차수를 바꾸고 정상 빈 결과를 받는다.
+    const otherPeriod = mapFeatures([path], NEXT_OP_ID);
+    expect(mapFeatures([], NEXT_OP_ID).features).toEqual([]);
+    const restored = mapFeatures([path], NEXT_OP_ID);
+
+    // then: 이전 차수 속성이나 비우기 전 도형을 그대로 재사용하지 않는다.
+    expect(otherPeriod.features[0].properties.isActiveOp).toBe('false');
+    expect(otherPeriod.features[0]).not.toBe(initial.features[0]);
+    expect(restored.features[0]).not.toBe(otherPeriod.features[0]);
+  });
+
   test('구간 도형을 만들면, 구간 ID와 원본 경로의 ID·버전을 구분해 유지한다', () => {
     // given: 원본 경로의 일부를 나타내는 구간이다.
     const path = createMovementPath({ id: 'segment-1', searchPathId: 'path-1', searchPathVersion: 7 });

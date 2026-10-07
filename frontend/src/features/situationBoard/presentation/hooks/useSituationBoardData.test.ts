@@ -12,9 +12,11 @@ import { shouldSubscribeIncidentBoardEvents, useSituationBoardData } from './use
 import { incidentBoardQueryKeys, boardSlotsWithoutPaths } from '../../../board/api/incidentBoardApi';
 import { refreshSituationBoards } from '../../../../app/board/refreshSituationBoards';
 
-// 이 파일은 기존 board/SSE 갱신을 검증한다. 경로 페이지 실행은 별도 실제 QueryClient 검사로 다룬다.
+const { pathPageState } = vi.hoisted(() => ({ pathPageState: { paths: [] as unknown[] } }));
+
+// HTTP 페이지 실행은 별도 QueryClient 검사로 다루고, 여기서는 수신 자료의 화면 연결을 검증한다.
 vi.mock('../../../path/api/searchPathPagesApi', () => ({
-  useSearchPathPages: () => ({ data: { paths: [], hasMoreSegments: false }, isError: false }),
+  useSearchPathPages: () => ({ data: { paths: pathPageState.paths, hasMoreSegments: false }, isError: false }),
   refreshSearchPathPages: vi.fn(),
   restrictSearchPathPages: vi.fn(),
 }));
@@ -32,6 +34,7 @@ vi.mock('../../../board/api/incidentBoardEventStream', async (importOriginal) =>
 let queryClient: QueryClient;
 
 beforeEach(() => {
+  pathPageState.paths = [];
   queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } } });
   vi.spyOn(queryClient, 'invalidateQueries');
   queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-001', includeSlots: boardSlotsWithoutPaths }), boardResponse({}));
@@ -411,6 +414,31 @@ function boardEvent(): BoardEventEnvelope {
 }
 
 describe('useSituationBoardData', () => {
+  test('경로 페이지가 추가되면, 상황판에서도 변경되지 않은 경로 자료를 재사용한다', () => {
+    // given: 두 경로가 있는 상황판을 실제 Hook으로 조립한다.
+    vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
+    const first = { id: 'path-a', accountId: 'account-a', opId: 'op-001', geometry: {
+      type: 'LineString', coordinates: [[127, 37], [127.001, 37]],
+    } };
+    const second = { ...first, id: 'path-b', accountId: 'account-b' };
+    pathPageState.paths = [first, second];
+    const { result, rerender } = renderBoardHook(() => useSituationBoardData('incident-001', []));
+    const previous = result.current.board.movementPaths;
+
+    // when: 첫 경로의 좌표만 갱신하고 다시 렌더링한다.
+    pathPageState.paths = [{ ...first, geometry: {
+      type: 'LineString', coordinates: [[127, 37], [127.002, 37]],
+    } }, second];
+    rerender();
+
+    // then: 실제 화면용 자료에서도 첫 경로만 바뀌고, 정상 빈 결과는 과거 경로로 채우지 않는다.
+    expect(result.current.board.movementPaths[0].coordinates).toEqual([[127, 37], [127.002, 37]]);
+    expect(result.current.board.movementPaths[1]).toBe(previous[1]);
+    pathPageState.paths = [];
+    rerender();
+    expect(result.current.board.movementPaths).toEqual([]);
+  });
+
   test('fallback board does not include placeholder markers', () => {
     const board = createIncidentScopedFallbackBoard('incident-001');
 
