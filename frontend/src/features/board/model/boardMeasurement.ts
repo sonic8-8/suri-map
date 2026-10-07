@@ -28,6 +28,7 @@ export function recordBoardMeasurement(stage: string, details: Record<string, un
 }
 
 type PendingMapUpdate = {
+  sourceId: string;
   updateId: string;
   layerIds: string[];
   remainingIds: Set<string>;
@@ -44,6 +45,7 @@ export function measureBoardMapUpdate(
   sourceId: string,
   layerIds: string[],
   data: FeatureCollection,
+  changes?: { removedIds: string[] },
 ): FeatureCollection {
   if (!isBoardMeasurementEnabled()) return data;
   window.__SURI_MAP_COORDINATE_CHECK_SCOPE__ = 'test-writes';
@@ -58,15 +60,20 @@ export function measureBoardMapUpdate(
         updates.clear();
         return;
       }
-      for (const [source, update] of updates) {
-        const layers = update.layerIds.filter((id) => map.getLayer(id));
+      const layersBySource = new Map<string, string[]>();
+      for (const update of updates.values()) layersBySource.set(update.sourceId, update.layerIds);
+      for (const [source, layerIds] of layersBySource) {
+        const layers = layerIds.filter((id) => map.getLayer(id));
         if (layers.length === 0) continue;
-        const observedIds = new Set<string>();
+        const observedIdsByUpdate = new Map<string, Set<string>>();
         for (const feature of map.queryRenderedFeatures({ layers })) {
-          if (feature.source !== source || feature.properties?.[revisionProperty] !== update.updateId) continue;
+          const update = updates.get(feature.properties?.[revisionProperty]);
+          if (feature.source !== source || !update || update.sourceId !== source) continue;
           const id = feature.properties?.entityId ?? feature.properties?.id;
           if (typeof id === 'string' && update.remainingIds.delete(id)) {
+            const observedIds = observedIdsByUpdate.get(update.updateId) ?? new Set<string>();
             observedIds.add(id);
+            observedIdsByUpdate.set(update.updateId, observedIds);
             const submitted = update.coordinateChecks.get(id);
             if (submitted) {
               // ponytail: 새 좌표도 render에서 동기 검사한다. 대량 신규 입력에서 지연이 재현되면 분할한다.
@@ -75,20 +82,20 @@ export function measureBoardMapUpdate(
             }
           }
         }
-        if (observedIds.size > 0) {
+        for (const [updateId, observedIds] of observedIdsByUpdate) {
           recordBoardMeasurement('map_features_rendered', {
             sourceId: source,
-            updateId: update.updateId,
+            updateId,
             entityIds: [...observedIds],
           });
+          if (updates.get(updateId)?.remainingIds.size === 0) updates.delete(updateId);
         }
-        if (update.remainingIds.size === 0) updates.delete(source);
       }
     };
     const finishUnobservedUpdates = () => {
-      for (const [source, update] of updates) {
+      for (const update of updates.values()) {
         recordBoardMeasurement('map_update_unobserved_at_idle', {
-          sourceId: source,
+          sourceId: update.sourceId,
           updateId: update.updateId,
           entityIds: [...update.remainingIds],
         });
@@ -98,9 +105,9 @@ export function measureBoardMapUpdate(
     map.on('render', observeRenderedFeatures);
     map.on('idle', finishUnobservedUpdates);
     map.once('remove', () => {
-      for (const [source, update] of updates) {
+      for (const update of updates.values()) {
         recordBoardMeasurement('map_update_cancelled', {
-          sourceId: source,
+          sourceId: update.sourceId,
           updateId: update.updateId,
           entityIds: [...update.remainingIds],
         });
@@ -112,19 +119,34 @@ export function measureBoardMapUpdate(
       knownCoordinateSignatures.delete(map);
     });
   }
-  const previous = updates.get(sourceId);
-  if (previous) {
-    recordBoardMeasurement('map_update_replaced', {
-      sourceId,
-      updateId: previous.updateId,
-      entityIds: [...previous.remainingIds],
-    });
-  }
   const updateId = crypto.randomUUID();
   const entityIds = data.features.flatMap((feature) => {
     const id = feature.properties?.entityId ?? feature.properties?.id;
     return typeof id === 'string' ? [id] : [];
   });
+  const replacedIds = new Set([...entityIds, ...(changes?.removedIds ?? [])]);
+  // 부분 갱신에서 건드리지 않은 도형은 이전 revision으로 계속 표시를 기다린다.
+  for (const [previousId, previous] of updates) {
+    if (previous.sourceId !== sourceId) continue;
+    const replaced = [...previous.remainingIds].filter((id) => !changes || replacedIds.has(id));
+    if (replaced.length > 0) {
+      recordBoardMeasurement('map_update_replaced', { sourceId, updateId: previousId, entityIds: replaced });
+      for (const id of replaced) {
+        previous.remainingIds.delete(id);
+        previous.coordinateChecks.delete(id);
+      }
+    }
+    if (previous.remainingIds.size === 0) updates.delete(previousId);
+  }
+  if (changes) {
+    for (const id of changes.removedIds) coordinateSignatures.delete(`${sourceId}:${id}`);
+  } else {
+    const currentIds = new Set(entityIds);
+    const prefix = `${sourceId}:`;
+    for (const key of coordinateSignatures.keys()) {
+      if (key.startsWith(prefix) && !currentIds.has(key.slice(prefix.length))) coordinateSignatures.delete(key);
+    }
+  }
   const coordinateChecks: PendingMapUpdate['coordinateChecks'] = new Map();
   const targets = window.__SURI_MAP_COORDINATE_CHECK_TARGETS__;
   for (const feature of data.features) {
@@ -147,7 +169,8 @@ export function measureBoardMapUpdate(
       coordinateChecks.set(id, { feature, coordinateSignature });
     }
   }
-  updates.set(sourceId, { updateId, layerIds, remainingIds: new Set(entityIds), coordinateChecks });
+  if (entityIds.length > 0)
+    updates.set(updateId, { sourceId, updateId, layerIds, remainingIds: new Set(entityIds), coordinateChecks });
   const entities = data.features.flatMap((feature) => {
     const properties = feature.properties;
     const id = properties?.entityId ?? properties?.id;

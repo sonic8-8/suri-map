@@ -18,6 +18,50 @@ import {
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
 
+test('부분 갱신이 연속으로 오면, 아직 표시되지 않은 이전 변경분도 계속 계측한다', () => {
+  // given: 실제 계측 함수를 연결하고 첫 변경분의 render를 보류한다.
+  const listeners = new Map<string, () => void>();
+  let rendered: Array<{ source: string; properties: Record<string, unknown> | null }> = [];
+  const query = vi.fn(() => rendered);
+  const map = {
+    on: (name: string, listener: () => void) => listeners.set(name, listener),
+    once: (name: string, listener: () => void) => listeners.set(name, listener),
+    off: vi.fn(), getLayer: () => ({}), queryRenderedFeatures: query,
+  } as unknown as maplibregl.Map;
+  const sourceId = 'operational-movement-path';
+  const data = (id: string): BoardMapFeatureCollection => ({ type: 'FeatureCollection', features: [{
+    type: 'Feature', properties: { entityId: id }, geometry: { type: 'LineString', coordinates: [[127, 37], [127.001, 37]] },
+  }] });
+  const records: Array<Record<string, unknown>> = [];
+  const collect = (event: Event) => { if (event instanceof CustomEvent) records.push(event.detail); };
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    const first = measureBoardMapUpdate(map, sourceId, ['layer'], data('a'));
+
+    // when: 다른 도형의 변경분을 전송한 뒤 두 도형이 한 화면에 나타난다.
+    const second = measureBoardMapUpdate(map, sourceId, ['layer'], data('b'), { removedIds: [] });
+    rendered = [...first.features, ...second.features].map(item => ({ source: sourceId, properties: item.properties }));
+    listeners.get('render')?.();
+
+    // then: source 조회는 한 번이고, 두 변경의 표시를 각 전송 ID로 기록한다.
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(records.filter(record => record.stage === 'map_features_rendered').map(record => record.entityIds)).toEqual([['a'], ['b']]);
+    expect(records.some(record => record.stage === 'map_update_replaced')).toBe(false);
+
+    const third = measureBoardMapUpdate(map, sourceId, ['layer'], data('c'), { removedIds: [] });
+    measureBoardMapUpdate(map, sourceId, ['layer'], { type: 'FeatureCollection', features: [] }, { removedIds: ['c'] });
+    rendered = third.features.map(item => ({ source: sourceId, properties: item.properties }));
+    listeners.get('render')?.();
+    expect(records.filter(record => record.stage === 'map_features_rendered')).toHaveLength(2);
+    expect(records.filter(record => record.stage === 'map_update_replaced').at(-1)?.entityIds).toEqual(['c']);
+  } finally {
+    listeners.get('remove')?.();
+    window.removeEventListener('suri-map:board-measurement', collect);
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+  }
+});
+
 test('누적 경로는 표시 여부만 확인하고 이번 시험의 새 GPS와 마커만 좌표를 검사한다', async () => {
   // given: 과거 구간 1,000개와 기존 마커를 지도에 전달한 뒤 시험 대상을 등록한다.
   const listeners = new Map<string, () => void>();
@@ -366,7 +410,7 @@ test('상황판에서 자체 타일을 사용할 때 로그인 인증 정보를 
 
 describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
   test('updates an existing GeoJSON source without waiting for map.loaded()', () => {
-    const source = { setData: vi.fn() };
+    const source = { type: 'geojson', setData: vi.fn(), loaded: () => true, on: vi.fn() };
     const map = createMap({ source });
     const data = emptyFeatureCollection();
 
@@ -378,7 +422,7 @@ describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
   });
 
   test('defers until load when the source is not registered yet', () => {
-    const source = { setData: vi.fn() };
+    const source = { type: 'geojson', setData: vi.fn(), loaded: () => true, on: vi.fn() };
     const state: { source: typeof source | null; loadHandler?: () => void } = { source: null };
     const map = createMap({
       getSource: () => state.source,

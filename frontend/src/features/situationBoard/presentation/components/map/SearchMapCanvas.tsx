@@ -55,7 +55,7 @@ import {
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import {
   createMovementCurrentPositionFeatureCollection,
-  createMovementPathFeatureCollection,
+  createMovementPathFeatureMapper,
   createSearchAreaDraftFeatureCollection,
   type BoardMapFeatureCollection,
 } from '../../../../../shared/model/boardMapFeatures';
@@ -88,7 +88,7 @@ import {
   filterSearchAreasByLegendFilters,
 } from './searchMapLayerFilters';
 import styles from './SearchMapCanvas.module.css';
-import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
+import { syncMovementPathSource } from './movementPathSource';
 
 const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
 const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
@@ -485,22 +485,25 @@ function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | 
     type: 'geojson',
     data:
       sourceId === MOVEMENT_PATH_SOURCE_ID && typeof data !== 'string'
-        ? measureBoardMapUpdate(map, sourceId, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS, data)
+        ? EMPTY_OPERATIONAL_FEATURE_COLLECTION
         : data,
   });
+  if (sourceId === MOVEMENT_PATH_SOURCE_ID && typeof data !== 'string') {
+    syncMovementPathSource(map, sourceId, data, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS);
+  }
 }
 
 function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: OperationalFeatureCollection) {
+  if (sourceId === MOVEMENT_PATH_SOURCE_ID) {
+    syncMovementPathSource(map, sourceId, data, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS);
+    return;
+  }
   const source = map.getSource(sourceId);
   if (!source || !('setData' in source)) {
     return;
   }
 
-  (source as GeoJSONSource).setData(
-    sourceId === MOVEMENT_PATH_SOURCE_ID
-      ? measureBoardMapUpdate(map, sourceId, MOVEMENT_PATH_MEASUREMENT_LAYER_IDS, data)
-      : data,
-  );
+  (source as GeoJSONSource).setData(data);
 }
 
 export function syncOperationalGeoJsonSourceDataWhenAvailable(
@@ -583,7 +586,9 @@ function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
   if (map.getLayer(layer.id)) {
     return;
   }
-  map.addLayer(layer);
+  map.addLayer(layer.type === 'line' && layer.source === MOVEMENT_PATH_SOURCE_ID
+    ? { ...layer, layout: { ...layer.layout, 'line-sort-key': ['to-number', ['get', 'drawOrder']] } }
+    : layer);
 }
 
 function applyBaseRasterOpacity(map: maplibregl.Map) {
@@ -1128,12 +1133,10 @@ export function SearchMapCanvas({
     () => (searchAreaPopupLngLat ? getViewportPoint(searchAreaPopupLngLat) : null),
     [getViewportPoint, searchAreaPopupLngLat],
   );
+  const mapPathFeatures = useMemo(() => createMovementPathFeatureMapper({ includeLabel: true }), []);
   const movementPathFeatures = useMemo(
-    () =>
-      createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, {
-        includeLabel: true,
-      }),
-    [activeOperationalPeriodId, movementPaths],
+    () => mapPathFeatures(movementPaths, activeOperationalPeriodId),
+    [activeOperationalPeriodId, movementPaths, mapPathFeatures],
   );
   const movementCurrentPositionFeatures = useMemo(
     () =>

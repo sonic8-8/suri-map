@@ -57,12 +57,14 @@ export function readBoardSlotRows(board: BoardResponseLike, slot: string): Recor
   return readSlotRows(board, slot);
 }
 
-export function createBoardMovementPaths(board: BoardResponseLike | null): BoardMovementPath[] {
+export function createBoardMovementPaths(board: BoardResponseLike | null, firstPathIndex = 0): BoardMovementPath[] {
   if (!board) return [];
 
   const freshnessStatusByAccountId = createFreshnessStatusByAccountId(board);
 
-  return readBoardSlotRows(board, 'path').flatMap((row, pathIndex) => {
+  return readBoardSlotRows(board, 'path').flatMap((row, index) => {
+    // 일부 경로만 변환하더라도 원래 배열 기준의 기본 라벨·ID를 유지한다.
+    const pathIndex = firstPathIndex + index;
     const segments = row.segments;
     if (Array.isArray(segments)) {
       const segmentRows = segments.filter(isRecord);
