@@ -186,6 +186,13 @@ set -eu
 ssh -i "${SSH_KEY}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@${APP_HOST}" <<'REMOTE'
 set -eu
 cd /srv/apps/suri-map/source
+# Preserve the running images before BuildKit replaces their develop tags.
+preserve_tag="before-build-$(date -u +%Y%m%dT%H%M%SZ)"
+for service in backend frontend mock-112; do
+  image_id=$(docker inspect -f '{{.Image}}' "suri-map-${service}")
+  docker image inspect "${image_id}" >/dev/null
+  docker tag "${image_id}" "suri-map-${service}:${preserve_tag}"
+done
 docker build -t suri-map-frontend:develop -f frontend/Dockerfile frontend
 docker build -t suri-map-backend:develop -f backend/Dockerfile .
 docker build -t suri-map-mock-112:develop -f mock-112/Dockerfile mock-112

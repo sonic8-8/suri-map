@@ -14,7 +14,7 @@ Backend와 웹을 동시에 시작하지 않도록 배포를 분리한다. 현�
 
 | 단계 | 수행·확인할 내용 |
 |---|---|
-| Build Images | 이미지만 만든다. 실행 중 앱은 바꾸지 않는다. |
+| Build Images | 실행 중인 앱 3개의 이미지 ID를 조회해 `before-build-<UTC 시각>` 태그로 먼저 보존한 뒤 새 이미지를 만든다. 기존 이미지를 찾지 못하면 빌드 전에 실패한다. 실행 중 앱은 바꾸지 않는다. |
 | Approve Backend Deployment | 기존 이미지·설정 보존, 외부 쓰기 차단, 기존 Backend·시험 writer 중단, 진행 중 쓰기 종료, 최종 DB 백업을 확인한 뒤 승인한다. |
 | Deploy Backend | `up -d --no-deps backend`로 Backend만 시작한다. Flyway는 이때 실행된다. |
 | Verify Backend | migration 성공·원본 데이터 보존·조회 설정·인증된 실제 HTTP 응답을 검증하고 기록한 뒤 승인한다. health 정상만으로 진행하지 않는다. |
