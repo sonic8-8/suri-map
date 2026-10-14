@@ -3,6 +3,10 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 
 declare global {
   interface Window {
+    __SURI_MAP_OBSERVER__?: {
+      connect(map: MapLibreMap): void;
+      disconnect(map: MapLibreMap): void;
+    };
     __SURI_MAP_MEASUREMENT_ENABLED__?: boolean;
     __SURI_MAP_COORDINATE_CHECKS_PENDING__?: number;
     __SURI_MAP_COORDINATE_CHECK_SCOPE__?: 'test-writes';
@@ -11,6 +15,27 @@ declare global {
       markerIds: Set<string>;
     };
   }
+}
+
+// 시험 도구를 지도 생성 전에 등록한다. 무거운 도형 계측과는 별도로 연결한다.
+export function connectBoardMapObserver(map: MapLibreMap) {
+  const observer = typeof window === 'undefined' ? undefined : window.__SURI_MAP_OBSERVER__;
+  if (!observer) return () => {};
+
+  try {
+    observer.connect(map);
+  } catch (error) {
+    console.warn('Failed to connect board map observer', error);
+  }
+
+  // 등록이 교체·삭제돼도 이 지도에 연결했던 관찰 도구에 해제를 알린다.
+  return () => {
+    try {
+      observer.disconnect(map);
+    } catch (error) {
+      console.warn('Failed to disconnect board map observer', error);
+    }
+  };
 }
 
 export function isBoardMeasurementEnabled() {

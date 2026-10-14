@@ -14,6 +14,7 @@ import { getVWorldApiKey } from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { refreshSituationBoards } from '../../../../../app/board/refreshSituationBoards';
+import { connectBoardMapObserver } from '../../../../board/model/boardMeasurement';
 import {
   useCreateMarkerMutation,
   useUpdateMarkerMutation,
@@ -1905,6 +1906,7 @@ export function SearchMapCanvas({
     }
 
     mapRef.current = map;
+    const disconnectMapObserver = connectBoardMapObserver(map);
     setMapInstance(map);
     onMapReady?.(map);
 
@@ -2019,6 +2021,7 @@ export function SearchMapCanvas({
     });
 
     return () => {
+      disconnectMapObserver();
       map.off('click', handleMapClick);
       clearMarkerElements(markerInstancesRef);
       removeMarkerPopup(hoverMarkerPopupRef);

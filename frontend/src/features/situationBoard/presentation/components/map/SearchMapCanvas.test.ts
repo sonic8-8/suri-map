@@ -8,7 +8,7 @@ import * as config from '../../../../../shared/config';
 import { transformLocalTileRequest } from '../../../../../shared/map/localTileMap';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
 import type { SearchAreaTreeNode } from '../../../../../shared/model/situationBoardViewModel';
-import { measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
+import { connectBoardMapObserver, measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
 import {
   addGeoJsonSource,
   canCorrectReferenceMarker,
@@ -19,6 +19,82 @@ import {
   SearchMapCanvas,
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
+
+test('관찰 도구가 없으면 지도에 접근하지 않고, 나중에 등록한 도구에도 해제를 보내지 않는다', () => {
+  // given: 관찰 도구 없이 연결 함수를 호출한다.
+  const map = {} as maplibregl.Map;
+  const disconnect = connectBoardMapObserver(map);
+  const observer = { connect: vi.fn(), disconnect: vi.fn() };
+  try {
+    // when: 도구를 뒤늦게 등록한 뒤 이전 지도의 연결을 정리한다.
+    window.__SURI_MAP_OBSERVER__ = observer;
+    disconnect();
+
+    // then: 연결하지 않았던 도구는 호출하지 않는다.
+    expect(observer.connect).not.toHaveBeenCalled();
+    expect(observer.disconnect).not.toHaveBeenCalled();
+  } finally {
+    delete window.__SURI_MAP_OBSERVER__;
+  }
+});
+
+test.each([false, true])('계측 OFF에서 지도를 연결하고 제거하며, 관찰 오류가 있어도 정리를 마친다 (오류: %s)', (throws) => {
+  // given: WebGL 대신 지도 생성·해제만 대역으로 두고 실제 컴포넌트를 렌더링한다.
+  const maps = [0, 1].map(() => ({
+    on: vi.fn(),
+    once: vi.fn(),
+    off: vi.fn(),
+    loaded: () => false,
+    getSource: vi.fn(),
+    getLayer: vi.fn(),
+    remove: vi.fn(),
+  }));
+  let nextMap = 0;
+  vi.spyOn(maplibregl, 'Map').mockImplementation(function () {
+    return maps[nextMap++] as unknown as maplibregl.Map;
+  });
+  vi.spyOn(config, 'getVWorldApiKey').mockReturnValue('');
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const events: Array<{ phase: string; map: maplibregl.Map }> = [];
+  const observer = {
+    connect: vi.fn((map: maplibregl.Map) => {
+      events.push({ phase: 'connect', map });
+      if (throws) throw new Error('synthetic observer connect failure');
+    }),
+    disconnect: vi.fn((map: maplibregl.Map) => {
+      events.push({ phase: 'disconnect', map });
+      if (throws) throw new Error('synthetic observer disconnect failure');
+    }),
+  };
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = false;
+  window.__SURI_MAP_OBSERVER__ = observer;
+  try {
+    // when: 화면을 열고 닫은 뒤 다시 열고, 등록을 삭제한 상태에서도 화면을 닫는다.
+    renderTestMap().unmount();
+    const second = renderTestMap();
+    delete window.__SURI_MAP_OBSERVER__;
+    second.unmount();
+
+    // then: 각 지도는 연결했던 도구에 해제되며, 오류가 있어도 실제 remove까지 진행한다.
+    expect(events).toEqual([
+      { phase: 'connect', map: maps[0] },
+      { phase: 'disconnect', map: maps[0] },
+      { phase: 'connect', map: maps[1] },
+      { phase: 'disconnect', map: maps[1] },
+    ]);
+    maps.forEach((map, index) => {
+      expect(map.remove).toHaveBeenCalledOnce();
+      expect(observer.disconnect.mock.invocationCallOrder[index]).toBeLessThan(map.remove.mock.invocationCallOrder[0]);
+    });
+    expect(window.__SURI_MAP_MEASUREMENT_ENABLED__).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(throws ? 4 : 0);
+  } finally {
+    cleanup();
+    delete window.__SURI_MAP_OBSERVER__;
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    vi.restoreAllMocks();
+  }
+});
 
 test('지도를 축소해도 짧은 수색 구간은 표시용 타일에 남고 다른 도형의 단순화 설정은 유지한다', () => {
   // given: 실제 source 생성 함수와 MapLibre의 타일 변환기를 짧은 GPS 구간에 연결한다.
@@ -410,34 +486,7 @@ test('상황판에서 자체 타일을 사용할 때 로그인 인증 정보를 
   });
 
   try {
-    render(
-      createElement(
-        QueryClientProvider,
-        { client: new QueryClient() },
-        createElement(SearchMapCanvas, {
-          activeOperationalPeriodId: null,
-          incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
-          layerVisibility: { vehiclePath: true, footPath: true, searchArea: true, marker: true },
-          movementPaths: [],
-          recentMarkers: [],
-          operationalPeriods: [],
-          focusedMarkerId: null,
-          focusedMarkerSequence: 0,
-          focusedSearchAreaId: null,
-          focusedSearchAreaSequence: 0,
-          visibleMarkerIds: [],
-          savedAreaDrafts: [],
-          selectedPolicePhoneLegendFilters: [],
-          selectedSearchAreaLegendFilters: [],
-          searchAreaTree: searchAreaNode(),
-          selectedSearchAreaId: null,
-          onSelectSearchArea: vi.fn(),
-          onClearSelectedSearchArea: vi.fn(),
-          onOpenSearchAreaSplit: vi.fn(),
-          onOpenSearchAreaAssign: vi.fn(),
-        }),
-      ),
-    );
+    renderTestMap();
 
     expect(mapConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -450,6 +499,37 @@ test('상황판에서 자체 타일을 사용할 때 로그인 인증 정보를 
     vi.restoreAllMocks();
   }
 });
+
+function renderTestMap() {
+  return render(
+    createElement(
+      QueryClientProvider,
+      { client: new QueryClient() },
+      createElement(SearchMapCanvas, {
+        activeOperationalPeriodId: null,
+        incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+        layerVisibility: { vehiclePath: true, footPath: true, searchArea: true, marker: true },
+        movementPaths: [],
+        recentMarkers: [],
+        operationalPeriods: [],
+        focusedMarkerId: null,
+        focusedMarkerSequence: 0,
+        focusedSearchAreaId: null,
+        focusedSearchAreaSequence: 0,
+        visibleMarkerIds: [],
+        savedAreaDrafts: [],
+        selectedPolicePhoneLegendFilters: [],
+        selectedSearchAreaLegendFilters: [],
+        searchAreaTree: searchAreaNode(),
+        selectedSearchAreaId: null,
+        onSelectSearchArea: vi.fn(),
+        onClearSelectedSearchArea: vi.fn(),
+        onOpenSearchAreaSplit: vi.fn(),
+        onOpenSearchAreaAssign: vi.fn(),
+      }),
+    ),
+  );
+}
 
 describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
   test('updates an existing GeoJSON source without waiting for map.loaded()', () => {
