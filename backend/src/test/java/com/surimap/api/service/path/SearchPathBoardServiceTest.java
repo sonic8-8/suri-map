@@ -48,6 +48,7 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID ACCOUNT = UUID.fromString("62000000-0000-0000-0000-000000002621");
   @Autowired private SearchPathBoardService service;
   @Autowired private SnapshotPause snapshotPause;
+  @Autowired private StatementCounter statementCounter;
   @Autowired private PlatformTransactionManager transactionManager;
   @Autowired private ObjectMapper objectMapper;
 
@@ -301,6 +302,131 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     assertThat(recovered.getPaths().get(0).getSegments()).hasSize(1);
     assertThat(recovered.getPaths().get(0).getSegments().get(0).getVersion()).isEqualTo(2L);
     assertThat(recovered.isHasMore()).isFalse();
+  }
+
+  @Test
+  @DisplayName("이력 페이지의 경로 SQL 실행 수는 응답에 담긴 경로·구간 수와 무관하다")
+  void segments_page_statement_count_does_not_grow_with_returned_paths() {
+    // given: 경로 하나만 있는 사건의 첫 페이지 SQL 수를 센다.
+    seedPath();
+    statementCounter.start();
+    SearchPathPageServiceResponse one = service.getSearchPathSegments(request(List.of(OP)));
+    int singlePathStatements = statementCounter.stop();
+    assertThat(one.getPaths()).hasSize(1);
+    // when: 같은 차수에 종료된 경로를 하나 더 두고 첫 페이지를 다시 조회한다.
+    seedSecondPath();
+    statementCounter.start();
+    SearchPathPageServiceResponse two = service.getSearchPathSegments(request(List.of(OP)));
+    int twoPathStatements = statementCounter.stop();
+    // then: 응답 경로와 구간은 늘어도 경로 SQL 실행 수는 같다.
+    assertThat(two.getPaths()).hasSize(2);
+    assertThat(two.getPaths()).allSatisfy(path -> assertThat(path.getSegments()).hasSize(1));
+    assertThat(twoPathStatements).isEqualTo(singlePathStatements);
+  }
+
+  @Test
+  @DisplayName("응답에 담을 구간의 좌표가 일부 없으면 빈 좌표로 반환하지 않고 준비되지 않음으로 거부한다")
+  void missing_point_inside_returned_segment_is_not_ready() {
+    // given: 첫 페이지에 담길 끝 구간(2..3)의 좌표 하나가 없다.
+    seedPath();
+    jdbcTemplate.update(
+        "DELETE FROM search_path_gps_point WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND point_order = 3");
+    // when/then: 구간 좌표를 채울 수 없으므로 조회를 거부한다.
+    assertThatThrownBy(() -> service.getSearchPathSegments(request(List.of(OP))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+  }
+
+  @Test
+  @DisplayName("앞서 방문한 경로의 좌표 누락은 뒤 경로의 구간 크기 오류보다 먼저 알린다")
+  void earlier_missing_point_precedes_later_oversized_segment() {
+    // given: 먼저 방문하는 경로의 구간 좌표가 빠졌고, 다음 경로의 끝 구간은 좌표 한도 120을 넘는다.
+    seedPath();
+    seedSecondPath();
+    jdbcTemplate.update(
+        "DELETE FROM search_path_gps_point WHERE search_path_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee' AND point_order = 1");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET end_point_order = 122 WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND start_point_order = 2");
+    // when/then: 경로 방문 순서대로 판단해 앞 경로의 준비되지 않음을 반환한다.
+    assertThatThrownBy(() -> service.getSearchPathSegments(request(List.of(OP))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+  }
+
+  @Test
+  @DisplayName("떨어진 두 구간만 바뀌면 사이 구간 없이 각 구간의 원본 좌표를 반환한다")
+  void separated_changed_segments_keep_their_own_coordinates() {
+    // given: 세 구간 중 앞(0..1)과 뒤(4..5) 구간만 기준 버전 3 이후 바뀌었다.
+    seedPath();
+    jdbcTemplate.update("UPDATE search_path SET version = 5");
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        SELECT 'ffffffff-ffff-ffff-ffff-ffffffffffff',n,'p'||n,
+          '2026-04-28T00:00:00Z'::timestamptz + n*interval '5 seconds',126.9+n*0.0001,35.1,1,now()
+        FROM generate_series(4,5) n
+        """);
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_segment(id,search_path_id,start_point_order,end_point_order,
+          last_changed_path_version,movement_type,movement_type_source,geometry,version,started_at,ended_at,created_at,updated_at)
+        VALUES ('00000000-0000-0000-0000-000000000003','ffffffff-ffff-ffff-ffff-ffffffffffff',4,5,5,'FOOT','AUTO',
+          ST_SetSRID(ST_MakeLine(ST_MakePoint(126.9004,35.1),ST_MakePoint(126.9005,35.1)),4326),1,now(),now(),now(),now())
+        """);
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET version = 2, last_changed_path_version = 4 WHERE start_point_order = 0");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET last_changed_path_version = 3 WHERE start_point_order = 2");
+    SearchPathPageServiceRequest request =
+        request(List.of(OP)).toBuilder()
+            .paths(
+                List.of(
+                    PathProgress.builder()
+                        .id(UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+                        .baselineVersion(3L)
+                        .build()))
+            .build();
+    // when: 변경분을 조회한다. 경로당 한 차례 구간 한도 1이라 두 회차로 나눠 받는다.
+    SearchPathPageServiceResponse first = service.getSearchPathChanges(request);
+    SearchPathPageServiceResponse second = service.getSearchPathChanges(continuation(first, true));
+    // then: 바뀐 두 구간만 각자의 좌표로 받고, 사이 구간(2..3)은 받지 않는다.
+    List<SearchPathPageServiceResponse.Segment> received =
+        java.util.stream.Stream.of(first, second)
+            .flatMap(page -> page.getPaths().stream())
+            .flatMap(path -> path.getSegments().stream())
+            .toList();
+    assertThat(received)
+        .extracting(SearchPathPageServiceResponse.Segment::getStartPointOrder)
+        .containsExactly(4, 0);
+    assertThat(received.get(0).getCoordinates())
+        .containsExactly(List.of(126.9004, 35.1), List.of(126.9005, 35.1));
+    assertThat(received.get(1).getCoordinates())
+        .containsExactly(List.of(126.9, 35.1), List.of(126.9001, 35.1));
+    assertThat(second.isHasMore()).isFalse();
+  }
+
+  @Test
+  @DisplayName("기준 버전 이후 변경이 없는 경로는 변경분 응답의 경로 한도를 차지하지 않는다")
+  void unchanged_path_since_baseline_is_not_visited_by_changes() {
+    // given: 기준 버전 3을 받은 뒤 경로가 바뀌지 않았고, 변경 진행은 아직 없다.
+    seedPath();
+    SearchPathPageServiceRequest request =
+        request(List.of(OP)).toBuilder()
+            .paths(
+                List.of(
+                    PathProgress.builder()
+                        .id(UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+                        .baselineVersion(3L)
+                        .build()))
+            .build();
+    // when: 변경분을 조회한다.
+    SearchPathPageServiceResponse response = service.getSearchPathChanges(request);
+    // then: 반영할 변경이 없으므로 경로를 반환하지 않고 조회를 끝낸다.
+    assertThat(response.getPaths()).isEmpty();
+    assertThat(response.isHasMore()).isFalse();
+    assertThat(response.getNextSearchPathId()).isNull();
   }
 
   @Test
@@ -593,11 +719,40 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         """);
   }
 
+  private void seedSecondPath() {
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path(id,duty_shift_id,account_id,status,version,started_at,created_at,updated_at)
+        VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          '60000000-0000-0000-0000-000000002621','62000000-0000-0000-0000-000000002621',
+          'ENDED',2,now(),now(),now())
+        """);
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_segment(id,search_path_id,start_point_order,end_point_order,
+          last_changed_path_version,movement_type,movement_type_source,geometry,version,started_at,ended_at,created_at,updated_at)
+        VALUES ('00000000-0000-0000-0000-0000000000e1','eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',0,1,2,'FOOT','AUTO',
+          ST_SetSRID(ST_MakeLine(ST_MakePoint(126.95,35.1),ST_MakePoint(126.9501,35.1)),4326),1,now(),now(),now(),now())
+        """);
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        SELECT 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',n,'e'||n,
+          '2026-04-28T00:00:00Z'::timestamptz + n*interval '5 seconds',126.95+n*0.0001,35.1,1,now()
+        FROM generate_series(0,1) n
+        """);
+  }
+
   @TestConfiguration
   static class SnapshotConfig {
     @Bean
     SnapshotPause snapshotPause() {
       return new SnapshotPause();
+    }
+
+    @Bean
+    StatementCounter statementCounter() {
+      return new StatementCounter();
     }
   }
 
@@ -629,6 +784,36 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         }
       }
       return result;
+    }
+  }
+
+  @Intercepts(
+      @Signature(
+          type = Executor.class,
+          method = "query",
+          args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}))
+  static class StatementCounter implements Interceptor {
+    private final java.util.concurrent.atomic.AtomicInteger count =
+        new java.util.concurrent.atomic.AtomicInteger();
+    private volatile boolean enabled;
+
+    public void start() {
+      count.set(0);
+      enabled = true;
+    }
+
+    public int stop() {
+      enabled = false;
+      return count.get();
+    }
+
+    @Override
+    public Object intercept(Invocation invocation) throws Throwable {
+      MappedStatement statement = (MappedStatement) invocation.getArgs()[0];
+      if (enabled && statement.getId().contains(".SearchPathMapper.")) {
+        count.incrementAndGet();
+      }
+      return invocation.proceed();
     }
   }
 }

@@ -31,6 +31,14 @@
         <result property="elapsedRealtimeNanos" column="elapsed_realtime_nanos" javaType="java.lang.Long"/>
     </resultMap>
 
+    <resultMap id="searchPathBoardPointMap" type="com.surimap.domain.path.SearchPathBoardPoint">
+        <result property="searchPathId" column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="pointOrder" column="point_order" javaType="_int"/>
+        <result property="lon" column="lon" javaType="java.math.BigDecimal"/>
+        <result property="lat" column="lat" javaType="java.math.BigDecimal"/>
+        <result property="clientTs" column="client_ts" javaType="java.time.OffsetDateTime"/>
+    </resultMap>
+
     <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
         <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="startIndex" column="start_point_order" javaType="_int"/>
@@ -360,27 +368,43 @@
     </select>
 
     <!-- 좌표는 응답에 담을 구간 범위를 확정한 뒤 별도로 읽는다. lookahead에 도형을 싣지 않는다. -->
+    <!-- 경로마다 조건이 달라도 한 SQL로 읽는다. 경로 수만큼 인자가 늘며 경로 수는 max-known-paths로 제한된다. -->
     <select id="findBoardSegments" resultMap="searchPathSegmentMap">
-        SELECT id, search_path_id, start_point_order, end_point_order, last_changed_path_version,
-               movement_type, version, started_at, ended_at
-        FROM search_path_segment
-        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-        <if test="before != null">AND start_point_order &lt; #{before}</if>
-        <if test="lowerVersion != null">
-            AND last_changed_path_version &gt; #{lowerVersion}
-            AND last_changed_path_version &lt;= #{upperVersion}
-        </if>
-        ORDER BY start_point_order DESC, id
-        LIMIT #{limit}
+        SELECT s.id, s.search_path_id, s.start_point_order, s.end_point_order, s.last_changed_path_version,
+               s.movement_type, s.version, s.started_at, s.ended_at
+        FROM (VALUES
+            <foreach collection="queries" item="query" separator=",">
+                (#{query.pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::uuid, #{query.before}::integer,
+                 #{query.lowerVersion}::bigint, #{query.upperVersion}::bigint, #{query.limit}::integer)
+            </foreach>
+        ) AS q(path_id, before_order, lower_version, upper_version, row_limit)
+        CROSS JOIN LATERAL (
+            SELECT seg.id, seg.search_path_id, seg.start_point_order, seg.end_point_order,
+                   seg.last_changed_path_version, seg.movement_type, seg.version, seg.started_at, seg.ended_at
+            FROM search_path_segment seg
+            WHERE seg.search_path_id = q.path_id
+              AND (q.before_order IS NULL OR seg.start_point_order &lt; q.before_order)
+              AND (q.lower_version IS NULL
+                   OR (seg.last_changed_path_version &gt; q.lower_version
+                       AND seg.last_changed_path_version &lt;= q.upper_version))
+            ORDER BY seg.start_point_order DESC, seg.id
+            LIMIT q.row_limit
+        ) s
+        ORDER BY s.search_path_id, s.start_point_order DESC, s.id
     </select>
 
-    <select id="findGpsPointsInRange" resultMap="gpsPointMap">
-        SELECT point_id, client_ts, lon, lat, speed_mps, horizontal_accuracy_m,
-               location_provider, elapsed_realtime_nanos
-        FROM search_path_gps_point
-        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND point_order BETWEEN #{start} AND #{end}
-        ORDER BY point_order
+    <!-- 구간마다 읽지 않고 경로별 순번 범위로 한 번에 읽는다. -->
+    <select id="findBoardPoints" resultMap="searchPathBoardPointMap">
+        SELECT g.search_path_id, g.point_order, g.lon, g.lat, g.client_ts
+        FROM (VALUES
+            <foreach collection="ranges" item="range" separator=",">
+                (#{range.searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::uuid, #{range.startIndex}::integer,
+                 #{range.endIndex}::integer)
+            </foreach>
+        ) AS r(path_id, start_order, end_order)
+        JOIN search_path_gps_point g
+          ON g.search_path_id = r.path_id AND g.point_order BETWEEN r.start_order AND r.end_order
+        ORDER BY g.search_path_id, g.point_order
     </select>
 
     <select id="findAllPaths" resultMap="searchPathDetailsMap" resultOrdered="true">
