@@ -22,6 +22,7 @@ import {
   type SearchPathPage,
   type SearchPathPageRow,
   type SearchPathPages,
+  type PathPageKind,
 } from '../model/searchPathPages';
 
 let client: QueryClient;
@@ -67,6 +68,39 @@ function row(overrides: Partial<SearchPathPageRow> = {}): SearchPathPageRow {
 }
 function page(paths: SearchPathPageRow[] = [], hasMore = false): SearchPathPage {
   return { paths, nextSearchPathId: null, hasMore };
+}
+
+function renderPendingPaths() {
+  const calls: Array<{
+    kind: PathPageKind;
+    body: unknown;
+    resolve: (response: SearchPathPage) => void;
+    reject: (error: Error) => void;
+  }> = [];
+  vi.spyOn(apiClient, 'post').mockImplementation(
+    (url, body) =>
+      new Promise((resolve, reject) => {
+        calls.push({ kind: url.includes('/segments/') ? 'segments' : 'changes', body, resolve, reject });
+      }),
+  );
+  const view = renderPaths();
+  const advance = async (ms = 0) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  const respond = async (index: number, response: SearchPathPage) => {
+    await act(async () => {
+      calls[index].resolve(response);
+    });
+    await advance();
+  };
+  const fail = async (index: number, error: Error) => {
+    await act(async () => {
+      calls[index].reject(error);
+    });
+    await advance();
+  };
+  return { ...view, calls, advance, respond, fail };
 }
 
 test('과거 구간을 이어 받은 뒤 다른 경로가 바뀌면, 변경 없는 경로는 캐시 객체를 재사용한다', async () => {
@@ -245,7 +279,7 @@ test('원본 좌표가 하나인 구간을 받으면, 지도 자료를 만들고
   expect(post.mock.calls[1][0]).toContain('/changes/query');
 });
 
-test('이력 조회 중 변경 신호가 몰리면, 한 요청씩 이력과 변경분을 번갈아 받는다', async () => {
+test('이력 조회 중 변경 신호가 몰리면, 신호를 합쳐 변경분을 확인하고 남은 이력을 받는다', async () => {
   // given: 서버 응답을 직접 완료할 때까지 요청이 진행 중이다.
   const responses: Array<(value: SearchPathPage) => void> = [];
   const post = vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => responses.push(resolve)));
@@ -359,8 +393,124 @@ test('일시적인 조회 실패는, 이벤트가 없어도 기다린 뒤 재시
     await vi.advanceTimersByTimeAsync(2);
   });
   expect(post).toHaveBeenCalledTimes(3); // 이력 재시도 성공 후 변경분 확인
+  expect(post.mock.calls[1][0]).toContain('/segments/query');
+  expect(post.mock.calls[2][0]).toContain('/changes/query');
   expect(result.current.data?.error).toBeNull();
   unmount();
+});
+
+test.each(['segments', 'changes'] as const)(
+  '%s 조회가 반복 실패하면, 대기 후 다른 조회도 진행하고 미복구 오류와 재시도 간격을 유지한다',
+  async (failedKind) => {
+    // given: 이력과 변경분 모두 이어받을 수 있고 HTTP 응답은 직접 완료한다.
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const board = renderPendingPaths();
+    await board.respond(0, page([row({ segmentsProgress: { beforeStartPointOrder: 6, completed: false } })], true));
+    const changes = row({
+      version: '2',
+      changesProgress: { appliedVersion: '2', targetVersion: '2', beforeStartPointOrder: null, completed: true },
+    });
+    if (failedKind === 'segments') await board.respond(1, page([changes]));
+    const failedIndex = board.calls.length - 1;
+    expect(board.calls[failedIndex].kind).toBe(failedKind);
+    // when: 한쪽 조회가 실패하고 대기 중에도 새 신호가 여러 번 도착한다.
+    await board.fail(failedIndex, new ApiHttpError(503, 'unavailable', {}));
+    act(() => {
+      for (let i = 0; i < 50; i++) refreshSearchPathPages(client, 'incident-1');
+    });
+    await board.advance(999);
+    expect(board.calls).toHaveLength(failedIndex + 1);
+    await board.advance(1);
+    const otherKind = failedKind === 'segments' ? 'changes' : 'segments';
+    // then: 대기 후에는 다른 조회가 진행되지만 성공해도 실패한 쪽의 오류는 남는다.
+    expect(board.calls[failedIndex + 1].kind).toBe(otherKind);
+    const otherPage =
+      failedKind === 'segments'
+        ? page([changes])
+        : page([row({ segmentsProgress: { beforeStartPointOrder: 4, completed: false } })], true);
+    await board.respond(failedIndex + 1, otherPage);
+    expect(board.result.current.data?.error).toBe('unavailable');
+    expect(board.calls[failedIndex + 2].kind).toBe(failedKind);
+    expect(board.calls[failedIndex + 2].body).toEqual(board.calls[failedIndex].body);
+    await board.fail(failedIndex + 2, new ApiHttpError(503, 'unavailable', {}));
+    act(() => refreshSearchPathPages(client, 'incident-1'));
+    await board.advance(1999);
+    expect(board.calls).toHaveLength(failedIndex + 3);
+    await board.advance(1);
+    expect(board.calls[failedIndex + 3].kind).toBe(otherKind);
+    await board.respond(failedIndex + 3, page([failedKind === 'segments' ? changes : row()]));
+    expect(board.result.current.data?.error).toBe('unavailable');
+    expect(board.calls[failedIndex + 4].kind).toBe(failedKind);
+    await board.respond(failedIndex + 4, page([failedKind === 'segments' ? row() : changes]));
+    expect(board.result.current.data?.error).toBeNull();
+    expect(board.result.current.data?.hasMoreSegments).toBe(false);
+    expect(board.result.current.data?.hasMoreChanges).toBe(false);
+    expect(board.result.current.isFetching).toBe(false);
+  },
+);
+
+test('서버 지정 대기 중 알림이 와도 기다리며, 이후 권한을 잃으면 늦은 응답을 반영하지 않는다', async () => {
+  // given: 기준 이력은 받았지만 변경 조회가 Retry-After 2초를 반환했다.
+  vi.useFakeTimers();
+  vi.spyOn(Math, 'random').mockReturnValue(0);
+  const board = renderPendingPaths();
+  await board.respond(0, page([row({ segmentsProgress: { beforeStartPointOrder: 6, completed: false } })], true));
+  await board.fail(1, new ApiHttpError(429, 'busy', {}, '2'));
+  // when: 알림이 도착해도 서버 대기 2초와 기존 최소 대기 1초를 모두 지킨다.
+  act(() => refreshSearchPathPages(client, 'incident-1'));
+  await board.advance(2999);
+  expect(board.calls).toHaveLength(2);
+  await board.advance(1);
+  expect(board.calls[2].kind).toBe('segments');
+  act(() => restrictSearchPathPages(client, 'incident-1'));
+  await board.respond(2, page([row()]));
+  await board.advance(30000);
+  // then: 다른 조회의 늦은 성공도 위치나 후속 요청을 되살리지 않는다.
+  expect(board.calls).toHaveLength(3);
+  expect(board.result.current.data).toMatchObject({ restricted: true, paths: [] });
+});
+
+test('변경분이 여러 페이지이면, 두 페이지 뒤 이력을 받고 변경분 이어받기 위치를 유지한다', async () => {
+  // given: 이력과 변경분 모두 페이지가 남아 있고 새 SSE 신호는 없다.
+  vi.useFakeTimers();
+  const board = renderPendingPaths();
+  await board.respond(0, page([row({ segmentsProgress: { beforeStartPointOrder: 6, completed: false } })], true));
+  const progress = { appliedVersion: null, targetVersion: '3', beforeStartPointOrder: 4, completed: false };
+  await board.respond(1, {
+    ...page([row({ version: '3', changesProgress: progress })], true),
+    nextSearchPathId: 'path-1',
+  });
+  expect(board.calls[2].kind).toBe('changes');
+  expect(board.calls[2].body).toMatchObject({
+    nextSearchPathId: 'path-1',
+    paths: [{ id: 'path-1', baselineVersion: '1', changesProgress: progress }],
+  });
+  // when: 변경분 두 번째 페이지에도 미수신 변경이 남는다.
+  const nextProgress = { ...progress, beforeStartPointOrder: 2 };
+  await board.respond(2, {
+    ...page([row({ version: '3', changesProgress: nextProgress })], true),
+    nextSearchPathId: 'path-1',
+  });
+  // then: 이력에도 차례를 주고 변경분은 기존 상한과 위치에서 계속 받는다.
+  expect(board.calls[3].kind).toBe('segments');
+  await board.respond(3, page([row()]));
+  expect(board.calls[4].kind).toBe('changes');
+  expect(board.calls[4].body).toMatchObject({
+    nextSearchPathId: 'path-1',
+    paths: [{ id: 'path-1', baselineVersion: '1', changesProgress: nextProgress }],
+  });
+  await board.respond(
+    4,
+    page([
+      row({
+        version: '3',
+        changesProgress: { ...progress, appliedVersion: '3', beforeStartPointOrder: 0, completed: true },
+      }),
+    ]),
+  );
+  expect(board.result.current.isFetching).toBe(false);
+  expect(board.result.current.data?.paths[0].changesProgress?.appliedVersion).toBe('3');
 });
 
 test('이전에 방문한 차수 범위로 돌아와도, 계속 선택한 경로의 최신 구간과 진행을 유지한다', async () => {
