@@ -40,6 +40,7 @@ export type SearchPathPages = {
   hasMoreChanges: boolean;
   lastSuccessAt: number | null;
   error: string | null;
+  pageErrors: Record<PathPageKind, string | null>;
   restricted: boolean;
 };
 
@@ -52,6 +53,7 @@ export function createSearchPathPages(paths: LoadedSearchPath[] = []): SearchPat
     hasMoreChanges: true,
     lastSuccessAt: null,
     error: null,
+    pageErrors: { segments: null, changes: null },
     restricted: false,
   };
 }
@@ -151,6 +153,7 @@ export function mergeSearchPathPage(state: SearchPathPages, page: SearchPathPage
     });
   }
   const mergedPaths = [...paths.values()];
+  const pageErrors = { ...state.pageErrors, [kind]: null };
   return {
     ...state,
     paths: mergedPaths,
@@ -162,7 +165,8 @@ export function mergeSearchPathPage(state: SearchPathPages, page: SearchPathPage
         : state.hasMoreSegments || mergedPaths.some((path) => !path.segmentsProgress?.completed),
     hasMoreChanges: kind === 'changes' ? page.hasMore : state.hasMoreChanges,
     lastSuccessAt: Date.now(),
-    error: null,
+    error: pageErrors.segments ?? pageErrors.changes,
+    pageErrors,
   };
 }
 

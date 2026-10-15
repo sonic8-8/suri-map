@@ -8,6 +8,7 @@ declare global {
       disconnect(map: MapLibreMap): void;
     };
     __SURI_MAP_MEASUREMENT_ENABLED__?: boolean;
+    __SURI_MAP_PATH_TRACE__?: { incidentId: string; expiresAt: number };
     __SURI_MAP_COORDINATE_CHECKS_PENDING__?: number;
     __SURI_MAP_COORDINATE_CHECK_SCOPE__?: 'test-writes';
     __SURI_MAP_COORDINATE_CHECK_TARGETS__?: {
@@ -44,7 +45,48 @@ export function isBoardMeasurementEnabled() {
 
 // 시험 브라우저가 수집한다. 제품에서는 이력을 쌓거나 외부로 전송하지 않는다.
 export function recordBoardMeasurement(stage: string, details: Record<string, unknown>) {
-  if (!isBoardMeasurementEnabled()) return;
+  if (!isBoardMeasurementEnabled()) {
+    const trace = typeof window === 'undefined' ? undefined : window.__SURI_MAP_PATH_TRACE__;
+    if (!trace || trace.incidentId !== details.incidentId) return;
+    const remaining = trace.expiresAt - Date.now();
+    if (!(remaining > 0 && remaining <= 60_000)) return;
+    if (
+      ![
+        'sse_received',
+        'path_refresh_requested',
+        'path_page_started',
+        'path_page_response_received',
+        'path_page_completed',
+        'path_page_failed',
+      ].includes(stage)
+    )
+      return;
+    // 짧은 추적에는 본문·좌표·경로 배열을 싣지 않는다.
+    details = Object.fromEntries(
+      [
+        'incidentId',
+        'requestId',
+        'queryScope',
+        'kind',
+        'eventId',
+        'eventType',
+        'sequence',
+        'sourceEntityId',
+        'sourceEntityType',
+        'sourceVersion',
+        'duplicate',
+        'dirty',
+        'hasMoreSegments',
+        'hasMoreChanges',
+        'consecutiveChanges',
+        'failedKind',
+        'hasMore',
+      ].flatMap((key) => {
+        const value = details[key];
+        return value === null || ['string', 'number', 'boolean'].includes(typeof value) ? [[key, value]] : [];
+      }),
+    );
+  }
   window.dispatchEvent(
     new CustomEvent('suri-map:board-measurement', {
       detail: { ...details, stage, timeOriginMs: performance.timeOrigin, elapsedMs: performance.now() },
