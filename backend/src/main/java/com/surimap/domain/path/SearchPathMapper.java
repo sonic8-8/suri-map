@@ -51,14 +51,9 @@ public interface SearchPathMapper {
       @Param("incidentId") UUID incidentId, @Param("opIds") List<UUID> opIds);
 
   List<SearchPathSegment> findBoardSegments(
-      @Param("pathId") UUID pathId,
-      @Param("before") Integer before,
-      @Param("lowerVersion") Long lowerVersion,
-      @Param("upperVersion") Long upperVersion,
-      @Param("limit") int limit);
+      @Param("queries") List<SearchPathBoardSegmentQuery> queries);
 
-  List<GpsPoint> findGpsPointsInRange(
-      @Param("pathId") UUID pathId, @Param("start") int start, @Param("end") int end);
+  List<SearchPathBoardPoint> findBoardPoints(@Param("ranges") List<SearchPathSegment> ranges);
 
   List<SearchPath> findPaths(
       @Param("incidentId") UUID incidentId,
