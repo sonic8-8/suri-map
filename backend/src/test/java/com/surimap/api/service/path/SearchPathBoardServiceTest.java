@@ -223,6 +223,51 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("앞 경로가 좌표 한도를 일부 쓰면 남은 한도를 넘는 뒤 경로는 다음 조회로 넘긴다")
+  void coordinate_budget_is_shared_across_paths_in_one_page() {
+    // given: 시험 응답 한도 120에서 앞 경로 구간이 80개, 뒤 경로 끝 구간이 60개 좌표다.
+    seedPath();
+    seedSecondPath();
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET end_point_order = 79"
+            + " WHERE search_path_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET end_point_order = 61"
+            + " WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'"
+            + " AND start_point_order = 2");
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        SELECT 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',n,'e'||n,
+          '2026-04-28T00:00:00Z'::timestamptz + n*interval '5 seconds',126.95+n*0.0001,35.1,1,now()
+        FROM generate_series(2,79) n
+        """);
+    jdbcTemplate.execute(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        SELECT 'ffffffff-ffff-ffff-ffff-ffffffffffff',n,'p'||n,
+          '2026-04-28T00:00:00Z'::timestamptz + n*interval '5 seconds',126.9+n*0.0001,35.1,1,now()
+        FROM generate_series(4,61) n
+        """);
+    // when: 첫 응답의 진행과 순환 위치를 재전송한다.
+    SearchPathPageServiceResponse first = service.getSearchPathSegments(request(List.of(OP)));
+    SearchPathPageServiceResponse second =
+        service.getSearchPathSegments(continuation(first, false));
+    // then: 첫 응답은 앞 경로만 담고, 뒤 경로의 끝 구간은 다음 응답에서 받는다.
+    assertThat(first.getPaths())
+        .extracting(SearchPathPageServiceResponse.Path::getId)
+        .containsExactly(UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"));
+    assertThat(first.getPaths().get(0).getSegments().get(0).getCoordinates()).hasSize(80);
+    assertThat(first.isHasMore()).isTrue();
+    assertThat(first.getNextSearchPathId())
+        .isEqualTo(UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"));
+    assertThat(second.getPaths().get(0).getId())
+        .isEqualTo(UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"));
+    assertThat(second.getPaths().get(0).getSegments().get(0).getStartPointOrder()).isEqualTo(2);
+    assertThat(second.getPaths().get(0).getSegments().get(0).getCoordinates()).hasSize(60);
+  }
+
+  @Test
   @DisplayName("사건 배정이 없는 웹 계정은 경로가 없어도 조회를 거부한다")
   void unassigned_account_cannot_query_empty_scope() {
     // given: 다른 계정에는 현재 사건 배정이 없다.
