@@ -369,7 +369,9 @@
 
     <!-- 좌표는 응답에 담을 구간 범위를 확정한 뒤 별도로 읽는다. lookahead에 도형을 싣지 않는다. -->
     <!-- 경로마다 조건이 달라도 한 SQL로 읽는다. 경로 수만큼 인자가 늘며 경로 수는 max-known-paths로 제한된다. -->
-    <select id="findBoardSegments" resultMap="searchPathSegmentMap">
+    <!-- 트랜잭션 안에서는 기본 fetch size(100행)마다 DB와 다시 왕복하므로 이 SQL은 10000행씩 받는다.
+         미리 읽는 후보는 응답 한도보다 많을 수 있어, 원본 행 전체를 한 번에 보유하는 0은 쓰지 않는다. -->
+    <select id="findBoardSegments" resultMap="searchPathSegmentMap" fetchSize="10000">
         SELECT s.id, s.search_path_id, s.start_point_order, s.end_point_order, s.last_changed_path_version,
                s.movement_type, s.version, s.started_at, s.ended_at
         FROM (VALUES
@@ -393,8 +395,8 @@
         ORDER BY s.search_path_id, s.start_point_order DESC, s.id
     </select>
 
-    <!-- 구간마다 읽지 않고 경로별 순번 범위로 한 번에 읽는다. -->
-    <select id="findBoardPoints" resultMap="searchPathBoardPointMap">
+    <!-- 구간마다 읽지 않고 경로별 순번 범위로 한 번에 읽는다. fetchSize의 이유는 findBoardSegments와 같다. -->
+    <select id="findBoardPoints" resultMap="searchPathBoardPointMap" fetchSize="10000">
         SELECT g.search_path_id, g.point_order, g.lon, g.lat, g.client_ts
         FROM (VALUES
             <foreach collection="ranges" item="range" separator=",">

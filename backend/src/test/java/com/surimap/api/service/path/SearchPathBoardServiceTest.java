@@ -12,12 +12,16 @@ import com.surimap.common.auth.*;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.sql.Statement;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
 import org.apache.ibatis.executor.Executor;
+import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.plugin.*;
+import org.apache.ibatis.reflection.SystemMetaObject;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +53,7 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private SearchPathBoardService service;
   @Autowired private SnapshotPause snapshotPause;
   @Autowired private StatementCounter statementCounter;
+  @Autowired private FetchSizeRecorder fetchSizeRecorder;
   @Autowired private PlatformTransactionManager transactionManager;
   @Autowired private ObjectMapper objectMapper;
 
@@ -322,6 +327,41 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     assertThat(two.getPaths()).hasSize(2);
     assertThat(two.getPaths()).allSatisfy(path -> assertThat(path.getSegments()).hasSize(1));
     assertThat(twoPathStatements).isEqualTo(singlePathStatements);
+  }
+
+  @Test
+  @DisplayName("이력·변경분 페이지는 구간과 좌표 결과를 기본 100행 단위로 나눠 받지 않는다")
+  void board_segments_and_points_are_not_fetched_in_default_row_batches() {
+    // given: 이력과 변경분 조회 모두 구간·좌표 SQL을 실행하는 경로를 둔다.
+    seedPath();
+    jdbcTemplate.update("UPDATE search_path SET version = 4");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET last_changed_path_version = 4 WHERE start_point_order = 2");
+    SearchPathPageServiceRequest changes =
+        request(List.of(OP)).toBuilder()
+            .paths(
+                List.of(
+                    PathProgress.builder()
+                        .id(UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+                        .baselineVersion(3L)
+                        .build()))
+            .build();
+    // when: 트랜잭션 안에서 이력과 변경분 페이지를 조회한다.
+    SearchPathPageServiceResponse changed;
+    Map<String, List<Integer>> fetchSizes;
+    fetchSizeRecorder.start();
+    try {
+      service.getSearchPathSegments(request(List.of(OP)));
+      changed = service.getSearchPathChanges(changes);
+    } finally {
+      fetchSizes = fetchSizeRecorder.stop();
+    }
+    assertThat(changed.getPaths())
+        .singleElement()
+        .satisfies(path -> assertThat(path.getSegments()).hasSize(1));
+    // then: 두 SQL은 100행마다 DB와 다시 왕복하지 않도록 10000행 단위로 받는다.
+    assertThat(fetchSizes.get("findBoardSegments")).hasSize(2).containsOnly(10000);
+    assertThat(fetchSizes.get("findBoardPoints")).hasSize(2).containsOnly(10000);
   }
 
   @Test
@@ -754,6 +794,11 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     StatementCounter statementCounter() {
       return new StatementCounter();
     }
+
+    @Bean
+    FetchSizeRecorder fetchSizeRecorder() {
+      return new FetchSizeRecorder();
+    }
   }
 
   @Intercepts(
@@ -812,6 +857,41 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
       MappedStatement statement = (MappedStatement) invocation.getArgs()[0];
       if (enabled && statement.getId().contains(".SearchPathMapper.")) {
         count.incrementAndGet();
+      }
+      return invocation.proceed();
+    }
+  }
+
+  /** 실제 JDBC 문장이 실행될 때 적용된 fetch size를 Mapper 문장별로 기록한다. */
+  @Intercepts(
+      @Signature(
+          type = StatementHandler.class,
+          method = "query",
+          args = {Statement.class, ResultHandler.class}))
+  static class FetchSizeRecorder implements Interceptor {
+    private final Map<String, List<Integer>> fetchSizes = new ConcurrentHashMap<>();
+    private volatile boolean enabled;
+
+    public void start() {
+      fetchSizes.clear();
+      enabled = true;
+    }
+
+    public Map<String, List<Integer>> stop() {
+      enabled = false;
+      return Map.copyOf(fetchSizes);
+    }
+
+    @Override
+    public Object intercept(Invocation invocation) throws Throwable {
+      if (enabled) {
+        MappedStatement statement =
+            (MappedStatement)
+                SystemMetaObject.forObject(invocation.getTarget())
+                    .getValue("delegate.mappedStatement");
+        String id = statement.getId().substring(statement.getId().lastIndexOf('.') + 1);
+        int fetchSize = ((Statement) invocation.getArgs()[0]).getFetchSize();
+        fetchSizes.computeIfAbsent(id, key -> new CopyOnWriteArrayList<>()).add(fetchSize);
       }
       return invocation.proceed();
     }
