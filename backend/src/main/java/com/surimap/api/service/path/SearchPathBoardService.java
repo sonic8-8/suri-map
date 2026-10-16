@@ -73,98 +73,17 @@ public class SearchPathBoardService {
       SearchPathPageServiceRequest request, boolean changesQuery) {
     validateAccess(request);
     validateRequest(request);
-    List<SearchPath> paths =
-        searchPathMapper.findBoardPathMetadata(
-            request.getIncidentId(), request.getOpIds(), maxKnownPaths + 1);
-    if (paths.size() > maxKnownPaths) {
-      throw new BusinessException(ErrorCode.INVALID_SEARCH_PATH_QUERY);
-    }
+    List<SearchPath> paths = findKnownPaths(request);
     Map<UUID, PathProgress> progress = validateProgress(request, paths, changesQuery);
-    if (searchPathMapper.hasUnpreparedBoardPaths(request.getIncidentId(), request.getOpIds())) {
-      throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
-    }
+    validatePathsPrepared(request);
     List<SearchPath> ordered = rotatePaths(paths, request.getNextSearchPathId());
-    Map<UUID, List<SearchPathSegment>> candidatesByPath =
-        findCandidateSegments(ordered, progress, changesQuery);
-    List<PendingPath> pending = new ArrayList<>();
-    int usedSegments = 0;
-    long usedCoordinates = 0;
-    UUID nextId = null;
-    for (SearchPath path : ordered) {
-      PathProgress previousProgress = progress.get(path.getId());
-      if (!needsPage(path, previousProgress, changesQuery)) {
-        continue;
-      }
-      if (pending.size() >= maxPaths || usedSegments >= maxSegments) {
-        nextId = path.getId();
-        break;
-      }
-      if (changesQuery
-          && (previousProgress == null || previousProgress.getBaselineVersion() == null)) {
-        pending.add(new PendingPath(path, PagePlan.undiscovered(), null, List.of()));
-        progress.put(path.getId(), PathProgress.builder().id(path.getId()).build());
-        continue;
-      }
-      PagePlan plan = planPage(path, previousProgress, changesQuery);
-      Integer beforeStartPointOrder = plan.beforeStartPointOrder;
-      Long appliedVersion = plan.appliedVersion;
-      int available = Math.min(segmentsPerPath, maxSegments - usedSegments);
-      // 경로마다 받은 후보는 원래 LIMIT available + 1 조회와 같은 순서·앞부분이다.
-      List<SearchPathSegment> allCandidates = candidatesByPath.getOrDefault(path.getId(), List.of());
-      List<SearchPathSegment> candidates =
-          allCandidates.subList(0, Math.min(allCandidates.size(), available + 1));
-      List<SearchPathSegment> segments = new ArrayList<>();
-      for (SearchPathSegment segment : candidates) {
-        if (segments.size() == available) {
-          break;
-        }
-        long coordinates = (long) segment.getEndIndex() - segment.getStartIndex() + 1;
-        if (coordinates > maxCoordinates) {
-          // 방문 순서를 지켜, 앞서 고른 구간의 좌표 누락을 크기 오류보다 먼저 알린다.
-          List<PendingPath> visited = new ArrayList<>(pending);
-          visited.add(new PendingPath(path, plan, false, segments));
-          readPendingPaths(visited);
-          throw new BusinessException(ErrorCode.SEARCH_PATH_SEGMENT_TOO_LARGE);
-        }
-        if (usedCoordinates + coordinates > maxCoordinates) {
-          break;
-        }
-        segments.add(segment);
-        usedCoordinates += coordinates;
-        usedSegments++;
-        beforeStartPointOrder = segment.getStartIndex();
-      }
-      if (!candidates.isEmpty() && segments.isEmpty()) {
-        nextId = path.getId();
-        break;
-      }
-      boolean completed = candidates.size() == segments.size();
-      if (changesQuery && completed) {
-        appliedVersion = plan.targetVersion;
-      }
-      PagePlan updated = plan.after(appliedVersion, beforeStartPointOrder);
-      pending.add(new PendingPath(path, updated, completed, segments));
-      progress.put(
-          path.getId(),
-          PathProgress.builder()
-              .id(path.getId())
-              .baselineVersion(updated.baselineVersion)
-              .appliedVersion(updated.appliedVersion)
-              .targetVersion(updated.targetVersion)
-              .beforeStartPointOrder(updated.beforeStartPointOrder)
-              .completed(completed)
-              .build());
-    }
-    List<Path> result = readPendingPaths(pending);
+    PageSelection selection = selectPage(ordered, progress, changesQuery);
+    List<Path> result = readPendingPaths(selection.pending);
     boolean hasMore =
         paths.stream().anyMatch(path -> needsPage(path, progress.get(path.getId()), changesQuery));
+    UUID nextId = selection.nextId;
     if (hasMore && nextId == null) {
-      nextId =
-          ordered.stream()
-              .filter(path -> needsPage(path, progress.get(path.getId()), changesQuery))
-              .map(SearchPath::getId)
-              .findFirst()
-              .orElse(null);
+      nextId = firstPathNeedingPage(ordered, progress, changesQuery);
     }
     return SearchPathPageServiceResponse.builder()
         .paths(result)
@@ -240,6 +159,16 @@ public class SearchPathBoardService {
     }
   }
 
+  private List<SearchPath> findKnownPaths(SearchPathPageServiceRequest request) {
+    List<SearchPath> paths =
+        searchPathMapper.findBoardPathMetadata(
+            request.getIncidentId(), request.getOpIds(), maxKnownPaths + 1);
+    if (paths.size() > maxKnownPaths) {
+      throw new BusinessException(ErrorCode.INVALID_SEARCH_PATH_QUERY);
+    }
+    return paths;
+  }
+
   private Map<UUID, PathProgress> validateProgress(
       SearchPathPageServiceRequest request, List<SearchPath> paths, boolean changesQuery) {
     Map<UUID, SearchPath> byId = new HashMap<>();
@@ -296,6 +225,77 @@ public class SearchPathBoardService {
     return progress;
   }
 
+  private boolean isValidVersion(Long version, long currentVersion) {
+    return version == null || (version >= 1 && version <= currentVersion);
+  }
+
+  private void validatePathsPrepared(SearchPathPageServiceRequest request) {
+    if (searchPathMapper.hasUnpreparedBoardPaths(request.getIncidentId(), request.getOpIds())) {
+      throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+    }
+  }
+
+  private List<SearchPath> rotatePaths(List<SearchPath> paths, UUID nextId) {
+    if (nextId == null) {
+      return paths;
+    }
+    List<SearchPath> result = new ArrayList<>();
+    paths.stream()
+        .filter(path -> path.getId().toString().compareTo(nextId.toString()) >= 0)
+        .forEach(result::add);
+    paths.stream()
+        .filter(path -> path.getId().toString().compareTo(nextId.toString()) < 0)
+        .forEach(result::add);
+    return result;
+  }
+
+  // 응답 한도 안에서 이번 페이지에 담을 경로와 구간을 고르고, 고른 경로의 진행 정보를 progress에 반영한다.
+  private PageSelection selectPage(
+      List<SearchPath> ordered, Map<UUID, PathProgress> progress, boolean changesQuery) {
+    Map<UUID, List<SearchPathSegment>> candidatesByPath =
+        findCandidateSegments(ordered, progress, changesQuery);
+    PageSelection selection = new PageSelection();
+    for (SearchPath path : ordered) {
+      PathProgress previousProgress = progress.get(path.getId());
+      if (!needsPage(path, previousProgress, changesQuery)) {
+        continue;
+      }
+      if (selection.pending.size() >= maxPaths || selection.usedSegments >= maxSegments) {
+        selection.nextId = path.getId();
+        break;
+      }
+      PendingPath entry;
+      if (changesQuery
+          && (previousProgress == null || previousProgress.getBaselineVersion() == null)) {
+        entry = new PendingPath(path, PagePlan.undiscovered(), null, List.of());
+      } else {
+        PagePlan plan = planPage(path, previousProgress, changesQuery);
+        int available = Math.min(segmentsPerPath, maxSegments - selection.usedSegments);
+        // 경로마다 받은 후보는 원래 LIMIT available + 1 조회와 순서와 앞부분이 같다.
+        List<SearchPathSegment> allCandidates =
+            candidatesByPath.getOrDefault(path.getId(), List.of());
+        List<SearchPathSegment> candidates =
+            allCandidates.subList(0, Math.min(allCandidates.size(), available + 1));
+        List<SearchPathSegment> segments =
+            selectSegments(
+                path,
+                plan,
+                candidates,
+                available,
+                maxCoordinates - selection.usedCoordinates,
+                selection.pending);
+        if (!candidates.isEmpty() && segments.isEmpty()) {
+          selection.nextId = path.getId();
+          break;
+        }
+        entry = toPendingPath(path, plan, candidates, segments, changesQuery);
+      }
+      selection.add(entry);
+      progress.put(path.getId(), toProgress(entry));
+    }
+    return selection;
+  }
+
   private Map<UUID, List<SearchPathSegment>> findCandidateSegments(
       List<SearchPath> ordered, Map<UUID, PathProgress> progress, boolean changesQuery) {
     // 한 페이지가 방문할 수 있는 경로는 필요한 경로 중 앞의 maxPaths개다.
@@ -331,6 +331,25 @@ public class SearchPathBoardService {
     return result;
   }
 
+  private boolean needsPage(SearchPath path, PathProgress progress, boolean changesQuery) {
+    if (progress == null) {
+      return true;
+    }
+    if (changesQuery && progress.getBaselineVersion() == null) {
+      return false;
+    }
+    // 기준 버전 이후 바뀌지 않은 경로는 진행 정보를 채우려고 응답 한도를 쓰지 않는다.
+    if (changesQuery
+        && progress.getCompleted() == null
+        && progress.getBaselineVersion() == path.getVersion()) {
+      return false;
+    }
+    if (progress.getCompleted() == null || !progress.getCompleted()) {
+      return true;
+    }
+    return changesQuery && progress.getAppliedVersion() < path.getVersion();
+  }
+
   private PagePlan planPage(SearchPath path, PathProgress previousProgress, boolean changesQuery) {
     Long baselineVersion = null;
     Long appliedVersion = null;
@@ -353,6 +372,39 @@ public class SearchPathBoardService {
     }
     return new PagePlan(
         baselineVersion, appliedVersion, targetVersion, lowerVersion, beforeStartPointOrder);
+  }
+
+  private List<SearchPathSegment> selectSegments(
+      SearchPath path,
+      PagePlan plan,
+      List<SearchPathSegment> candidates,
+      int available,
+      long remainingCoordinates,
+      List<PendingPath> visited) {
+    List<SearchPathSegment> segments = new ArrayList<>();
+    for (SearchPathSegment segment : candidates) {
+      if (segments.size() == available) {
+        break;
+      }
+      long coordinates = coordinateCount(segment);
+      if (coordinates > maxCoordinates) {
+        // 방문 순서를 지켜, 앞서 고른 구간의 좌표 누락을 크기 오류보다 먼저 알린다.
+        List<PendingPath> visitedWithCurrent = new ArrayList<>(visited);
+        visitedWithCurrent.add(new PendingPath(path, plan, false, segments));
+        readPendingPaths(visitedWithCurrent);
+        throw new BusinessException(ErrorCode.SEARCH_PATH_SEGMENT_TOO_LARGE);
+      }
+      if (coordinates > remainingCoordinates) {
+        break;
+      }
+      segments.add(segment);
+      remainingCoordinates -= coordinates;
+    }
+    return segments;
+  }
+
+  private static long coordinateCount(SearchPathSegment segment) {
+    return (long) segment.getEndIndex() - segment.getStartIndex() + 1;
   }
 
   private List<Path> readPendingPaths(List<PendingPath> pending) {
@@ -381,66 +433,6 @@ public class SearchPathBoardService {
               segments));
     }
     return result;
-  }
-
-  private boolean isValidVersion(Long version, long currentVersion) {
-    return version == null || (version >= 1 && version <= currentVersion);
-  }
-
-  private List<SearchPath> rotatePaths(List<SearchPath> paths, UUID nextId) {
-    if (nextId == null) {
-      return paths;
-    }
-    List<SearchPath> result = new ArrayList<>();
-    paths.stream()
-        .filter(path -> path.getId().toString().compareTo(nextId.toString()) >= 0)
-        .forEach(result::add);
-    paths.stream()
-        .filter(path -> path.getId().toString().compareTo(nextId.toString()) < 0)
-        .forEach(result::add);
-    return result;
-  }
-
-  private boolean needsPage(SearchPath path, PathProgress progress, boolean changesQuery) {
-    if (progress == null) {
-      return true;
-    }
-    if (changesQuery && progress.getBaselineVersion() == null) {
-      return false;
-    }
-    // 기준 버전 이후 바뀌지 않은 경로는 진행 정보를 채우려고 응답 한도를 쓰지 않는다.
-    if (changesQuery
-        && progress.getCompleted() == null
-        && progress.getBaselineVersion() == path.getVersion()) {
-      return false;
-    }
-    if (progress.getCompleted() == null || !progress.getCompleted()) {
-      return true;
-    }
-    return changesQuery && progress.getAppliedVersion() < path.getVersion();
-  }
-
-  private Path createPathResponse(
-      SearchPath path,
-      Long baselineVersion,
-      Long appliedVersion,
-      Long targetVersion,
-      Integer beforeStartPointOrder,
-      Boolean completed,
-      List<Segment> segments) {
-    return Path.builder()
-        .id(path.getId())
-        .accountId(path.getAccountId())
-        .opId(path.getOpId())
-        .status(path.getStatus())
-        .version(path.getVersion())
-        .baselineVersion(baselineVersion)
-        .appliedVersion(appliedVersion)
-        .targetVersion(targetVersion)
-        .beforeStartPointOrder(beforeStartPointOrder)
-        .completed(completed)
-        .segments(segments)
-        .build();
   }
 
   private List<SearchPathSegment> pointRanges(List<PendingPath> pending) {
@@ -525,6 +517,65 @@ public class SearchPathBoardService {
     return -1;
   }
 
+  private Path createPathResponse(
+      SearchPath path,
+      Long baselineVersion,
+      Long appliedVersion,
+      Long targetVersion,
+      Integer beforeStartPointOrder,
+      Boolean completed,
+      List<Segment> segments) {
+    return Path.builder()
+        .id(path.getId())
+        .accountId(path.getAccountId())
+        .opId(path.getOpId())
+        .status(path.getStatus())
+        .version(path.getVersion())
+        .baselineVersion(baselineVersion)
+        .appliedVersion(appliedVersion)
+        .targetVersion(targetVersion)
+        .beforeStartPointOrder(beforeStartPointOrder)
+        .completed(completed)
+        .segments(segments)
+        .build();
+  }
+
+  private PendingPath toPendingPath(
+      SearchPath path,
+      PagePlan plan,
+      List<SearchPathSegment> candidates,
+      List<SearchPathSegment> segments,
+      boolean changesQuery) {
+    boolean completed = candidates.size() == segments.size();
+    Long appliedVersion = changesQuery && completed ? plan.targetVersion : plan.appliedVersion;
+    Integer beforeStartPointOrder = plan.beforeStartPointOrder;
+    if (!segments.isEmpty()) {
+      beforeStartPointOrder = segments.get(segments.size() - 1).getStartIndex();
+    }
+    return new PendingPath(
+        path, plan.after(appliedVersion, beforeStartPointOrder), completed, segments);
+  }
+
+  private PathProgress toProgress(PendingPath entry) {
+    return PathProgress.builder()
+        .id(entry.path.getId())
+        .baselineVersion(entry.plan.baselineVersion)
+        .appliedVersion(entry.plan.appliedVersion)
+        .targetVersion(entry.plan.targetVersion)
+        .beforeStartPointOrder(entry.plan.beforeStartPointOrder)
+        .completed(entry.completed)
+        .build();
+  }
+
+  private UUID firstPathNeedingPage(
+      List<SearchPath> ordered, Map<UUID, PathProgress> progress, boolean changesQuery) {
+    return ordered.stream()
+        .filter(path -> needsPage(path, progress.get(path.getId()), changesQuery))
+        .map(SearchPath::getId)
+        .findFirst()
+        .orElse(null);
+  }
+
   private static final class PagePlan {
     private final Long baselineVersion;
     private final Long appliedVersion;
@@ -567,6 +618,22 @@ public class SearchPathBoardService {
       this.plan = plan;
       this.completed = completed;
       this.segments = segments;
+    }
+  }
+
+  // 이번 페이지에 담을 경로, 사용한 구간 수와 좌표 수, 다음 조회를 시작할 경로를 기록한다.
+  private static final class PageSelection {
+    private final List<PendingPath> pending = new ArrayList<>();
+    private int usedSegments;
+    private long usedCoordinates;
+    private UUID nextId;
+
+    private void add(PendingPath entry) {
+      pending.add(entry);
+      usedSegments += entry.segments.size();
+      for (SearchPathSegment segment : entry.segments) {
+        usedCoordinates += coordinateCount(segment);
+      }
     }
   }
 }
