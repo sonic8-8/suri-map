@@ -281,6 +281,36 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("한 페이지의 여러 경로 중 기준 밖 측정 시각이 있는 경로만 좌표마다 다시 읽어도 경로별 좌표와 시각을 지킨다")
+  void board_page_rereads_only_range_with_out_of_range_time_and_keeps_each_path() {
+    // given: 앞 경로(e)는 보통 시각이고, 뒤 경로(f)의 끝 구간 마지막 좌표만 infinity다.
+    seedPath();
+    seedSecondPath();
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = 'infinity'"
+            + " WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND point_order = 3");
+    // when: 두 경로를 한 페이지로 조회한다.
+    List<SearchPathPageServiceResponse.Path> paths =
+        service.getSearchPathSegments(request(List.of(OP))).getPaths();
+    // then: 앞 경로는 배열 값 그대로, 뒤 경로는 다시 읽은 좌표와 OffsetDateTime.MAX의 Instant를 받는다.
+    assertThat(paths)
+        .extracting(SearchPathPageServiceResponse.Path::getId)
+        .containsExactly(
+            UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+            UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"));
+    SearchPathPageServiceResponse.Segment first = paths.get(0).getSegments().get(0);
+    assertThat(first.getCoordinates())
+        .containsExactly(List.of(126.95, 35.1), List.of(126.9501, 35.1));
+    assertThat(first.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:00Z"));
+    assertThat(first.getEndedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:05Z"));
+    SearchPathPageServiceResponse.Segment second = paths.get(1).getSegments().get(0);
+    assertThat(second.getCoordinates())
+        .containsExactly(List.of(126.9002, 35.1), List.of(126.9003, 35.1));
+    assertThat(second.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:10Z"));
+    assertThat(second.getEndedAt()).isEqualTo(OffsetDateTime.MAX.toInstant());
+  }
+
+  @Test
   @DisplayName("앞 경로가 좌표 한도를 일부 쓰면 남은 한도를 넘는 뒤 경로는 다음 조회로 넘긴다")
   void coordinate_budget_is_shared_across_paths_in_one_page() {
     // given: 시험 응답 한도 120에서 앞 경로 구간이 80개, 뒤 경로 끝 구간이 60개 좌표다.
@@ -464,7 +494,7 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         .satisfies(path -> assertThat(path.getSegments()).hasSize(1));
     // then: 두 SQL은 100행마다 DB와 다시 왕복하지 않도록 10000행 단위로 받는다.
     assertThat(fetchSizes.get("findBoardSegments")).hasSize(2).containsOnly(10000);
-    assertThat(fetchSizes.get("findBoardPoints")).hasSize(2).containsOnly(10000);
+    assertThat(fetchSizes.get("findBoardPointRuns")).hasSize(2).containsOnly(10000);
   }
 
   @Test
@@ -474,6 +504,20 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     seedPath();
     jdbcTemplate.update(
         "DELETE FROM search_path_gps_point WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND point_order = 3");
+    // when/then: 구간 좌표를 채울 수 없으므로 조회를 거부한다.
+    assertThatThrownBy(() -> service.getSearchPathSegments(request(List.of(OP))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+  }
+
+  @Test
+  @DisplayName("응답에 담을 구간의 좌표가 하나도 없으면 빈 좌표로 반환하지 않고 준비되지 않음으로 거부한다")
+  void segment_without_any_point_is_not_ready() {
+    // given: 첫 페이지에 담길 끝 구간(2..3)의 좌표가 모두 없다.
+    seedPath();
+    jdbcTemplate.update(
+        "DELETE FROM search_path_gps_point WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND point_order IN (2, 3)");
     // when/then: 구간 좌표를 채울 수 없으므로 조회를 거부한다.
     assertThatThrownBy(() -> service.getSearchPathSegments(request(List.of(OP))))
         .isInstanceOf(BusinessException.class)

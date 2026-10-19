@@ -10,6 +10,7 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathBoardPoint;
 import com.surimap.domain.path.SearchPathBoardPointRanges;
+import com.surimap.domain.path.SearchPathBoardPointRun;
 import com.surimap.domain.path.SearchPathBoardSegmentQuery;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathMapper;
@@ -28,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -406,21 +408,18 @@ public class SearchPathBoardService {
   }
 
   private List<Path> readPendingPaths(List<PendingPath> pending) {
-    // 응답에 담을 구간이 정해진 뒤, 이어지는 구간의 순번 범위로 좌표를 한 번에 읽는다.
-    Map<UUID, List<SearchPathBoardPoint>> pointsByPath = new HashMap<>();
+    // 응답에 담을 구간이 정해진 뒤, 이어지는 구간의 순번 범위마다 좌표를 배열로 한 번에 읽는다.
     List<SearchPathSegment> ranges = pointRanges(pending);
-    if (!ranges.isEmpty()) {
-      for (SearchPathBoardPoint point :
-          searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(ranges))) {
-        UUID pathId = ranges.get(point.getRangeOrder() - 1).getSearchPathId();
-        pointsByPath.computeIfAbsent(pathId, id -> new ArrayList<>()).add(point);
-      }
+    Map<UUID, List<SearchPathBoardPointRun>> runsByPath = new HashMap<>();
+    for (SearchPathBoardPointRun run : readPointRuns(ranges)) {
+      UUID pathId = ranges.get(run.getRangeOrder() - 1).getSearchPathId();
+      runsByPath.computeIfAbsent(pathId, id -> new ArrayList<>()).add(run);
     }
     List<Path> result = new ArrayList<>();
     for (PendingPath entry : pending) {
-      List<SearchPathBoardPoint> points = pointsByPath.getOrDefault(entry.path.getId(), List.of());
+      List<SearchPathBoardPointRun> runs = runsByPath.getOrDefault(entry.path.getId(), List.of());
       List<Segment> segments =
-          entry.segments.stream().map(segment -> readSegment(segment, points)).toList();
+          entry.segments.stream().map(segment -> readSegment(segment, runs)).toList();
       PagePlan plan = entry.plan;
       result.add(
           createPathResponse(
@@ -471,18 +470,65 @@ public class SearchPathBoardService {
     return SearchPathSegment.builder().searchPathId(pathId).startIndex(start).endIndex(end).build();
   }
 
-  private Segment readSegment(SearchPathSegment segment, List<SearchPathBoardPoint> pathPoints) {
-    int first = firstPointIndex(pathPoints, segment.getStartIndex());
-    int count = segment.getEndIndex() - segment.getStartIndex() + 1;
-    if (first < 0 || first + count > pathPoints.size()) {
+  private List<SearchPathBoardPointRun> readPointRuns(List<SearchPathSegment> ranges) {
+    if (ranges.isEmpty()) {
+      return List.of();
+    }
+    List<SearchPathBoardPointRun> runs =
+        new ArrayList<>(
+            searchPathMapper.findBoardPointRuns(SearchPathBoardPointRanges.from(ranges)));
+    replaceOutOfRangeRuns(ranges, runs);
+    // 좌표가 없는 범위는 행이 없다. 범위마다 좌표가 빠짐없어야 구간 좌표를 채울 수 있다.
+    if (runs.size() != ranges.size()) {
       throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
     }
-    List<SearchPathBoardPoint> points = pathPoints.subList(first, first + count);
-    for (int i = 0; i < count; i++) {
-      if (points.get(i).getPointOrder() != segment.getStartIndex() + i) {
+    for (SearchPathBoardPointRun run : runs) {
+      if (!run.hasAllPointsThrough(ranges.get(run.getRangeOrder() - 1).getEndIndex())) {
         throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
       }
     }
+    return runs;
+  }
+
+  private void replaceOutOfRangeRuns(
+      List<SearchPathSegment> ranges, List<SearchPathBoardPointRun> runs) {
+    // 시각 배열은 294247-01-01 이상 시각과 무한 시각을 담지 못한다. 그런 범위만 좌표마다 다시 읽는다.
+    List<Integer> positions = new ArrayList<>();
+    for (int i = 0; i < runs.size(); i++) {
+      if (runs.get(i).isHasOutOfRangeClientTs()) {
+        positions.add(i);
+      }
+    }
+    if (positions.isEmpty()) {
+      return;
+    }
+    List<SearchPathSegment> rereadRanges =
+        positions.stream().map(i -> ranges.get(runs.get(i).getRangeOrder() - 1)).toList();
+    Map<Integer, List<SearchPathBoardPoint>> pointsByRange = new HashMap<>();
+    for (SearchPathBoardPoint point :
+        searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(rereadRanges))) {
+      pointsByRange.computeIfAbsent(point.getRangeOrder(), order -> new ArrayList<>()).add(point);
+    }
+    for (int k = 0; k < positions.size(); k++) {
+      SearchPathBoardPointRun run = runs.get(positions.get(k));
+      runs.set(
+          positions.get(k),
+          SearchPathBoardPointRun.fromPoints(
+              run.getRangeOrder(),
+              run.getStartPointOrder(),
+              pointsByRange.getOrDefault(k + 1, List.of())));
+    }
+  }
+
+  private Segment readSegment(SearchPathSegment segment, List<SearchPathBoardPointRun> pathRuns) {
+    SearchPathBoardPointRun run = findRun(pathRuns, segment.getStartIndex());
+    if (run == null || !run.contains(segment.getStartIndex(), segment.getEndIndex())) {
+      throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+    }
+    int first = segment.getStartIndex() - run.getStartPointOrder();
+    int last = segment.getEndIndex() - run.getStartPointOrder();
+    Double[] lons = run.getLons();
+    Double[] lats = run.getLats();
     return Segment.builder()
         .id(segment.getId())
         .version(segment.getVersion())
@@ -490,27 +536,27 @@ public class SearchPathBoardService {
         .endPointOrder(segment.getEndIndex())
         .movementType(segment.getMovementType())
         .coordinates(
-            points.stream().map(point -> List.of(point.getLon(), point.getLat())).toList())
-        .startedAt(points.get(0).getClientTs())
-        .endedAt(points.get(points.size() - 1).getClientTs())
+            IntStream.rangeClosed(first, last).mapToObj(i -> List.of(lons[i], lats[i])).toList())
+        .startedAt(run.getClientTs(first))
+        .endedAt(run.getClientTs(last))
         .build();
   }
 
-  private int firstPointIndex(List<SearchPathBoardPoint> points, int pointOrder) {
+  private SearchPathBoardPointRun findRun(List<SearchPathBoardPointRun> runs, int pointOrder) {
+    // 경로의 범위는 시작 순번 오름차순이다. 순번을 포함할 수 있는 마지막 범위를 찾는다.
     int low = 0;
-    int high = points.size() - 1;
+    int high = runs.size() - 1;
+    SearchPathBoardPointRun found = null;
     while (low <= high) {
       int middle = (low + high) >>> 1;
-      int order = points.get(middle).getPointOrder();
-      if (order < pointOrder) {
+      if (runs.get(middle).getStartPointOrder() <= pointOrder) {
+        found = runs.get(middle);
         low = middle + 1;
-      } else if (order > pointOrder) {
-        high = middle - 1;
       } else {
-        return middle;
+        high = middle - 1;
       }
     }
-    return -1;
+    return found;
   }
 
   private Path createPathResponse(

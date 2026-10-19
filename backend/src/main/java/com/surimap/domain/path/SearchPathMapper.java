@@ -55,6 +55,9 @@ public interface SearchPathMapper {
 
   List<SearchPathBoardPoint> findBoardPoints(@Param("ranges") SearchPathBoardPointRanges ranges);
 
+  List<SearchPathBoardPointRun> findBoardPointRuns(
+      @Param("ranges") SearchPathBoardPointRanges ranges);
+
   List<SearchPath> findPaths(
       @Param("incidentId") UUID incidentId,
       @Param("opId") UUID opId,
