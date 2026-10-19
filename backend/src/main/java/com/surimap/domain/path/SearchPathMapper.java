@@ -53,7 +53,7 @@ public interface SearchPathMapper {
   List<SearchPathSegment> findBoardSegments(
       @Param("queries") List<SearchPathBoardSegmentQuery> queries);
 
-  List<SearchPathBoardPoint> findBoardPoints(@Param("ranges") List<SearchPathSegment> ranges);
+  List<SearchPathBoardPoint> findBoardPoints(@Param("ranges") SearchPathBoardPointRanges ranges);
 
   List<SearchPath> findPaths(
       @Param("incidentId") UUID incidentId,

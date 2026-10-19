@@ -13,6 +13,8 @@ import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.sql.Statement;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -220,6 +222,62 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
             error ->
                 assertThat(error.getErrorCode())
                     .isEqualTo(ErrorCode.SEARCH_PATH_SEGMENT_TOO_LARGE));
+  }
+
+  @Test
+  @DisplayName("저장된 좌표 숫자와 측정 시각을 가장 가까운 double과 마이크로초까지 그대로 반환한다")
+  void board_page_preserves_stored_coordinate_digits_and_microsecond_time() {
+    // given: 끝 구간 두 좌표가 소수 15자리 좌표와 마이크로초 측정 시각을 가진다.
+    seedPath();
+    jdbcTemplate.update(
+        """
+        UPDATE search_path_gps_point SET lon = 126.978034567890123, lat = 37.566512345678901,
+          client_ts = '2026-04-28T00:00:01.123456Z'
+        WHERE point_order = 2
+        """);
+    jdbcTemplate.update(
+        """
+        UPDATE search_path_gps_point SET lon = 127.000000000000001, lat = 37.499999999999999,
+          client_ts = '2026-04-28T00:00:06.000001Z'
+        WHERE point_order = 3
+        """);
+    // when: 최초 이력의 끝 구간을 조회한다.
+    SearchPathPageServiceResponse.Segment segment =
+        service.getSearchPathSegments(request(List.of(OP))).getPaths().get(0).getSegments().get(0);
+    // then: 저장 문자열을 double로 바꾼 값, 저장 시각과 같다.
+    assertThat(segment.getCoordinates())
+        .containsExactly(
+            List.of(
+                Double.parseDouble("126.978034567890123"),
+                Double.parseDouble("37.566512345678901")),
+            List.of(
+                Double.parseDouble("127.000000000000001"),
+                Double.parseDouble("37.499999999999999")));
+    assertThat(segment.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:01.123456Z"));
+    assertThat(segment.getEndedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:06.000001Z"));
+  }
+
+  @Test
+  @DisplayName("무한 측정 시각은 실패하지 않고 JDBC가 OffsetDateTime으로 읽는 값과 같게 반환한다")
+  void board_page_returns_infinite_measurement_time_like_jdbc_offset_date_time() {
+    // given: 끝 구간을 좌표 2..4로 늘리고 가운데 좌표는 -infinity, 끝 좌표는 infinity로 둔다.
+    seedPath();
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff',4,'p4','infinity',126.9004,35.1,1,now())
+        """);
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '-infinity' WHERE point_order = 3");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET end_point_order = 4 WHERE start_point_order = 2");
+    // when: 최초 이력의 끝 구간을 조회한다.
+    SearchPathPageServiceResponse.Segment segment =
+        service.getSearchPathSegments(request(List.of(OP))).getPaths().get(0).getSegments().get(0);
+    // then: 세 좌표를 모두 받고, 시작은 유한 시각, 끝은 OffsetDateTime.MAX의 Instant다.
+    assertThat(segment.getCoordinates()).hasSize(3);
+    assertThat(segment.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:10Z"));
+    assertThat(segment.getEndedAt()).isEqualTo(OffsetDateTime.MAX.toInstant());
   }
 
   @Test
