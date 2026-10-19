@@ -34,18 +34,10 @@ public class SearchPathBoardController {
   @RecordLocationAccess(accessPurpose = "BOARD_VIEW")
   public ResponseEntity<SearchPathSegmentsQueryResponse> getSearchPathSegments(
       @PathVariable UUID incidentId, @Valid @RequestBody SearchPathSegmentsQueryRequest request) {
-    long dbgGc0 = com.surimap.api.service.path.SearchPathBoardDebugTiming.gcMillis(); // [DEBUG-cost6]
-    long dbgC0 = System.nanoTime(); // [DEBUG-cost6]
-    var dbgServiceResponse = // [DEBUG-cost6]
-        service.getSearchPathSegments(request.toServiceRequest(incidentId, currentAuthentication()));
-    long dbgC1 = System.nanoTime(); // [DEBUG-cost6]
-    SearchPathSegmentsQueryResponse dbgResponse = // [DEBUG-cost6]
-        SearchPathSegmentsQueryResponse.from(dbgServiceResponse);
-    System.out.printf( // [DEBUG-cost6]
-        "[DEBUG-cost6] controller service_tx_ms=%.1f from_ms=%.1f gc_ms=%d%n",
-        (dbgC1 - dbgC0) / 1e6, (System.nanoTime() - dbgC1) / 1e6,
-        com.surimap.api.service.path.SearchPathBoardDebugTiming.gcMillis() - dbgGc0);
-    return ResponseEntity.ok(dbgResponse); // [DEBUG-cost6]
+    return ResponseEntity.ok(
+        SearchPathSegmentsQueryResponse.from(
+            service.getSearchPathSegments(
+                request.toServiceRequest(incidentId, currentAuthentication()))));
   }
 
   @PostMapping("/changes/query")
