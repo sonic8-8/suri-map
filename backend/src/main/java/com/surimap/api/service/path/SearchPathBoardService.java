@@ -40,6 +40,7 @@ public class SearchPathBoardService {
   private final IncidentReadMapper incidentReadMapper;
   private final PurgeRunMapper purgeRunMapper;
   private final SearchPathMapper searchPathMapper;
+  private final SearchPathBoardDebugTiming debugTiming; // [DEBUG-cost6]
 
   // 0은 미설정이다. 측정 전 임의 기본값으로 새 조회를 활성화하지 않는다.
   @Value("${surimap.board.search-path.max-paths:0}")
@@ -69,20 +70,31 @@ public class SearchPathBoardService {
 
   private SearchPathPageServiceResponse queryPage(
       SearchPathPageServiceRequest request, boolean changesQuery) {
+    long dbgT0 = System.nanoTime(); // [DEBUG-cost6]
     validateAccess(request);
     validateRequest(request);
+    long dbgT1 = System.nanoTime(); // [DEBUG-cost6]
     List<SearchPath> paths = findKnownPaths(request);
+    long dbgT2 = System.nanoTime(); // [DEBUG-cost6]
     Map<UUID, PathProgress> progress = validateProgress(request, paths, changesQuery);
     validatePathsPrepared(request);
+    long dbgT3 = System.nanoTime(); // [DEBUG-cost6]
     List<SearchPath> ordered = rotatePaths(paths, request.getNextSearchPathId());
     PageSelection selection = selectPage(ordered, progress, changesQuery);
+    long dbgT4 = System.nanoTime(); // [DEBUG-cost6]
     List<Path> result = readPendingPaths(selection.pending);
+    long dbgT5 = System.nanoTime(); // [DEBUG-cost6]
     boolean hasMore =
         paths.stream().anyMatch(path -> needsPage(path, progress.get(path.getId()), changesQuery));
     UUID nextId = selection.nextId;
     if (hasMore && nextId == null) {
       nextId = firstPathNeedingPage(ordered, progress, changesQuery);
     }
+    System.out.printf( // [DEBUG-cost6]
+        "[DEBUG-cost6] svc changes=%s access_ms=%.1f known_paths_ms=%.1f progress_ready_ms=%.1f"
+            + " select_ms=%.1f read_pending_ms=%.1f tail_ms=%.1f%n",
+        changesQuery, (dbgT1 - dbgT0) / 1e6, (dbgT2 - dbgT1) / 1e6, (dbgT3 - dbgT2) / 1e6,
+        (dbgT4 - dbgT3) / 1e6, (dbgT5 - dbgT4) / 1e6, (System.nanoTime() - dbgT5) / 1e6);
     return SearchPathPageServiceResponse.builder()
         .paths(result)
         .nextSearchPathId(nextId)
@@ -250,8 +262,13 @@ public class SearchPathBoardService {
   // 응답 한도 안에서 이번 페이지에 담을 경로와 구간을 고르고, 고른 경로의 진행 정보를 progress에 반영한다.
   private PageSelection selectPage(
       List<SearchPath> ordered, Map<UUID, PathProgress> progress, boolean changesQuery) {
+    long dbgS0 = System.nanoTime(); // [DEBUG-cost6]
     Map<UUID, List<SearchPathSegment>> candidatesByPath =
         findCandidateSegments(ordered, progress, changesQuery);
+    System.out.printf( // [DEBUG-cost6]
+        "[DEBUG-cost6] candidates paths=%d segments=%d segments_sql_ms=%.1f%n",
+        candidatesByPath.size(), candidatesByPath.values().stream().mapToInt(List::size).sum(),
+        (System.nanoTime() - dbgS0) / 1e6);
     PageSelection selection = new PageSelection();
     for (SearchPath path : ordered) {
       PathProgress previousProgress = progress.get(path.getId());
@@ -408,14 +425,26 @@ public class SearchPathBoardService {
   private List<Path> readPendingPaths(List<PendingPath> pending) {
     // 응답에 담을 구간이 정해진 뒤, 이어지는 구간의 순번 범위로 좌표를 한 번에 읽는다.
     Map<UUID, List<SearchPathBoardPoint>> pointsByPath = new HashMap<>();
+    long dbgR0 = System.nanoTime(); // [DEBUG-cost6]
     List<SearchPathSegment> ranges = pointRanges(pending);
+    long dbgR1 = System.nanoTime(); // [DEBUG-cost6]
+    long dbgR2 = dbgR1; // [DEBUG-cost6]
+    long dbgR3 = dbgR1; // [DEBUG-cost6]
+    int dbgRows = 0; // [DEBUG-cost6]
+    String dbgReplay = "replay_skipped"; // [DEBUG-cost6]
     if (!ranges.isEmpty()) {
-      for (SearchPathBoardPoint point :
-          searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(ranges))) {
+      SearchPathBoardPointRanges dbgRanges = SearchPathBoardPointRanges.from(ranges); // [DEBUG-cost6]
+      List<SearchPathBoardPoint> dbgPoints = searchPathMapper.findBoardPoints(dbgRanges); // [DEBUG-cost6]
+      dbgR2 = System.nanoTime(); // [DEBUG-cost6]
+      dbgRows = dbgPoints.size(); // [DEBUG-cost6]
+      dbgReplay = debugTiming.replayPoints(dbgRanges); // [DEBUG-cost6]
+      dbgR3 = System.nanoTime(); // [DEBUG-cost6]
+      for (SearchPathBoardPoint point : dbgPoints) {
         UUID pathId = ranges.get(point.getRangeOrder() - 1).getSearchPathId();
         pointsByPath.computeIfAbsent(pathId, id -> new ArrayList<>()).add(point);
       }
     }
+    long dbgR4 = System.nanoTime(); // [DEBUG-cost6]
     List<Path> result = new ArrayList<>();
     for (PendingPath entry : pending) {
       List<SearchPathBoardPoint> points = pointsByPath.getOrDefault(entry.path.getId(), List.of());
@@ -432,6 +461,11 @@ public class SearchPathBoardService {
               entry.completed,
               segments));
     }
+    System.out.printf( // [DEBUG-cost6]
+        "[DEBUG-cost6] read ranges=%d rows=%d ranges_ms=%.1f points_mybatis_ms=%.1f group_ms=%.1f"
+            + " assemble_ms=%.1f %s%n",
+        ranges.size(), dbgRows, (dbgR1 - dbgR0) / 1e6, (dbgR2 - dbgR1) / 1e6, (dbgR4 - dbgR3) / 1e6,
+        (System.nanoTime() - dbgR4) / 1e6, dbgReplay);
     return result;
   }
 
