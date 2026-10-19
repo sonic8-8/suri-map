@@ -2,6 +2,7 @@ package com.surimap.domain.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.surimap.domain.path.fixture.SearchPathFixtures;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
@@ -17,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import jdk.jfr.Recording;
 import jdk.jfr.consumer.RecordingFile;
 import org.apache.ibatis.mapping.BoundSql;
@@ -562,6 +564,94 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
         STARTED_AT);
 
     assertThat(searchPathMapper.findNextGpsPointOrder(PATH_ID)).isEqualTo(7);
+  }
+
+  @Test
+  @DisplayName("상황판 좌표는 요청한 범위 순서와 범위 안 순번대로 읽고 측정 시각의 저장 범위를 보존한다")
+  void board_points_follow_requested_range_order_and_keep_stored_time_range() {
+    // given: 한 경로에 좌표 0..5를 저장하고 처음과 끝 좌표를 1970년 이전 시각과 저장 상한 시각으로 바꾼다.
+    insertPath(null);
+    searchPathMapper.insertGpsPoints(
+        PATH_ID,
+        0,
+        List.of(
+            gpsPoint("board-0", "126.900000", "35.100000", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint("board-1", "126.900100", "35.100000", "1.25", 4, "2026-04-28T00:00:05Z"),
+            gpsPoint("board-2", "126.900200", "35.100000", "1.25", 4, "2026-04-28T00:00:10Z"),
+            gpsPoint("board-3", "126.900300", "35.100000", "1.25", 4, "2026-04-28T00:00:15Z"),
+            gpsPoint("board-4", "126.900400", "35.100000", "1.25", 4, "2026-04-28T00:00:20Z"),
+            gpsPoint("board-5", "-0.000001", "-35.100000", "1.25", 4, "2026-04-28T00:00:25Z")),
+        STARTED_AT);
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '1969-12-31 23:59:59.999999+00'"
+            + " WHERE point_order = 0");
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '294276-12-31 23:59:59.999999+00'"
+            + " WHERE point_order = 5");
+
+    // when: 같은 경로의 떨어진 두 범위를 뒤 범위부터 요청한다.
+    List<SearchPathBoardPoint> found =
+        searchPathMapper.findBoardPoints(
+            SearchPathBoardPointRanges.from(
+                List.of(
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(4)
+                        .endIndex(5)
+                        .build(),
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(0)
+                        .endIndex(1)
+                        .build())));
+
+    // then: 범위 순서(1부터)와 범위 안 순번대로 읽고, 저장한 좌표와 시각을 그대로 돌려준다.
+    assertThat(found)
+        .extracting(SearchPathBoardPoint::getRangeOrder, SearchPathBoardPoint::getPointOrder)
+        .containsExactly(tuple(1, 4), tuple(1, 5), tuple(2, 0), tuple(2, 1));
+    assertThat(found.get(1).getLon()).isEqualTo(-0.000001);
+    assertThat(found.get(1).getLat()).isEqualTo(-35.1);
+    assertThat(found.get(1).getClientTs())
+        .isEqualTo(Instant.parse("+294276-12-31T23:59:59.999999Z"));
+    assertThat(found.get(2).getClientTs()).isEqualTo(Instant.parse("1969-12-31T23:59:59.999999Z"));
+  }
+
+  @Test
+  @DisplayName("상황판 좌표 범위가 5,000개를 넘어도 한 번에 빠짐없이 범위 순서대로 읽는다")
+  void board_points_read_more_than_five_thousand_ranges_at_once() {
+    // given: 한 경로에 좌표 0..10001을 저장하고 짝수 순번만 하나씩 떨어진 범위 5,001개로 만든다.
+    insertPath(null);
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        SELECT ?,n,'many-'||n,'2026-04-28T00:00:00Z'::timestamptz + n*interval '1 second',
+          126.9,35.1,1,now()
+        FROM generate_series(0,10001) n
+        """,
+        PATH_ID);
+    List<SearchPathSegment> ranges =
+        IntStream.range(0, 5001)
+            .mapToObj(
+                i ->
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(i * 2)
+                        .endIndex(i * 2)
+                        .build())
+            .toList();
+
+    // when: 범위 5,001개를 한 번에 요청한다.
+    List<SearchPathBoardPoint> found =
+        searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(ranges));
+
+    // then: 범위마다 좌표 하나씩, 요청 순서대로 받는다.
+    assertThat(found).hasSize(5001);
+    assertThat(found)
+        .allSatisfy(
+            point -> assertThat(point.getPointOrder()).isEqualTo((point.getRangeOrder() - 1) * 2));
+    assertThat(found)
+        .extracting(SearchPathBoardPoint::getRangeOrder)
+        .containsExactlyElementsOf(IntStream.rangeClosed(1, 5001).boxed().toList());
   }
 
   @Test

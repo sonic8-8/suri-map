@@ -9,6 +9,7 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathBoardPoint;
+import com.surimap.domain.path.SearchPathBoardPointRanges;
 import com.surimap.domain.path.SearchPathBoardSegmentQuery;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathMapper;
@@ -39,9 +40,6 @@ public class SearchPathBoardService {
   private final IncidentReadMapper incidentReadMapper;
   private final PurgeRunMapper purgeRunMapper;
   private final SearchPathMapper searchPathMapper;
-
-  // 좌표 범위 하나에 바인딩 인자 3개를 쓴다. PostgreSQL JDBC 한 문장의 상한 32,767개 안에 둔다.
-  private static final int MAX_POINT_RANGES = 5000;
 
   // 0은 미설정이다. 측정 전 임의 기본값으로 새 조회를 활성화하지 않는다.
   @Value("${surimap.board.search-path.max-paths:0}")
@@ -412,8 +410,10 @@ public class SearchPathBoardService {
     Map<UUID, List<SearchPathBoardPoint>> pointsByPath = new HashMap<>();
     List<SearchPathSegment> ranges = pointRanges(pending);
     if (!ranges.isEmpty()) {
-      for (SearchPathBoardPoint point : searchPathMapper.findBoardPoints(ranges)) {
-        pointsByPath.computeIfAbsent(point.getSearchPathId(), id -> new ArrayList<>()).add(point);
+      for (SearchPathBoardPoint point :
+          searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(ranges))) {
+        UUID pathId = ranges.get(point.getRangeOrder() - 1).getSearchPathId();
+        pointsByPath.computeIfAbsent(pathId, id -> new ArrayList<>()).add(point);
       }
     }
     List<Path> result = new ArrayList<>();
@@ -436,7 +436,7 @@ public class SearchPathBoardService {
   }
 
   private List<SearchPathSegment> pointRanges(List<PendingPath> pending) {
-    // 떨어진 변경 구간 사이의 과거 좌표는 읽지 않는다. 범위가 많으면 바인딩 상한을 지키려고 경로별로 합친다.
+    // 떨어진 변경 구간 사이의 과거 좌표는 읽지 않는다. 경로마다 순번이 이어지는 구간끼리만 범위로 합친다.
     Map<UUID, List<SearchPathSegment>> segmentsByPath = new LinkedHashMap<>();
     for (PendingPath entry : pending) {
       segmentsByPath
@@ -444,7 +444,6 @@ public class SearchPathBoardService {
           .addAll(entry.segments);
     }
     List<SearchPathSegment> runs = new ArrayList<>();
-    List<SearchPathSegment> wholePaths = new ArrayList<>();
     segmentsByPath.forEach(
         (pathId, segments) -> {
           if (segments.isEmpty()) {
@@ -457,16 +456,15 @@ public class SearchPathBoardService {
           int start = sorted.get(0).getStartIndex();
           int end = sorted.get(0).getEndIndex();
           for (SearchPathSegment segment : sorted.subList(1, sorted.size())) {
-            if (segment.getStartIndex() > end + 1) {
+            if (segment.getStartIndex() > (long) end + 1) {
               runs.add(pointRange(pathId, start, end));
               start = segment.getStartIndex();
             }
             end = Math.max(end, segment.getEndIndex());
           }
           runs.add(pointRange(pathId, start, end));
-          wholePaths.add(pointRange(pathId, sorted.get(0).getStartIndex(), end));
         });
-    return runs.size() <= MAX_POINT_RANGES ? runs : wholePaths;
+    return runs;
   }
 
   private SearchPathSegment pointRange(UUID pathId, int start, int end) {
@@ -492,11 +490,9 @@ public class SearchPathBoardService {
         .endPointOrder(segment.getEndIndex())
         .movementType(segment.getMovementType())
         .coordinates(
-            points.stream()
-                .map(point -> List.of(point.getLon().doubleValue(), point.getLat().doubleValue()))
-                .toList())
-        .startedAt(points.get(0).getClientTs().toInstant())
-        .endedAt(points.get(points.size() - 1).getClientTs().toInstant())
+            points.stream().map(point -> List.of(point.getLon(), point.getLat())).toList())
+        .startedAt(points.get(0).getClientTs())
+        .endedAt(points.get(points.size() - 1).getClientTs())
         .build();
   }
 
