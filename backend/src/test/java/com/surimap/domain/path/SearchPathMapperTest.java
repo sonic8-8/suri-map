@@ -655,6 +655,73 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("상황판 좌표 묶음은 요청한 범위마다 한 행으로 순번 순서의 배열과 기준 밖 시각 여부를 돌려준다")
+  void board_point_runs_return_one_row_per_requested_range_with_ordered_arrays() {
+    // given: 한 경로에 좌표 0..5를 저장하고 처음 좌표는 1970년 이전, 끝 좌표는 저장 상한 시각으로 바꾼다.
+    insertPath(null);
+    searchPathMapper.insertGpsPoints(
+        PATH_ID,
+        0,
+        List.of(
+            gpsPoint("run-0", "126.900000", "35.100000", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint("run-1", "126.900100", "35.100000", "1.25", 4, "2026-04-28T00:00:05Z"),
+            gpsPoint("run-2", "126.900200", "35.100000", "1.25", 4, "2026-04-28T00:00:10Z"),
+            gpsPoint("run-3", "126.900300", "35.100000", "1.25", 4, "2026-04-28T00:00:15Z"),
+            gpsPoint("run-4", "126.900400", "35.100000", "1.25", 4, "2026-04-28T00:00:20Z"),
+            gpsPoint("run-5", "-0.000001", "-35.100000", "1.25", 4, "2026-04-28T00:00:25Z")),
+        STARTED_AT);
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '1969-12-31 23:59:59.999999+00'"
+            + " WHERE point_order = 0");
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '294276-12-31 23:59:59.999999+00'"
+            + " WHERE point_order = 5");
+
+    // when: 뒤 범위(4..5), 앞 범위(0..1), 좌표가 없는 범위(8..9), 끝이 비는 범위(5..6) 순서로 요청한다.
+    List<SearchPathBoardPointRun> found =
+        searchPathMapper.findBoardPointRuns(
+            SearchPathBoardPointRanges.from(
+                List.of(
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(4)
+                        .endIndex(5)
+                        .build(),
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(0)
+                        .endIndex(1)
+                        .build(),
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(8)
+                        .endIndex(9)
+                        .build(),
+                    SearchPathSegment.builder()
+                        .searchPathId(PATH_ID)
+                        .startIndex(5)
+                        .endIndex(6)
+                        .build())));
+
+    // then: 좌표가 있는 범위만 요청 순서대로 한 행씩 받고, 배열은 저장 값을 순번 순서로 담는다.
+    assertThat(found)
+        .extracting(
+            SearchPathBoardPointRun::getRangeOrder,
+            SearchPathBoardPointRun::getStartPointOrder,
+            SearchPathBoardPointRun::getPointCount,
+            SearchPathBoardPointRun::isHasOutOfRangeClientTs)
+        .containsExactly(tuple(1, 4, 2, true), tuple(2, 0, 2, false), tuple(4, 5, 1, true));
+    assertThat(found.get(0).getLons()).containsExactly(126.9004, -0.000001);
+    assertThat(found.get(0).getLats()).containsExactly(35.1, -35.1);
+    assertThat(found.get(0).getClientTs(0)).isEqualTo(Instant.parse("2026-04-28T00:00:20Z"));
+    assertThat(found.get(1).getLons()).containsExactly(126.9, 126.9001);
+    assertThat(found.get(1).getClientTs(0)).isEqualTo(Instant.parse("1969-12-31T23:59:59.999999Z"));
+    assertThat(found.get(1).getClientTs(1)).isEqualTo(Instant.parse("2026-04-28T00:00:05Z"));
+    assertThat(found.get(1).hasAllPointsThrough(1)).isTrue();
+    assertThat(found.get(2).hasAllPointsThrough(6)).isFalse();
+  }
+
+  @Test
   @DisplayName("GPS 조회는 생성자 접근 예외 없이 수집 순서와 원본 값을 유지한다")
   void saved_gps_points_are_read_without_constructor_access_exceptions(
       @TempDir Path temporaryDirectory) throws IOException {
