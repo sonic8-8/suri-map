@@ -83,6 +83,27 @@ describe('IncidentListPage', () => {
     expect(screen.queryByRole('dialog', { name: '사건 가져오기' })).not.toBeInTheDocument();
     expect(screen.getByText('mock 112에서 배정된 사건은 자동으로 반영됩니다.')).toBeInTheDocument();
   });
+  test('passes the active operational period with the board open request', async () => {
+    // given: 목록 응답이 진행 중 차수를 준다.
+    vi.mocked(incidentReadApi.list).mockResolvedValueOnce(
+      incidentListResponse([{ ...importedIncident(), activeOpId: 'op-active-1' }]),
+    );
+    vi.mocked(incidentReadApi.detail).mockResolvedValueOnce(activeIncidentDetail());
+    const onOpenSituationBoard = vi.fn();
+    render(
+      <IncidentListPage
+        currentUserAccount={currentUserAccount()}
+        onOpenLogin={vi.fn()}
+        onOpenSituationBoard={onOpenSituationBoard}
+      />,
+    );
+
+    // when: 상황판 열기를 누른다.
+    (await screen.findByRole('button', { name: '상황판 열기' })).click();
+
+    // then: 상황판이 경로 조회를 먼저 시작할 수 있도록 차수를 함께 넘긴다.
+    expect(onOpenSituationBoard).toHaveBeenCalledWith(importedIncidentId, 'op-active-1');
+  });
 });
 
 function renderIncidentListPage() {

@@ -15,6 +15,7 @@ public final class IncidentReadRows {
     private String status;
     private long version;
     private Instant closedAt;
+    private UUID activeOpId;
 
     public UUID getId() {
       return id;
@@ -54,6 +55,14 @@ public final class IncidentReadRows {
 
     public void setClosedAt(Instant closedAt) {
       this.closedAt = closedAt;
+    }
+
+    public UUID getActiveOpId() {
+      return activeOpId;
+    }
+
+    public void setActiveOpId(UUID activeOpId) {
+      this.activeOpId = activeOpId;
     }
   }
 

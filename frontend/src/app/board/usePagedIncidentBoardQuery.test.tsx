@@ -121,3 +121,46 @@ test('경로 조회가 권한 거부되면, 예전 위치 슬롯을 화면에서
   expect(result.current.data?.slots).not.toHaveProperty('marker');
   expect(createBoardMovementPaths(result.current.data ?? null)).toEqual([]);
 });
+
+function renderBoardWithListOp(initialActiveOpId: string) {
+  return renderHook(() => usePagedIncidentBoardQuery({ incidentId: 'incident-1' }, undefined, { initialActiveOpId }), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
+test('목록에서 받은 진행 중 차수가 있으면, 상황판 응답 전에 경로 조회를 시작하고 같은 차수 응답이 오면 이어 쓴다', async () => {
+  // given: 상황판 응답은 아직 오지 않았고, 목록에서 진행 중 차수를 받았다.
+  let resolveBoard: (value: IncidentBoardResponse) => void = () => {};
+  vi.spyOn(apiClient, 'get').mockReturnValue(new Promise((resolve) => { resolveBoard = resolve; }));
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue(emptyPage);
+  const { result } = renderBoardWithListOp('op-1');
+
+  // when: 상황판 응답을 기다리지 않고 경로 이력 조회가 나간 뒤, 같은 차수의 상황판 응답이 온다.
+  await waitFor(() => expect(post).toHaveBeenCalled());
+  expect(post.mock.calls[0][0]).toContain('/segments/query');
+  expect(post.mock.calls[0][1]).toEqual({ opIds: ['op-1'], paths: [], nextSearchPathId: null });
+  await act(async () => resolveBoard(metadata));
+  await waitFor(() => expect(result.current.pathLoading).toBe(false));
+
+  // then: 같은 조회를 이어 써서 이력 조회를 다시 보내지 않는다.
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+  expect(post.mock.calls.filter(([url]) => String(url).includes('/segments/query'))).toHaveLength(1);
+  expect(result.current.data?.slots.path).toEqual([]);
+});
+
+test('상황판 응답의 차수가 목록과 다르면, 상황판 차수로 경로를 다시 조회한다', async () => {
+  // given: 목록을 연 뒤 진행 중 차수가 바뀌어 상황판은 다른 차수를 준다.
+  vi.spyOn(apiClient, 'get').mockResolvedValue({ ...metadata, activeOpId: 'op-2', selectedOpIds: ['op-2'] });
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue(emptyPage);
+
+  // when: 목록의 이전 차수로 상황판을 연다.
+  renderBoardWithListOp('op-1');
+
+  // then: 상황판이 준 차수로도 이력 조회를 보낸다.
+  await waitFor(() =>
+    expect(post.mock.calls.some(([url, body]) => String(url).includes('/segments/query')
+      && JSON.stringify((body as { opIds: string[] }).opIds) === JSON.stringify(['op-2']))).toBe(true),
+  );
+});

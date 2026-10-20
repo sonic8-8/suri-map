@@ -37,11 +37,13 @@ import org.springframework.test.web.servlet.MockMvc;
       "CREATE TABLE IF NOT EXISTS missing_person (incident_id VARCHAR(36) PRIMARY KEY, display_name VARCHAR(120) NOT NULL, photo_object_key CLOB, appearance_text CLOB, last_seen_location_text VARCHAR(255), last_seen_at TIMESTAMP WITH TIME ZONE, imported_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS incident_assignment (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, account_id VARCHAR(80) NOT NULL, incident_role VARCHAR(32) NOT NULL, assigned_at TIMESTAMP WITH TIME ZONE NOT NULL, revoked_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS account (id VARCHAR(36) PRIMARY KEY, login_id VARCHAR(80) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, display_name VARCHAR(128) NOT NULL, account_type VARCHAR(32) NOT NULL, organization_type VARCHAR(32) NOT NULL, status VARCHAR(32) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+      "CREATE TABLE IF NOT EXISTS operational_period (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, sequence_number INTEGER NOT NULL, status VARCHAR(32) NOT NULL, reason VARCHAR(32) NOT NULL, reason_memo CLOB, started_by_account_id VARCHAR(80), ended_by_account_id VARCHAR(80), started_at TIMESTAMP WITH TIME ZONE NOT NULL, ended_at TIMESTAMP WITH TIME ZONE, version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110001', 'acct-precinct-cmd', '{noop}fixture', '종로 지구대 지휘', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE')",
       "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture', '종로 지구대 순찰차', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE')",
       "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110003', 'acct-precinct-team', '{noop}fixture', '종로 지구대 팀', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE')",
       "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110004', 'acct-cmd-alpha', '{noop}fixture', '실종팀 알파 지휘', 'COMMAND', 'MISSING_TEAM', 'ACTIVE')",
       "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110005', 'acct-team-alpha', '{noop}fixture', '실종팀 알파 팀', 'TEAM', 'MISSING_TEAM', 'ACTIVE')",
+      "DELETE FROM operational_period",
       "DELETE FROM incident_assignment",
       "DELETE FROM missing_person",
       "DELETE FROM \"incident\"",
@@ -58,7 +60,10 @@ import org.springframework.test.web.servlet.MockMvc;
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T10:35:00+09:00', NULL, '2026-04-28T10:35:00+09:00', '2026-04-28T10:35:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', '11111111-1111-1111-1111-111111119901', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', '11111111-1111-1111-1111-111111119902', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000008', '10000000-0000-4000-8000-000000000006', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T09:30:00+09:00', NULL, '2026-04-28T09:30:00+09:00', '2026-04-28T09:30:00+09:00')"
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000008', '10000000-0000-4000-8000-000000000006', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T09:30:00+09:00', NULL, '2026-04-28T09:30:00+09:00', '2026-04-28T09:30:00+09:00')",
+      "INSERT INTO operational_period (id, incident_id, sequence_number, status, reason, started_at, ended_at, version, created_at, updated_at) VALUES ('30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 1, 'ENDED', 'INITIAL', '2026-04-28T09:00:00+09:00', '2026-04-28T10:00:00+09:00', 2, '2026-04-28T09:00:00+09:00', '2026-04-28T10:00:00+09:00')",
+      "INSERT INTO operational_period (id, incident_id, sequence_number, status, reason, started_at, ended_at, version, created_at, updated_at) VALUES ('30000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 2, 'ACTIVE', 'SHIFT_CHANGE', '2026-04-28T10:00:00+09:00', NULL, 1, '2026-04-28T10:00:00+09:00', '2026-04-28T10:00:00+09:00')",
+      "INSERT INTO operational_period (id, incident_id, sequence_number, status, reason, started_at, ended_at, version, created_at, updated_at) VALUES ('30000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000006', 1, 'ENDED', 'INITIAL', '2026-04-28T09:30:00+09:00', '2026-04-28T10:30:00+09:00', 2, '2026-04-28T09:30:00+09:00', '2026-04-28T10:30:00+09:00')"
     })
 @DisplayName("L1-T05A GET /api/incidents active read DTO 계약")
 class IncidentActiveReadDtoContractTest {
@@ -69,8 +74,9 @@ class IncidentActiveReadDtoContractTest {
       UUID.fromString("10000000-0000-4000-8000-000000000005");
   private static final UUID OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000000006");
+  private static final UUID ACTIVE_OP_ID = UUID.fromString("30000000-0000-4000-8000-000000000002");
   private static final Set<String> ACTIVE_LIST_ITEM_FIELDS =
-      Set.of("id", "incidentId", "title", "status", "version", "closedAt");
+      Set.of("id", "incidentId", "title", "status", "version", "closedAt", "activeOpId");
   private static final Set<String> ACTIVE_DETAIL_FIELDS =
       Set.of(
           "id",
@@ -151,6 +157,7 @@ class IncidentActiveReadDtoContractTest {
     assertThat(item.path("status").asText()).isEqualTo("OPEN");
     assertThat(item.path("version").asLong()).isEqualTo(3L);
     assertThat(item.path("closedAt").isNull()).isTrue();
+    assertThat(item.path("activeOpId").asText()).isEqualTo(ACTIVE_OP_ID.toString());
     assertNoTerminalOrPurgeFields(item);
     assertNoDetailOnlyFields(item);
   }
@@ -183,6 +190,9 @@ class IncidentActiveReadDtoContractTest {
     assertThat(items.findValues("incidentId").stream().map(JsonNode::asText).toList())
         .containsExactly(
             OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID.toString(), OPEN_ASSIGNED_INCIDENT_ID.toString());
+    // 상황판이 경로 조회 차수를 미리 알 수 있도록 진행 중 차수만 알려 주고, 없으면 null이다.
+    assertThat(items.get(0).path("activeOpId").isNull()).isTrue();
+    assertThat(items.get(1).path("activeOpId").asText()).isEqualTo(ACTIVE_OP_ID.toString());
   }
 
   @Test

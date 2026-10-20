@@ -156,6 +156,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: no
 - Query: optional `status`
 - Response: `200 {items...}` from S1-1 incident list schema
+  - 각 item은 `id`, `incidentId`, `title`, `status`, `version`, `closedAt`, `activeOpId`를 준다. `activeOpId`는 진행 중(`ACTIVE`) 수색 차수 ID이며 없으면 `null`이다(2026-10-20 추가). WEB은 상황판 진입 때 이 값으로 경로 조회를 상황판 응답과 동시에 시작한다.
 - Errors: `channel_not_allowed`
 
 #### GET `/api/incidents/{incidentId}`

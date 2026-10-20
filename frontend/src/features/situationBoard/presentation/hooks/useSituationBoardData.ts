@@ -48,6 +48,7 @@ export function useSituationBoardData(
   incidentId: string,
   savedAreaDrafts: CompletedAreaDraft[],
   refreshVersion = 0,
+  initialActiveOpId: string | null = null,
 ): SituationBoardDataState {
   const queryClient = useQueryClient();
   const prevRefreshVersionRef = useRef(refreshVersion);
@@ -55,7 +56,7 @@ export function useSituationBoardData(
   const fallbackBoard = useMemo(() => createIncidentScopedFallbackBoard(incidentId), [incidentId]);
   const mapMovementPaths = useMemo(() => createMovementPathMapper(), []);
 
-  const boardQuery = usePagedIncidentBoardQuery({ incidentId });
+  const boardQuery = usePagedIncidentBoardQuery({ incidentId }, undefined, { initialActiveOpId });
   const rawApiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
   const currentApiBoard = useMemo<SituationBoardResponseDto | null>(() => {
     return rawApiBoard && rawApiBoard.incidentId === incidentId ? rawApiBoard : null;
