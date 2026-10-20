@@ -2,29 +2,36 @@
 
 Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
-`Checkout → Backend Test CI → Sync → Build Images → Approve Backend Deployment → Deploy Backend → Verify Backend → Deploy Web`
+`Checkout → Backend Test CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
 
-실행 정의는 Jenkins 작업 설정에 저장된 **inline 스크립트**다. [hetzner.Jenkinsfile](hetzner.Jenkinsfile)은 이 설정을 보관·대조하는 파일이며, Jenkins가 저장소에서 자동으로 읽는 파일은 아니다. 변경할 때는 Jenkins 문법 검사 → 작업 설정 저장 → 저장된 스크립트 재조회·대조를 마친 뒤 빌드를 실행한다.
+2026-10-14 전환용 수동 승인을 제거한 설정을 Jenkins에 저장하고 이 파일과 원문이 일치하는지 확인했다. 이전 승인에서 대기하던 #63은 중단했다. #64에서 발견한 로그인 셸 종료 오류를 수정한 뒤 [#65](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/65/)에서 Backend 테스트·기동 확인·웹 배포가 수동 승인 없이 통과했다. 설정 저장만으로 이미 실행 중인 빌드가 바뀌지는 않는다.
+
+실행 정의는 Jenkins 작업 설정에 저장된 **inline 스크립트**다. [hetzner.Jenkinsfile](hetzner.Jenkinsfile)은 이 설정을 보관·대조하는 파일이며, Jenkins가 저장소에서 자동으로 읽는 파일은 아니다. 변경할 때는 문법·로컬 회귀 검사 → 작업 설정 저장 → 저장된 스크립트 재조회·대조 → 새 빌드 실행으로 확인한다. 이번 변경은 Groovy 구문·shell 검사 후 적용했으며 별도의 Jenkins Declarative lint는 실행하지 않았다.
 
 기존 [infra/Jenkinsfile](../Jenkinsfile)은 다른 배포 설정을 포함하며 현재 작업에서 사용하지 않는다. 이 파일을 수정하는 것만으로 Hetzner CI가 바뀌지 않는다. 테스트 연결이 빠졌던 원인과 실제 빌드별 결과는 [로컬 이슈 10](../../docs/issues/local/10-jenkins-backend-tests-not-connected.md)에 기록한다.
 
-## 경로 조회 전환의 배포 대기
+## 자동 배포와 기동 확인
 
-Backend와 웹을 동시에 시작하지 않도록 배포를 분리한다. 현재 파이프라인에서는 모든 빌드가 두 확인 단계에서 멈추며, 승인 없이 다음 단계로 넘어가지 않는다. 전환 후 일반 자동 배포로 복귀할지는 별도로 결정한다.
+경로 조회 전환 migration `20261006.001`~`003`은 적용을 마쳤다. 전환 당시의 매 배포 승인·쓰기 중단·최종 백업 절차를 일반 배포에 강제하지 않는다. CI·기존 이미지 보존·동시 빌드 방지는 유지하며 Backend 기동 확인이 통과해야 웹을 배포한다.
 
 | 단계 | 수행·확인할 내용 |
 |---|---|
 | Build Images | 실행 중인 앱 3개의 이미지 ID를 조회해 `before-build-<UTC 시각>` 태그로 먼저 보존한 뒤 새 이미지를 만든다. 기존 이미지를 찾지 못하면 빌드 전에 실패한다. 실행 중 앱은 바꾸지 않는다. |
-| Approve Backend Deployment | 기존 이미지·설정 보존, 외부 쓰기 차단, 기존 Backend·시험 writer 중단, 진행 중 쓰기 종료, 최종 DB 백업을 확인한 뒤 승인한다. |
 | Deploy Backend | `up -d --no-deps backend`로 Backend만 시작한다. Flyway는 이때 실행된다. |
-| Verify Backend | migration 성공·원본 데이터 보존·조회 설정·인증된 실제 HTTP 응답을 검증하고 기록한 뒤 승인한다. health 정상만으로 진행하지 않는다. |
+| Verify Backend | 실행 컨테이너의 이미지가 방금 빌드한 `suri-map-backend:develop`과 일치하고, loopback 포트의 `/actuator/health`가 JSON `status: UP`을 반환하는지 확인한다. HTTP 확인 전후 컨테이너 ID·이미지·상태·재시작 횟수도 같아야 한다. 실패하면 웹 배포를 실행하지 않는다. |
 | Deploy Web | `up -d --no-deps frontend mock-112`로 웹과 시연 서버를 시작한다. 검증한 Backend와 DB·인증·저장소는 재생성하지 않는다. |
 
-대기에는 Jenkins 기본 [input 단계](https://www.jenkins.io/doc/pipeline/steps/pipeline-input-step/)를 사용한다. 승인자·승인/중단은 빌드에 남지만, 버튼을 누르는 것이 외부 쓰기 차단·백업·검증을 실행하거나 결과를 입증하지는 않는다. 검증 기록을 별도로 남기고 대기 중 다른 배포나 설정 변경을 하지 않는다. `disableConcurrentBuilds()`는 이 작업의 동시 빌드만 막는다.
+기동 확인은 최대 60회 재시도하며 HTTP 요청 제한 2초·재시도 간격 1초를 사용한다. Jenkins 단계 전체 제한은 3분이다. 무한 대기를 막기 위한 운영상 상한이며 서비스 응답 목표나 공식 권장 시간은 아니다. 실제 기동 시간에 맞춰 조정할 수 있다. App 호스트에 `curl`과 `python3`가 있어야 하며, 현재 설치를 확인했다. 포트는 `docker port`로 읽으므로 8081처럼 기본 포트를 가정하지 않는다.
 
-중간 배포 단계부터 다시 실행해 확인 절차를 건너뛰지 않도록 `disableRestartFromStage()`를 적용한다. 새 빌드는 처음부터 검증한다. 이 전환용 구조는 기존 최상위 `agent any`를 유지하므로 승인 대기 중에도 실행 슬롯 하나를 점유한다.
+검증 단계는 SSH에서 `sh -s`를 명시한다. #64에서는 로그인 셸의 `exit 0` 뒤 배포 계정의 화면 정리 명령이 실패해, health가 UP이어도 웹 배포가 차단됐다. 스크립트 셸을 명시해 검사 자체의 종료 코드를 전달하며 서버 계정의 종료 설정은 바꾸지 않는다.
 
-기존 DB·Keycloak·저장소가 준비된 서버 전환용이다. `--no-deps`이므로 새 서버의 기반 서비스 설치를 대신하지 않는다. Backend 시작 후 검증을 중단해도 DB·앱을 자동으로 되돌리지 않는다. 쓰기 차단을 유지하고 migration 상태·보존한 백업·이후 기록을 확인해 복구 범위를 정한다. 최종 SUCCESS도 실제 브라우저·Smoke 통과를 뜻하지 않는다.
+기동 검사는 [Spring Boot health 상태](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html)와 [Jenkins 단계 timeout](https://www.jenkins.io/doc/book/pipeline/syntax/)을 사용한다. 인증된 업무 API·원본 데이터 정합성·성능을 검증하는 Smoke/부하테스트와는 다르다. 성공 직후의 장애까지 예방하는 연속 감시도 아니다.
+
+`disableConcurrentBuilds()`는 이 작업의 동시 빌드를 막고, `disableRestartFromStage()`는 테스트·이미지 보존을 건너뛴 중간 단계 재시작을 막는다. 실패 시 이미 시작한 Backend나 적용한 migration을 자동으로 되돌리지 않는다. 기존 DB·Keycloak·저장소는 `--no-deps`로 재생성하지 않는다. 무중단 배포를 보장하는 구조는 아니다.
+
+향후 데이터 변환·비호환 schema 변경이 필요하면 해당 배포 전에 쓰기 중단·백업·검증·복구 범위를 별도로 합의한다. 이번 자동화가 그런 변경의 안전성을 자동 판정하지는 않는다. 일반 배포에 전환용 수동 승인을 다시 상시 적용하지 않는다.
+
+로컬 회귀 검사는 `node infra/ci/verify-backend.test.cjs`로 실행한다. 실제 검증 단계의 shell을 실행하되 Docker·HTTP·대기는 대역으로 둬 UP, 지연 기동, DOWN, HTTP 오류, 잘못된 JSON·이미지, 재시작·교체, 잘못된 포트와 조회 실패를 확인한다. 실제 Jenkins 실행 검증과 구분한다.
 
 ## DB 테스트 실행
 
