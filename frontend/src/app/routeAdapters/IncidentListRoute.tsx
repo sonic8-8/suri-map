@@ -21,7 +21,9 @@ export function IncidentListRoute({ currentUserAccount, onOpenLogin }: IncidentL
   return (
     <IncidentListPage
       currentUserAccount={currentUserAccount}
-      onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
+      onOpenSituationBoard={(incidentId, activeOpId) =>
+        navigate(getIncidentBoardPath(incidentId), { state: activeOpId ? { activeOpId } : null })
+      }
       onOpenLogin={onOpenLogin}
     />
   );

@@ -25,7 +25,16 @@ const pathReadOptions = {
 
 type PagedIncidentBoardResponse = Omit<IncidentBoardResponse, 'slots'> & { slots: Record<string, unknown> };
 
-export function usePagedIncidentBoardQuery(query: IncidentBoardQuery, snapshot?: IncidentBoardResponse | null) {
+type PagedIncidentBoardOptions = {
+  // 사건 목록이 준 진행 중 차수. 상황판 응답이 오기 전에만 경로 조회 차수로 쓴다.
+  initialActiveOpId?: string | null;
+};
+
+export function usePagedIncidentBoardQuery(
+  query: IncidentBoardQuery,
+  snapshot?: IncidentBoardResponse | null,
+  options: PagedIncidentBoardOptions = {},
+) {
   const client = useQueryClient();
   const base = useIncidentBoardQuery(
     { ...query, incidentId: snapshot ? null : query.incidentId, includeSlots: boardSlotsWithoutPaths },
@@ -39,8 +48,17 @@ export function usePagedIncidentBoardQuery(query: IncidentBoardQuery, snapshot?:
   const denied =
     base.error instanceof ApiHttpError &&
     ([401, 403].includes(base.error.status) || base.error.code === 'incident_closed');
-  const opIds = query.opIds ?? current?.selectedOpIds ?? (current?.activeOpId ? [current.activeOpId] : []);
-  const paths = useSearchPathPages(incidentId, opIds, Boolean(current) && !closed && !denied, pathReadOptions);
+  // 상황판 응답(약 0.9초)을 기다리지 않고 목록의 차수로 경로 조회를 먼저 시작한다.
+  // 상황판이 같은 차수를 주면 같은 조회 키라 그대로 이어 쓰고, 다르면 상황판 차수로 새로 조회한다.
+  const listOpIds = !current && !query.opIds && options.initialActiveOpId ? [options.initialActiveOpId] : null;
+  const opIds =
+    query.opIds ?? listOpIds ?? current?.selectedOpIds ?? (current?.activeOpId ? [current.activeOpId] : []);
+  const paths = useSearchPathPages(
+    incidentId,
+    opIds,
+    (Boolean(current) || listOpIds !== null) && !closed && !denied,
+    pathReadOptions,
+  );
   const pathRestricted = paths.data?.restricted === true;
   useEffect(() => {
     if (closed || denied || pathRestricted) restrictSearchPathPages(client, incidentId);

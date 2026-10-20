@@ -12,6 +12,8 @@ export interface IncidentListItem {
   status: string;
   version: number;
   closedAt: string | null;
+  // 진행 중 수색 차수. 상황판 진입 때 경로 조회를 상황판 응답과 동시에 시작하는 데 쓴다.
+  activeOpId?: string | null;
 }
 
 export type IncidentDetailResponse = ActiveIncidentDetailResponse | TerminalIncidentDetailResponse;

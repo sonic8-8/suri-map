@@ -39,6 +39,15 @@ function readInitialSplitParentAreaId(state: unknown) {
   return typeof splitParentAreaId === 'string' && splitParentAreaId.trim() ? splitParentAreaId : null;
 }
 
+function readInitialActiveOpId(state: unknown) {
+  if (typeof state !== 'object' || state === null || !('activeOpId' in state)) {
+    return null;
+  }
+
+  const activeOpId = (state as { activeOpId?: unknown }).activeOpId;
+  return typeof activeOpId === 'string' && activeOpId.trim() ? activeOpId : null;
+}
+
 export function SituationBoardRoute({
   currentUserAccount,
   workspace = 'board',
@@ -59,6 +68,7 @@ export function SituationBoardRoute({
   const savedAreaDrafts = savedAreaDraftsByIncidentId[incidentId] ?? [];
   const refreshVersion = opRefreshVersionByIncidentId[incidentId] ?? 0;
   const initialSplitParentAreaId = readInitialSplitParentAreaId(location.state);
+  const initialActiveOpId = readInitialActiveOpId(location.state);
 
   useIncidentMarkerNotifications({
     incidentId,
@@ -73,6 +83,7 @@ export function SituationBoardRoute({
       isAreaWorkspaceRoute={workspace === 'area'}
       isHandoverWorkspaceRoute={workspace === 'handover'}
       initialSplitParentAreaId={initialSplitParentAreaId}
+      initialActiveOpId={initialActiveOpId}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
       onCloseMarkerNotifications={onCloseMarkerNotifications}

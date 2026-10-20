@@ -49,6 +49,7 @@ type SituationBoardPageProps = {
   incidentId: string;
   currentUserAccount: LoginAccount;
   initialSplitParentAreaId?: string | null;
+  initialActiveOpId?: string | null;
   isAreaWorkspaceRoute?: boolean;
   isHandoverWorkspaceRoute?: boolean;
   markerNotificationIndex: number;
@@ -73,6 +74,7 @@ export function SituationBoardPage({
   incidentId,
   currentUserAccount,
   initialSplitParentAreaId = null,
+  initialActiveOpId = null,
   isAreaWorkspaceRoute = false,
   isHandoverWorkspaceRoute = false,
   markerNotificationIndex,
@@ -113,6 +115,7 @@ export function SituationBoardPage({
   }, []);
   const boardState = useSituationBoardPageState({
     incidentId,
+    initialActiveOpId,
     isAreaWorkspaceRoute,
     isHandoverWorkspaceRoute,
     onCloseAreaWorkspaceRoute,

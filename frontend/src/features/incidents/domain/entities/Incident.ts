@@ -11,4 +11,5 @@ export type IncidentCard = {
   currentPhase: string;
   assignedOrganization: string;
   assignedTeam: string;
+  activeOpId: string | null;
 };

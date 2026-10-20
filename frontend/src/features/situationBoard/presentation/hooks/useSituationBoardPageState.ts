@@ -8,6 +8,7 @@ import { useSituationBoardShell } from './useSituationBoardShell';
 
 type UseSituationBoardPageStateParams = {
   incidentId: string;
+  initialActiveOpId?: string | null;
   isAreaWorkspaceRoute?: boolean;
   isHandoverWorkspaceRoute?: boolean;
   onCloseAreaWorkspaceRoute?: () => void;
@@ -20,6 +21,7 @@ type UseSituationBoardPageStateParams = {
 
 export function useSituationBoardPageState({
   incidentId,
+  initialActiveOpId = null,
   isAreaWorkspaceRoute,
   isHandoverWorkspaceRoute,
   onCloseAreaWorkspaceRoute,
@@ -41,7 +43,7 @@ export function useSituationBoardPageState({
     retryInitialLoad,
     syncStatus,
     pathLoading,
-  } = useSituationBoardData(incidentId, savedAreaDrafts, refreshVersion + areaRefreshVersion);
+  } = useSituationBoardData(incidentId, savedAreaDrafts, refreshVersion + areaRefreshVersion, initialActiveOpId);
   const incidentDetail = useIncidentDetail(incidentId);
   const workspaceMode = useBoardWorkspaceMode({
     isAreaWorkspaceRoute,

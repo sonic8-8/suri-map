@@ -86,7 +86,8 @@ public class IncidentReadQueryService {
         row.getTitle(),
         row.getStatus(),
         row.getVersion(),
-        row.getClosedAt());
+        row.getClosedAt(),
+        row.getActiveOpId());
   }
 
   private Detail toDetail(

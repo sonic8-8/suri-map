@@ -20,7 +20,7 @@ import styles from './IncidentListPage.module.css';
 const INCIDENT_LIST_PAGE_SIZE = 12;
 
 type IncidentListPageProps = {
-  onOpenSituationBoard: (incidentId: string) => void;
+  onOpenSituationBoard: (incidentId: string, activeOpId: string | null) => void;
   onOpenLogin: () => void;
   currentUserAccount: LoginAccount;
 };
@@ -190,6 +190,7 @@ function createIncidentCard({ item, detail }: IncidentCardSource): IncidentCard 
     currentPhase: `v${item.version}`,
     assignedOrganization: '-',
     assignedTeam: '-',
+    activeOpId: item.activeOpId ?? null,
   };
 }
 
@@ -211,6 +212,7 @@ function createActiveIncidentCard(item: IncidentListItem, detail: ActiveIncident
     currentPhase: displayName ? `실종자 ${displayName}` : `v${detail.version}`,
     assignedOrganization: assignmentSummary.organization,
     assignedTeam: assignmentSummary.team,
+    activeOpId: item.activeOpId ?? null,
   };
 }
 
@@ -489,7 +491,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       <button
                         type="button"
                         className={styles.boardButton}
-                        onClick={() => onOpenSituationBoard(incident.id)}
+                        onClick={() => onOpenSituationBoard(incident.id, incident.activeOpId)}
                       >
                         상황판 열기
                       </button>

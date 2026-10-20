@@ -18,7 +18,13 @@ public final class IncidentActiveReadResults {
 
   /** 목록 item은 상세/종료 필드를 포함하지 않는다. */
   public record ListItem(
-      UUID id, UUID incidentId, String title, String status, long version, Instant closedAt) {}
+      UUID id,
+      UUID incidentId,
+      String title,
+      String status,
+      long version,
+      Instant closedAt,
+      UUID activeOpId) {}
 
   /** 상세 read model. Active와 Terminal을 타입으로 분리해 잘못된 필드 조합을 만들 수 없게 한다. */
   public sealed interface Detail permits Detail.Active, Detail.Terminal {
