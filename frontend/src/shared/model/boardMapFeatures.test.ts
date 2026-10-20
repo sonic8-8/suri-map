@@ -65,6 +65,77 @@ describe('boardMapFeatures', () => {
     expect(unknown.features[0].properties).not.toHaveProperty('searchPathVersion');
   });
 
+  test('같은 경로에서 표시 속성이 같고 끝점이 이어지는 구간은, 첫 구간 ID의 선 하나로 잇는다', () => {
+    // given: 한 경로의 세 구간이 앞 구간의 끝점에서 다음 구간이 시작한다.
+    const mapFeatures = createMovementPathFeatureMapper({ includeLabel: true });
+    const segments = [
+      createMovementPath({ id: 'a-1', searchPathId: 'path-a', searchPathVersion: 3, coordinates: [[126.91, 35.16], [126.92, 35.17]] }),
+      createMovementPath({ id: 'a-2', searchPathId: 'path-a', searchPathVersion: 3, coordinates: [[126.92, 35.17], [126.93, 35.18], [126.94, 35.19]] }),
+      createMovementPath({ id: 'a-3', searchPathId: 'path-a', searchPathVersion: 3, coordinates: [[126.94, 35.19], [126.95, 35.2]] }),
+    ];
+
+    // when: 지도 도형으로 변환한다.
+    const collection = mapFeatures(segments, OP_ID);
+
+    // then: 공유 끝점을 한 번만 담은 선 하나가 되고, 첫 구간의 ID와 그리기 순서를 쓴다.
+    expect(collection.features).toHaveLength(1);
+    expect(collection.features[0].geometry.coordinates).toEqual([
+      [126.91, 35.16], [126.92, 35.17], [126.93, 35.18], [126.94, 35.19], [126.95, 35.2],
+    ]);
+    expect(collection.features[0].properties).toMatchObject({
+      entityId: 'a-1', searchPathId: 'path-a', searchPathVersion: '3', drawOrder: '0',
+    });
+  });
+
+  test('표시 속성이 다르거나 끝점이 끊기거나 다른 경로이면, 선을 나눈다', () => {
+    // given: 이동 유형이 바뀌는 구간, 끝점이 끊긴 구간, 다른 경로의 구간이 이어진다.
+    const mapFeatures = createMovementPathFeatureMapper();
+    const segments = [
+      createMovementPath({ id: 'a-1', searchPathId: 'path-a', coordinates: [[126.91, 35.16], [126.92, 35.17]] }),
+      createMovementPath({ id: 'a-2', searchPathId: 'path-a', movementType: 'FOOT', coordinates: [[126.92, 35.17], [126.93, 35.18]] }),
+      createMovementPath({ id: 'a-3', searchPathId: 'path-a', movementType: 'FOOT', coordinates: [[126.94, 35.19], [126.95, 35.2]] }),
+      createMovementPath({ id: 'b-1', searchPathId: 'path-b', movementType: 'FOOT', coordinates: [[126.95, 35.2], [126.96, 35.21]] }),
+    ];
+
+    // when: 지도 도형으로 변환한다.
+    const collection = mapFeatures(segments, OP_ID);
+
+    // then: 넷 모두 따로 그린다.
+    expect(collection.features.map(item => item.properties.entityId)).toEqual(['a-1', 'a-2', 'a-3', 'b-1']);
+  });
+
+  test('경로 끝에 이어지는 구간이 추가되면, 그 묶음 도형만 새로 만든다', () => {
+    // given: 두 경로를 변환했다.
+    const mapFeatures = createMovementPathFeatureMapper();
+    const first = createMovementPath({ id: 'a-1', searchPathId: 'path-a', coordinates: [[126.91, 35.16], [126.92, 35.17]] });
+    const other = createMovementPath({ id: 'b-1', searchPathId: 'path-b', coordinates: [[127.01, 35.16], [127.02, 35.17]] });
+    const previous = mapFeatures([first, other], OP_ID);
+
+    // when: 첫 경로 끝에 같은 유형의 구간이 이어진다.
+    const appended = createMovementPath({ id: 'a-2', searchPathId: 'path-a', coordinates: [[126.92, 35.17], [126.93, 35.18]] });
+    const current = mapFeatures([first, appended, other], OP_ID);
+
+    // then: 같은 ID의 묶음 도형이 새 좌표로 바뀌고, 다른 경로 도형은 재사용한다.
+    expect(current.features[0]).not.toBe(previous.features[0]);
+    expect(current.features[0].properties.entityId).toBe('a-1');
+    expect(current.features[0].geometry.coordinates).toEqual([[126.91, 35.16], [126.92, 35.17], [126.93, 35.18]]);
+    expect(current.features[1]).toBe(previous.features[1]);
+  });
+
+  test('경로 도형에는, 지도 표시와 증분 갱신과 측정에 쓰는 속성만 담는다', () => {
+    // given: 시각, 계정, 차수, 이름이 있는 구간이다.
+    const path = createMovementPath({ id: 'a-1', searchPathId: 'path-a', searchPathVersion: 2 });
+
+    // when: 지도 도형으로 변환한다.
+    const collection = createMovementPathFeatureMapper({ includeLabel: true })([path], OP_ID);
+
+    // then: 구간 시각 등 원본 값은 경로 데이터에만 남기고 도형에는 복사하지 않는다.
+    expect(Object.keys(collection.features[0].properties).sort()).toEqual([
+      'deviceColor', 'drawOrder', 'entityId', 'freshnessStatus', 'isActiveOp', 'movementType', 'routeCoreColor',
+      'searchPathId', 'searchPathVersion',
+    ]);
+  });
+
   test('uses deterministic fallback colors when no assigned area color exists', () => {
     const paths = applyRouteColorsByAssignee(
       [
