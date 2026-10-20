@@ -100,9 +100,11 @@ export function createMovementPathFeatureCollection(
 }
 
 // 화면별로 유지한다. 전체 배열의 순서는 보존하고 변하지 않은 도형 생성은 생략한다.
+// 지도 처리 비용은 도형 수에 비례하므로 같은 경로에서 표시 속성이 같고 끝점이 이어지는 구간을 선 하나로 잇는다.
+// 구간 시각 등 원본 값은 경로 데이터에 남고, 경로 재생은 handover-timeline의 좌표 시각을 쓴다.
 export function createMovementPathFeatureMapper(options: MovementPathFeatureOptions = {}) {
   let previousOpId: string | null | undefined;
-  let cache = new WeakMap<BoardMovementPath, { order: number; feature: BoardMapFeature }>();
+  let cache = new WeakMap<BoardMovementPath, { order: number; segments: BoardMovementPath[]; feature: BoardMapFeature }>();
   return (paths: BoardMovementPath[], activeOpId: string | null): BoardMapFeatureCollection => {
     if (previousOpId !== activeOpId || paths.length === 0) {
       cache = new WeakMap();
@@ -114,26 +116,56 @@ export function createMovementPathFeatureMapper(options: MovementPathFeatureOpti
       const pathId = paths[start].searchPathId ?? paths[start].id;
       let end = start + 1;
       while (end < paths.length && (paths[end].searchPathId ?? paths[end].id) === pathId) end += 1;
+      let run: BoardMovementPath[] = [];
+      let runOrder = 0;
       for (let index = start; index < end; index += 1) {
         const path = paths[index];
         if (path.coordinates.length < 2) continue;
+        if (run.length > 0 && !continuesRun(run[run.length - 1], path, activeOpId)) {
+          features.push(readRunFeature(run, runOrder, activeOpId));
+          run = [];
+        }
         // 경로 사이에는 정수, 같은 경로의 구간 사이에는 그 안의 소수로 순서를 지정한다.
         // 한 경로에 구간이 추가돼도 다른 경로의 그리기 순서 값은 변하지 않는다.
-        const order = group + (index - start) / (end - start + 1);
-        const cached = cache.get(path);
-        if (cached?.order === order) {
-          features.push(cached.feature);
-        } else {
-          const feature = createMovementPathFeature(path, activeOpId, options);
-          feature.properties.drawOrder = String(order);
-          cache.set(path, { order, feature });
-          features.push(feature);
-        }
+        if (run.length === 0) runOrder = group + (index - start) / (end - start + 1);
+        run.push(path);
       }
+      if (run.length > 0) features.push(readRunFeature(run, runOrder, activeOpId));
       start = end;
     }
     return { type: 'FeatureCollection', features };
   };
+
+  function readRunFeature(run: BoardMovementPath[], order: number, activeOpId: string | null) {
+    const cached = cache.get(run[0]);
+    if (cached?.order === order && cached.segments.length === run.length && cached.segments.every((segment, index) => segment === run[index])) {
+      return cached.feature;
+    }
+    const feature = createMovementPathFeature(run[0], activeOpId, options);
+    if (run.length > 1) {
+      // 이어지는 구간의 첫 좌표는 앞 구간의 끝 좌표와 같으므로 한 번만 담는다.
+      feature.geometry = {
+        type: 'LineString',
+        coordinates: [...run[0].coordinates, ...run.slice(1).flatMap((segment) => segment.coordinates.slice(1))],
+      };
+    }
+    feature.properties.drawOrder = String(order);
+    cache.set(run[0], { order, segments: run, feature });
+    return feature;
+  }
+}
+
+// 도형 속성을 만드는 값(createMovementPathFeature)이 모두 같아야 한 선으로 그려도 표시가 같다.
+function continuesRun(previous: BoardMovementPath, next: BoardMovementPath, activeOpId: string | null) {
+  const end = previous.coordinates[previous.coordinates.length - 1];
+  const [lng, lat] = next.coordinates[0];
+  return end[0] === lng
+    && end[1] === lat
+    && previous.routeColor === next.routeColor
+    && previous.movementType === next.movementType
+    && previous.freshnessStatus === next.freshnessStatus
+    && (previous.opId === activeOpId) === (next.opId === activeOpId)
+    && previous.searchPathVersion === next.searchPathVersion;
 }
 
 export function createMovementCurrentPositionFeatureCollection(
@@ -305,26 +337,18 @@ function createMovementPathFeature(
   activeOperationalPeriodId: string | null,
   options: MovementPathFeatureOptions,
 ): BoardMapFeature {
+  // 지도 레이어(색, 필터, 순서), 증분 갱신 ID, 범례 필터, 측정 코드가 읽는 값만 담는다.
   const properties: Record<string, string> = {
-    slot: 'path',
     entityId: path.id,
-    opId: path.opId,
-    accountId: path.accountId,
     freshnessStatus: path.freshnessStatus,
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
     routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
     movementType: path.movementType,
     isActiveOp: String(path.opId === activeOperationalPeriodId),
-    startedAt: path.startedAt,
-    endedAt: path.endedAt ?? '',
   };
 
   if (path.searchPathId) properties.searchPathId = path.searchPathId;
   if (path.searchPathVersion != null) properties.searchPathVersion = String(path.searchPathVersion);
-
-  if (options.includeLabel) {
-    properties.label = path.label;
-  }
 
   return {
     type: 'Feature',
