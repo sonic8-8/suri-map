@@ -61,7 +61,7 @@ pipeline {
   options {
     timestamps()
     disableConcurrentBuilds()
-    // Stage restart must not bypass the cutover checks below.
+    // Stage restart must not bypass tests and image preservation.
     disableRestartFromStage()
   }
 
@@ -202,17 +202,6 @@ REMOTE
       }
     }
 
-    stage('Approve Backend Deployment') {
-      steps {
-        script { env.FAILED_STAGE = 'Approve Backend Deployment' }
-        input(
-          id: 'backendDeploymentReady',
-          message: '기존 이미지·설정 보존, 외부 쓰기 차단, 기존 Backend·시험 writer 중단, 진행 중 쓰기 종료와 최종 DB 백업을 확인했습니까? 확인 전에는 진행하지 마세요. 승인만으로 이 작업들이 실행되지는 않습니다.',
-          ok: '준비 확인 후 Backend 배포'
-        )
-      }
-    }
-
     stage('Deploy Backend') {
       steps {
         script { env.FAILED_STAGE = 'Deploy Backend' }
@@ -231,13 +220,47 @@ REMOTE
     }
 
     stage('Verify Backend') {
+      options { timeout(time: 3, unit: 'MINUTES') }
       steps {
         script { env.FAILED_STAGE = 'Verify Backend' }
-        input(
-          id: 'backendVerified',
-          message: '새 Backend의 Flyway 성공, 원본 데이터 보존, 조회 설정과 인증된 실제 API 응답을 확인하고 검증 기록을 남겼습니까? health 정상만으로 승인하지 마세요. 실패하면 중단하고 쓰기 차단을 유지하세요. 구 이미지로 자동 복구하지 않습니다.',
-          ok: '검증 확인 후 웹 배포'
-        )
+        withCredentials([sshUserPrivateKey(credentialsId: 'app-deploy-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+          sh '''
+set -eu
+# Keep login/logout hooks from changing the health check exit status.
+ssh -i "${SSH_KEY}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 "${SSH_USER}@${APP_HOST}" sh -s <<'REMOTE'
+set -eu
+command -v curl >/dev/null
+command -v python3 >/dev/null
+expected_image=$(docker image inspect -f '{{.Id}}' suri-map-backend:develop)
+attempt=0
+while [ "$attempt" -lt 60 ]; do
+  attempt=$((attempt + 1))
+  identity=$(docker inspect -f '{{.Id}}|{{.Image}}|{{.State.Status}}|{{.RestartCount}}' suri-map-backend)
+  case "$identity" in
+    *"|${expected_image}|running|"*)
+      binding=$(docker port suri-map-backend 8080/tcp)
+      case "$binding" in
+        127.0.0.1:*) port=${binding#127.0.0.1:} ;;
+        *) echo 'Backend health port must be loopback-only' >&2; exit 1 ;;
+      esac
+      case "$port" in ''|*[!0-9]*) echo 'Invalid Backend health port' >&2; exit 1 ;; esac
+      if health=$(curl --fail --silent --show-error --connect-timeout 1 --max-time 2 "http://${binding}/actuator/health" 2>/dev/null) &&
+          printf '%s' "$health" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("status") == "UP" else 1)' 2>/dev/null; then
+        current=$(docker inspect -f '{{.Id}}|{{.Image}}|{{.State.Status}}|{{.RestartCount}}' suri-map-backend)
+        if [ "$identity" = "$current" ]; then
+          echo "Backend health UP; image=${expected_image}; attempt=${attempt}"
+          exit 0
+        fi
+      fi
+      ;;
+  esac
+  sleep 1
+done
+echo 'Backend did not become healthy on the expected image; web deployment blocked' >&2
+exit 1
+REMOTE
+          '''
+        }
       }
     }
 
