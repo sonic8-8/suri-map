@@ -20,6 +20,14 @@
 | `*ContractTest` | `OfflinePackageManifestContractTest`, `OutboxRequeueContractTest`, `PolicePhoneNavigationContractTest`, `KeycloakThemeContractTest` | Backend·Android·mock-112를 포함해 실제 검증 대상과 연결 범위를 확인한 뒤 `<검증 대상>Test`로 정리 |
 | `*FixtureTest` | `OutboxRetryDiagnosticsFixtureTest`, `HandoverMemoOutboxWriteOperationFixtureTest` | 데이터 자체의 형식·참조 검사와 제품 동작 검증을 구분하고, 필요한 검사만 적절한 대상의 테스트에 유지 |
 
+## 지도 경로 — 남은 확인
+
+| 대상 | 확인할 점 |
+|---|---|
+| [searchPathPagesApi.ts의 `runner.dirty`·`requestId`](../../frontend/src/features/path/api/searchPathPagesApi.ts) | 2026-10-15 호출 흐름 대조. `dirty`는 저장할 데이터가 아니라 변경분을 다시 확인해야 한다는 신호다. `requestId`는 서버에 보내지 않는 로컬 측정 연결값이다. 향후 해당 로직 수정 시 `changesRefreshRequested`·`measurementRequestId` 등 의미가 드러나는 후보를 검토한다. 후보 등록이며 이름·조회 정책은 변경하지 않았다. |
+| [SearchPathBoardController의 `segments/query`](../../backend/src/main/java/com/surimap/api/controller/path/SearchPathBoardController.java) · `segmentsPerPath` 설정 | 2026-10-16 최초 이력을 한 번의 응답으로 받도록 바꾸면서 확인했다. 이 조회는 이제 구간 일부가 아니라 경로의 최초 이력 전체를 받는 역할이다. 또 경로당 구간 한도를 크게 두면 `segmentsPerPath`는 사실상 쓰이지 않는다. `history`·`initial` 등 역할이 드러나는 URL·설정 이름을 검토한다. URL은 Frontend 계약이고 설정은 서버 `.env`와 연결돼 있어, 두 곳을 함께 바꿔야 한다. 후보 등록이며 이름은 변경하지 않았다. |
+| [boardMapFeatures.ts의 `deviceColor`](../../frontend/src/shared/model/boardMapFeatures.ts) · [SearchMapCanvas.tsx의 레이어 필터](../../frontend/src/features/situationBoard/presentation/components/map/SearchMapCanvas.tsx) | 2026-10-08 표시 누락 진단 중 확인. 계정별 경로 색을 GeoJSON의 `deviceColor`로 전달해 색의 주체가 업무폰인지 계정인지 혼동된다. `routeColor` 등 실제 의미에 맞는 이름을 검토하고 생성자·레이어 필터·paint·테스트를 함께 대조한다. 후보 등록이며 필드는 변경하지 않았다. |
+
 ## 마커·알림 — 남은 확인
 
 2026-09-30 표기 합의: 프로젝트가 직접 짓는 SSE 관련 클래스·파일·변수·메서드 이름은 `Sse`·`sse` 대신 `ServerSentEvent`·`serverSentEvent`로 풀어 쓴다. 외부 타입인 `SseEmitter`, 기존 공개 API·설정 키와 앞서 합의한 패키지 경로는 이 결정만으로 바꾸지 않는다. 역할 이름의 확정 여부는 아래 항목별로 구분한다. Q26 승인으로 이름·배치를 코드에 반영했다. 표의 옛 이름은 변경 전 대상이며 링크는 이동한 현재 파일이다. Docker 연결 복구 후 전체 테스트 1,348개와 CI 결과 검증을 통과했다(실패·오류·건너뜀 0, 기본 성능 태그 제외).
