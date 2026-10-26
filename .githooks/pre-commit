@@ -1,0 +1,11 @@
+#!/bin/sh
+# 새로 추가하거나 고친 문서 줄에 가운뎃점(·)이 있으면 커밋을 막는다. 기존 줄은 검사하지 않는다.
+found=$(git -c core.quotePath=false diff --cached -U0 --diff-filter=ACMR -- '*.md' | awk '
+  /^\+\+\+ b\// { file = substr($0, 7); sub(/\t$/, "", file) }
+  /^@@/ { split($3, a, ","); line = substr(a[1], 2) - 1 }
+  /^\+/ && !/^\+\+\+/ { line++; if (index($0, "·")) print file ":" line ": " substr($0, 2) }
+')
+[ -z "$found" ] && exit 0
+echo "가운뎃점(·)을 쉼표, 와/과, 및으로 바꿔 주세요." >&2
+echo "$found" >&2
+exit 1

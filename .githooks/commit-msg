@@ -1,0 +1,36 @@
+#!/bin/sh
+# 커밋 메시지의 가운뎃점(·), 제목 형식, 바뀐 경로에 필요한 area를 검사한다. 주석 줄(#)은 검사하지 않는다.
+# git commit -v가 붙인 scissors 줄 아래의 diff는 메시지가 아니므로 뺀다.
+msg=$(sed '/^# -* >8 -*$/,$d' "$1")
+found=$(printf '%s\n' "$msg" | grep -n -v '^#' | grep '·')
+if [ -n "$found" ]; then
+  echo "커밋 메시지의 가운뎃점(·)을 쉼표, 와/과, 및으로 바꿔 주세요." >&2
+  echo "$found" >&2
+  exit 1
+fi
+
+subject=$(printf '%s\n' "$msg" | grep -v '^#' | grep -m 1 .)
+# Git이 만드는 병합, 되돌리기, rebase 전 임시 메시지는 형식 검사에서 뺀다.
+case "$subject" in Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;; esac
+area='\[(BE(/FE)?(/Android)?(/Infra)?|FE(/Android)?(/Infra)?|Android(/Infra)?|Infra)\] '
+if ! printf '%s\n' "$subject" | grep -qE "^($area)?(feat|fix|refactor|style|test|docs|chore|ci|build)(\([a-z0-9-]+\))?: ."; then
+  echo "제목을 '[Area] type(scope): 요약' 형식으로 써 주세요. AGENTS.md의 Git 절을 따릅니다." >&2
+  echo "$subject" >&2
+  exit 1
+fi
+
+# 스테이징한 .md 외 파일의 경로로 필요한 area를 계산하고, 제목에 빠진 area가 있으면 막는다.
+tag=$(printf '%s\n' "$subject" | sed -n 's/^\[\([^]]*\)\].*/\1/p')
+missing=
+for a in $(git -c core.quotePath=false diff --cached --name-only | grep -v '\.md$' | awk -F/ '
+  $1 == "backend" || $1 == "mock-112" { print "BE" }
+  $1 == "frontend" { print "FE" }
+  $1 == "android" { print "Android" }
+  $1 == "infra" { print "Infra" }
+  $1 == "test-fixtures" { print "BE"; print "Android" }' | sort -u); do
+  case "/$tag/" in *"/$a/"*) ;; *) missing="$missing $a" ;; esac
+done
+if [ -n "$missing" ]; then
+  echo "바뀐 경로에 맞게 제목에 area를 붙여 주세요. 빠진 area:$missing" >&2
+  exit 1
+fi
