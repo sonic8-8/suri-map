@@ -83,6 +83,7 @@
 
 - Herdr로 pane, 탭, 에이전트를 확인하거나 조작하기 전에 `herdr` 스킬을 불러 그 절차를 따른다.
 - Aside로 브라우저를 쓰거나 Aside 메모리를 조회하기 전에 `aside-browser` 스킬을 불러 그 절차를 따른다.
+- 작업 오케스트레이션을 운영할 때 `agents/orchestrator.md`를 따른다. 역할을 띄울 때는 `agents/`의 역할 파일을 넘긴다.
 
 ## API 규칙
 

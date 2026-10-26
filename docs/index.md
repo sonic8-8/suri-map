@@ -39,6 +39,7 @@
 | DB 구조·컬럼의 의미를 확인한다 | [DB 설계](db-design/db-design-readable.md), [ERD](db-design/db-design-erd.md) — Mapper·migration과 대조 |
 | 화면 요구·설계 이유·시안을 찾는다 | [screen-design/README.md](screen-design/README.md) — Android UI, 웹 화면과 과거 QA 자료 안내 |
 | 시연 입력을 준비하거나 기능을 연결해 확인한다 | [mock 112 안내](guides/mock-112-demo.md), [기능 검증 안내](guides/feature-verification.md) — 확인 절차이며 통과 기록은 아님 |
+| 작업을 역할로 나눠 배정하고 검수해 완료를 선언한다 | [오케스트레이터 역할](../agents/orchestrator.md) — 작업 절차이며 통과 기록은 아님 |
 | 리팩토링 후보·기존 변경 이유를 확인한다 | [refactoring/](refactoring/) — 이름 후보, 수색 경로 구조, 웹 초기 로딩 검토 |
 | 외부 근거·비교 조사를 읽는다 | [research/](research/) — 조사 시점·출처·적용 범위 확인 |
 | 발견한 문제의 현상·원인·수정 결과를 찾는다 | [issues/](issues/) — 일반 작업의 필수 티켓 목록으로 사용하지 않음 |
