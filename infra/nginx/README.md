@@ -18,7 +18,7 @@ python3 infra/nginx/container-address-change.test.py
 
 검사는 전용 네트워크 `10.254.231.0/24`와 임시 컨테이너를 만든 뒤 종료 시 제거한다. 해당 대역이 사용 중이면 다른 네트워크를 변경하지 않고 실패한다. 옛 IP는 404를 반환하는 대역이 사용하고 새 IP는 정상 응답하도록 만들어, 수동 reload 없이 HTTP·SSE 요청이 새 주소로 전달되는지 확인한다. 검사 종료 한도 15초는 운영 SLA가 아니다. 실제 Backend·Keycloak·MinIO·DB·브라우저 동작이나 부하 검증을 대신하지 않는다. 이 검사는 `npm test`나 Jenkins에 자동 연결하지 않았다.
 
-이 설정은 Frontend 이미지에 포함된다. 코드 저장만으로 운영 Nginx가 바뀌지 않으며, 배포 후 실제 상황판 복구를 별도로 확인한다. 최초 현상과 로컬 결과는 [로컬 이슈 17](../../docs/issues/local/17-nginx-stale-container-address.md)에 남긴다.
+이 설정은 Frontend 이미지에 포함된다. 코드 저장만으로 운영 Nginx가 바뀌지 않으며, 배포 후 실제 상황판 복구를 별도로 확인한다. 최초 현상과 로컬 결과는 [문제 해결 기록 33](../../docs/problem-solving-records/33-nginx-stale-container-address.md)에 남긴다.
 
 ## API 오류 상태 보존
 
@@ -34,7 +34,7 @@ include /etc/nginx/snippets/suri-map-api.locations.conf;
 
 적용할 때는 실제 설정·포트·기존 location과 대조하고, 원본 백업 → 대상 블록만 변경 → `nginx -t` → reload 순서로 진행한다. 검사나 reload가 실패하면 백업을 복원한다. 적용 후에는 정상 API·로그인·SSE와 Backend 재시작 중의 오류 상태를 직접 확인한다. 설정 파일을 저장한 것만으로 적용·검증이 끝난 것은 아니다.
 
-이 조각은 Jenkins에서 자동 설치하지 않는다. 커밋·푸시만으로 호스트 설정이 갱신되지 않으며, 애플리케이션 재배포와 호스트 설정 적용을 구분한다. 배경과 검증 결과는 [로컬 이슈 12](../../docs/issues/local/12-api-errors-replaced-with-successful-html-response.md)에 기록한다.
+이 조각은 Jenkins에서 자동 설치하지 않는다. 커밋, 푸시만으로 호스트 설정이 갱신되지 않으며, 애플리케이션 재배포와 호스트 설정 적용을 구분한다. 배경과 검증 결과는 [문제 해결 기록 28](../../docs/problem-solving-records/28-api-errors-replaced-with-successful-html-response.md)에 기록한다.
 
 ## SSE 연결의 유휴 대기
 

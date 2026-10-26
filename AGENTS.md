@@ -34,6 +34,7 @@
 - HTTP 요청·응답·오류는 임시 보존 중인 `docs/api/api-spec.md`를 Controller·소비자 코드와 대조한다. 이 문서를 바꾸거나 REST Docs로 전환할 때는 `docs/api/api-implementation-status.md`에서 소비 테스트·검증 한계·제거 조건을 확인한다.
 - DB 변경 배경은 `docs/db-design/db-design-readable.md`를 Mapper·migration과 대조한다. 문서에만 있는 필요한 동작은 미구현 요구로 구분해 합의한다.
 - 지속해서 필요한 기능 요구, 사용 이유, 미구현 요구는 `docs/features/` 같은 공유 문서에 남긴다. spec Issue는 구현이 끝나면 닫히는 작업 지시서이므로, 남길 요구는 구현 PR에서 공유 문서에 반영한다.
+- 문제의 정의, 해결법 선택과 트레이드오프, 수치 검증을 남길 때 `docs/problem-solving-records/`에 문제 해결 기록을 쓴다. 파일 이름은 마지막 번호에 1을 더한 `<번호>-<slug>.md`다.
 - 합의한 용어는 `GLOSSARY.md`에 남긴다. ADR은 되돌리기 어렵고, 배경 없이 이해하기 어려우며, 실제 대안을 비교해 선택한 결정에만 제안한다.
 - 문서는 이름이 아니라 내용과 사용처를 보고 유지·축약·삭제를 정한다. 이동·삭제 전에는 테스트·빌드·스크립트의 실제 파일 참조를 확인하고, 필요한 요구·결정·검증 근거와 실행 입력을 보존한다. `docs` 아래의 JSON·fixture도 실행에 필요한 데이터일 수 있다.
 

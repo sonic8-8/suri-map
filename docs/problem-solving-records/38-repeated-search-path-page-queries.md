@@ -16,7 +16,7 @@
 
 전체 수신 시간은 마지막 구간의 화면 렌더링 완료 시간이 아닙니다. HTTP 시간에는 네트워크·프록시·서버 처리가 포함되므로 DB 실행 시간으로 해석하지 않습니다.
 
-[로컬 20번](20-slow-paged-search-path-display.md)의 최초 현상 기록은 유지합니다. 이 이슈에서는 후속 진단에서 확인한 페이지 왕복·반복 DB 검사 비용과 개선 가설을 다룹니다. 브라우저의 지도 초기화·그래픽 대기는 기존 기록에서 별도로 추적합니다.
+[문제 해결 기록 36](36-slow-paged-search-path-display.md)의 최초 현상 기록은 유지합니다. 이 이슈에서는 후속 진단에서 확인한 페이지 왕복, 반복 DB 검사 비용과 개선 가설을 다룹니다. 브라우저의 지도 초기화, 그래픽 대기는 기존 기록에서 별도로 추적합니다.
 
 ### 문제 해결: 체크리스트
 
@@ -57,7 +57,7 @@
 
 시험 브라우저에서는 소프트웨어 그래픽 처리 대기도 확인됐습니다. 이를 데이터 병합이나 DB 처리 비용으로 합산하지 않으며, 세 가설을 검증하기 전에 서버 캐시 도입이나 React 추가 수정을 해결책으로 확정하지 않습니다.
 
-근거: [전체 이력 측정](../../test-results/search-path-chrome-history-20261008.md), [짧은 재현·SQL·브라우저 진단](../../test-results/search-path-page-delay-diagnosis-20261008.md), [조회 서비스](../../../backend/src/main/java/com/surimap/api/service/path/SearchPathBoardService.java), [조회 SQL](../../../backend/src/main/resources/mapper/path/SearchPathMapper.xml).
+근거: [전체 이력 측정](../test-results/search-path-chrome-history-20261008.md), [짧은 재현, SQL, 브라우저 진단](../test-results/search-path-page-delay-diagnosis-20261008.md), [조회 서비스](../../backend/src/main/java/com/surimap/api/service/path/SearchPathBoardService.java), [조회 SQL](../../backend/src/main/resources/mapper/path/SearchPathMapper.xml).
 
 # 댓글
 
@@ -129,12 +129,12 @@
 
 - 첫 경로 관찰은 4.0초에서 12.2초로 늦어졌습니다. 응답 본문을 다 읽은 9.0초 뒤 전체 경로를 한 번에 지도에 반영하는 데 약 3.2초가 더 걸렸습니다. 이 값은 진입 클릭이 아니라 관찰기를 설치한 시각부터 잰 값이며 관찰기 비용을 포함합니다.
 - 새 좌표 반영 5.4초는 초기 로딩이 끝난 뒤(72.8초) 보낸 결과이고, 기존 2.7초는 로딩 중에 보낸 결과라 직접 비교할 수 없습니다. 5.4초는 저장 응답 0.66초, 해당 경로 하나만 담긴 변경분 수신 1.72초, 지도 반영 3.06초로 나뉩니다. 변경분이 바뀐 경로만 담는 것은 확인했습니다. 목표 3초를 넘으며, 초기 로딩 중에 보낸 새 좌표의 반영 시간은 아직 다시 재지 않았습니다.
-- 진입부터 전체 경로 지도 반영까지의 지연은 [로컬 24번](24-board-entry-full-path-map-delay.md)에서 이어서 다룹니다.
+- 진입부터 전체 경로 지도 반영까지의 지연은 [문제 해결 기록 40](40-board-entry-full-path-map-delay.md)에서 이어서 다룹니다.
 
-측정 조건과 서버 처리 시간 분해는 [최초 이력을 한 번에 받도록 바꾼 근거](../../test-results/search-path-initial-history-20261016.md)와 [새 좌표 조회 순서 변경](../../test-results/search-path-query-priority-20261015.md)에 있습니다.
+측정 조건과 서버 처리 시간 분해는 [최초 이력을 한 번에 받도록 바꾼 근거](../test-results/search-path-initial-history-20261016.md)와 [새 좌표 조회 순서 변경](../test-results/search-path-query-priority-20261015.md)에 있습니다.
 
 한도를 키우기 전 2026-10-13~14에 요청 비용과 브라우저 영향을 나눠 본 진단은 다음 기록에 있습니다.
 
-- [Service와 Mapper 비용](../../test-results/search-path-request-cost-20261013.md), [요청 본문 크기 비교](../../test-results/search-path-request-body-size-20261014.md)
-- [요청 사이 지연 재분석](../../test-results/search-path-request-gap-trend-20261014.md), [일반 탭에서 지도 계측을 끈 재측정](../../test-results/search-path-normal-tab-off-20261014.md), [일반 탭의 응답 한도 비교](../../test-results/search-path-normal-tab-page-limit-comparison-20261014.md)
-- [고정 경로의 지도 재생](../../test-results/search-path-fixed-map-replay-20261014.md), [측정 전 브라우저 상태 확인](../../test-results/search-path-browser-preflight-20261014.md)
+- [Service와 Mapper 비용](../test-results/search-path-request-cost-20261013.md), [요청 본문 크기 비교](../test-results/search-path-request-body-size-20261014.md)
+- [요청 사이 지연 재분석](../test-results/search-path-request-gap-trend-20261014.md), [일반 탭에서 지도 계측을 끈 재측정](../test-results/search-path-normal-tab-off-20261014.md), [일반 탭의 응답 한도 비교](../test-results/search-path-normal-tab-page-limit-comparison-20261014.md)
+- [고정 경로의 지도 재생](../test-results/search-path-fixed-map-replay-20261014.md), [측정 전 브라우저 상태 확인](../test-results/search-path-browser-preflight-20261014.md)

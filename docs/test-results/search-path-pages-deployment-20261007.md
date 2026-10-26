@@ -73,7 +73,7 @@ App 서버 내부 loopback에서 순차 요청한 구간 조회 8건은 223–87
 
 각 묶음의 요청 사이 간격은 내부 49개만 비교했다. 시간이 흐르면서 응답 사이 간격이 커졌지만, 이 간격을 모두 지도 처리나 CPU 사용 시간으로 단정할 수는 없다. 데이터 병합·화면 갱신·계측·브라우저 스케줄링 영향을 분리해야 한다. 한 번의 기록을 앞뒤로 나눈 관찰이며 통제된 성능 비교가 아니다.
 
-이 분석은 저장한 기록을 다시 집계한 것이며 새 브라우저 실행이나 재현 테스트가 아니다. 재실행 명령은 `node _workspace/path-pages-web-20261007.uzmPgh/analyze-timings.cjs`다. 완료 요청 수와 계측 건수 일치·완료 요청 간 비중첩 검사를 통과했다. 지연 현상과 미확인 원인은 [로컬 20번](../issues/local/20-slow-paged-search-path-display.md)에 기록했다.
+이 분석은 저장한 기록을 다시 집계한 것이며 새 브라우저 실행이나 재현 테스트가 아니다. 재실행 명령은 `node _workspace/path-pages-web-20261007.uzmPgh/analyze-timings.cjs`다. 완료 요청 수와 계측 건수 일치, 완료 요청 간 비중첩 검사를 통과했다. 지연 현상과 미확인 원인은 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)에 기록했다.
 
 ## 남은 작업
 

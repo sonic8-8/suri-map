@@ -18,9 +18,9 @@ Backend 테스트는 JSON 파일을 입력으로 사용합니다. 같은 소스�
 
 ## 원인 분석과 선택지
 
-[공용 JSON 로더](../../../backend/src/test/java/com/surimap/sync/outbox/CommonFixtureJson.java)는 작업 디렉터리의 상위 경로에서 `test-fixtures/common-fixtures.json`을 찾습니다. 로컬 저장소에는 파일이 있지만, 당시 Dockerfile은 `docs`만 복사하므로 컨테이너의 같은 상대 경로에는 없었습니다.
+[공용 JSON 로더](../../backend/src/test/java/com/surimap/sync/outbox/CommonFixtureJson.java)는 작업 디렉터리의 상위 경로에서 `test-fixtures/common-fixtures.json`을 찾습니다. 로컬 저장소에는 파일이 있지만, 당시 Dockerfile은 `docs`만 복사하므로 컨테이너의 같은 상대 경로에는 없었습니다.
 
-JSON을 복제하거나 테스트를 제외할 필요는 없습니다. [Backend Dockerfile](../../../backend/Dockerfile)에 공용 입력 복사를 추가해 기존 Backend·Android 소비 경로와 JSON 내용을 유지하기로 했습니다. 이 변경으로 전체 Docker 빌드까지 통과하는지는 별도로 확인해야 했습니다.
+JSON을 복제하거나 테스트를 제외할 필요는 없습니다. [Backend Dockerfile](../../backend/Dockerfile)에 공용 입력 복사를 추가해 기존 Backend, Android 소비 경로와 JSON 내용을 유지하기로 했습니다. 이 변경으로 전체 Docker 빌드까지 통과하는지는 별도로 확인해야 했습니다.
 
 # 댓글
 
@@ -38,7 +38,7 @@ Dockerfile의 `source` 단계에 `COPY test-fixtures /test-fixtures`를 추가�
 
 1차 수정 후 Jenkins #34는 `BoardApiSseConvergenceHarnessRedTest`의 2개 검사에서 `NoSuchFileException`으로 실패했습니다. 공용 JSON과 별개로 Backend 전용 JSON을 `backend/src/test/resources`에서 찾고 있었지만, Docker에서는 같은 파일이 `/workspace/src/test/resources`에 있었습니다.
 
-`52dff146`에서 해당 파일을 읽는 두 호출을 Java classpath 조회로 변경했습니다. 테스트 리소스를 작업 디렉터리 기준으로 찾지 않도록 한 것입니다. 공용 JSON 로더는 유지했습니다. 테스트 이름의 `Red`·`Harness`는 [기존 정리 후보](../../refactoring/codebase-naming-candidates.md)에 남기고 이번 수정에서 바꾸지 않았습니다.
+`52dff146`에서 해당 파일을 읽는 두 호출을 Java classpath 조회로 변경했습니다. 테스트 리소스를 작업 디렉터리 기준으로 찾지 않도록 한 것입니다. 공용 JSON 로더는 유지했습니다. 테스트 이름의 `Red`, `Harness`는 [기존 정리 후보](../refactoring/codebase-naming-candidates.md)에 남기고 이번 수정에서 바꾸지 않았습니다.
 
 ## 검증 결과
 
@@ -59,4 +59,4 @@ docker run --rm suri-map-sse-source-check:20260928 \
 
 로컬 전체 검증은 Java 17에서 `./gradlew --no-daemon test --console=plain`으로 수행했고 변경 Java 포맷·공백 검사도 통과했습니다. 공용·전용 입력을 유지한 채 Jenkins 빌드까지 성공해 위 해결 기준을 충족했습니다.
 
-다만 Docker 빌드의 기존 구성은 Docker 연결이 필요한 DB 테스트를 건너뛸 수 있습니다. Jenkins 성공을 해당 DB 검사 통과로 계산하지 않으며, 실제 DB를 사용한 로컬 결과와 구분합니다. 배포 후 API health·migration·브라우저 검증은 [로컬 이슈 6](6-sse-registration-lost-during-reconnect.md)에 기록했습니다. GitHub에는 등록하지 않은 로컬 이슈입니다.
+다만 Docker 빌드의 기존 구성은 Docker 연결이 필요한 DB 테스트를 건너뛸 수 있습니다. Jenkins 성공을 해당 DB 검사 통과로 계산하지 않으며, 실제 DB를 사용한 로컬 결과와 구분합니다. 배포 후 API health, migration, 브라우저 검증은 [문제 해결 기록 22](22-sse-registration-lost-during-reconnect.md)에 기록했습니다. GitHub에는 등록하지 않은 로컬 이슈입니다.

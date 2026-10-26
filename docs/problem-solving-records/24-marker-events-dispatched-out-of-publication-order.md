@@ -6,7 +6,7 @@
 
 ## 문제 배경
 
-발견 마커를 저장하면 [생성 서비스](../../../backend/src/main/java/com/surimap/app/service/marker/AppMarkerService.java)는 마커 생성 이벤트(`MARKER_CREATED`)를 먼저 발행하고 발견 알림(`PERSON_FOUND`)을 발행합니다. 서버는 전송 작업을 DB에 저장한 뒤 worker가 순번을 정해 SSE로 보냅니다. 이때 같은 요청에서 만든 두 이벤트는 발행 순서대로 전달돼야 합니다.
+발견 마커를 저장하면 [생성 서비스](../../backend/src/main/java/com/surimap/app/service/marker/AppMarkerService.java)는 마커 생성 이벤트(`MARKER_CREATED`)를 먼저 발행하고 발견 알림(`PERSON_FOUND`)을 발행합니다. 서버는 전송 작업을 DB에 저장한 뒤 worker가 순번을 정해 SSE로 보냅니다. 이때 같은 요청에서 만든 두 이벤트는 발행 순서대로 전달돼야 합니다.
 
 2026-09-28(KST) `52dff146`의 Jenkins #35 배포 후 실제 HTTP·DB·SSE·브라우저를 연결해 발견 마커 4개를 생성했습니다. 그런데 3건은 발견 알림에 더 작은 SSE 순번이 배정돼 먼저 전달됐습니다. 마커·알림 저장과 화면 갱신은 모두 성공했지만, 같은 요청의 이벤트 순서를 신뢰할 수 없는 상태였습니다. 화면 누락·데이터 유실이나 전체 SSE 순번의 역전을 관측한 것은 아닙니다.
 
@@ -18,7 +18,7 @@
 
 ## 원인 분석과 선택지
 
-처음에는 전송 작업을 고르는 기준과 실제 수신 순서를 대조했습니다. 수정 전 [작업 선택 SQL](../../../backend/src/main/resources/mapper/sse/ServerSentEventJobMapper.xml)의 `claimPending`은 순번이 확정되지 않은 작업을 `created_at, id` 순으로 골랐습니다. [전송 작업](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventJob.java)의 `id`는 `UUID.randomUUID()`로 생성하므로 발행 순서를 나타내지 않습니다.
+처음에는 전송 작업을 고르는 기준과 실제 수신 순서를 대조했습니다. 수정 전 [작업 선택 SQL](../../backend/src/main/resources/mapper/sse/ServerSentEventJobMapper.xml)의 `claimPending`은 순번이 확정되지 않은 작업을 `created_at, id` 순으로 골랐습니다. [전송 작업](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventJob.java)의 `id`는 `UUID.randomUUID()`로 생성하므로 발행 순서를 나타내지 않습니다.
 
 실제 네 쌍은 각각 저장 시각이 같아 UUID 비교로 순서가 정해졌습니다. 브라우저 수신 순번도 DB와 일치했고, 8개 작업은 모두 `COMPLETED`였습니다. 전송 실패가 아니라 같은 시각의 작업을 고르는 기준에 문제가 있다는 근거였습니다. 당시에는 읽기 전용 조회와 코드 대조만 했으며 기존 행이나 SSE 순번을 바꾸지 않았습니다.
 
@@ -32,7 +32,7 @@
 - 보존: 이미 확정한 SSE 순번과 실패한 앞 작업을 기다리는 동작은 유지합니다. 기존 행의 저장 순서는 추정하지 않고 비워 둡니다.
 - 한계: 같은 트랜잭션의 발행 순서를 보존하는 변경입니다. 과거 발행 순서를 복원하거나 서로 다른 트랜잭션의 커밋 순서를 보장하지 않습니다.
 
-2026-09-28 [migration](../../../backend/src/main/resources/db/migration/V20260928_001__add_event_dispatch_job_insertion_order.sql)으로 `insertion_order`를 추가했습니다. `claimPending`은 같은 저장 시각의 새 작업을 이 번호로 정렬합니다. 기존 행은 `NULL`로 남겨 종전 UUID 정렬을 유지합니다. 공개 이벤트 UUID·SSE 순번·API 필드는 바꾸지 않았습니다.
+2026-09-28 [migration](../../backend/src/main/resources/db/migration/V20260928_001__add_event_dispatch_job_insertion_order.sql)으로 `insertion_order`를 추가했습니다. `claimPending`은 같은 저장 시각의 새 작업을 이 번호로 정렬합니다. 기존 행은 `NULL`로 남겨 종전 UUID 정렬을 유지합니다. 공개 이벤트 UUID, SSE 순번, API 필드는 바꾸지 않았습니다.
 
 기존 행을 채우지 않도록 컬럼을 만든 다음 DB 기본값을 지정했습니다. PostgreSQL의 [기본값 변경](https://www.postgresql.org/docs/16/ddl-alter.html#DDL-ALTER-DEFAULT)은 이후 INSERT에 적용됩니다. 번호 발급에 사용하는 [sequence](https://www.postgresql.org/docs/16/functions-sequence.html)는 롤백 시 빈 번호를 남길 수 있으므로, 연속성을 검사하는 공개 SSE 순번과 구분해 내부 정렬에만 사용합니다.
 
@@ -62,7 +62,7 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew --no-daemon test --consol
 
 Flyway `20260928.001` 적용에는 14ms가 기록됐습니다. 부하 중 잠금 대기 시간을 보장하는 측정은 아닙니다. 기존 작업 600개의 새 컬럼은 `NULL`이었고, 추가 컬럼을 제외한 전체 행의 내용 해시가 배포 전후 같았습니다. 순번 없는 과거 작업 592개와 기존 순번 1–8을 보존했습니다.
 
-최초 시험과 같은 사건·브라우저 조건에서 새 마커 4개를 생성해 비교했습니다. 아래 각 쌍은 `마커 생성 / 발견 알림`의 SSE 순번입니다. 최초 시험의 마커 ID는 [로컬 이슈 6](6-sse-registration-lost-during-reconnect.md)에 보존했습니다.
+최초 시험과 같은 사건, 브라우저 조건에서 새 마커 4개를 생성해 비교했습니다. 아래 각 쌍은 `마커 생성 / 발견 알림`의 SSE 순번입니다. 최초 시험의 마커 ID는 [문제 해결 기록 22](22-sse-registration-lost-during-reconnect.md)에 보존했습니다.
 
 | 브라우저 조건 | 수정 전 | 수정 후 | 수정 후 수신 순서 |
 |---|---|---|---|
@@ -77,6 +77,6 @@ Flyway `20260928.001` 적용에는 14ms가 기록됐습니다. 부하 중 잠금
 
 ### 검증 한계: 도구 실패와 별도 CORS 문제를 구분
 
-초기 시도는 Node.js의 DNS 조회가 10.52초 걸려 10초 연결 제한으로 실패했습니다. 저장은 0건이었으며, 이후 같은 비브라우저 앱 채널 요청을 `curl`로 보내 검증했습니다. 브라우저에서 대신 POST한 시도도 CORS에 막혀 저장은 0건이었습니다. 이를 순서 수정의 실패로 합치지 않고 [로컬 이슈 9](9-browser-post-rejected-by-cors.md)로 분리했습니다.
+초기 시도는 Node.js의 DNS 조회가 10.52초 걸려 10초 연결 제한으로 실패했습니다. 저장은 0건이었으며, 이후 같은 비브라우저 앱 채널 요청을 `curl`로 보내 검증했습니다. 브라우저에서 대신 POST한 시도도 CORS에 막혀 저장은 0건이었습니다. 이를 순서 수정의 실패로 합치지 않고 [문제 해결 기록 25](25-browser-post-rejected-by-cors.md)로 분리했습니다.
 
-배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T195005Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. [실행 스크립트·성공/실패 로그·화면 4개·배포 식별자](../../../_workspace/sse-order-verify-20260928.a9Jz2s/RESULTS.md)는 로컬 전용 자료입니다. 실제 Android·FCM·사진·부하와 DB 이력 재접속·재시작 복구는 이번 검증 범위가 아닙니다. GitHub에는 등록하지 않은 로컬 이슈입니다.
+배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T195005Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. [실행 스크립트, 성공/실패 로그, 화면 4개, 배포 식별자](../../_workspace/sse-order-verify-20260928.a9Jz2s/RESULTS.md)는 로컬 전용 자료입니다. 실제 Android, FCM, 사진, 부하와 DB 이력 재접속, 재시작 복구는 이번 검증 범위가 아닙니다. GitHub에는 등록하지 않은 로컬 이슈입니다.

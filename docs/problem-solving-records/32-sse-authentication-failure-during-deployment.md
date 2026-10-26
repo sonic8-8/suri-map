@@ -32,15 +32,15 @@ Backend는 로그인 토큰의 서명을 검증할 때 Keycloak이 제공하는 
 
 ### 같은 토큰으로 키 조회 실패 재현
 
-[SecurityConfigTest.java](../../../backend/src/test/java/com/surimap/SecurityConfigTest.java)에 실제로 서명한 유효 토큰과 로컬 HTTP 키 서버를 연결했습니다. Spring의 `NimbusJwtDecoder`가 실제 키 조회와 서명 검증을 수행하도록 하고, 제품 인증 필터를 통해 JSON API와 SSE 요청을 검사했습니다. 실제 Keycloak을 중단한 검사는 아닙니다.
+[SecurityConfigTest.java](../../backend/src/test/java/com/surimap/SecurityConfigTest.java)에 실제로 서명한 유효 토큰과 로컬 HTTP 키 서버를 연결했습니다. Spring의 `NimbusJwtDecoder`가 실제 키 조회와 서명 검증을 수행하도록 하고, 제품 인증 필터를 통해 JSON API와 SSE 요청을 검사했습니다. 실제 Keycloak을 중단한 검사는 아닙니다.
 
 키 서버가 503을 반환하면 두 요청 모두 401로 거부됐습니다. 키 서버를 정상 상태로 바꾸자 같은 토큰으로 API 요청이 성공했습니다. 이 결과를 두 번 재현해 토큰 자체가 아니라 키 조회 실패의 처리에 문제가 있음을 확인했습니다.
 
-이때 발생한 예외는 `RemoteKeySourceException`을 원인으로 가진 `JwtException`이었습니다. 기존 인증 필터는 모든 `JwtException`을 인증 정보 없음으로 처리했습니다. 한편 웹의 [SSE 응답 처리](../../../frontend/src/shared/api/eventStream.ts)는 401을 받으면 저장된 세션을 삭제하는 경로로 이어집니다. 서버의 일시 장애가 사용자의 로그인 종료로 이어질 수 있는 구조였습니다.
+이때 발생한 예외는 `RemoteKeySourceException`을 원인으로 가진 `JwtException`이었습니다. 기존 인증 필터는 모든 `JwtException`을 인증 정보 없음으로 처리했습니다. 한편 웹의 [SSE 응답 처리](../../frontend/src/shared/api/eventStream.ts)는 401을 받으면 저장된 세션을 삭제하는 경로로 이어집니다. 서버의 일시 장애가 사용자의 로그인 종료로 이어질 수 있는 구조였습니다.
 
 ### 잘못된 토큰과 검증기 장애 분리
 
-[OidcBearerAuthenticationFilter.java](../../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)에서 만료·서명 오류를 나타내는 `BadJwtException`은 기존처럼 401로 처리하고, 그 외 `JwtException`은 503과 `{"error":"authentication_unavailable"}`을 반환하도록 수정했습니다. 진단 로그에는 예외 종류만 남기고 토큰 원문은 남기지 않습니다.
+[OidcBearerAuthenticationFilter.java](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)에서 만료, 서명 오류를 나타내는 `BadJwtException`은 기존처럼 401로 처리하고, 그 외 `JwtException`은 503과 `{"error":"authentication_unavailable"}`을 반환하도록 수정했습니다. 진단 로그에는 예외 종류만 남기고 토큰 원문은 남기지 않습니다.
 
 Keycloak 기동을 기다리는 설정만 추가하면 운영 중 발생하는 키 조회 장애를 구분하지 못합니다. 따라서 JSON API와 SSE가 함께 사용하는 인증 필터를 수정하고, 웹의 기존 503 재연결 처리는 그대로 사용했습니다. Frontend·Android 코드와 DB·Keycloak 설정은 바꾸지 않았습니다.
 
@@ -67,7 +67,7 @@ Keycloak 기동을 기다리는 설정만 추가하면 운영 중 발생하는 �
 - Frontend: SSE 응답 처리와 상황판 훅의 관련 테스트 26개가 통과했습니다.
 - 중단된 실행: 앞선 Backend 실행은 컨테이너가 종료 코드 255로 끝나 최종 판정을 얻지 못했습니다. 이 실행은 통과나 제품 실패로 집계하지 않고, 위 결과는 같은 명령으로 다시 실행한 결과입니다.
 
-원본 기록은 [배포·후속 진단 기록](../../../_workspace/sse-deploy-20260930.JtamL1/RESULTS.md)에 보관했습니다. Git으로 공유하지 않는 로컬 전용 자료이며, 토큰이 포함될 수 있는 실패 요청 덤프는 공개하지 않습니다.
+원본 기록은 [배포, 후속 진단 기록](../../_workspace/sse-deploy-20260930.JtamL1/RESULTS.md)에 보관했습니다. Git으로 공유하지 않는 로컬 전용 자료이며, 토큰이 포함될 수 있는 실패 요청 덤프는 공개하지 않습니다.
 
 위 로컬 검사 시점에는 수정 배포와 실제 상황판 재검증이 남아 있었습니다.
 
@@ -79,8 +79,8 @@ Keycloak 기동을 기다리는 설정만 추가하면 운영 중 발생하는 �
 
 지도 갱신은 별도 시험으로 확인했습니다. 상황판을 오프라인으로 둔 동안 시험용 마커 하나를 수정하고 Backend를 재시작했습니다. 같은 상황판이 DB의 45번 이벤트를 이어받아 마커를 재조회하고 실제 지도 위치를 갱신했습니다. 이후 WEB API로 원래 좌표·내용을 복원했습니다. 해당 시험 종료 시 순번은 46, 마커는 9개였고 변경·복원 작업 2개 모두 전송 완료 상태였습니다. 다른 마커와 기존 순번 없는 전송 이력도 보존됐습니다.
 
-앞선 실패 시도도 남겼습니다. Keycloak을 완전히 중단한 첫 시험은 컨테이너 IP가 바뀌면서 프록시가 404를 반환해 인증 복구를 확인하지 못했습니다. 다음 시험은 SSE 503을 관측했지만 보조 조회 요청이 검사 도구의 15초 제한을 넘었습니다. 최종 시험에서는 보조 요청 대신 실제 SSE 오류 본문과 재연결을 관측해 통과했습니다. 프록시 주소 갱신 결함은 [로컬 이슈 17](17-nginx-stale-container-address.md)로 분리해 수정했고, Jenkins #49 배포 후 실제 IP 변경에서도 자동 복구를 확인했습니다.
+앞선 실패 시도도 남겼습니다. Keycloak을 완전히 중단한 첫 시험은 컨테이너 IP가 바뀌면서 프록시가 404를 반환해 인증 복구를 확인하지 못했습니다. 다음 시험은 SSE 503을 관측했지만 보조 조회 요청이 검사 도구의 15초 제한을 넘었습니다. 최종 시험에서는 보조 요청 대신 실제 SSE 오류 본문과 재연결을 관측해 통과했습니다. 프록시 주소 갱신 결함은 [문제 해결 기록 33](33-nginx-stale-container-address.md)로 분리해 수정했고, Jenkins #49 배포 후 실제 IP 변경에서도 자동 복구를 확인했습니다.
 
 이 결과로 본문의 로그인 유지·재연결·지도 갱신 기준을 충족했습니다. 다만 최초 Jenkins #47의 401 원인은 당시 예외를 확보하지 못해 여전히 미확정입니다. 장애 중 모든 요청의 성공이나 부하 처리 한계를 검증한 결과는 아닙니다.
 
-조건별 결과와 성공·실패 로그 파일명은 [인증 배포 검증 기록](../../../_workspace/auth-deploy-20261001.GSqWoa/results.json)에 보존했습니다. Git으로 공유하지 않는 로컬 자료입니다.
+조건별 결과와 성공, 실패 로그 파일명은 [인증 배포 검증 기록](../../_workspace/auth-deploy-20261001.GSqWoa/results.json)에 보존했습니다. Git으로 공유하지 않는 로컬 자료입니다.

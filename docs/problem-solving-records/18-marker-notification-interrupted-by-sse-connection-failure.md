@@ -48,11 +48,11 @@
 
 실제 Spring `SseEmitter`를 오류로 종료한 뒤 정상 연결보다 먼저 등록하자, 사건·계정 구독 테스트 2개가 모두 실패했습니다. 같은 테스트를 다시 실행해도 실패해, 로그에서 의심한 전송 중단 경로를 재현했습니다.
 
-이 구조에서는 앞쪽 연결에 전송한 뒤 다른 연결에서 실패할 수도 있습니다. 따라서 첫 실행처럼 알림이 표시됐어도 작업은 `FAILED`로 남을 수 있으며, 작업 상태와 브라우저 수신 결과를 따로 확인해야 합니다. 당시 예외와 이벤트 ID는 [서버 로그 발췌](../../../_workspace/marker-sse-smoke-20260914.yJUQJb/backend-error-excerpt.log)에 남겼습니다.
+이 구조에서는 앞쪽 연결에 전송한 뒤 다른 연결에서 실패할 수도 있습니다. 따라서 첫 실행처럼 알림이 표시됐어도 작업은 `FAILED`로 남을 수 있으며, 작업 상태와 브라우저 수신 결과를 따로 확인해야 합니다. 당시 예외와 이벤트 ID는 [서버 로그 발췌](../../_workspace/marker-sse-smoke-20260914.yJUQJb/backend-error-excerpt.log)에 남겼습니다.
 
 ### 연결별 오류 처리: 실패한 연결을 제외하고 나머지 전송을 계속
 
-[SseConnectionRegistry.java](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)의 사건·계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송·종료는 계속합니다. 전송 실패 로그에는 이벤트 ID·순번·예외 타입을 남깁니다.
+[SseConnectionRegistry.java](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)의 사건, 계정 전송이 같은 오류 처리 메서드를 사용하도록 변경했습니다. 종료 상태나 I/O 오류가 확인되면 해당 연결을 즉시 제외합니다. 연결을 닫는 도중 다시 오류가 나더라도 다른 연결의 전송, 종료는 계속합니다. 전송 실패 로그에는 이벤트 ID, 순번, 예외 타입을 남깁니다.
 
 [SseEmitterLiveEventSink.java](https://github.com/sonic8-8/suri-map/blob/f546da527c655f7e7262ead9979b6be09ad19c78/backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 `IOException`을 `UncheckedIOException`으로 전달해 연결 목록에서 실패를 처리하도록 변경했습니다. I/O 오류 이후 HTTP 연결을 완료하는 처리는 Servlet 컨테이너에 맡기고, 직접 호출하던 `completeWithError()`는 제거했습니다. 이는 [Spring MVC의 스트리밍 오류 처리 지침](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-async.html#mvc-ann-async-objects)에 따른 변경입니다.
 
@@ -66,8 +66,8 @@
 
 | 검증 대상 | 확인한 동작 | 결과 |
 |---|---|---|
-| [연결 관리 테스트](../../../backend/src/test/java/com/surimap/global/sse/ServerSentEventConnectionRegistryTest.java) | 사건·계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
-| [전송 작업 DB 연동 테스트](../../../backend/src/test/java/com/surimap/global/sse/ServerSentEventJobWorkerTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신·재전송 저장·작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
+| [연결 관리 테스트](../../backend/src/test/java/com/surimap/global/sse/ServerSentEventConnectionRegistryTest.java) | 사건, 계정의 실패 연결 제외, 정상 연결 전송, 종료 오류 격리, 내부 처리 오류 전달 | 8개 통과 |
+| [전송 작업 DB 연동 테스트](../../backend/src/test/java/com/surimap/global/sse/ServerSentEventJobWorkerTest.java) | 정상 수신 대상의 `PERSON_FOUND` 수신, 재전송 저장, 작업 완료, 재전송 저장 거부 시 작업 실패 | 3개 통과 |
 | 전체 Backend 테스트 | `./gradlew test` | 1,227개 통과, 222개 클래스, 실패·오류·건너뜀 0건 |
 
 전체 테스트는 3분 29초가 걸렸습니다. 변경 Java 파일 4개의 포맷과 공백 검사도 통과했습니다. 테스트 종료 중 닫힌 DB 커넥션 경고 1건이 있었으며 테스트 실패는 없었습니다. 통합 테스트에서 확인한 `COMPLETED`는 서버의 전송 처리 완료이지, 실제 브라우저의 알림 표시 확인은 아닙니다.
@@ -82,7 +82,7 @@
   --tests 'com.surimap.eventhub.EventDispatchJobWorkerTest'
 ```
 
-최초 Smoke Test는 격리된 로컬 PostGIS DB, 현재 Backend·Frontend 개발 서버와 실제 브라우저를 연결해 수행했습니다. 업무폰 요청은 `APP` 헤더를 넣은 직접 HTTP 요청으로 대체했으며 실제 Android 앱이나 합성 SSE 프레임은 사용하지 않았습니다. [당시 실행 기록](../../../_workspace/marker-sse-smoke-20260914.yJUQJb/RESULTS.md)에 준비 방법과 관측 결과가 있습니다. `_workspace` 자료는 로컬 전용이며 Git에는 포함되지 않습니다.
+최초 Smoke Test는 격리된 로컬 PostGIS DB, 현재 Backend, Frontend 개발 서버와 실제 브라우저를 연결해 수행했습니다. 업무폰 요청은 `APP` 헤더를 넣은 직접 HTTP 요청으로 대체했으며 실제 Android 앱이나 합성 SSE 프레임은 사용하지 않았습니다. [당시 실행 기록](../../_workspace/marker-sse-smoke-20260914.yJUQJb/RESULTS.md)에 준비 방법과 관측 결과가 있습니다. `_workspace` 자료는 로컬 전용이며 Git에는 포함되지 않습니다.
 
 ### 후속 브라우저 검증: 연결 종료 후에도 새 알림과 상황판 데이터 수신
 
@@ -99,7 +99,7 @@
 
 연결 종료는 검증용 로컬 프록시에서 브라우저와 연결된 SSE 소켓 2개를 직접 끊어 재현했습니다. 실제 모바일망 장애·장시간 오프라인이나 서버 재시작의 복구까지 검증한 결과는 아닙니다.
 
-![SSE 재연결 후 발견 마커 알림이 표시된 상황판](../../../_workspace/marker-sse-recheck-20260914.3ZVoue/after-network-reconnect.png)
+![SSE 재연결 후 발견 마커 알림이 표시된 상황판](../../_workspace/marker-sse-recheck-20260914.3ZVoue/after-network-reconnect.png)
 
 ### 남은 확인: 초기 화면 누락과 별도 인증 오류
 
@@ -107,19 +107,19 @@
 
 초기에 관측한 상황판 재조회 지연 중에는 검증 서버의 타일 프록시 설정 오류도 있었습니다. 설정을 고친 뒤 재조회가 확인됐으므로 이 부분은 제품 코드의 결함으로 기록하지 않습니다. 검증 스크립트의 알림 작업 조회 조건과 화면 이동 방식도 보완한 뒤 위 최종 검증을 진행했습니다.
 
-`Access Denied`는 이미 끊어진 SSE 요청의 비동기 종료 처리에서 인증 정보가 사라지는 문제로 분리했습니다. 진단 실험과 남은 수정 범위는 [로컬 이슈 3](3-authenticated-sse-access-denied-on-disconnect.md)에 기록했습니다. 임시 인증 코드와 진단 로그는 모두 제거했으며, 현재 제품 코드에는 해당 오류가 남아 있습니다.
+`Access Denied`는 이미 끊어진 SSE 요청의 비동기 종료 처리에서 인증 정보가 사라지는 문제로 분리했습니다. 진단 실험과 남은 수정 범위는 [문제 해결 기록 19](19-authenticated-sse-access-denied-on-disconnect.md)에 기록했습니다. 임시 인증 코드와 진단 로그는 모두 제거했으며, 현재 제품 코드에는 해당 오류가 남아 있습니다.
 
-[후속 검증 기록](../../../_workspace/marker-sse-recheck-20260914.3ZVoue/RESULTS.md)에 실행 조건·로그·화면을 보관했습니다. 이 자료와 이미지는 로컬 전용입니다. 이번에는 자동 테스트 전체를 다시 실행하거나 GitHub 등록·푸시·배포·부하테스트를 진행하지 않았습니다.
+[후속 검증 기록](../../_workspace/marker-sse-recheck-20260914.3ZVoue/RESULTS.md)에 실행 조건, 로그, 화면을 보관했습니다. 이 자료와 이미지는 로컬 전용입니다. 이번에는 자동 테스트 전체를 다시 실행하거나 GitHub 등록, 푸시, 배포, 부하테스트를 진행하지 않았습니다.
 
 ### 2026-09-15 재검증: 전송 완료 후 알림 창 누락은 남음
 
-[로컬 이슈 3](3-authenticated-sse-access-denied-on-disconnect.md)의 요청 범위 인증 보관을 수정한 뒤 다시 확인했습니다. 직접 연결 종료 재현 3회에서 접근 거부 예외는 0건이었습니다. 다만 첫 접속·새로고침·화면 복귀·소켓 종료 후 재연결을 2회씩 실행한 결과, 8회 중 2회는 새 이벤트와 상황판 데이터가 도착해도 알림 창을 찾지 못했습니다.
+[문제 해결 기록 19](19-authenticated-sse-access-denied-on-disconnect.md)의 요청 범위 인증 보관을 수정한 뒤 다시 확인했습니다. 직접 연결 종료 재현 3회에서 접근 거부 예외는 0건이었습니다. 다만 첫 접속, 새로고침, 화면 복귀, 소켓 종료 후 재연결을 2회씩 실행한 결과, 8회 중 2회는 새 이벤트와 상황판 데이터가 도착해도 알림 창을 찾지 못했습니다.
 
 누락된 마커 2개의 `MARKER_CREATED`·`PERSON_FOUND` 전송 작업 4개는 모두 `COMPLETED`였습니다. 이 증상을 실패한 연결이 다른 전송을 중단하던 최초 문제와 같은 원인으로 보지는 않습니다. 전체 브라우저 검증은 미완료로 두고, 알림 대기열 처리와 검증 타이밍을 이어서 확인합니다.
 
-![SSE와 상황판 데이터는 수신했지만 알림 창이 나타나지 않은 첫 접속 화면](../../../_workspace/sse-refactor-auth-20260915.eJs7yN/initial-popup-missing.png)
+![SSE와 상황판 데이터는 수신했지만 알림 창이 나타나지 않은 첫 접속 화면](../../_workspace/sse-refactor-auth-20260915.eJs7yN/initial-popup-missing.png)
 
-[이번 검증의 로그·화면·미확정 사항](../../../_workspace/sse-refactor-auth-20260915.eJs7yN/RESULTS.md)에 상세 내용을 보관했습니다. 이미지와 진단 자료는 로컬 전용이며, 이번에 Frontend 제품 코드를 추가로 수정하지는 않았습니다.
+[이번 검증의 로그, 화면, 미확정 사항](../../_workspace/sse-refactor-auth-20260915.eJs7yN/RESULTS.md)에 상세 내용을 보관했습니다. 이미지와 진단 자료는 로컬 전용이며, 이번에 Frontend 제품 코드를 추가로 수정하지는 않았습니다.
 
 ### 2026-09-15 추가 진단: 수신한 새 알림이 대기열에서 누락
 
@@ -140,7 +140,7 @@ React의 상태 갱신 함수는 같은 이전 상태와 입력에 대해 같은
 
 이번 검사는 실제 Frontend 코드를 사용하지만 HTTP 응답을 제어하거나 훅·헤더만 연결한 격리 검사입니다. 실제 서버·인증·상황판을 연결한 앞선 8회 검증을 반복한 것은 아닙니다. 이전 누락 2회의 정확한 실행 순서와 배포 빌드의 발생 여부는 아직 확인하지 않았으며, 전체 브라우저 검증 체크리스트도 미완료로 유지합니다.
 
-[재현 명령·비교 로그·화면](../../../_workspace/marker-notification-diagnosis-20260915.1TUfsV/RESULTS.md)은 로컬 진단 폴더에 보관했습니다. GitHub 반영·커밋·푸시·배포는 하지 않았습니다.
+[재현 명령, 비교 로그, 화면](../../_workspace/marker-notification-diagnosis-20260915.1TUfsV/RESULTS.md)은 로컬 진단 폴더에 보관했습니다. GitHub 반영, 커밋, 푸시, 배포는 하지 않았습니다.
 
 ### 2026-09-15 대기열 수정: 새 알림과 표시 위치를 함께 갱신
 
@@ -148,9 +148,9 @@ React의 상태 갱신 함수는 같은 이전 상태와 입력에 대해 같은
 - 유지: 같은 알림의 중복 추가와 닫았던 알림의 재표시를 막습니다. 이전·다음 이동, 기존 함수 이름·반환값, 상황판 등 화면 4개의 연결도 유지합니다.
 - 검증: 회귀 테스트 8개와 기존 진단 검사 8개가 통과했습니다. 실제 브라우저에서는 타일 요청을 제외하고 4가지 조건을 2회씩 검증해 최종 8회 모두 통과했습니다.
 
-[useMarkerNotificationQueue.ts](../../../frontend/src/app/useMarkerNotificationQueue.ts)에서 갱신 함수 안의 Set 변경과 다른 상태 갱신 호출을 제거했습니다. 수신 시점에 중복을 걸러내므로 배열에서 같은 ID를 다시 검색하던 분기도 제거했습니다. SSE 파서·알림 변환·Backend 코드는 수정하지 않았습니다.
+[useMarkerNotificationQueue.ts](../../frontend/src/app/useMarkerNotificationQueue.ts)에서 갱신 함수 안의 Set 변경과 다른 상태 갱신 호출을 제거했습니다. 수신 시점에 중복을 걸러내므로 배열에서 같은 ID를 다시 검색하던 분기도 제거했습니다. SSE 파서, 알림 변환, Backend 코드는 수정하지 않았습니다.
 
-먼저 [useMarkerNotificationQueue.test.ts](../../../frontend/src/app/useMarkerNotificationQueue.test.ts)에 실제 훅을 StrictMode에서 실행하는 검사를 추가했습니다. 다른 화면 갱신과 새 알림 전달이 겹치자 수정 전에는 대기열이 빈 배열로 남아 실패했고, 수정 후 같은 검사가 통과했습니다. 연속 수신·중복·닫기 후 재수신·이동 범위도 같은 파일에서 확인합니다. 기존 진단용 소스 변환 없이 제품 코드로 실행한 검사 8개도 모두 통과했습니다.
+먼저 [useMarkerNotificationQueue.test.ts](../../frontend/src/app/useMarkerNotificationQueue.test.ts)에 실제 훅을 StrictMode에서 실행하는 검사를 추가했습니다. 다른 화면 갱신과 새 알림 전달이 겹치자 수정 전에는 대기열이 빈 배열로 남아 실패했고, 수정 후 같은 검사가 통과했습니다. 연속 수신, 중복, 닫기 후 재수신, 이동 범위도 같은 파일에서 확인합니다. 기존 진단용 소스 변환 없이 제품 코드로 실행한 검사 8개도 모두 통과했습니다.
 
 전체 Frontend 테스트 262개(56개 파일), 타입 검사·빌드와 변경 파일의 ESLint·Prettier·공백 검사가 통과했습니다. 빌드의 기존 500 kB 초과 번들 경고는 남았습니다. 전체 Backend 테스트와 독립 코드 리뷰는 이번에 진행하지 않았습니다.
 
@@ -167,13 +167,13 @@ React의 상태 갱신 함수는 같은 이전 상태와 입력에 대해 같은
 
 각 실행에서 새 마커 이벤트의 두 SSE 연결 수신, 상황판 조회 응답의 새 마커, 발견 알림 팝업을 확인했습니다. 해당 전송 작업 16개는 모두 `COMPLETED`였고, 브라우저의 처리되지 않은 JavaScript 예외와 서버 접근 거부 예외는 0건이었습니다.
 
-![SSE 재연결 후 새 발견 알림이 표시된 상황판](../../../_workspace/marker-notification-fix-20260915.fBb4NA/after-network-reconnect.png)
+![SSE 재연결 후 새 발견 알림이 표시된 상황판](../../_workspace/marker-notification-fix-20260915.fBb4NA/after-network-reconnect.png)
 
 로컬 환경의 옛 로그인·타일 기본 주소는 DNS 조회에 실패했습니다. 로그인 주소를 로컬 Keycloak으로 맞춘 뒤 첫 실행에서는 알림이 표시돼도 상황판 재조회가 지연돼 3회 실패했습니다. 최종 8회는 브라우저에서 타일 요청만 제외한 비교 결과이며, 지도 표시까지 통과했다는 뜻은 아닙니다. 제품의 접속 설정은 바꾸지 않았습니다.
 
 또한 전체 실행 중 Tomcat의 요청 회수 관련 `CoyoteAdapter$RecycleRequiredException` INFO 로그 4회가 남았습니다. 접근 거부나 최종 알림 누락으로 이어지지는 않았지만, 원인과 리소스 정리 영향은 후속 점검으로 남깁니다.
 
-[실행 명령·실패한 준비 과정·최종 로그·화면](../../../_workspace/marker-notification-fix-20260915.fBb4NA/RESULTS.md)을 보존했습니다. 임시 서버와 DB는 정리했으며, 실제 Android/FCM·사진·Hetzner 배포·부하 성능은 검증하지 않았습니다. 커밋·GitHub 반영·푸시·배포는 하지 않았습니다.
+[실행 명령, 실패한 준비 과정, 최종 로그, 화면](../../_workspace/marker-notification-fix-20260915.fBb4NA/RESULTS.md)을 보존했습니다. 임시 서버와 DB는 정리했으며, 실제 Android/FCM, 사진, Hetzner 배포, 부하 성능은 검증하지 않았습니다. 커밋, GitHub 반영, 푸시, 배포는 하지 않았습니다.
 
 ### 2026-09-15 지도 포함 재검증: 실제 지도와 새 알림 표시 확인
 
@@ -181,7 +181,7 @@ React의 상태 갱신 함수는 같은 이전 상태와 입력에 대해 같은
 
 로컬 tileserver에 없던 지도·글꼴 데이터를 Hetzner에서 복사하고 접속 주소를 로컬 서비스에 맞췄습니다. 원격 서버는 변경하지 않았습니다. 이후 현재 소스의 개발 서버에서 타일 요청을 제외하지 않고 첫 접속·새로고침·화면 복귀·SSE 소켓 종료 후 재연결을 각각 2회씩 확인했습니다. 8회 모두 실제 지도와 새 알림 표시, 이벤트 수신·상황판 재조회가 통과했습니다. 대응 전송 작업 16개는 모두 `COMPLETED`였으며 처리되지 않은 JavaScript 예외·타일 응답 실패·접근 거부 예외는 없었습니다.
 
-![실제 지도와 SSE 재연결 후 새 발견 알림이 표시된 상황판](../../../_workspace/notification-followup-20260915.Ilboqt/after-network-reconnect.png)
+![실제 지도와 SSE 재연결 후 새 발견 알림이 표시된 상황판](../../_workspace/notification-followup-20260915.Ilboqt/after-network-reconnect.png)
 
 ### 실패 복구 점검: 같은 이벤트를 재호출해도 전송을 건너뛸 수 있음
 
@@ -189,4 +189,4 @@ React의 상태 갱신 함수는 같은 이전 상태와 입력에 대해 같은
 
 이 검사의 정상 연결 수신은 0건이었지만, 재연결 시 읽을 수 있는 이벤트는 1건 남았습니다. 영구적으로 삭제됐다는 뜻은 아닙니다. 따라서 실패 작업을 다시 선택하도록 SQL만 바꾸는 것으로 복구가 보장되지는 않습니다. 재시도·보존 정책과 서버 재시작의 영향은 아직 합의·수정하지 않았습니다.
 
-[이번 리뷰·지도·실패 처리 검사 기록](../../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)에 로그·명령·화면을 보관했습니다. Tomcat 요청 정리 로그는 [로컬 이슈 5](5-sse-initial-send-disconnect-cleanup.md), FCM 실패 기록 누락은 [로컬 이슈 4](4-fcm-delivery-failure-not-recorded.md)로 분리했습니다. 제품 코드 변경·새 커밋·푸시·배포는 하지 않았습니다. 사진·실제 Android/FCM·배포 빌드·부하 성능은 여전히 미검증입니다.
+[이번 리뷰, 지도, 실패 처리 검사 기록](../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)에 로그, 명령, 화면을 보관했습니다. Tomcat 요청 정리 로그는 [문제 해결 기록 21](21-sse-initial-send-disconnect-cleanup.md), FCM 실패 기록 누락은 [문제 해결 기록 20](20-fcm-delivery-failure-not-recorded.md)로 분리했습니다. 제품 코드 변경, 새 커밋, 푸시, 배포는 하지 않았습니다. 사진, 실제 Android/FCM, 배포 빌드, 부하 성능은 여전히 미검증입니다.

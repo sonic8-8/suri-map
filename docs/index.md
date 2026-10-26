@@ -42,7 +42,7 @@
 | 작업을 역할로 나눠 배정하고 검수해 완료를 선언한다 | [오케스트레이터 역할](../agents/orchestrator.md) — 작업 절차이며 통과 기록은 아님 |
 | 리팩토링 후보·기존 변경 이유를 확인한다 | [refactoring/](refactoring/) — 이름 후보, 수색 경로 구조, 웹 초기 로딩 검토 |
 | 외부 근거·비교 조사를 읽는다 | [research/](research/) — 조사 시점·출처·적용 범위 확인 |
-| 발견한 문제의 현상·원인·수정 결과를 찾는다 | [issues/](issues/) — 일반 작업의 필수 티켓 목록으로 사용하지 않음 |
+| 문제의 정의, 해결법 선택과 트레이드오프, 수치 검증 결과를 찾는다 | [problem-solving-records/](problem-solving-records/) — 번호는 기록 순서이며, 1~16번은 같은 번호의 GitHub Issue에서 옮긴 기록 |
 | 실제로 무엇을 검증했는지 확인한다 | [test-results/](test-results/) — 시험 조건·결과·한계·캡처. 실패·부분 결과도 포함하며 과거 원본은 각 요약의 고정 Git 링크에서 확인 |
 | 아직 채택하지 않은 안을 검토한다 | [Knox·MDM 도입 검토안](proposals/knox-mdm.md) — 보류 자료이며 실행 지침이 아님 |
 | 공용 테스트 데이터를 사용·수정한다 | [test-fixtures/README.md](../test-fixtures/README.md) — 입력·검사기·소비 테스트 안내 |

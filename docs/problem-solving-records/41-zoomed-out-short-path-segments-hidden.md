@@ -53,7 +53,7 @@
 
 `SearchMapCanvas.tsx`가 경로 source를 만들 때만 `tolerance: 0`을 지정하도록 바꿨습니다(3022dd0b). 다른 지도 도형의 단순화 설정과 원본 좌표는 그대로입니다.
 
-대가로 경로 지도 처리 시간이 늘었습니다. 위 합성 비교에서 첫 처리는 2,093ms, 구간 1개 추가 처리는 2,246ms였습니다. 이후 2026-10-20에 같은 표시의 이웃 구간을 선 하나로 이어, 실서버 시험 사건의 도형 수를 57,097개에서 810개로 줄였습니다([로컬 24번](24-board-entry-full-path-map-delay.md)). 이때도 경로 source의 `tolerance: 0`은 유지했습니다.
+대가로 경로 지도 처리 시간이 늘었습니다. 위 합성 비교에서 첫 처리는 2,093ms, 구간 1개 추가 처리는 2,246ms였습니다. 이후 2026-10-20에 같은 표시의 이웃 구간을 선 하나로 이어, 실서버 시험 사건의 도형 수를 57,097개에서 810개로 줄였습니다([문제 해결 기록 40](40-board-entry-full-path-map-delay.md)). 이때도 경로 source의 `tolerance: 0`은 유지했습니다.
 
 ## 검증 결과
 
@@ -71,6 +71,6 @@
 - 표시 판정은 지도 라이브러리의 화면 도형 조회와 좌표 일치 검사이며, 픽셀 색 전수 검사가 아닙니다.
 - 대상 경로의 구간 9개를 확인한 것이며, 전체 구간 57,087개가 모두 그려졌다는 검증은 아닙니다.
 - 도형 잇기(2026-10-20) 뒤에 작은 축척의 짧은 구간 표시를 따로 다시 검사하지는 않았습니다.
-- 전체 경로 로딩 지연은 이 변경으로 해결하지 않았으며 [로컬 20번](20-slow-paged-search-path-display.md), [로컬 22번](22-repeated-search-path-page-queries.md), [로컬 24번](24-board-entry-full-path-map-delay.md)에서 다룹니다.
+- 전체 경로 로딩 지연은 이 변경으로 해결하지 않았으며 [문제 해결 기록 36](36-slow-paged-search-path-display.md), [문제 해결 기록 38](38-repeated-search-path-page-queries.md), [문제 해결 기록 40](40-board-entry-full-path-map-delay.md)에서 다룹니다.
 
-배포 검사 기록은 [짧은 수색 경로 표시 수정의 배포 검증](../../test-results/search-path-short-segment-deployment-20261008.md)에, 원인 대조는 [네 가설 대조 기록](../../test-results/search-path-four-hypotheses-20261008.md#후속-검증-짧은-구간의-표시-누락)에 있습니다.
+배포 검사 기록은 [짧은 수색 경로 표시 수정의 배포 검증](../test-results/search-path-short-segment-deployment-20261008.md)에, 원인 대조는 [네 가설 대조 기록](../test-results/search-path-four-hypotheses-20261008.md#후속-검증-짧은-구간의-표시-누락)에 있습니다.

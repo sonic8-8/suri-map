@@ -81,7 +81,7 @@ Shape Up은 Ryan Singer가 Basecamp에서 사용한 제품 개발 방식을 정�
 
 조사일인 9월 7일에는 브라우저 대조 시험으로 UUID 검사의 영향만 확인했고, 실제 마커 생성부터 알림 표시까지의 검증은 남아 있었다. “구독 함수가 구현돼 있다”와 “실제 마커 알림이 표시된다”를 구분한 사례다. [당시 로컬 재현 기록](../../_workspace/marker-notification-debug-20260907.RgPdoe/RESULTS.md)
 
-이후 9월 15일에는 인증·알림 대기열을 수정하고, 로컬 서버·브라우저에서 지도와 새 알림 표시까지 8회 확인했다. 사진·실제 Android/FCM·배포 빌드·부하 검증은 포함하지 않는다. 조건과 남은 실패 복구 문제는 [로컬 이슈 2](../issues/local/2-marker-notification-interrupted-by-sse-connection-failure.md#2026-09-15-지도-포함-재검증-실제-지도와-새-알림-표시-확인)에 이어서 기록했다.
+이후 9월 15일에는 인증, 알림 대기열을 수정하고, 로컬 서버, 브라우저에서 지도와 새 알림 표시까지 8회 확인했다. 사진, 실제 Android/FCM, 배포 빌드, 부하 검증은 포함하지 않는다. 조건과 남은 실패 복구 문제는 [문제 해결 기록 18](../problem-solving-records/18-marker-notification-interrupted-by-sse-connection-failure.md#2026-09-15-지도-포함-재검증-실제-지도와-새-알림-표시-확인)에 이어서 기록했다.
 
 ### 문서는 쓰는 목적과 갱신 시점을 구분한다
 

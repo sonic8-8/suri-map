@@ -8,7 +8,7 @@ Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
 실행 정의는 Jenkins 작업 설정에 저장된 **inline 스크립트**다. [hetzner.Jenkinsfile](hetzner.Jenkinsfile)은 이 설정을 보관·대조하는 파일이며, Jenkins가 저장소에서 자동으로 읽는 파일은 아니다. 변경할 때는 문법·로컬 회귀 검사 → 작업 설정 저장 → 저장된 스크립트 재조회·대조 → 새 빌드 실행으로 확인한다. 이번 변경은 Groovy 구문·shell 검사 후 적용했으며 별도의 Jenkins Declarative lint는 실행하지 않았다.
 
-기존 [infra/Jenkinsfile](../Jenkinsfile)은 다른 배포 설정을 포함하며 현재 작업에서 사용하지 않는다. 이 파일을 수정하는 것만으로 Hetzner CI가 바뀌지 않는다. 테스트 연결이 빠졌던 원인과 실제 빌드별 결과는 [로컬 이슈 10](../../docs/issues/local/10-jenkins-backend-tests-not-connected.md)에 기록한다.
+기존 [infra/Jenkinsfile](../Jenkinsfile)은 다른 배포 설정을 포함하며 현재 작업에서 사용하지 않는다. 이 파일을 수정하는 것만으로 Hetzner CI가 바뀌지 않는다. 테스트 연결이 빠졌던 원인과 실제 빌드별 결과는 [문제 해결 기록 26](../../docs/problem-solving-records/26-jenkins-backend-tests-not-connected.md)에 기록한다.
 
 ## 자동 배포와 기동 확인
 

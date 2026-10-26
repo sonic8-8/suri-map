@@ -35,7 +35,7 @@
 
 ### 연결 목록: 조회와 변경을 한 번의 갱신으로 처리
 
-수정 전 [연결 관리 코드](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)는 Map에서 목록을 찾은 뒤 별도 작업으로 새 연결을 넣었습니다. 그사이 마지막 기존 연결이 해제되면서 Map에서 목록이 제거되면, 새 연결은 더 이상 조회되지 않는 목록에 들어갔습니다. 빈 목록인지 확인한 뒤 제거하기 전 새 연결이 추가되는 경우도 있었습니다.
+수정 전 [연결 관리 코드](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)는 Map에서 목록을 찾은 뒤 별도 작업으로 새 연결을 넣었습니다. 그사이 마지막 기존 연결이 해제되면서 Map에서 목록이 제거되면, 새 연결은 더 이상 조회되지 않는 목록에 들어갔습니다. 빈 목록인지 확인한 뒤 제거하기 전 새 연결이 추가되는 경우도 있었습니다.
 
 2026-09-27 `compute`·`computeIfPresent`로 같은 구독 대상의 목록 조회·변경을 각각 한 번의 원자적 갱신으로 처리하도록 수정했습니다. 사건·계정 구독 모두 같은 등록 메서드를 사용합니다. 기존 테스트는 등록·해제를 순차 실행했으므로, 실제 스레드로 두 작업을 동시에 수행하는 검사를 추가했습니다.
 
@@ -49,7 +49,7 @@
 
 ### 로컬 동시성 검사: 새 연결의 수신 0회에서 1회로 변경
 
-[재현 테스트](../../../backend/src/test/java/com/surimap/global/sse/ServerSentEventConnectionRegistryTest.java)는 수정 전 3회 실행 모두 사건·계정 구독의 새 연결이 이벤트를 받지 못해 실패했습니다. 최초 실패 반복 번호는 각각 `37/19`, `19/42`, `77/9`였습니다(0부터 계산). 최대 반복 횟수는 처음 10,000회에서 마지막 재현·회귀 검사 1,000회로 줄였습니다. 대기 제한 10초와 반복 횟수는 검사 제어용이며 서비스 성능 기준이 아닙니다.
+[재현 테스트](../../backend/src/test/java/com/surimap/global/sse/ServerSentEventConnectionRegistryTest.java)는 수정 전 3회 실행 모두 사건, 계정 구독의 새 연결이 이벤트를 받지 못해 실패했습니다. 최초 실패 반복 번호는 각각 `37/19`, `19/42`, `77/9`였습니다(0부터 계산). 최대 반복 횟수는 처음 10,000회에서 마지막 재현, 회귀 검사 1,000회로 줄였습니다. 대기 제한 10초와 반복 횟수는 검사 제어용이며 서비스 성능 기준이 아닙니다.
 
 | 검증 | 결과 |
 |---|---|
@@ -66,7 +66,7 @@
 
 ### 배포 후 상황판: 4가지 접속 조건에서 수신·화면 갱신 성공
 
-2026-09-28(KST) 연결 수정 `1c33ca0f`와 누적 커밋을 푸시했습니다. 이후 [Docker 테스트 입력 문제](7-backend-docker-test-fixtures-missing.md)를 `9307c1f5`·`52dff146`로 수정했고, Jenkins #35가 `52dff146`의 빌드·배포에 성공했습니다. 컨테이너는 04:10(KST)에 교체됐고 공개 웹·API와 서버 내부 API health는 200이었습니다.
+2026-09-28(KST) 연결 수정 `1c33ca0f`와 누적 커밋을 푸시했습니다. 이후 [Docker 테스트 입력 문제](23-backend-docker-test-fixtures-missing.md)를 `9307c1f5`, `52dff146`로 수정했고, Jenkins #35가 `52dff146`의 빌드, 배포에 성공했습니다. 컨테이너는 04:10(KST)에 교체됐고 공개 웹, API와 서버 내부 API health는 200이었습니다.
 
 Flyway `20260926.001` 적용 후 migration은 40개가 됐습니다. `incident.last_sse_sequence`·`event_dispatch_job.sse_sequence`가 추가됐으며, 기존 완료 작업 592개는 순번 `NULL`을 유지했습니다.
 
@@ -81,9 +81,9 @@ Flyway `20260926.001` 적용 후 migration은 40개가 됐습니다. `incident.l
 
 DB에는 검증 메모를 남긴 마커 4개·알림 4개·완료 작업 8개가 추가됐고 삭제하지 않았습니다. SSE 순번은 1–8입니다. API·SSE는 대역으로 바꾸지 않았으며 지도 타일 요청 72건의 HTTP 오류와 브라우저 JavaScript 오류는 0건이었습니다.
 
-Backend ERROR는 0건이었지만, 마지막 새로고침 이후 다음 전송 때 끊긴 연결을 제거하는 WARN은 5건 남았습니다. 새 연결 2개는 같은 이벤트를 정상 수신했습니다. 이는 [끊긴 연결의 정리 문제](5-sse-initial-send-disconnect-cleanup.md)까지 해결됐다는 뜻은 아닙니다.
+Backend ERROR는 0건이었지만, 마지막 새로고침 이후 다음 전송 때 끊긴 연결을 제거하는 WARN은 5건 남았습니다. 새 연결 2개는 같은 이벤트를 정상 수신했습니다. 이는 [끊긴 연결의 정리 문제](21-sse-initial-send-disconnect-cleanup.md)까지 해결됐다는 뜻은 아닙니다.
 
-이 결과로 위 해결 기준의 첫 3개를 충족했습니다. 실제 HTTP 등록·해제 시점은 강제로 겹치지 않았으므로 마지막 기준은 미완료입니다. 검사 중 발견한 관련 이벤트의 발행 순서 불일치 3건은 화면 누락과 구분해 [로컬 이슈 8](8-marker-events-dispatched-out-of-publication-order.md)에 기록했습니다.
+이 결과로 위 해결 기준의 첫 3개를 충족했습니다. 실제 HTTP 등록, 해제 시점은 강제로 겹치지 않았으므로 마지막 기준은 미완료입니다. 검사 중 발견한 관련 이벤트의 발행 순서 불일치 3건은 화면 누락과 구분해 [문제 해결 기록 24](24-marker-events-dispatched-out-of-publication-order.md)에 기록했습니다.
 
 재접속은 여전히 메모리 이력을 읽으며 서버 FCM은 `mock`입니다. DB 이력 재전송·재시작 복구, 느린 연결·부하, Android·FCM·사진은 검증하지 않았습니다. 확인한 알림 UI도 기존 팝업이며, 합의한 알림 패널 구현 완료를 뜻하지 않습니다.
 
@@ -91,4 +91,4 @@ Backend ERROR는 0건이었지만, 마지막 새로고침 이후 다음 전송 �
 
 배포 전 Backend 이미지는 `sha256:9ee904bb810dd9d856397912f5945fa8ec3a41571533c6291e6d4549b8cb00a8`, Frontend는 `sha256:6cfda35415bb60cebbe63f1a64b3f989da8fcd8f555dbff403832534c3eb04bd`였습니다. 배포 후에는 각각 `a21bf01b9c48`·`0f23ff9fd89f`로 바뀌었습니다. 이미지 커밋을 확인하지 못했으므로 앞서 비교한 Git 변경량을 실행 이미지와의 정확한 차이로 보지는 않습니다.
 
-DB 백업은 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T183858Z.dump`이며 `pg_restore --list`만 확인했습니다. 실제 복원 시험은 아닙니다. [배포 식별자·실행 명령·로그·화면 4개](../../../_workspace/sse-jenkins-verify-20260928.IeVjpu/RESULTS.md)는 로컬 전용 자료입니다. 검사 도구의 20초 대기 제한은 실행 제어용이며 성능 기준이 아닙니다. 이 문서는 GitHub에 등록하지 않은 로컬 이슈입니다.
+DB 백업은 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T183858Z.dump`이며 `pg_restore --list`만 확인했습니다. 실제 복원 시험은 아닙니다. [배포 식별자, 실행 명령, 로그, 화면 4개](../../_workspace/sse-jenkins-verify-20260928.IeVjpu/RESULTS.md)는 로컬 전용 자료입니다. 검사 도구의 20초 대기 제한은 실행 제어용이며 성능 기준이 아닙니다. 이 문서는 GitHub에 등록하지 않은 로컬 이슈입니다.

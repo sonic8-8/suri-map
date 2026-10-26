@@ -20,7 +20,7 @@
 
 전송 코드를 대조하니 실패를 알리는 방식이 두 가지였습니다. 예외를 던지기도 하지만, 정상적으로 반환한 `DispatchResult`에 성공·실패 수를 담기도 했습니다. 그런데 `MarkerNotificationService.sendFcm()`과 `IncidentAssignmentFcmDispatchService.dispatchAssignmentChanged()`는 예외만 처리하고 반환값은 확인하지 않았습니다. 따라서 실패 결과를 반환하는 전송은 경고 없이 끝났습니다.
 
-이미 반환값에 필요한 정보가 있으므로 두 호출부에서 실패 여부를 확인하고 진단 기록을 남기는 방식을 선택했습니다. 이번 문제는 실패를 관측하지 못하는 것이므로, 자동 재시도나 전송 시점 변경까지 함께 도입하지 않습니다. [최초 실패 주입 결과와 로그](../../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)는 로컬 검증 자료로 보존했습니다.
+이미 반환값에 필요한 정보가 있으므로 두 호출부에서 실패 여부를 확인하고 진단 기록을 남기는 방식을 선택했습니다. 이번 문제는 실패를 관측하지 못하는 것이므로, 자동 재시도나 전송 시점 변경까지 함께 도입하지 않습니다. [최초 실패 주입 결과와 로그](../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)는 로컬 검증 자료로 보존했습니다.
 
 # 댓글
 
@@ -29,7 +29,7 @@
 - 변경: 예외 없이 실패 결과를 반환해도 이벤트 ID·성공 수·실패 수를 WARN으로 기록합니다.
 - 유지: 마커의 커밋 후 전송과 기존 예외 처리는 유지합니다. 실패 기록을 추가한 것이며 재시도나 업무폰 수신 보장을 구현한 것은 아닙니다.
 
-2026-09-15 [마커 알림 서비스](../../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)와 [사건 배정 알림 서비스](../../../backend/src/main/java/com/surimap/incident/service/IncidentAssignmentFcmDispatchService.java)에 기존 `isFullySuccessful()`을 이용한 실패 검사를 추가했습니다. 수신자 토큰이나 전체 알림 본문은 추가 로그에 넣지 않았습니다.
+2026-09-15 [마커 알림 서비스](../../backend/src/main/java/com/surimap/app/service/marker/MarkerNotificationService.java)와 [사건 배정 알림 서비스](../../backend/src/main/java/com/surimap/incident/service/IncidentAssignmentFcmDispatchService.java)에 기존 `isFullySuccessful()`을 이용한 실패 검사를 추가했습니다. 수신자 토큰이나 전체 알림 본문은 추가 로그에 넣지 않았습니다.
 
 ## 검증 결과
 
@@ -45,4 +45,4 @@
 
 추가 로그의 이벤트 ID·성공 수·실패 수와 민감정보 미포함을 확인했고, 전송 호출은 한 번으로 유지됐습니다. 기존 저장·커밋 후 전송·중복 방지 검사도 통과해 위 해결 기준을 충족했습니다. 변경 Java 4개의 포맷·공백 검사도 통과했습니다.
 
-실제 Google FCM·Android 수신, 기존 예외 로그 전체의 민감정보 검사는 하지 않았습니다. 배정 알림의 커밋 전 호출·롤백 영향과 사건 종료·수색 구역 알림의 실패 기록은 별도 후속 범위입니다. [실패→통과 로그·실행 명령·리뷰 결과](../../../_workspace/fcm-failure-log-fix-20260915.pUVTMB/RESULTS.md)는 로컬 전용 자료입니다. 이 수정은 아직 커밋·푸시·배포하지 않았으며 GitHub에도 등록하지 않았습니다.
+실제 Google FCM, Android 수신, 기존 예외 로그 전체의 민감정보 검사는 하지 않았습니다. 배정 알림의 커밋 전 호출, 롤백 영향과 사건 종료, 수색 구역 알림의 실패 기록은 별도 후속 범위입니다. [실패→통과 로그, 실행 명령, 리뷰 결과](../../_workspace/fcm-failure-log-fix-20260915.pUVTMB/RESULTS.md)는 로컬 전용 자료입니다. 이 수정은 아직 커밋, 푸시, 배포하지 않았으며 GitHub에도 등록하지 않았습니다.

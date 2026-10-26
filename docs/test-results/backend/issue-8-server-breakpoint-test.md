@@ -1,6 +1,6 @@
 # Issue #8 서버 Breakpoint Test — 경로 저장 최적화 전
 
-2026-09-01 측정 결과를 최적화 전 비교 기준으로 보존한다. 현재 코드의 처리 한계를 뜻하지 않는다. 경로 저장 최적화 이후의 결과는 [Issue #8 재측정 기록](../../issues/8-gps-collection-transmission-basis.md#재측정-복구-시간-단축과-처리량-증가)에서 확인한다.
+2026-09-01 측정 결과를 최적화 전 비교 기준으로 보존한다. 현재 코드의 처리 한계를 뜻하지 않는다. 경로 저장 최적화 이후의 결과는 [Issue #8 재측정 기록](../../problem-solving-records/8-gps-collection-transmission-basis.md#재측정-복구-시간-단축과-처리량-증가)에서 확인한다.
 
 ## 결론
 
@@ -78,7 +78,7 @@ DB 검증 결과는 `PASS`였다. Backend와 PostgreSQL 컨테이너는 전체 �
 
 ![453 RPS 서버 Breakpoint Test의 Grafana 지표](./issue-8-server-breakpoint-test.png)
 
-App CPU보다 먼저 HikariCP 커넥션 10개가 모두 사용되고 대기 요청이 최대 190개까지 늘었다. 따라서 이번 실행에서 가장 먼저 관찰된 포화 신호는 데이터베이스 커넥션 풀이었다. 이 관측만으로 특정 SQL이나 코드가 원인이라고 확정하지는 않았다. 이후 누적 경로의 저장 비용을 분석하고 수정한 과정은 [Issue #16](../../issues/16-search-path-append-time-increases-with-length.md)에 기록했다.
+App CPU보다 먼저 HikariCP 커넥션 10개가 모두 사용되고 대기 요청이 최대 190개까지 늘었다. 따라서 이번 실행에서 가장 먼저 관찰된 포화 신호는 데이터베이스 커넥션 풀이었다. 이 관측만으로 특정 SQL이나 코드가 원인이라고 확정하지는 않았다. 이후 누적 경로의 저장 비용을 분석하고 수정한 과정은 [Issue #16](../../problem-solving-records/16-search-path-append-time-increases-with-length.md)에 기록했다.
 
 PostgreSQL exporter에는 SQL별 실행 시간이 없었고 `pg_stat_statements`도 활성화돼 있지 않았다. 전체 lock 지표에는 `granted` 구분이 없어 256개를 잠금 대기 수로 해석할 수 없다. 이 두 값은 이번 결과로 주장하지 않는다.
 
@@ -99,4 +99,4 @@ PostgreSQL exporter에는 SQL별 실행 시간이 없었고 `pg_stat_statements`
 
 ## 별도로 보존한 이전 실패 화면
 
-[Issue #15 Grafana 이미지](./issue-15-offline-replay-load-test.png)는 대시보드에 2026-07-30 02:12:30~02:20:00 KST와 요청 실패가 표시된 캡처다. 이 문서의 9월 1일 시험과는 별개이며, [Issue #15의 성공한 재시험](../../issues/15-offline-search-path-replay-delay.md)의 증거로 사용하지 않는다. 캡처만으로 특정 k6 실행 ID와의 대응은 확인되지 않았으며, 패널에 표시된 마지막 값을 전체 시험의 평균·실패율로 사용하지 않는다.
+[Issue #15 Grafana 이미지](./issue-15-offline-replay-load-test.png)는 대시보드에 2026-07-30 02:12:30~02:20:00 KST와 요청 실패가 표시된 캡처다. 이 문서의 9월 1일 시험과는 별개이며, [Issue #15의 성공한 재시험](../../problem-solving-records/15-offline-search-path-replay-delay.md)의 증거로 사용하지 않는다. 캡처만으로 특정 k6 실행 ID와의 대응은 확인되지 않았으며, 패널에 표시된 마지막 값을 전체 시험의 평균, 실패율로 사용하지 않는다.

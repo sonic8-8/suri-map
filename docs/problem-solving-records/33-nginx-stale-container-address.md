@@ -6,7 +6,7 @@
 
 ## 문제 배경
 
-수리맵 웹의 API와 SSE 요청은 Frontend 컨테이너의 Nginx를 거쳐 Backend로 전달됩니다. [프록시 설정](../../../frontend/nginx.conf)은 전달 대상을 `backend:8080`이라는 서비스 이름으로 지정합니다. 컨테이너를 재시작해 IP가 바뀌더라도, Backend가 정상화되면 요청 전달과 상황판 갱신이 다시 이어져야 합니다.
+수리맵 웹의 API와 SSE 요청은 Frontend 컨테이너의 Nginx를 거쳐 Backend로 전달됩니다. [프록시 설정](../../frontend/nginx.conf)은 전달 대상을 `backend:8080`이라는 서비스 이름으로 지정합니다. 컨테이너를 재시작해 IP가 바뀌더라도, Backend가 정상화되면 요청 전달과 상황판 갱신이 다시 이어져야 합니다.
 
 2026-10-01 Jenkins #48 배포 후 인증 장애를 검증하면서 Keycloak을 중단하고 Backend를 재시작했습니다. 두 서버가 다시 기동된 뒤에도 상황판의 SSE 요청은 404를 받았습니다. 같은 Frontend 컨테이너에서 `/api/health`를 비교하니 Backend에 직접 요청할 때는 200이었지만 Nginx를 거치면 404였습니다. Backend 자체가 정상이어도 브라우저에서는 API를 사용할 수 없는 상태였습니다.
 
@@ -22,9 +22,9 @@ Nginx 설정을 바꾸지 않고 `nginx -t`로 검사한 뒤 `nginx -s reload`�
 
 재시작 때마다 Nginx를 reload하는 방식은 이번처럼 서비스를 복구할 수 있지만, 다시 주소가 바뀌면 같은 조치가 필요합니다. 우선 동일한 프록시 설정을 사용한 격리 환경에서 Backend 주소를 바꾸고, 직접 요청과 프록시 요청을 대조하겠습니다. 이를 재현한 뒤 서비스 이름의 주소를 갱신하는 설정을 검토합니다. 구체적인 갱신 방법과 간격은 아직 확정하지 않았습니다.
 
-사진 저장소·Keycloak·mock112 경로도 서비스 이름을 전달 대상으로 사용합니다. 같은 설정 방식의 영향은 함께 확인하되, 이번 시험에서 그 경로들의 장애까지 재현했다고 보지는 않습니다. [로컬 이슈 16](16-sse-authentication-failure-during-deployment.md)의 인증 오류 분류 수정과도 구분합니다. 이번에 관측한 문제는 Backend의 인증 결과가 아니라 요청을 전달하는 경로의 불일치입니다.
+사진 저장소, Keycloak, mock112 경로도 서비스 이름을 전달 대상으로 사용합니다. 같은 설정 방식의 영향은 함께 확인하되, 이번 시험에서 그 경로들의 장애까지 재현했다고 보지는 않습니다. [문제 해결 기록 32](32-sse-authentication-failure-during-deployment.md)의 인증 오류 분류 수정과도 구분합니다. 이번에 관측한 문제는 Backend의 인증 결과가 아니라 요청을 전달하는 경로의 불일치입니다.
 
-당시 실행 결과는 [배포·장애 검증 기록](../../../_workspace/auth-deploy-20261001.GSqWoa/results.json)에 보존했습니다. 이 링크는 Git으로 공유하지 않는 로컬 전용 자료입니다. 이후 재현·수정·검증 결과는 댓글에 추가하며, 최초 현상은 본문에 유지합니다.
+당시 실행 결과는 [배포, 장애 검증 기록](../../_workspace/auth-deploy-20261001.GSqWoa/results.json)에 보존했습니다. 이 링크는 Git으로 공유하지 않는 로컬 전용 자료입니다. 이후 재현, 수정, 검증 결과는 댓글에 추가하며, 최초 현상은 본문에 유지합니다.
 
 # 댓글
 
@@ -35,7 +35,7 @@ Nginx 설정을 바꾸지 않고 `nginx -t`로 검사한 뒤 `nginx -s reload`�
 
 격리 환경에서 Backend의 IP를 바꾸고 옛 IP에는 404를 반환하는 서버를 두었습니다. 새 Backend 직접 요청은 200이었고 Docker DNS도 새 IP를 반환했지만, 기존 Nginx는 계속 옛 주소로 요청했습니다. 인증이나 Backend 준비 상태가 아니라 Nginx의 주소 갱신 문제를 재현했습니다.
 
-[프록시 설정](../../../frontend/nginx.conf)에 Docker DNS와 Nginx의 `resolve`를 연결했습니다. 같은 실패가 재현된 사진·mock112·Keycloak 대상에도 적용했습니다. `resolve`는 Nginx 1.27.3 이상에서 사용할 수 있어, 이미지에는 현재 운영에서 확인한 1.27.5를 명시했습니다. 별도 재시작 스크립트 없이 Nginx가 제공하는 기능을 사용했습니다. [Nginx 공식 문서](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#resolve)
+[프록시 설정](../../frontend/nginx.conf)에 Docker DNS와 Nginx의 `resolve`를 연결했습니다. 같은 실패가 재현된 사진, mock112, Keycloak 대상에도 적용했습니다. `resolve`는 Nginx 1.27.3 이상에서 사용할 수 있어, 이미지에는 현재 운영에서 확인한 1.27.5를 명시했습니다. 별도 재시작 스크립트 없이 Nginx가 제공하는 기능을 사용했습니다. [Nginx 공식 문서](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#resolve)
 
 DNS 응답은 5초 동안 캐시합니다. 주소 갱신 대기를 줄이되 매 HTTP 요청마다 DNS를 조회하지 않기 위한 초기 설정입니다. 공식 권장값이나 5초 복구 목표는 아니며, 갱신 전 요청은 실패할 수 있습니다. 끊긴 SSE 연결은 클라이언트가 다시 연결해야 합니다.
 
@@ -43,7 +43,7 @@ DNS 응답은 5초 동안 캐시합니다. 주소 갱신 대기를 줄이되 매
 
 ### 로컬 Docker의 주소 변경 검사
 
-실제 Nginx 1.27.5와 HTTP 대역 서버를 로컬 Docker에서 실행했습니다. [검사 스크립트](../../../infra/nginx/container-address-change.test.py)는 Backend를 다른 IP로 옮긴 뒤 API·타일·사진·mock112·Keycloak·SSE 요청이 새 주소로 전달되는지 확인합니다.
+실제 Nginx 1.27.5와 HTTP 대역 서버를 로컬 Docker에서 실행했습니다. [검사 스크립트](../../infra/nginx/container-address-change.test.py)는 Backend를 다른 IP로 옮긴 뒤 API, 타일, 사진, mock112, Keycloak, SSE 요청이 새 주소로 전달되는지 확인합니다.
 
 | 조건 | 관측 결과 |
 |---|---|
@@ -52,7 +52,7 @@ DNS 응답은 5초 동안 캐시합니다. 주소 갱신 대기를 줄이되 매
 
 경로·query string·인증 헤더와 기존 전달 헤더 처리도 검사했습니다. SSE는 `Last-Event-ID`가 대역 서버에 도착하고, 응답이 닫히기 전에 첫 이벤트를 받는지 확인했습니다. 실제 DB 이벤트 재전송이나 브라우저의 재연결 동작을 검증한 것은 아닙니다.
 
-`nginx -t`, Frontend 타입 검사·빌드와 테스트 263개(56개 파일)가 통과했습니다. 빌드의 기존 500kB 초과 번들 경고는 남아 있습니다. 실행 절차는 [Nginx 안내](../../../infra/nginx/README.md#컨테이너-주소-갱신), 수정 전후 로그는 [로컬 검증 기록](../../../_workspace/nginx-address-change-20261001.K0EDOr/)에 있습니다. 로그 경로는 Git으로 공유하지 않습니다.
+`nginx -t`, Frontend 타입 검사, 빌드와 테스트 263개(56개 파일)가 통과했습니다. 빌드의 기존 500kB 초과 번들 경고는 남아 있습니다. 실행 절차는 [Nginx 안내](../../infra/nginx/README.md#컨테이너-주소-갱신), 수정 전후 로그는 [로컬 검증 기록](../../_workspace/nginx-address-change-20261001.K0EDOr)에 있습니다. 로그 경로는 Git으로 공유하지 않습니다.
 
 위 로컬 검증 시점에는 커밋·푸시·배포와 실제 상황판 재검증이 남아 있었습니다.
 
@@ -70,4 +70,4 @@ DNS 응답은 5초 동안 캐시합니다. 주소 갱신 대기를 줄이되 매
 
 이 결과로 본문의 자동 복구 기준을 충족했습니다. 다만 중단 중에는 502가 발생했으므로 무중단을 확인한 것은 아닙니다. 실제 IP 교체는 Backend에만 수행했고 다른 서비스의 IP 교체는 앞선 로컬 대역 검사 범위입니다. 부하테스트는 아직 진행하지 않았습니다.
 
-실행 로그와 지도 캡처는 [배포 검증 기록](../../../_workspace/nginx-deploy-20261001.uxcDFu/RESULTS.md)에 연결했습니다. 이 자료는 Git으로 공유하지 않는 로컬 기록입니다.
+실행 로그와 지도 캡처는 [배포 검증 기록](../../_workspace/nginx-deploy-20261001.uxcDFu/RESULTS.md)에 연결했습니다. 이 자료는 Git으로 공유하지 않는 로컬 기록입니다.

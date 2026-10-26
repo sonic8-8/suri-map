@@ -8,7 +8,7 @@
 
 - 로컬 저장 우선·유실 및 중복 방지·서버 반영 전 원본 보존은 [PRD의 동기화 요구](../prd.md#오프라인-사용동기화)를 따른다. [RoomSyncClient](../../android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt)는 Outbox와 로컬 쓰기 데이터를 트랜잭션으로 저장하고, 별도 전송 처리가 성공 응답을 확인한 뒤 ACK를 기록한다.
 - 복구 중 일부만 성공하면 항목별 결과를 남긴다. 프로세스 종료, 서버 저장 후 응답 유실, 응답 수신 후 로컬 ACK 저장 전 종료를 각각 검증해야 한다. 로컬 저장 테스트의 통과만으로 실제 서버·상황판까지 전달됐다고 판단하지 않는다.
-- 재전송 시 작성자가 바뀌는 문제와 계정 전환 조건은 [Issue #6](../issues/6-outbox-account-ownership.md)을 따른다. 옛 S6의 업무폰 단위 큐 설명을 작성자 보존 정책으로 채택하지 않는다.
+- 재전송 시 작성자가 바뀌는 문제와 계정 전환 조건은 [Issue #6](../problem-solving-records/6-outbox-account-ownership.md)을 따른다. 옛 S6의 업무폰 단위 큐 설명을 작성자 보존 정책으로 채택하지 않는다.
 
 ## 재전송 순서와 부분 실패
 
@@ -30,7 +30,7 @@
 ## 시간 보정·재시도·상태 표시
 
 - [기록 시각과 서버 수신 시각을 나눈 이유](../adr/0012-recorded-and-received-time.md)를 참고하되, 오래전에 기록한 좌표와 틀어진 단말 시계를 구분한다. 현재 전송 후보 쿼리는 **기록 시각과 보정 시각의 차이**를 사용한다. S6의 전송 시점 기준 설명을 그대로 적용해 오래된 오프라인 기록을 거부하지 않는다.
-- 재시도 간격·상한·횟수·시간 제한은 [RoomOutboxReplay](../../android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt), 오류 분류는 HTTP 전송기와 대조한다. 현재 코드나 옛 fixture의 수치를 새 서비스 기준으로 승인한 것은 아니다. 복구 목표 시간은 [Issue #8](../issues/8-gps-collection-transmission-basis.md)에서 별도로 측정하고 정한다.
+- 재시도 간격, 상한, 횟수, 시간 제한은 [RoomOutboxReplay](../../android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt), 오류 분류는 HTTP 전송기와 대조한다. 현재 코드나 옛 fixture의 수치를 새 서비스 기준으로 승인한 것은 아니다. 복구 목표 시간은 [Issue #8](../problem-solving-records/8-gps-collection-transmission-basis.md)에서 별도로 측정하고 정한다.
 - **기존 표시·관측 요구**: 미전송 수, 항목별 실패와 재시도 가능 여부를 구분하고 내부 오류 문자열 대신 사용자가 이해할 안내를 제공한다. GPS·배터리·지도·오프라인 경고는 서버 없이 동작해야 한다. 기준값은 [LocalWarningMonitor](../../android/app/src/main/java/com/surimap/core/sync/LocalWarningMonitor.kt)와 대조하고, 실패·재시도 로그와 메트릭의 실제 연결도 별도로 확인한다.
 - 사진 업로드 복구와 수색 차수 불일치의 미연결 부분은 [마커·사진의 복구와 삭제](./marker-photo.md), 공개 요청·응답은 [Sync API 참고](../api/api-spec.md#47-sync--offline)를 따른다.
 

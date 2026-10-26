@@ -52,7 +52,7 @@
 
 - 백업의 주기·보관 위치·복원 가능 여부, 비밀값 주입·회전, 관리 도구의 접근 제어와 파일 저장소 암호화.
 - 중앙 로그의 수집 범위·실패 기록·보존과 장애 알림. 도메인 파기 로그의 미연결 부분은 [데이터 파기 기록](features/data-retention.md)에 있다.
-- GPS 수집·묶음·HTTP 전송·상황판 지연·복구 시간은 별도 기준이다. 옛 5초·10초·3초를 확정 운영 기준으로 채택하지 않으며 [Issue #8](issues/8-gps-collection-transmission-basis.md)의 측정·합의를 따른다.
+- GPS 수집, 묶음, HTTP 전송, 상황판 지연, 복구 시간은 별도 기준이다. 옛 5초, 10초, 3초를 확정 운영 기준으로 채택하지 않으며 [Issue #8](problem-solving-records/8-gps-collection-transmission-basis.md)의 측정, 합의를 따른다.
 - 서버·앱의 사건 종료 후 미전송 기록 처리와 개인정보 파기 조건. [데이터 파기](features/data-retention.md), [오프라인 동기화](features/offline-sync.md), [사진 복구](features/marker-photo.md)를 함께 확인한다.
 
 ## 과거 설계와 출처

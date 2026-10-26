@@ -43,7 +43,7 @@
 
 ## 현재 수리맵 구현과 대안
 
-수리맵은 [빌드 설정](../../backend/build.gradle)상 Java 17·Spring Boot 3.5.14·MVC·MyBatis다. [로컬 이슈 13](../issues/local/13-slow-sse-connection-blocks-live-delivery.md)에서 같은 스레드의 순차 `SseEmitter.send()` 지연과, 연결별 작업으로 나눈 뒤에도 느린 소켓이 Tomcat 실행기를 차지하는 문제를 재현했다. 현재 [ServerSentEventStream](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventStream.java)은 Servlet `isReady()`·`WriteListener`를 사용한다. 이는 실제 문제를 해결한 근거지만 다른 설계보다 유지보수 비용까지 우수하다는 근거는 아니다. 재현 조건의 스레드 4개·느린 연결 4개·진단 payload는 운영 한계치가 아니다.
+수리맵은 [빌드 설정](../../backend/build.gradle)상 Java 17, Spring Boot 3.5.14, MVC, MyBatis다. [문제 해결 기록 29](../problem-solving-records/29-slow-sse-connection-blocks-live-delivery.md)에서 같은 스레드의 순차 `SseEmitter.send()` 지연과, 연결별 작업으로 나눈 뒤에도 느린 소켓이 Tomcat 실행기를 차지하는 문제를 재현했다. 현재 [ServerSentEventStream](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventStream.java)은 Servlet `isReady()`, `WriteListener`를 사용한다. 이는 실제 문제를 해결한 근거지만 다른 설계보다 유지보수 비용까지 우수하다는 근거는 아니다. 재현 조건의 스레드 4개, 느린 연결 4개, 진단 payload는 운영 한계치가 아니다.
 
 아래는 공식 기능과 현 코드에 따른 설계 비교이며, 채택·성능 측정 결과가 아니다.
 

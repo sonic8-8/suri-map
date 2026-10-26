@@ -7,20 +7,20 @@
 - 제품의 계정·업무폰 구분과 개인·공유 계정 미정 사항은 [PRD](../prd.md#사건상황판)를 따른다. 옛 팀·순찰차 계정 seed를 현재 제품 정책으로 자동 채택하지 않는다. 계정 발급·중복 로그인 정책·실제 업무폰의 GMS/FCM 수신 가능성은 확인 대상이다.
 - 기존 요구는 Keycloak 로그인, 서버의 JWT 검증, 앱의 서명된 업무폰 ID와 요청 헤더 일치, 일반 클라이언트의 `INTERNAL` 권한 획득 차단이다. 화면의 버튼 숨김과 서버 권한 검사는 별개다.
 - **현재 차이**: [JWT 변환기](../../backend/src/main/java/com/surimap/account/security/KeycloakJwtAuthenticationConverter.java)는 계정 종류·소속을 JWT에서 읽지만 채널·업무폰 ID는 요청 헤더에서 가져온다. 역할도 두 계정 속성에서 파생한다. `INTERNAL` enum도 파싱하므로 JWT와 단말·채널의 결합, 계정 비활성화 반영, 내부 API 보호를 각 호출부와 함께 확인해야 한다.
-- [보안 설정](../../backend/src/main/java/com/surimap/config/SecurityConfig.java)과 [인증 필터](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)는 JWT decoder와 인증 객체를 사용한다. 서명 검증이 있다는 사실만으로 위 단말·사건별 권한 요구까지 충족됐다고 판단하지 않는다. SSE 요청의 인증 보관 수정은 [기존 문제 기록](../issues/local/3-authenticated-sse-access-denied-on-disconnect.md)을 참조한다.
+- [보안 설정](../../backend/src/main/java/com/surimap/config/SecurityConfig.java)과 [인증 필터](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)는 JWT decoder와 인증 객체를 사용한다. 서명 검증이 있다는 사실만으로 위 단말, 사건별 권한 요구까지 충족됐다고 판단하지 않는다. SSE 요청의 인증 보관 수정은 [기존 문제 기록](../problem-solving-records/19-authenticated-sse-access-denied-on-disconnect.md)을 참조한다.
 
 ## HTTPS 프록시와 브라우저 출처
 
 - 같은 공개 웹 주소의 요청은 내부 HTTP 통신과 혼동하지 않고 같은 출처로 판단해야 한다. [Frontend nginx](../../frontend/nginx.conf)는 호스트 nginx가 확인한 외부 프로토콜·포트를 Backend로 전달하고, [Backend 설정](../../backend/src/main/resources/application.yml)의 `server.forward-headers-strategy: native`는 Tomcat이 이 정보로 요청 주소를 판정하도록 한다.
 - 이 설정은 외부 호스트 nginx가 전달 헤더를 덮어쓰고 Frontend·Backend 포트를 외부에 직접 노출하지 않는 구성을 전제로 한다. Tomcat 기본값은 사설·루프백 프록시를 신뢰하며 특정 nginx 한 대만 제한한 설정은 아니다. Frontend는 별도 `Forwarded` 헤더를 제거한다. CORS 허용 목록·JWT·채널 권한은 이번 수정에서 바꾸지 않았다.
-- 2026-09-28 `ffbec82b`을 Jenkins #37로 Hetzner에 배포했다. 같은 HTTPS 출처의 허용·다른 출처와 위조 전달 헤더의 거부, 실제 로그인·위치 보정 저장·다른 탭의 SSE 수신과 지도 갱신을 확인했다. DB 이력 재전송·재시작 복구 검증은 아니다. 원인·실행 결과·검증 한계는 [CORS 문제 기록](../issues/local/9-browser-post-rejected-by-cors.md)을 따른다.
+- 2026-09-28 `ffbec82b`을 Jenkins #37로 Hetzner에 배포했다. 같은 HTTPS 출처의 허용, 다른 출처와 위조 전달 헤더의 거부, 실제 로그인, 위치 보정 저장, 다른 탭의 SSE 수신과 지도 갱신을 확인했다. DB 이력 재전송, 재시작 복구 검증은 아니다. 원인, 실행 결과, 검증 한계는 [CORS 문제 기록](../problem-solving-records/25-browser-post-rejected-by-cors.md)을 따른다.
 
 ## 인증 서버 장애와 토큰 거부
 
 - JWT 서명·만료 검증에서 거부된 토큰과, 인증 키를 가져오지 못해 검증할 수 없는 상태를 구분한다. 어느 경우에도 검증되지 않은 요청을 보호 API로 통과시키지 않는다.
 - 2026-09-30 로컬 수정: 인증 필터는 잘못된 토큰의 `BadJwtException`을 기존 401로 처리하고, 나머지 `JwtException`은 503 `authentication_unavailable`로 응답한다. 장애 로그에는 예외 종류만 남기며 토큰·예외 메시지는 기록하지 않는다. [SecurityConfigTest](../../backend/src/test/java/com/surimap/SecurityConfigTest.java)는 실제 서명 토큰·로컬 HTTP 키 서버·Nimbus decoder·보안 필터를 연결해 키 조회 장애, 같은 토큰의 복구 후 통과, 만료·잘못된 서명의 거부를 대조한다.
-- 웹은 기존 구현으로 SSE 503에서 로그인을 유지하고 재연결하며, 401에서는 세션을 지우고 로그인 화면으로 이동한다. 브라우저 응답 주입 대조 후, 2026-10-01 `f2169f5d`을 Jenkins #48로 배포해 열린 상황판의 로그인 유지·재연결을 확인했다. 별도 실제 Keycloak 일시정지·Backend 재시작에서도 SSE 503과 복구 후 같은 토큰의 200 재연결을 확인했고, 마커 시험에서는 DB 이력 재전송·지도 반영·원상복원을 확인했다. 중단 중 502·504도 발생했으며 무중단이나 부하 검증은 아니다. 상세 조건과 실패 시도는 [인증 오류 분류 검증](../issues/local/16-sse-authentication-failure-during-deployment.md#실제-배포와-인증-서버-장애-복구)에 보존한다. Android 실기기는 검증하지 않았다.
-- Jenkins #47 배포 중 SSE 401은 Keycloak 기동 완료 2초 전에 발생했다. 로컬에서는 키 조회 실패가 401로 바뀌는 결함을 재현했지만, 당시 예외와 탭 이동 경로가 없어 그 한 건의 원인까지 확정하지 않는다. 후속 시험에서 발견한 프록시의 옛 IP 사용은 별도 결함으로 [로컬 이슈 17](../issues/local/17-nginx-stale-container-address.md)에 기록했다. 주소 갱신 수정은 Jenkins #49로 배포해 실제 Backend IP 변경 후 API·SSE 자동 복구를 확인했다.
+- 웹은 기존 구현으로 SSE 503에서 로그인을 유지하고 재연결하며, 401에서는 세션을 지우고 로그인 화면으로 이동한다. 브라우저 응답 주입 대조 후, 2026-10-01 `f2169f5d`을 Jenkins #48로 배포해 열린 상황판의 로그인 유지, 재연결을 확인했다. 별도 실제 Keycloak 일시정지, Backend 재시작에서도 SSE 503과 복구 후 같은 토큰의 200 재연결을 확인했고, 마커 시험에서는 DB 이력 재전송, 지도 반영, 원상복원을 확인했다. 중단 중 502, 504도 발생했으며 무중단이나 부하 검증은 아니다. 상세 조건과 실패 시도는 [인증 오류 분류 검증](../problem-solving-records/32-sse-authentication-failure-during-deployment.md#실제-배포와-인증-서버-장애-복구)에 보존한다. Android 실기기는 검증하지 않았다.
+- Jenkins #47 배포 중 SSE 401은 Keycloak 기동 완료 2초 전에 발생했다. 로컬에서는 키 조회 실패가 401로 바뀌는 결함을 재현했지만, 당시 예외와 탭 이동 경로가 없어 그 한 건의 원인까지 확정하지 않는다. 후속 시험에서 발견한 프록시의 옛 IP 사용은 별도 결함으로 [문제 해결 기록 33](../problem-solving-records/33-nginx-stale-container-address.md)에 기록했다. 주소 갱신 수정은 Jenkins #49로 배포해 실제 Backend IP 변경 후 API, SSE 자동 복구를 확인했다.
 
 - Android 미전송 기록의 전송기는 5xx를 재시도 대상으로 분류한다. 위 웹 복구 결과를 Android 실기기의 재전송 성공으로 대신하지 않는다.
 

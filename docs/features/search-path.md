@@ -16,7 +16,7 @@
 - [컬럼 추가](../../backend/src/main/resources/db/migration/V20261006_001__store_search_path_segment_progress.sql)와 [기존 자료 보완](../../backend/src/main/resources/db/migration/V20261006_002__backfill_search_path_segment_progress.sql)을 분리했다. 보완은 원본 GPS·구간의 정확한 대응과 전체 포함 여부를 확인하고, 확정할 수 없는 자료가 있으면 전체를 롤백한다. 기존 좌표·도형·자체 버전·수정 시각은 보존하고 추적값만 부모의 현재 버전으로 채운다. 격리 PostgreSQL에서 468개 경로·56,160개 구간·336,960개 GPS의 보완과 재실행 후 전체 행 해시가 일치했다. 이는 서버 데이터의 보완 완료나 조회 속도 개선을 뜻하지 않는다.
 - 컬럼은 기존 도형 전용 입력과 기존 API를 유지하기 위해 nullable로 추가했다. 원본 GPS가 없거나 추적값이 비어 있는 자료를 새 조회에서 건너뛰어 부분 전환하지 않는다. 실제 서버는 [합의한 쓰기 중단·백업·검증 절차](situation-board.md#경로-변경분-조회-설계)로 보완해야 하며, 새 조회 API·웹 연결과 전환 준비 상태 검사는 다음 구현 범위다.
 - 저장 준비의 최종 Backend 검사는 1,389개 통과·실패/오류/건너뜀 0이다(기본 performance 태그 제외). 추가·보정·재전송·상태 변경 경합·롤백과 기존 자료 보완을 실제 PostgreSQL에서 확인했다. 기존 SSE migration 검사는 이후 모든 변경까지 실행하던 범위를 검증 대상 버전으로 고정했다. 실제 서버 migration·새 조회 API·HTTP/브라우저 부하 시험은 수행하지 않았다.
-- [현재 서비스](../../backend/src/main/java/com/surimap/api/service/path/SearchPathService.java)는 새 묶음의 GPS 좌표를 순서와 함께 저장한다. 좌표를 추가할 때마다 이전 경로 전체를 읽고 LineString을 다시 만드는 방식은 [Issue #16](../issues/16-search-path-append-time-increases-with-length.md)에서 변경했다. 새 구간·제외 좌표도 묶어서 저장하며, 조회할 때 GPS 좌표를 순서대로 연결한다.
+- [현재 서비스](../../backend/src/main/java/com/surimap/api/service/path/SearchPathService.java)는 새 묶음의 GPS 좌표를 순서와 함께 저장한다. 좌표를 추가할 때마다 이전 경로 전체를 읽고 LineString을 다시 만드는 방식은 [Issue #16](../problem-solving-records/16-search-path-append-time-increases-with-length.md)에서 변경했다. 새 구간, 제외 좌표도 묶어서 저장하며, 조회할 때 GPS 좌표를 순서대로 연결한다.
 - GPS 원본 없이 도형만 있는 과거 경로는 조회용 fallback으로 읽는다. 그 경로에 새 좌표를 붙이는 요청은 `write_conflict`로 거부한다. 도형에서 측정 시각·속도 등 원본 값을 임의로 복원하지 않는다.
 - **조회 일관성 수정 (2026-10-02)**: 경로 버전을 읽은 뒤 좌표를 별도 SQL로 읽는 사이 저장이 완료되면 이전 버전과 새 좌표가 한 응답에 섞였다. [경로 Mapper](../../backend/src/main/resources/mapper/path/SearchPathMapper.xml)의 조건별·전체 조회를 한 SQL로 묶어 버전·GPS·구간·제외 좌표를 같은 시점 기준으로 읽는다. 하위 컬렉션은 `UNION ALL`로 나열하고 MyBatis로 조립해 다중 JOIN의 행 증폭을 피한다. GPS는 `pointId`가 재사용돼도 DB의 수집 순번 기준으로 보존한다. 서비스는 조회된 좌표로 구간 범위·도형을 조립하며 API 형식·저장 트랜잭션·DB schema는 유지한다.
 - **배포 후 미해결 (2026-10-02)**: `8824a3d5`를 Jenkins #56으로 배포했고 CI 1,364개 검사를 통과했다. 그러나 468대 × 30분 경로의 실제 상황판 Smoke는 쓰기 시작 전 조회에서 실패했다. 새 `findPaths` SQL의 `QueryTimeoutException`을 확인했으며 SQL 제한은 30초다. 커넥션 풀 대기 timeout은 0이었다. 시험용 로그 설정은 원복했고 GPS·마커 쓰기와 본 부하는 진행하지 않았다. 배포·health 정상과 실제 조회 성공을 구분한다.
@@ -29,7 +29,7 @@
 
 ## 측정 시각과 품질 검사
 
-- `clientTs`는 측정 시각을 보존하고, `elapsedRealtimeNanos`는 같은 기기에서 수집 순서를 판단하는 값으로 구분한다. **뒤 point의 `clientTs`가 앞 point보다 이르더라도 그 이유만으로 묶음 전체를 거부하지 않는다. `elapsedRealtimeNanos`가 앞의 비교 대상 point보다 작거나 같은 point는 도형에서 제외하고 제외 이유를 응답·이벤트·조회에서 확인할 수 있어야 한다.** 시각·순서 문제의 배경은 [Issue #12](../issues/12-search-path-gps-time-order.md)에 남긴다.
+- `clientTs`는 측정 시각을 보존하고, `elapsedRealtimeNanos`는 같은 기기에서 수집 순서를 판단하는 값으로 구분한다. **뒤 point의 `clientTs`가 앞 point보다 이르더라도 그 이유만으로 묶음 전체를 거부하지 않는다. `elapsedRealtimeNanos`가 앞의 비교 대상 point보다 작거나 같은 point는 도형에서 제외하고 제외 이유를 응답, 이벤트, 조회에서 확인할 수 있어야 한다.** 시각, 순서 문제의 배경은 [Issue #12](../problem-solving-records/12-search-path-gps-time-order.md)에 남긴다.
 - [검증기](../../backend/src/main/java/com/surimap/domain/path/validation/GpsPointValidator.java)는 묶음 2~120개, 묶음 안의 `pointId` 중복·좌표 범위·소수점 자릿수를 검사한다. 구조 오류는 묶음을 거부하고, 낮은 정확도·시각 차이·잘못된 속도·좌표 도약·순서 오류는 좌표별 제외로 처리한다. 소수점 6자리 초과는 자동 반올림이 아니라 거부한다.
 - **구현 차이**: 시각 차이 검사의 기준으로 실제 수신 시각 대신 첫 point의 `clientTs + 20초`를 넘긴다. 순서 검사는 같은 묶음에서 직전에 수용한 좌표와 비교하며, 도약 검사는 정확히 5초 간격일 때만 수행한다. 전체 수색 범위 인자는 사용하지 않는다. 이 동작을 모든 묶음·주기의 품질 보장으로 확대 해석하지 않는다.
 - 자동 이동 유형 분류는 현재 묶음에서 연속 3개 이상인 속도 구간을 사용한다(차량 5m/s 이상, 도보 0.5~2.5m/s). 묶음을 나눴을 때의 분류 연속성과 품질 제외 후 유효 좌표 수는 별도 확인 대상이다. 이 수치는 차량 수집 주기나 현장 정확도 검증을 뜻하지 않는다.
@@ -37,8 +37,8 @@
 ## 수집과 전송은 별도 주기
 
 - [위치 수집](../../android/app/src/main/java/com/surimap/core/location/LocationRecorder.kt)의 요청 간격 기본값은 5초다. GPS·네트워크 공급자의 실제 callback 간격과 동일하다고 가정하지 않는다.
-- [묶음 기록기](../../android/app/src/main/java/com/surimap/feature/search/data/SearchPathGpsBatchRecorder.kt)는 최대 120개 또는 2개 이상이면서 측정 시각 범위가 10초 이상일 때 로컬 기록을 요청한다. 별도의 고정 10초 HTTP 타이머가 아니다. 남은 단일 좌표·화면 이동·전송 지연은 [GPS 누락 문제](../issues/5-search-path-gps-measurement-loss.md), [오프라인 저장](offline-sync.md)과 함께 확인한다.
-- 부하 시험의 2.5초 좌표 간격과 요청률은 [Issue #8](../issues/8-gps-collection-transmission-basis.md)의 시험 조건이다. 이를 차량 판정·앱 주기 전환 정책이 구현됐다는 근거로 사용하지 않는다.
+- [묶음 기록기](../../android/app/src/main/java/com/surimap/feature/search/data/SearchPathGpsBatchRecorder.kt)는 최대 120개 또는 2개 이상이면서 측정 시각 범위가 10초 이상일 때 로컬 기록을 요청한다. 별도의 고정 10초 HTTP 타이머가 아니다. 남은 단일 좌표, 화면 이동, 전송 지연은 [GPS 누락 문제](../problem-solving-records/5-search-path-gps-measurement-loss.md), [오프라인 저장](offline-sync.md)과 함께 확인한다.
+- 부하 시험의 2.5초 좌표 간격과 요청률은 [Issue #8](../problem-solving-records/8-gps-collection-transmission-basis.md)의 시험 조건이다. 이를 차량 판정, 앱 주기 전환 정책이 구현됐다는 근거로 사용하지 않는다.
 
 ## 테스트 입력과 원문
 

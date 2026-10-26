@@ -72,4 +72,4 @@ GPS 좌표와 요청 완료 기록, 이벤트는 모두 남아 있었습니다. 
 
 이번 결과는 로컬 DB와 서비스 수준의 검증입니다. 운영 발생 빈도, 실제 HTTP·SSE·브라우저 동작, 부하 영향은 확인하지 않았습니다. 수정 코드는 아직 커밋·푸시·배포하지 않았습니다.
 
-변경 코드는 [AppSearchPathService](../../../backend/src/main/java/com/surimap/app/service/path/AppSearchPathService.java), 회귀 검사는 [AppSearchPathServiceTest](../../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)에 있습니다. [수정 전 재현 기록](../../../_workspace/path-version-race-20261003.xSQvLb/RESULTS.md)과 [수정·검증 기록](../../../_workspace/path-version-fix-20261003.BCgFpQ/RESULTS.md)은 Git으로 공유하지 않는 로컬 자료입니다. GitHub에 게시할 때는 필요한 원본 근거의 공유 범위도 확인해야 합니다.
+변경 코드는 [AppSearchPathService](../../backend/src/main/java/com/surimap/app/service/path/AppSearchPathService.java), 회귀 검사는 [AppSearchPathServiceTest](../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)에 있습니다. [수정 전 재현 기록](../../_workspace/path-version-race-20261003.xSQvLb/RESULTS.md)과 [수정, 검증 기록](../../_workspace/path-version-fix-20261003.BCgFpQ/RESULTS.md)은 Git으로 공유하지 않는 로컬 자료입니다. GitHub에 게시할 때는 필요한 원본 근거의 공유 범위도 확인해야 합니다.

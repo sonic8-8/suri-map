@@ -1,6 +1,6 @@
 # 기존 이미지 보존 문제와 캐시 수정 배포 검증
 
-2026-10-07 [로컬 21번](../issues/local/21-missing-running-container-images.md)의 후속 기록이다. 이미지 보존 실패를 분리 재현하고 복구 이미지를 확보했다. `dc461996`의 Jenkins #59는 두 승인 후 웹까지 배포해 SUCCESS로 끝났다. 브라우저 비교는 아래 후속 결과로 구분한다.
+2026-10-07 [문제 해결 기록 37](../problem-solving-records/37-missing-running-container-images.md)의 후속 기록이다. 이미지 보존 실패를 분리 재현하고 복구 이미지를 확보했다. `dc461996`의 Jenkins #59는 두 승인 후 웹까지 배포해 SUCCESS로 끝났다. 브라우저 비교는 아래 후속 결과로 구분한다.
 
 ## 이미지 보존 실패의 재현
 
@@ -91,4 +91,4 @@ Backend CI 1,415개가 통과했다. JUnit XML 222개, 실패·오류·건너뜀
 - App: `/srv/apps/suri-map/backups/path-cache-dc461996.VW0ugH/`. 복구 이미지 아카이브 SHA-256 `456e9cc9cecfb0c88d1a8be4a66bf8ede0bf5aba74595bb1580160b7d8e8258b`.
 - 최종 DB 백업: 같은 디렉터리의 `suri-map-before-load-20261006T212650Z.dump`, 14,435,366바이트·권한 600·SHA-256 `684c7a434ee6a68673379a4fa2f197d5ffe8d390538a6546ab643afd10348d66`.
 - 로컬 재현 도구: `_workspace/image-preservation-20261007.MTKcce/`. Jenkins 기존 설정은 Ops 컨테이너의 `/var/jenkins_home/image-preservation.shPwj2/config-before.xml`에 비공개 보존했다.
-- 다음은 [로컬 20번](../issues/local/20-slow-paged-search-path-display.md)의 남은 전체 이력 지연을 페이지 수와 브라우저 처리 비용으로 나눠 비교하는 것이다. 이후 차수 전환·새 좌표·재접속 Smoke와 본 부하를 진행한다. 이번 infra·기록 변경은 미커밋이며 새 파이프라인 전체 실행은 다음 빌드에서 확인해야 한다.
+- 다음은 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)의 남은 전체 이력 지연을 페이지 수와 브라우저 처리 비용으로 나눠 비교하는 것이다. 이후 차수 전환, 새 좌표, 재접속 Smoke와 본 부하를 진행한다. 이번 infra, 기록 변경은 미커밋이며 새 파이프라인 전체 실행은 다음 빌드에서 확인해야 한다.

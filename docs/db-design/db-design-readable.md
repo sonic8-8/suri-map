@@ -48,7 +48,7 @@
 
 `search_path.geometry`는 GPS 원본이 없는 옛 경로의 조회 대체값으로 남아 있다. 저장되지 않은 측정값을 만들어 채우지 않으며, 원본 좌표 없이 도형만 있는 경로에는 새 좌표 추가를 거부한다. 기록 중·일시정지 경로를 하나로 제한하는 현재 [고유 인덱스](../../backend/src/main/resources/db/migration/V20260711_002__enforce_single_active_search_path_per_account.sql)는 **사건별이 아니라 계정 전체**에 적용된다.
 
-시각·수집 순서 검사의 남은 한계와 조회 비용은 [수색 경로](../features/search-path.md), 변경·측정 과정은 [Issue #16 기록](../issues/16-search-path-append-time-increases-with-length.md)에서 확인한다.
+시각, 수집 순서 검사의 남은 한계와 조회 비용은 [수색 경로](../features/search-path.md), 변경, 측정 과정은 [Issue #16 기록](../problem-solving-records/16-search-path-append-time-increases-with-length.md)에서 확인한다.
 
 ## 마커·사진·인수인계
 

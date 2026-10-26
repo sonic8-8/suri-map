@@ -10,7 +10,7 @@
 
 2026-09-28 `4a8ee682` 배포 후 복구 시험에서, SSE 재전송 요청에 HTTP 200과 HTML 페이지가 내려왔습니다. 기대한 `text/event-stream`과 이벤트 순번이 없어 검사가 실패했습니다. 같은 서버가 기동된 뒤에는 같은 DB 이력 조회가 정상 동작했습니다.
 
-이 응답을 SSE 이력이 사라졌다는 증거로 해석할 수는 없습니다. 요청한 API 주소·응답 유형·프록시의 오류 처리를 구분해 확인합니다. [상황판 조회의 커넥션 대기 문제](11-board-query-database-connection-pool-exhaustion.md)와도 원인을 구분합니다.
+이 응답을 SSE 이력이 사라졌다는 증거로 해석할 수는 없습니다. 요청한 API 주소, 응답 유형, 프록시의 오류 처리를 구분해 확인합니다. [상황판 조회의 커넥션 대기 문제](27-board-query-database-connection-pool-exhaustion.md)와도 원인을 구분합니다.
 
 ### 문제 해결: 체크리스트
 
@@ -48,7 +48,7 @@ location @suri_map_placeholder {
 }
 ```
 
-API도 `location /`을 거쳐 오류 대신 `/var/www/suri-map/index.html`을 받는 구조입니다. 저장소의 [Frontend Nginx](../../../frontend/nginx.conf)만 바꿔서는 이 바깥쪽 호스트 설정을 해결할 수 없습니다. 같은 파일에는 다른 서비스의 서버 블록도 있으므로 수정 범위는 수리맵으로 제한해야 합니다.
+API도 `location /`을 거쳐 오류 대신 `/var/www/suri-map/index.html`을 받는 구조입니다. 저장소의 [Frontend Nginx](../../frontend/nginx.conf)만 바꿔서는 이 바깥쪽 호스트 설정을 해결할 수 없습니다. 같은 파일에는 다른 서비스의 서버 블록도 있으므로 수정 범위는 수리맵으로 제한해야 합니다.
 
 ## 수정 전: 검증 결과와 남은 작업
 
@@ -60,7 +60,7 @@ API도 `location /`을 거쳐 오류 대신 `/var/www/suri-map/index.html`을 �
 
 준비 검사를 보완한 뒤에는 같은 탭의 순번 34 → 35 이어받기·상황판 재조회·지도 이동·원래 좌표 복원이 통과했습니다. 최종 상태는 마커 9개·전송 작업 628개·마지막 순번 36·버전 21입니다. 서버가 실제로 준비된 뒤의 복구 성공이며, 재시작 중 오류를 성공 HTML로 바꾸는 설정은 그대로입니다.
 
-실패·비교 명령과 로그는 [배포 검증 기록(로컬 전용)](../../../_workspace/board-pool-deploy-20260928.Uq0mCy/RESULTS.md)에 보존합니다.
+실패, 비교 명령과 로그는 [배포 검증 기록(로컬 전용)](../../_workspace/board-pool-deploy-20260928.Uq0mCy/RESULTS.md)에 보존합니다.
 
 ## 수정 결과: API 오류 상태 보존
 
@@ -70,9 +70,9 @@ API도 `location /`을 거쳐 오류 대신 `/var/www/suri-map/index.html`을 �
 
 ### 프록시 수정: API와 일반 화면 분리
 
-[API 전용 설정](../../../infra/nginx/suri-map-api.locations.conf)을 서버의 `/etc/nginx/snippets/`에 설치하고 수리맵 HTTPS 블록에서만 포함했습니다. 인증·채널·재전송 헤더, 요청 경로와 Frontend 전달 포트는 유지했습니다. 애플리케이션 코드를 바꾸거나 API 오류를 새로운 JSON 형식으로 변환하지는 않았습니다.
+[API 전용 설정](../../infra/nginx/suri-map-api.locations.conf)을 서버의 `/etc/nginx/snippets/`에 설치하고 수리맵 HTTPS 블록에서만 포함했습니다. 인증, 채널, 재전송 헤더, 요청 경로와 Frontend 전달 포트는 유지했습니다. 애플리케이션 코드를 바꾸거나 API 오류를 새로운 JSON 형식으로 변환하지는 않았습니다.
 
-원본은 `/srv/apps/suri-map/backups/nginx-api-errors.G88YUb/apps.conf`에 백업했습니다. 설정 검사 후 reload했고, 실제 로드된 include와 파일 해시도 확인했습니다. [적용 설명](../../../infra/nginx/README.md)에 범위·백업·검사 순서를 남겼습니다. 이 파일은 Jenkins가 자동 설치하지 않으므로 애플리케이션 배포와 구분합니다.
+원본은 `/srv/apps/suri-map/backups/nginx-api-errors.G88YUb/apps.conf`에 백업했습니다. 설정 검사 후 reload했고, 실제 로드된 include와 파일 해시도 확인했습니다. [적용 설명](../../infra/nginx/README.md)에 범위, 백업, 검사 순서를 남겼습니다. 이 파일은 Jenkins가 자동 설치하지 않으므로 애플리케이션 배포와 구분합니다.
 
 ### 수정 전후 비교: 같은 검사로 실패와 통과 확인
 
@@ -90,8 +90,8 @@ DB 백업 후 기존 시험용 마커 하나로 확인했습니다.
 
 최종 상태는 마커 9개·전송 작업 630개·마지막 순번 38·시험 마커 버전 23입니다. 다른 마커와 기존 이력은 보존했고, 이번 이동·복원 이력 2개도 남겼습니다. 브라우저 JS 오류 0, 최종 데이터베이스 커넥션 사용 0·유휴 10·대기 0·timeout 0을 확인했습니다.
 
-새 Backend 프로세스의 수집 시점까지 ERROR는 0건이었습니다. 38번 전송 중 쓰기에 실패한 SSE 연결을 제거한 WARN 1건은 남았지만, 관찰 탭의 해당 이벤트 수신·복원은 통과했습니다. [끊긴 연결 정리 문제](5-sse-initial-send-disconnect-cleanup.md)까지 해결한 것으로 보지는 않습니다.
+새 Backend 프로세스의 수집 시점까지 ERROR는 0건이었습니다. 38번 전송 중 쓰기에 실패한 SSE 연결을 제거한 WARN 1건은 남았지만, 관찰 탭의 해당 이벤트 수신, 복원은 통과했습니다. [끊긴 연결 정리 문제](21-sse-initial-send-disconnect-cleanup.md)까지 해결한 것으로 보지는 않습니다.
 
 실제 로그인·마커 수정·SSE 수신도 통과했습니다. 수리맵과 다른 두 서비스의 루트 주소는 적용 전후 모두 200이었지만, 다른 서비스의 모든 기능을 시험한 것은 아닙니다.
 
-명령·실패와 통과 로그·복구 화면은 [이번 검증 기록(로컬 전용)](../../../_workspace/api-proxy-fix-20260928.I6nUvL/RESULTS.md)에 보존합니다. 세 확인 항목은 완료했으며, SSE 전체 요구 검증이나 상황판 부하 시험의 완료를 뜻하지는 않습니다. 커밋·푸시·GitHub 등록은 아직 하지 않았습니다.
+명령, 실패와 통과 로그, 복구 화면은 [이번 검증 기록(로컬 전용)](../../_workspace/api-proxy-fix-20260928.I6nUvL/RESULTS.md)에 보존합니다. 세 확인 항목은 완료했으며, SSE 전체 요구 검증이나 상황판 부하 시험의 완료를 뜻하지는 않습니다. 커밋, 푸시, GitHub 등록은 아직 하지 않았습니다.

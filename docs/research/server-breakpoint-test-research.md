@@ -1,6 +1,6 @@
 # 서버 Breakpoint Test 설계 조사
 
-조사 기준일은 2026년 9월 1일이다. 이 문서는 Issue #8의 서버 Breakpoint Test 초기 설계 근거다. 아래 수치는 당시 선택과 이유이며, 실행할 때는 [k6 실행 안내](../../infra/k6/README.md)와 [요청 스크립트](../../infra/k6/search-path-batch-load.js)를 확인한다. 후속 측정은 [Issue #8 기록](../issues/8-gps-collection-transmission-basis.md)에서 확인한다.
+조사 기준일은 2026년 9월 1일이다. 이 문서는 Issue #8의 서버 Breakpoint Test 초기 설계 근거다. 아래 수치는 당시 선택과 이유이며, 실행할 때는 [k6 실행 안내](../../infra/k6/README.md)와 [요청 스크립트](../../infra/k6/search-path-batch-load.js)를 확인한다. 후속 측정은 [Issue #8 기록](../problem-solving-records/8-gps-collection-transmission-basis.md)에서 확인한다.
 
 ## 결론
 

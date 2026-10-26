@@ -29,17 +29,17 @@
 
 ### 확인한 원인: 같은 스레드에서 연결을 순서대로 전송
 
-[SseConnectionRegistry](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)는 연결별 `send()`가 돌아와야 다음 연결로 넘어갑니다. [SseEmitterLiveEventSink](https://github.com/sonic8-8/suri-map/blob/3c55d0b5ffc0ffd367ac09b4b9deae58038b2649/backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 재전송 중에는 새 이벤트를 대기시키지만, 실시간 단계에서는 호출 스레드가 바로 `emitter.send()`를 실행합니다.
+[SseConnectionRegistry](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventConnectionRegistry.java)는 연결별 `send()`가 돌아와야 다음 연결로 넘어갑니다. [SseEmitterLiveEventSink](https://github.com/sonic8-8/suri-map/blob/3c55d0b5ffc0ffd367ac09b4b9deae58038b2649/backend/src/main/java/com/surimap/eventhub/stream/SseEmitterLiveEventSink.java)는 재전송 중에는 새 이벤트를 대기시키지만, 실시간 단계에서는 호출 스레드가 바로 `emitter.send()`를 실행합니다.
 
 막힌 스택에서도 `dispatchLive → sendToRegisteredSinks → sendNow → SseEmitter.send → Servlet 응답 flush`가 같은 호출 흐름에 있었습니다. 등록 누락이 아니라, 앞 연결의 쓰기를 기다리는 동안 뒤 연결로 진행하지 못하는 문제입니다.
 
-[EventDispatchJobWorker](../../../backend/src/main/java/com/surimap/global/sse/ServerSentEventJobWorker.java)도 단일 스레드에서 이 호출의 완료를 기다립니다. 따라서 뒤 전송 작업에도 영향을 줄 수 있다는 것은 코드에 따른 추론입니다. 여러 사건이 함께 지연되는 운영 시험까지 실행한 것은 아닙니다.
+[EventDispatchJobWorker](../../backend/src/main/java/com/surimap/global/sse/ServerSentEventJobWorker.java)도 단일 스레드에서 이 호출의 완료를 기다립니다. 따라서 뒤 전송 작업에도 영향을 줄 수 있다는 것은 코드에 따른 추론입니다. 여러 사건이 함께 지연되는 운영 시험까지 실행한 것은 아닙니다.
 
 ### 남은 작업: 연결별 전송 방식 결정
 
-기존 Spring MVC·DB 이력은 유지하면서 실제 응답 쓰기를 연결별로 분리하는 방향부터 검토합니다. 전송 순서·대기량·종료 처리와 함께 정해야 하므로 worker 스레드 수만 늘리거나 새 라이브러리를 임의로 추가하지 않았습니다. 종료 중인 전송은 [로컬 이슈 14](14-terminal-incident-race-sends-stale-events.md)와 함께 확인합니다.
+기존 Spring MVC, DB 이력은 유지하면서 실제 응답 쓰기를 연결별로 분리하는 방향부터 검토합니다. 전송 순서, 대기량, 종료 처리와 함께 정해야 하므로 worker 스레드 수만 늘리거나 새 라이브러리를 임의로 추가하지 않았습니다. 종료 중인 전송은 [문제 해결 기록 30](30-terminal-incident-race-sends-stale-events.md)와 함께 확인합니다.
 
-재현 패치·명령·JUnit 결과는 [검증 기록(로컬 전용)](../../../_workspace/sse-boundary-check-20260928.Y8ZAsQ/RESULTS.md)에 보존했습니다. 실패 재현용 변경은 일반 테스트에서 제거하고 진단 패치로 남겼습니다. 제품 코드 수정·서버 배포·GitHub 등록은 하지 않았으며 체크리스트는 미완료입니다.
+재현 패치, 명령, JUnit 결과는 [검증 기록(로컬 전용)](../../_workspace/sse-boundary-check-20260928.Y8ZAsQ/RESULTS.md)에 보존했습니다. 실패 재현용 변경은 일반 테스트에서 제거하고 진단 패치로 남겼습니다. 제품 코드 수정, 서버 배포, GitHub 등록은 하지 않았으며 체크리스트는 미완료입니다.
 
 ## 수정 내용: 실제 응답 쓰기를 연결별로 분리 (2026-09-29)
 
@@ -53,7 +53,7 @@
 
 이번 결과는 실제 느린 네트워크의 처리량 측정이 아닙니다. Servlet 컨테이너의 기존 실행기를 사용하므로 느린 연결이 많으면 실행기 자체가 고갈될 수 있습니다. 연결별 한도도 전체 JVM·소켓 메모리 한도를 뜻하지 않습니다. 새 실행기·라이브러리·운영 한도는 추가하지 않았습니다.
 
-커밋 대상만 추출한 Docker 전체 테스트도 223개 클래스·1,345개가 통과했습니다(5분 14초, 실패·오류·건너뜀 0, 기본 성능 태그 제외). 배포·브라우저 검증 전 결과이며, 명령과 JUnit은 [이번 검증 기록(로컬 전용)](../../../_workspace/sse-live-fix-20260929.UfJY85/RESULTS.md)에 보존합니다. GitHub에는 등록하지 않았습니다.
+커밋 대상만 추출한 Docker 전체 테스트도 223개 클래스, 1,345개가 통과했습니다(5분 14초, 실패, 오류, 건너뜀 0, 기본 성능 태그 제외). 배포, 브라우저 검증 전 결과이며, 명령과 JUnit은 [이번 검증 기록(로컬 전용)](../../_workspace/sse-live-fix-20260929.UfJY85/RESULTS.md)에 보존합니다. GitHub에는 등록하지 않았습니다.
 
 ### 배포 후 검증: DB 이어받기와 지도 갱신 확인
 
@@ -80,7 +80,7 @@
 
 연결별 대기열로 분리한 효과는 실제 소켓에서도 확인했습니다. 다만 `AsyncContext.start()`가 HTTP 요청과 같은 Tomcat 실행기를 사용하므로, 느린 쓰기가 실행기를 모두 차지하면 다른 요청까지 영향을 받습니다. 스레드 한 개를 더 준 대조에서 정상 수신됐지만, 운영 스레드 수를 늘리면 해결된다고 판단하지 않습니다.
 
-소켓 검사 3개 중 2개 통과·1개 실패이며, 원인 비교와 반복 결과는 [진단 기록(로컬 전용)](../../../_workspace/sse-socket-check-20260929.2rNkM2/RESULTS.md)에 남겼습니다. 공용 HTTP 처리 자원 보호와 느린 쓰기의 정리 방식은 후속 검토 대상입니다. 제품 코드·운영 설정·데이터를 바꾸거나 재배포하지 않았습니다.
+소켓 검사 3개 중 2개 통과, 1개 실패이며, 원인 비교와 반복 결과는 [진단 기록(로컬 전용)](../../_workspace/sse-socket-check-20260929.2rNkM2/RESULTS.md)에 남겼습니다. 공용 HTTP 처리 자원 보호와 느린 쓰기의 정리 방식은 후속 검토 대상입니다. 제품 코드, 운영 설정, 데이터를 바꾸거나 재배포하지 않았습니다.
 
 ## 개선 방향: 느린 소켓을 기다리지 않는 비차단 쓰기로 전환
 
@@ -88,7 +88,7 @@
 
 제품 적용 전 실제 Tomcat·Servlet·TCP로 전송 방식만 대조했습니다. 작업 스레드 4개와 느린 연결 4개에서 블로킹 방식은 정상 SSE·HTTP도 기다렸지만, 비차단 방식은 둘 다 응답했습니다. 느린 연결 하나의 수신을 재개하자 첫 이벤트의 전체 본문과 다음 이벤트도 순서대로 받았습니다. 대조 검사 2개가 통과했으며 스레드 수·256KiB 입력·3초 대기는 재현 조건이지 운영 권장값이 아닙니다.
 
-독립 Servlet 검사입니다. 제품의 MVC·인증·DB 재전송·연결 정리까지 검증한 결과가 아니므로 이슈는 미완료입니다. 실시간 대기열과 DB 페이지 재전송을 전송 가능 여부에 따라 멈추고 이어가도록 제품 코드에 연결해야 합니다. 앞선 도구 실패·최종 명령·JUnit은 [검증 기록(로컬 전용)](../../../_workspace/sse-nonblocking-check-20260929.q6QdyH/RESULTS.md)에 보존했습니다. 제품 코드 수정·전체 회귀 검사·커밋·푸시·배포는 하지 않았습니다.
+독립 Servlet 검사입니다. 제품의 MVC, 인증, DB 재전송, 연결 정리까지 검증한 결과가 아니므로 이슈는 미완료입니다. 실시간 대기열과 DB 페이지 재전송을 전송 가능 여부에 따라 멈추고 이어가도록 제품 코드에 연결해야 합니다. 앞선 도구 실패, 최종 명령, JUnit은 [검증 기록(로컬 전용)](../../_workspace/sse-nonblocking-check-20260929.q6QdyH/RESULTS.md)에 보존했습니다. 제품 코드 수정, 전체 회귀 검사, 커밋, 푸시, 배포는 하지 않았습니다.
 
 ## 추가 수정: 소켓이 막히면 쓰기와 재전송 조회를 멈춤 (2026-09-29, 미배포)
 
@@ -108,7 +108,7 @@ Docker 복구 후 기존 제품 코드에서 정상 SSE 읽기 시간 초과를 
 
 코드 리뷰에서는 종료 알림 뒤에도 재전송 페이지 참조가 남는 점을 보완했습니다. 수신 즉시 참조를 해제하고 초기 조회가 뒤늦게 끝나도 다시 보관하지 않습니다. TCP 검사는 종료 순서·응답 종료를 확인하며 메모리 회수 시점을 측정한 것은 아닙니다. Controller 반환 규칙 검사도 SSE 전용 응답만 허용하도록 보완했습니다. 일반 JSON의 `ResponseEntity` 규칙은 유지합니다.
 
-관련 48개와 최종 Backend 전체 **224개 클래스·1,352개 검사**가 모두 통과했습니다(5분 8초, 실패·오류·건너뜀 0, 기본 성능 태그 제외). 전체 검사는 실제 PostgreSQL/PostGIS를 포함하며 무관한 기존 미커밋 변경도 함께 읽은 작업 트리 결과입니다. 규칙·합의 동작을 나눈 코드 리뷰에서도 수정 후 남은 지적은 없습니다. 실행별 실패·수정·JUnit은 [제품 연결 검증 기록(로컬 전용)](../../../_workspace/sse-nonblocking-impl-20260929.DOocJf/RESULTS.md)에 보존했습니다. 커밋·푸시·배포·브라우저 재검증은 하지 않았으며, 마지막 DB 조회 이후 종료·파기가 커밋되는 [로컬 이슈 14](14-terminal-incident-race-sends-stale-events.md)는 별도로 남아 있습니다.
+관련 48개와 최종 Backend 전체 **224개 클래스, 1,352개 검사**가 모두 통과했습니다(5분 8초, 실패, 오류, 건너뜀 0, 기본 성능 태그 제외). 전체 검사는 실제 PostgreSQL/PostGIS를 포함하며 무관한 기존 미커밋 변경도 함께 읽은 작업 트리 결과입니다. 규칙, 합의 동작을 나눈 코드 리뷰에서도 수정 후 남은 지적은 없습니다. 실행별 실패, 수정, JUnit은 [제품 연결 검증 기록(로컬 전용)](../../_workspace/sse-nonblocking-impl-20260929.DOocJf/RESULTS.md)에 보존했습니다. 커밋, 푸시, 배포, 브라우저 재검증은 하지 않았으며, 마지막 DB 조회 이후 종료, 파기가 커밋되는 [문제 해결 기록 30](30-terminal-incident-race-sends-stale-events.md)는 별도로 남아 있습니다.
 
 ### 후속 테스트 정리: 반환 타입 선언 대신 HTTP 응답 검증
 

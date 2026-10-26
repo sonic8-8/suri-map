@@ -22,9 +22,9 @@
 
 현재는 커넥션이 모두 사용 중이었다는 사실까지 확인했습니다. 조회 한 번이 오래 걸리는지, 여러 조회가 겹치는지, 브라우저의 지도 처리나 측정 도구가 표시를 지연시키는지는 분리해서 확인해야 합니다. 커넥션 풀 크기를 늘리기보다 새 쓰기 없이 재현되는 최소 조건을 찾고, 조회 요청 수와 각 요청이 커넥션을 사용하는 구간을 먼저 측정하겠습니다.
 
-[로컬 이슈 11](11-board-query-database-connection-pool-exhaustion.md)은 상황판 조회가 기존 커넥션을 잡은 채 패키지 상태 조회에서 두 번째 커넥션을 요구하던 문제를 수정한 기록입니다. 이번 오류도 커넥션 대기로 나타났지만 같은 원인인지는 아직 확인하지 않았습니다. 이번 이슈에는 누적 경로 조건에서 새로 발견한 현상을 남기고, 분석 결과와 수정·재검증은 발견 시점의 본문과 구분해 기록합니다.
+[문제 해결 기록 27](27-board-query-database-connection-pool-exhaustion.md)은 상황판 조회가 기존 커넥션을 잡은 채 패키지 상태 조회에서 두 번째 커넥션을 요구하던 문제를 수정한 기록입니다. 이번 오류도 커넥션 대기로 나타났지만 같은 원인인지는 아직 확인하지 않았습니다. 이번 이슈에는 누적 경로 조건에서 새로 발견한 현상을 남기고, 분석 결과와 수정, 재검증은 발견 시점의 본문과 구분해 기록합니다.
 
-실행 조건·원본 로그·Grafana 이미지는 [사전 검사 기록](../../../_workspace/board-smoke-20261001.mKY87i/RESULTS.md)에 보관했습니다. 이 링크는 Git으로 공유하지 않는 로컬 자료입니다.
+실행 조건, 원본 로그, Grafana 이미지는 [사전 검사 기록](../../_workspace/board-smoke-20261001.mKY87i/RESULTS.md)에 보관했습니다. 이 링크는 Git으로 공유하지 않는 로컬 자료입니다.
 
 # 댓글
 
@@ -73,4 +73,4 @@ PostgreSQL/PostGIS에 저장한 좌표 2개를 실제 Mapper로 조회했습니�
 
 다음은 시험 조건과 중단 장치를 확인한 뒤 GPS 31 RPS × 10초·마커 1건을 전송하는 Smoke 테스트입니다. 새 기록의 DB 저장부터 SSE 수신·재조회·지도 반영까지 확인한 다음 본 부하테스트 진행을 판단하겠습니다.
 
-원본은 [조회 비용 진단](../../../_workspace/board-read-profile-20261002.lAtCH8/RESULTS.md), [코드 수정·Mapper 검증](../../../_workspace/mybatis-constructor-fix-20261002.kVVKGK/RESULTS.md), [배포·전후 측정·상황판 검증](../../../_workspace/mybatis-deploy-20261002.fY8kdh/RESULTS.md)에 보존했습니다. Git으로 공유하지 않는 로컬 자료이며, GitHub 게시 시 필요한 근거를 함께 공개해야 합니다.
+원본은 [조회 비용 진단](../../_workspace/board-read-profile-20261002.lAtCH8/RESULTS.md), [코드 수정, Mapper 검증](../../_workspace/mybatis-constructor-fix-20261002.kVVKGK/RESULTS.md), [배포, 전후 측정, 상황판 검증](../../_workspace/mybatis-deploy-20261002.fY8kdh/RESULTS.md)에 보존했습니다. Git으로 공유하지 않는 로컬 자료이며, GitHub 게시 시 필요한 근거를 함께 공개해야 합니다.

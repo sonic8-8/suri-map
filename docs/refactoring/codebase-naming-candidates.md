@@ -64,7 +64,7 @@
 
 [Spring 명명 조사](../research/spring-sse-class-naming.md)는 프레임워크 클래스의 역할 비교다. 이후 Aside로 [국내 기업의 공개 코드](../research/korean-company-sse-naming.md)를 확인했다. 이 자료의 후보는 회사 전체 관행이나 변경 승인이 아니며, 최신 결정은 위 항목별 상태를 따른다.
 
-FCM의 실패 기록과 재시도·배정 알림의 전송 시점은 별개다. 마커·배정의 실패 로그 보완은 [로컬 이슈 4](../issues/local/4-fcm-delivery-failure-not-recorded.md), 남은 연결·복구·전달 문제는 [이벤트 전달 문서](../features/event-delivery.md)에서 확인한다. 이름 변경 이력만으로 이 동작들이 검증됐다고 판단하지 않는다.
+FCM의 실패 기록과 재시도, 배정 알림의 전송 시점은 별개다. 마커, 배정의 실패 로그 보완은 [문제 해결 기록 20](../problem-solving-records/20-fcm-delivery-failure-not-recorded.md), 남은 연결, 복구, 전달 문제는 [이벤트 전달 문서](../features/event-delivery.md)에서 확인한다. 이름 변경 이력만으로 이 동작들이 검증됐다고 판단하지 않는다.
 
 ## Backend — Red 테스트
 
@@ -363,4 +363,4 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 당시 마커 서비스 검증은 실제 DB와 외부 FCM 대역을 사용했고, SSE 서비스 검증은 실제 Spring 빈과 메모리 재전송 저장소를 사용했다. 이 테스트로 DB 재전송 내구성·실제 네트워크 수신·업무폰 알림 표시를 증명한 것은 아니다. 이름·통합 변경 뒤 관련 검증 88개 통과는 당시 결과이며 이번 문서 정리의 실행 결과가 아니다.
 
-후속 인증 보관 수정은 [로컬 이슈 3](../issues/local/3-authenticated-sse-access-denied-on-disconnect.md)에, 실제 브라우저의 알림·지도 검증과 남은 실패 복구 문제는 [로컬 이슈 2](../issues/local/2-marker-notification-interrupted-by-sse-connection-failure.md)에 기록했다. 사진·실제 Android/FCM·배포 빌드·부하 검증과 구분한다.
+후속 인증 보관 수정은 [문제 해결 기록 19](../problem-solving-records/19-authenticated-sse-access-denied-on-disconnect.md)에, 실제 브라우저의 알림, 지도 검증과 남은 실패 복구 문제는 [문제 해결 기록 18](../problem-solving-records/18-marker-notification-interrupted-by-sse-connection-failure.md)에 기록했다. 사진, 실제 Android/FCM, 배포 빌드, 부하 검증과 구분한다.

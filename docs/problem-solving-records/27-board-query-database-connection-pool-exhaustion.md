@@ -29,15 +29,15 @@
 
 - 원인: 상황판 조회가 커넥션 하나를 잡은 채 패키지 상태 조회에서 두 번째 커넥션을 요구했습니다.
 - 변경: 패키지 상태 조회가 상황판의 기존 트랜잭션과 커넥션을 사용하도록 바꿨습니다. 동일한 실제 DB 테스트에서 수정 전 실패와 수정 후 통과를 확인했습니다.
-- 범위: SQL·API·운영 커넥션 풀 크기·저장 메서드는 유지했습니다. 후속 배포에서 SSE 재접속부터 지도 반영까지 확인했으며, 재시작 중 발견한 별도 프록시 오류는 로컬 이슈 12로 분리했습니다.
+- 범위: SQL, API, 운영 커넥션 풀 크기, 저장 메서드는 유지했습니다. 후속 배포에서 SSE 재접속부터 지도 반영까지 확인했으며, 재시작 중 발견한 별도 프록시 오류는 문제 해결 기록 28로 분리했습니다.
 
 ### 커넥션 대기: 기존 연결을 잡은 채 새 연결 요청
 
 상황판은 경로·마커뿐 아니라 업무폰의 오프라인 자료 설치 상태도 함께 조회합니다. 수정 전에는 이 과정의 트랜잭션이 다음과 같이 나뉘어 있었습니다.
 
-1. [상황판 조회](../../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `collect()`가 읽기 전용 트랜잭션을 시작하고 커넥션 하나를 확보합니다.
-2. 마커 알림까지 조회한 뒤 [패키지 상태 조립](../../../backend/src/main/java/com/surimap/board/PackageBadgeBoardAssembler.java)을 거쳐 `OfflinePackageService.byIncident()`를 호출합니다.
-3. [서비스](../../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageService.java)에 붙어 있던 `REQUIRES_NEW`가 별도 트랜잭션을 시작하려고 새 커넥션을 요구합니다. 이때 상황판이 확보한 첫 번째 커넥션은 반환되지 않습니다.
+1. [상황판 조회](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `collect()`가 읽기 전용 트랜잭션을 시작하고 커넥션 하나를 확보합니다.
+2. 마커 알림까지 조회한 뒤 [패키지 상태 조립](../../backend/src/main/java/com/surimap/board/PackageBadgeBoardAssembler.java)을 거쳐 `OfflinePackageService.byIncident()`를 호출합니다.
+3. [서비스](../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageService.java)에 붙어 있던 `REQUIRES_NEW`가 별도 트랜잭션을 시작하려고 새 커넥션을 요구합니다. 이때 상황판이 확보한 첫 번째 커넥션은 반환되지 않습니다.
 
 같은 시점의 서버 상태와 오류 기록도 이 흐름을 뒷받침했습니다.
 
@@ -52,7 +52,7 @@
 
 ### 조회 트랜잭션: 기존 커넥션 재사용
 
-현재 [Repository의 `byIncident()`](../../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageRepository.java)는 설치 상태를 SELECT하고 결과를 변환합니다. 별도로 저장하는 동작은 없습니다.
+현재 [Repository의 `byIncident()`](../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageRepository.java)는 설치 상태를 SELECT하고 결과를 변환합니다. 별도로 저장하는 동작은 없습니다.
 
 Git 이력에서는 [`27eb44c7`](https://github.com/sonic8-8/suri-map/commit/27eb44c7a5e1347a5b17d64b2b4997910c24318a)이 `REQUIRES_NEW`를 추가했고, 이후 [`054406a1`](https://github.com/sonic8-8/suri-map/commit/054406a12eea75dfd14ed4267cb4e09a33c70ea2)이 조회 중 시험용 패키지 자료를 저장하던 호출을 제거했습니다. 저장 호출은 없어졌지만 별도 트랜잭션 설정은 남았습니다. 최초에 그 설정을 선택한 이유까지 커밋 메시지만으로 확정하지는 않습니다.
 
@@ -62,7 +62,7 @@ Git 이력에서는 [`27eb44c7`](https://github.com/sonic8-8/suri-map/commit/27e
 
 ### 회귀 테스트: 두 요청의 상태 조회 완료
 
-[OfflinePackageServiceTest](../../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageServiceTest.java)에 실제 Spring 서비스·MyBatis·PostgreSQL을 연결하는 테스트 한 개를 추가했습니다.
+[OfflinePackageServiceTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageServiceTest.java)에 실제 Spring 서비스, MyBatis, PostgreSQL을 연결하는 테스트 한 개를 추가했습니다.
 
 풀을 커넥션 2개로 제한하고 읽기 트랜잭션 두 개가 각각 연결을 확보한 뒤, 동시에 패키지 상태를 조회하도록 구성했습니다. 두 요청 모두 저장한 `READY` 상태를 반환해야 통과합니다. 어노테이션 이름이나 메서드 호출 횟수가 아니라 조회 완료와 반환값을 확인합니다.
 
@@ -81,13 +81,13 @@ Docker 실행 환경을 복구한 뒤 준비된 테스트를 실행했습니다.
 
 Docker 검사는 현재 소스·설정·공용 입력을 읽기 전용으로 연결한 기존 CI 이미지에서 `./gradlew --no-daemon --no-build-cache test --rerun-tasks`로 실행했습니다. 기본 설정에 따라 성능 태그는 제외했으며 전체 명령에 4분 59초가 걸렸습니다. 운영 요청의 응답 시간이나 부하 성능을 측정한 결과는 아닙니다. WSL과 Docker의 JDK 패치 버전도 달라, HTTP 접속 오류의 근본 원인까지 확정하지는 않았습니다.
 
-기존 패키지 동작도 전체 실행 안에서 확인했습니다. [설치 상태 보고](../../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiRedTest.java) 8개, [수색 구역 변경](../../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageSearchAreaChangedConsumerRedTest.java) 3개, [파기 처리](../../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackagePurgeHookRedTest.java) 7개, [패키지 자료 조립](../../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestSourceIntegrationTest.java) 4개가 통과했습니다. 이 기존 검사들은 H2와 일부 대역을 사용하므로, 새 PostgreSQL 회귀나 실제 업무폰·브라우저 검증과 구분합니다.
+기존 패키지 동작도 전체 실행 안에서 확인했습니다. [설치 상태 보고](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiRedTest.java) 8개, [수색 구역 변경](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageSearchAreaChangedConsumerRedTest.java) 3개, [파기 처리](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackagePurgeHookRedTest.java) 7개, [패키지 자료 조립](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestSourceIntegrationTest.java) 4개가 통과했습니다. 이 기존 검사들은 H2와 일부 대역을 사용하므로, 새 PostgreSQL 회귀나 실제 업무폰, 브라우저 검증과 구분합니다.
 
 로컬 검증을 마친 시점에는 해결 체크리스트의 앞 세 항목을 완료했고, 배포 후 전체 복구는 미완료였습니다. 위 결과는 기존 미커밋 변경을 포함한 작업 트리 기준입니다. 이후 커밋·배포·브라우저 검증 결과는 아래에 기록하며, 부하 시험은 아직 하지 않았습니다.
 
-명령·환경 복구·수정 전후 로그·JUnit 결과는 [이번 검증 기록(로컬 전용)](../../../_workspace/board-pool-verify-20260928.kAymhc/RESULTS.md)에 보존했습니다. 최초 Docker 연결 실패 기록도 유지했습니다.
+명령, 환경 복구, 수정 전후 로그, JUnit 결과는 [이번 검증 기록(로컬 전용)](../../_workspace/board-pool-verify-20260928.kAymhc/RESULTS.md)에 보존했습니다. 최초 Docker 연결 실패 기록도 유지했습니다.
 
-앞선 진단에서 일부 HTTP 재전송이 성공하고 브라우저 종료 후 커넥션 대기가 0으로 돌아온 것은 전체 복구 통과를 뜻하지 않습니다. 당시 마커 9개·전송 작업 622개·마지막 순번 30·기준 마커 버전 15를 확인했고, 마커 수정·서버 재시작은 하지 않았습니다. 도구의 비교 실행과 상세 기록은 [이전 진단 기록(로컬 전용)](../../../_workspace/sse-db-deploy-20260928.oTBOB4/RESULTS.md)에 보존했습니다. 과거 자동 검사의 모든 실패를 이번 원인으로 소급해 확정하지 않습니다.
+앞선 진단에서 일부 HTTP 재전송이 성공하고 브라우저 종료 후 커넥션 대기가 0으로 돌아온 것은 전체 복구 통과를 뜻하지 않습니다. 당시 마커 9개, 전송 작업 622개, 마지막 순번 30, 기준 마커 버전 15를 확인했고, 마커 수정, 서버 재시작은 하지 않았습니다. 도구의 비교 실행과 상세 기록은 [이전 진단 기록(로컬 전용)](../../_workspace/sse-db-deploy-20260928.oTBOB4/RESULTS.md)에 보존했습니다. 과거 자동 검사의 모든 실패를 이번 원인으로 소급해 확정하지 않습니다.
 
 ## 배포 후 검증
 
@@ -102,6 +102,6 @@ Docker 검사는 현재 소스·설정·공용 입력을 읽기 전용으로 연
 
 검증 후 마커 9개·전송 작업 628개, 최근 변경·복원 31–36번 모두 `COMPLETED`를 확인했습니다. 최종 서버 프로세스의 커넥션 대기·누적 timeout은 0이며 해당 프로세스 시작 이후 `ERROR` 로그도 없었습니다. 이 복구 시험은 동시 상황판 수나 처리 한계를 측정한 부하 시험이 아닙니다.
 
-중간 실패도 남겼습니다. 재시작 중 Nginx가 API 오류 대신 HTTP 200의 HTML 페이지를 반환해, 상태 코드만 확인하던 검증 도구가 준비 완료를 잘못 판단했습니다. 실제 API의 `UP` 본문을 기다리도록 도구를 보완한 뒤 위 검사를 통과했습니다. **서버의 프록시 설정 자체는 수정하지 않았으며**, 이 문제는 [로컬 이슈 12](12-api-errors-replaced-with-successful-html-response.md)에 기록했습니다. 따라서 이번 통과를 모든 재접속·장애 처리의 해결로 확대하지 않습니다.
+중간 실패도 남겼습니다. 재시작 중 Nginx가 API 오류 대신 HTTP 200의 HTML 페이지를 반환해, 상태 코드만 확인하던 검증 도구가 준비 완료를 잘못 판단했습니다. 실제 API의 `UP` 본문을 기다리도록 도구를 보완한 뒤 위 검사를 통과했습니다. **서버의 프록시 설정 자체는 수정하지 않았으며**, 이 문제는 [문제 해결 기록 28](28-api-errors-replaced-with-successful-html-response.md)에 기록했습니다. 따라서 이번 통과를 모든 재접속, 장애 처리의 해결로 확대하지 않습니다.
 
-실패·대조 실행·Jenkins 결과·최종 DB 상태와 화면 캡처는 [배포 검증 기록(로컬 전용)](../../../_workspace/board-pool-deploy-20260928.Uq0mCy/RESULTS.md)에 보존합니다. GitHub에는 아직 등록하지 않은 로컬 이슈입니다.
+실패, 대조 실행, Jenkins 결과, 최종 DB 상태와 화면 캡처는 [배포 검증 기록(로컬 전용)](../../_workspace/board-pool-deploy-20260928.Uq0mCy/RESULTS.md)에 보존합니다. GitHub에는 아직 등록하지 않은 로컬 이슈입니다.

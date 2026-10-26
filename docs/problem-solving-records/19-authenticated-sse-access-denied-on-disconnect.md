@@ -10,7 +10,7 @@
 
 2026-09-14 로컬 마커 알림 검증 중 서버에 `AuthorizationDeniedException: Access Denied`가 기록됐습니다. SSE 연결은 HTTP 200으로 열렸고 마커 생성도 HTTP 201로 성공했지만, 연결 종료 처리에서는 접근 거부 예외가 발생했습니다. 정상적인 연결 종료에도 인증 오류가 섞이면 실제 권한 문제와 통신 오류를 구분하기 어려워집니다.
 
-[로컬 이슈 2](2-marker-notification-interrupted-by-sse-connection-failure.md)는 실패한 연결 하나가 다른 연결의 알림 전송까지 중단시키는 문제를 다룹니다. 이 이슈에서는 인증 오류의 원인을 따로 확인합니다. 오류 로그가 함께 나타났다는 이유만으로 알림 누락의 최초 원인이라고 판단하지는 않습니다.
+[문제 해결 기록 18](18-marker-notification-interrupted-by-sse-connection-failure.md)는 실패한 연결 하나가 다른 연결의 알림 전송까지 중단시키는 문제를 다룹니다. 이 이슈에서는 인증 오류의 원인을 따로 확인합니다. 오류 로그가 함께 나타났다는 이유만으로 알림 누락의 최초 원인이라고 판단하지는 않습니다.
 
 ### 문제 해결: 체크리스트
 
@@ -35,11 +35,11 @@
 
 ### 인증 누락 원인: 최초 요청의 인증 정보가 비동기 종료 처리에서 사라짐
 
-[OidcBearerAuthenticationFilter.java](../../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)는 토큰을 검증한 뒤 인증 객체를 `SecurityContextHolder`에 넣습니다. 그러나 이 객체를 같은 HTTP 요청에서 다시 꺼낼 수 있도록 저장하는 처리는 없습니다.
+[OidcBearerAuthenticationFilter.java](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)는 토큰을 검증한 뒤 인증 객체를 `SecurityContextHolder`에 넣습니다. 그러나 이 객체를 같은 HTTP 요청에서 다시 꺼낼 수 있도록 저장하는 처리는 없습니다.
 
 처음 SSE에 연결할 때는 `SuriMapAuthentication`이 확인됐습니다. 이후 연결 종료를 위해 같은 요청이 `ASYNC`로 다시 처리될 때는 토큰 헤더와 `WEB` 채널이 남아 있었지만, 인증 객체는 `AnonymousAuthenticationToken`으로 바뀌었습니다. `ASYNC`는 브라우저가 새 요청을 보낸다는 뜻이 아니라, Servlet 컨테이너가 기존 요청의 비동기 처리를 다시 진행한다는 뜻입니다.
 
-현재 필터가 상속한 `OncePerRequestFilter`는 기본적으로 이 비동기 재진입에서 실행되지 않습니다. 따라서 토큰으로 인증 객체를 다시 만들지도 않고, 앞서 만든 객체를 저장소에서 복구하지도 못합니다. [SecurityConfig.java](../../../backend/src/main/java/com/surimap/config/SecurityConfig.java)는 `SuriMapAuthentication`이 아니므로 요청을 거부했습니다.
+현재 필터가 상속한 `OncePerRequestFilter`는 기본적으로 이 비동기 재진입에서 실행되지 않습니다. 따라서 토큰으로 인증 객체를 다시 만들지도 않고, 앞서 만든 객체를 저장소에서 복구하지도 못합니다. [SecurityConfig.java](../../backend/src/main/java/com/surimap/config/SecurityConfig.java)는 `SuriMapAuthentication`이 아니므로 요청을 거부했습니다.
 
 ### 수정 후보: 인증 정보를 같은 HTTP 요청의 종료 시점까지 보관
 
@@ -63,7 +63,7 @@
 
 임시 변경 상태에서도 토큰 없는 상황판 조회는 HTTP 401로 거부됐습니다. 다만 이것만으로 전체 인증·권한 동작이 보존됐다고 판단하지 않으며, 영구 수정 시 추가 검증이 필요합니다.
 
-이번에 확인한 오류는 클라이언트가 이미 끊은 연결을 서버에서 마무리할 때 발생했습니다. 다른 정상 연결의 알림 누락까지 이 오류 때문이라고 결론 내리지는 않습니다. [실행 명령·비교 로그·후속 브라우저 검증](../../../_workspace/marker-sse-recheck-20260914.3ZVoue/RESULTS.md)은 로컬 전용 자료로 보관합니다. 제품 코드 변경·푸시·배포는 하지 않았으며 문제 해결 상태는 미완료입니다.
+이번에 확인한 오류는 클라이언트가 이미 끊은 연결을 서버에서 마무리할 때 발생했습니다. 다른 정상 연결의 알림 누락까지 이 오류 때문이라고 결론 내리지는 않습니다. [실행 명령, 비교 로그, 후속 브라우저 검증](../../_workspace/marker-sse-recheck-20260914.3ZVoue/RESULTS.md)은 로컬 전용 자료로 보관합니다. 제품 코드 변경, 푸시, 배포는 하지 않았으며 문제 해결 상태는 미완료입니다.
 
 # 댓글 2
 
@@ -77,9 +77,9 @@
 
 ### 인증 정보 보관: 같은 요청의 비동기 종료에서도 복원
 
-[OidcBearerAuthenticationFilter.java](../../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)에서 인증 성공 직후 `RequestAttributeSecurityContextRepository.saveContext()`를 호출하도록 수정했습니다. 기존 보안 필터가 이 요청 속성에서 인증 정보를 읽으므로 별도 인증 필터나 세션 저장은 추가하지 않았습니다.
+[OidcBearerAuthenticationFilter.java](../../backend/src/main/java/com/surimap/account/security/OidcBearerAuthenticationFilter.java)에서 인증 성공 직후 `RequestAttributeSecurityContextRepository.saveContext()`를 호출하도록 수정했습니다. 기존 보안 필터가 이 요청 속성에서 인증 정보를 읽으므로 별도 인증 필터나 세션 저장은 추가하지 않았습니다.
 
-먼저 [SecurityConfigTest.java](../../../backend/src/test/java/com/surimap/SecurityConfigTest.java)에 실제 보안 필터로 SSE를 열고 비동기 종료까지 진행하는 검증을 추가했습니다. 수정 전에는 최초 연결이 200이어도 종료 처리에서 401이 발생했습니다. 인증 정보를 보관하도록 수정한 뒤 같은 검증이 200으로 통과했습니다.
+먼저 [SecurityConfigTest.java](../../backend/src/test/java/com/surimap/SecurityConfigTest.java)에 실제 보안 필터로 SSE를 열고 비동기 종료까지 진행하는 검증을 추가했습니다. 수정 전에는 최초 연결이 200이어도 종료 처리에서 401이 발생했습니다. 인증 정보를 보관하도록 수정한 뒤 같은 검증이 200으로 통과했습니다.
 
 ## 검증 결과
 
@@ -100,7 +100,7 @@
 
 DevTools 진단 로그를 붙인 추가 실행은 4회 모두 통과했지만, 앞선 누락 원인을 확정한 것은 아닙니다. 따라서 마지막 브라우저 검증 항목은 미완료로 유지합니다. Frontend 제품 코드는 바꾸지 않았으며, 다음 작업에서 알림 대기열과 검사 타이밍을 구분합니다.
 
-[수정 전후 테스트·실행 로그·화면](../../../_workspace/sse-refactor-auth-20260915.eJs7yN/RESULTS.md)은 로컬 전용 자료입니다. 독립 코드 리뷰·커밋·GitHub 반영·푸시·배포·부하테스트는 진행하지 않았습니다.
+[수정 전후 테스트, 실행 로그, 화면](../../_workspace/sse-refactor-auth-20260915.eJs7yN/RESULTS.md)은 로컬 전용 자료입니다. 독립 코드 리뷰, 커밋, GitHub 반영, 푸시, 배포, 부하테스트는 진행하지 않았습니다.
 
 ### 2026-09-15 후속 확인: 대기열 수정 후 알림 표시까지 통과
 
@@ -108,12 +108,12 @@ DevTools 진단 로그를 붙인 추가 실행은 4회 모두 통과했지만, �
 
 최종 비교에서는 응답하지 않는 옛 타일 주소의 요청을 브라우저에서 제외했습니다. 지도·사진·실제 Android/FCM·배포 빌드는 검증하지 않았습니다. Tomcat의 별도 요청 회수 INFO 로그 4회는 원인과 영향을 확인하지 않았으며, 이를 인증 누락의 재발로 판단하지 않습니다.
 
-대기열의 원인과 수정 내용은 [로컬 이슈 2](2-marker-notification-interrupted-by-sse-connection-failure.md), 실패한 준비 과정과 최종 증거는 [이번 검증 기록](../../../_workspace/marker-notification-fix-20260915.fBb4NA/RESULTS.md)에 남겼습니다. 체크리스트는 위 검증 범위에 맞춰 완료로 변경했고, 커밋·GitHub 반영·푸시·배포는 하지 않았습니다.
+대기열의 원인과 수정 내용은 [문제 해결 기록 18](18-marker-notification-interrupted-by-sse-connection-failure.md), 실패한 준비 과정과 최종 증거는 [이번 검증 기록](../../_workspace/marker-notification-fix-20260915.fBb4NA/RESULTS.md)에 남겼습니다. 체크리스트는 위 검증 범위에 맞춰 완료로 변경했고, 커밋, GitHub 반영, 푸시, 배포는 하지 않았습니다.
 
 ### 2026-09-15 추가 확인: 지도 포함 검증과 독립 리뷰 완료
 
 로컬 지도 데이터·접속 주소를 복구한 뒤, 타일 요청을 제외하지 않고 4가지 브라우저 조건을 각각 2회씩 검증했습니다. 총 8회 모두 실제 지도·새 알림 표시·상황판 재조회가 통과했으며 접근 거부 예외는 없었습니다. 인증 수정 `8f769ef3`와 대기열 수정 `021ac596`의 독립 코드 리뷰도 코드 규칙·요구사항 지적 각각 0건으로 마쳤습니다.
 
-별도 Tomcat INFO 로그는 수리맵·DB·보안 필터가 없는 최소 서버에서도 재현됐습니다. 다만 반복 결과가 달라 정확한 발생 조건과 연결 정리 영향은 아직 확인 중입니다. 인증 누락의 재발로 판단하지 않고 [로컬 이슈 5](5-sse-initial-send-disconnect-cleanup.md)에 남겼습니다.
+별도 Tomcat INFO 로그는 수리맵, DB, 보안 필터가 없는 최소 서버에서도 재현됐습니다. 다만 반복 결과가 달라 정확한 발생 조건과 연결 정리 영향은 아직 확인 중입니다. 인증 누락의 재발로 판단하지 않고 [문제 해결 기록 21](21-sse-initial-send-disconnect-cleanup.md)에 남겼습니다.
 
-[실행 조건·비교 로그·지도 화면](../../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)을 보존했습니다. 제품 코드 변경·새 커밋·푸시·배포는 하지 않았습니다.
+[실행 조건, 비교 로그, 지도 화면](../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md)을 보존했습니다. 제품 코드 변경, 새 커밋, 푸시, 배포는 하지 않았습니다.

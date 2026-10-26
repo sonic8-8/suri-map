@@ -28,11 +28,11 @@ Backend에는 실제 PostgreSQL/PostGIS를 연결해 SSE 재전송·업무 데�
 
 설정 변경 전 확인(2026-09-28): 사용자가 실제 Jenkins 작업 변경을 승인했습니다. 당시 작업 설정에는 `Backend Test CI` 단계가 없었으며 다음 빌드 번호는 39였습니다. Ops 서버의 Docker 소켓과 Jenkins의 JUnit 플러그인은 사용할 수 있었지만, 관리 API 인증 수단이 없어 사용자에게 토큰 등록을 요청했습니다. 이 시점에는 설정 변경·빌드 실행·배포를 하지 않았습니다.
 
-근거: Jenkins 작업 설정의 stage 목록, #38의 `testClasses`·`bootJar -x test` 실행 로그, [Backend CI 정의와 한계](../../../infra/ci/README.md). GitHub에는 아직 등록하지 않은 로컬 이슈입니다.
+근거: Jenkins 작업 설정의 stage 목록, #38의 `testClasses`, `bootJar -x test` 실행 로그, [Backend CI 정의와 한계](../../infra/ci/README.md). GitHub에는 아직 등록하지 않은 로컬 이슈입니다.
 
 ## 후속 수정과 검증
 
-2026-09-28 토큰 등록 후 실제 작업에 `Backend Test CI`를 추가했습니다. 기존 배포·Discord 알림은 유지하고, `Checkout → Backend Test CI → Sync → Deploy` 순서로 바꿨습니다. 실행 정의는 여전히 Jenkins의 inline 설정이며, [hetzner.Jenkinsfile](../../../infra/ci/hetzner.Jenkinsfile)은 대조용 사본입니다. 이 파일을 수정하거나 푸시하는 것만으로 작업 설정이 바뀌지는 않습니다.
+2026-09-28 토큰 등록 후 실제 작업에 `Backend Test CI`를 추가했습니다. 기존 배포, Discord 알림은 유지하고, `Checkout → Backend Test CI → Sync → Deploy` 순서로 바꿨습니다. 실행 정의는 여전히 Jenkins의 inline 설정이며, [hetzner.Jenkinsfile](../../infra/ci/hetzner.Jenkinsfile)은 대조용 사본입니다. 이 파일을 수정하거나 푸시하는 것만으로 작업 설정이 바뀌지는 않습니다.
 
 - 체크아웃한 커밋으로 테스트 이미지를 만들고 Ops 서버에서 별도 PostgreSQL/PostGIS를 연결합니다. 운영 DB 정보·데이터는 사용하지 않습니다.
 - 테스트 실패, 필수 보고서 누락, 필수 SSE DB 검사 건너뜀을 배포 전에 차단합니다. 실패해도 회수한 보고서는 Jenkins에 보관합니다.

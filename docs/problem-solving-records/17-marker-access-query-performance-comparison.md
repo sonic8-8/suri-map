@@ -42,4 +42,4 @@
 
 아직 어느 방식을 유지할지는 결정하지 않았습니다. MyBatis와 PostgreSQL의 실제 조회를 비교하며, JPA·QueryDSL 사례의 성능 결과를 이 변경의 근거로 사용하지 않습니다. `MarkerWriteAccessData`를 별도 클래스와 내부 클래스 중 어디에 둘지도 성능과 별개의 구조·가독성 문제이므로 이번 검증 범위에서는 제외합니다.
 
-개별 조회의 비교 기준은 `79486dab` 커밋의 `MarkerAccessMapper`와 `RuntimeMarkerWriteGuardAdapter`입니다. 통합 조회의 비교 대상은 작성 시점의 로컬 변경 코드인 [MarkerAccessMapper.xml](../../../backend/src/main/resources/mapper/marker/MarkerAccessMapper.xml)과 [MarkerWriteAccessValidator.java](../../../backend/src/main/java/com/surimap/domain/marker/MarkerWriteAccessValidator.java)입니다. 측정 결과와 최종 선택 이유는 댓글에 기록합니다.
+개별 조회의 비교 기준은 `79486dab` 커밋의 `MarkerAccessMapper`와 `RuntimeMarkerWriteGuardAdapter`입니다. 통합 조회의 비교 대상은 작성 시점의 로컬 변경 코드인 [MarkerAccessMapper.xml](../../backend/src/main/resources/mapper/marker/MarkerAccessMapper.xml)과 [MarkerWriteAccessValidator.java](../../backend/src/main/java/com/surimap/domain/marker/MarkerWriteAccessValidator.java)입니다. 측정 결과와 최종 선택 이유는 댓글에 기록합니다.
