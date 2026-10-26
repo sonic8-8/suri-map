@@ -33,8 +33,7 @@
 - 상황판 조회·갱신·종료 표시를 바꿀 때는 `docs/features/situation-board.md`에서 실제 재조회 흐름, 원본 추적 값, 빈 응답·개인정보 제거의 요구와 구현 차이를 확인한다.
 - HTTP 요청·응답·오류는 임시 보존 중인 `docs/api/api-spec.md`를 Controller·소비자 코드와 대조한다. 이 문서를 바꾸거나 REST Docs로 전환할 때는 `docs/api/api-implementation-status.md`에서 소비 테스트·검증 한계·제거 조건을 확인한다.
 - DB 변경 배경은 `docs/db-design/db-design-readable.md`를 Mapper·migration과 대조한다. 문서에만 있는 필요한 동작은 미구현 요구로 구분해 합의한다.
-- GitHub Issue는 실제로 발견한 문제의 현상·가설·원인·수정·검증을 기록한다. 일반 기능 개발이나 리팩토링의 작업 관리용으로 자동 생성하지 않는다.
-- 지속해서 필요한 기능 요구·사용 이유·미구현 요구는 관련 공유 문서에 남긴다. Spec·Tasks를 Issue·로컬 TODO로 일괄 대체하지 않는다.
+- 지속해서 필요한 기능 요구, 사용 이유, 미구현 요구는 `docs/features/` 같은 공유 문서에 남긴다. spec Issue는 구현이 끝나면 닫히는 작업 지시서이므로, 남길 요구는 구현 PR에서 공유 문서에 반영한다.
 - 합의한 용어는 `GLOSSARY.md`에 남긴다. ADR은 되돌리기 어렵고, 배경 없이 이해하기 어려우며, 실제 대안을 비교해 선택한 결정에만 제안한다.
 - 문서는 이름이 아니라 내용과 사용처를 보고 유지·축약·삭제를 정한다. 이동·삭제 전에는 테스트·빌드·스크립트의 실제 파일 참조를 확인하고, 필요한 요구·결정·검증 근거와 실행 입력을 보존한다. `docs` 아래의 JSON·fixture도 실행에 필요한 데이터일 수 있다.
 
@@ -143,3 +142,17 @@
 - type은 `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`를 사용한다. scope는 제품 도메인·모듈이 분명할 때만 쓰고 area를 반복하지 않는다.
 - 커밋 형식, 바뀐 경로에 필요한 area, 커밋 메시지와 `.md` 파일에 추가한 줄의 가운뎃점은 `.githooks/`가 커밋할 때 검사한다. 클론마다 `git config core.hooksPath .githooks`로 켜고, 훅을 고치면 `sh .githooks/test.sh`로 확인한다.
 - PR 제목도 같은 형식을 사용한다. 본문에는 변경 이유·내용, 호환성 영향, 검증 결과와 미확인 사항을 적고, 관련 Issue가 있으면 연결한다.
+
+## Agent skills
+
+### Issue tracker
+
+티켓은 GitHub Issue(`sonic8-8/suri-map`)에 둔다. 공개 저장소이므로 Issue 만들기, 본문과 댓글 쓰기, 닫기, 라벨 변경은 내용을 사용자에게 보여 주고 승인받은 뒤 한다. Issue를 읽거나 쓰기 전에 `docs/agents/issue-tracker.md`를 읽는다.
+
+### Triage labels
+
+Matt 스킬의 상태 라벨 5개와 기존 `Bug`, `enhancement` 라벨을 쓴다. `docs/agents/triage-labels.md` 참고.
+
+### Domain docs
+
+단일 컨텍스트(루트 `GLOSSARY.md`, `docs/adr/`)다. `docs/agents/domain.md` 참고.
