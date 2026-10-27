@@ -29,3 +29,33 @@ OIDC 세션을 갱신한 결과가 `AuthenticationRequired`이면 앱은 저장�
 사용자가 다시 로그인하면 앱은 새 토큰의 `accountId`와 스냅샷에 저장한 값을 비교한다. 두 값이 같을 때만 기존 수색 상태를 복원한다. 두 값이 다르면 이전 수색 상태를 열지 않는다. 이전 계정이 만든 Outbox 요청을 새 계정의 토큰으로 보내는 문제는 #6에서 따로 다룬다. 스냅샷의 `accountId`는 기록의 주인을 찾는 데만 쓴다. 서버 접근 권한은 새로 받은 OIDC 토큰으로 확인한다.
 
 세 번째 방법을 선택한다. 사용자가 로그아웃하거나 계정을 바꾸면 현재 스냅샷을 초기화하되 서버로 보내지 못한 기록은 삭제하지 않는다. 이 기록의 작성자를 보존하는 방법은 #6에서 정한다. 업무폰의 모든 데이터를 지우는 일은 관리자가 보내는 MDM 원격 삭제 명령처럼 별도 보안 조치로 처리한다.
+
+## 변경 내용과 트레이드오프
+
+`SuriMapSessionSnapshot`에 `accountId`를 저장하도록 바꿨다. 로그인 세션이 만료되면 저장된 OIDC 로그인 정보만 지우고 사건과 수색 상태는 유지한다. `OutboxWorker`는 토큰이 없으면 서버 전송을 시작하지 않고 WorkManager에 재시도를 요청한다.
+
+Room 테이블은 바꾸지 않아 별도 DB 마이그레이션은 필요하지 않았다. 기존 스냅샷은 `accountId`가 없어도 읽을 수 있다.
+
+## 검증 결과
+
+다음 자동 테스트와 Android 전체 빌드를 실행했다.
+
+```bash
+cd android
+./gradlew testDebugUnitTest \
+  --tests 'com.surimap.ui.session.SuriMapSessionSnapshotTest' \
+  --tests 'com.surimap.ui.navigation.IncidentSessionStateTest' \
+  --tests 'com.surimap.core.sync.OutboxWorkerTest'
+
+./gradlew test :app:assembleDebug
+```
+
+첫 번째 명령은 `BUILD SUCCESSFUL in 50s`, 두 번째 명령은 `BUILD SUCCESSFUL in 6m 48s`로 끝났다. 자동 테스트에서는 로그인 세션이 만료돼도 사건과 `accountId`가 남고 OIDC 토큰만 지워지는지 확인했다. 같은 계정으로 다시 로그인하면 현재 사건을 유지하고 다른 계정이면 지우는 동작도 확인했다. 토큰이 없을 때 `OutboxWorker`가 서버 전송을 시도하지 않고 `Result.retry()`를 반환하는 테스트도 통과했다.
+
+2026년 7월 22일 Galaxy A21s(`SM-A217N`, Android 12)에서 로그인 세션 만료 후 동작을 테스트했다. `refresh token`을 무효 값으로 바꾸고 만료 시각을 과거로 설정하자 앱은 다시 인증을 요구했다. Keycloak 세션의 실제 만료 과정은 확인하지 않았다.
+
+앱은 만료를 처리한 뒤 저장된 OIDC 로그인 정보를 지웠다. 앱 내부 DB에는 사건 1건과 진행 중인 수색 1건이 남았고 `searchPathId`도 `e1144d15-1474-4199-9881-87b80189fecd`로 유지됐다.
+
+토큰 없이 25초 동안 기다려도 `PENDING` 요청 1건의 전송 시도 횟수는 0이었다. 같은 계정으로 다시 로그인하자 같은 수색 화면이 열렸고 해당 요청은 첫 번째 전송에서 `ACKED`로 바뀌었다.
+
+실기기에서는 같은 계정으로 다시 로그인하는 경우만 확인했다. 다른 `accountId`로 로그인하는 경우는 자동 테스트로 확인했다.
