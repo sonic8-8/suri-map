@@ -5,7 +5,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## 이 저장소의 규칙
 
 - 제목은 `[Area] 한글 요약` 형식이다. Area는 커밋 규칙의 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것이다.
-- 문제 티켓의 본문은 현상, 완료 조건, 관련 문제 해결 기록(`docs/problem-solving-records/`) 링크로 짧게 쓴다. 문제 정의, 해결법 선택과 트레이드오프, 수치 검증은 기록에 쓴다.
 - spec Issue는 작업 지시서다. 구현이 끝나면 닫고, 남길 요구는 `docs/features/`에 반영한다.
 - 2026-10-27 이전 Issue(#1~#16)는 본문에 긴 분석을 담은 옛 형식이다. 본문은 고치지 않는다.
 
