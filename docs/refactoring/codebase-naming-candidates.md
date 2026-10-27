@@ -330,6 +330,10 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 이미 합의한 k6 이름은 유지한다.
 
+| 문서 후보 | 확인할 점 |
+|---|---|
+| [infra/k6/README.md](../../infra/k6/README.md) | 2026-10-28 지운 작업 폴더 참조 정리 중 확인했다. 제목은 "Search-path load test"지만 본문은 GPS 경로 저장 부하뿐 아니라 Android Outbox 재전송, 서버 Breakpoint Test, 상황판 반영 시간 측정, 지휘 계정과 시험 마커 준비까지 614줄에 담는다. 폴더 이름 `k6`도 도구 이름이며, 안에는 k6 스크립트 밖의 Python, Node 준비와 관측 도구가 함께 있다. 제목을 실제 범위(부하 테스트 실행 안내)에 맞추거나 시나리오별 문서로 나눌지 검토한다. 폴더와 스크립트 이름은 위 합의대로 유지하고, Jenkinsfile과 `docs/architecture.md`의 참조를 함께 확인한다. 후보 등록이며 문서는 바꾸지 않았다. |
+
 ## 반영 이력 요약
 
 - 2026-10-03 경로 버전 경합 수정과 함께 [AppSearchPathServiceTest](../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)의 클래스 영문 표시명을 제거하고 메서드명을 밑줄로 구분했다. 기존 8개 검증과 한글 메서드 표시명은 유지하며 실제 DB 동시 쓰기 검사 11개를 추가했다.
