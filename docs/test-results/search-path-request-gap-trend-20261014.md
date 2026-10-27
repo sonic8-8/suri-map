@@ -22,7 +22,7 @@
 ## 남은 측정의 제약
 
 - OFF 실행은 숨김 전환으로 중단됐고 개별 요청 시간이 보존되지 않았다. 당시 진행 기록을 ON과 빼서 계측 비용이나 OFF 공백을 만들 수 없다.
-- 저장된 long-task 시작 시각은 navigation 기준, HTTP 시각은 관찰 시작 시각을 뺀 값이다. 공통 변환에 필요한 시작값이 report에 없어 둘을 직접 겹쳐 원인을 귀속하지 않았다. 현재 관찰기 파일에는 후속 수정도 있어 실행 당시 소스가 완전히 같았다는 보장은 없다.
+- 저장된 long-task 시작 시각은 navigation 기준, HTTP 시각은 관찰 시작 시각을 뺀 값이다. 공통 변환에 필요한 시작값이 report에 없어 둘을 직접 겹쳐 원인을 귀속하지 않았다. 당시 확인한 관찰기 파일에는 실행 후 수정도 섞여 있어, 실행 당시 소스와 완전히 같았다는 보장은 없었다.
 - 코드에서 API 반환 → 검증 → 병합 → Query cache 반영 → 다음 호출은 별도 await 없는 흐름이다. 지도 idle을 기다리지 않는다. 응답 종료 후 Promise가 재개되기까지와 그 뒤 동기 처리의 시간을 구분해야 한다.
 - 기존 Feature 참조가 모두 유지되는 것은 아니다. 변경된 경로와 구간의 그리기 순서 값이 바뀌면 재생성될 수 있다. 그 발생 빈도·시간은 실제 크기별 관측이 필요하다.
 
@@ -52,6 +52,6 @@
 
 이번 결과에는 개별 HTTP 시간·응답 후 공백·실행 중 프레임·숨김 타임라인이 없다. polling 시점의 `visible`만으로 전 구간 가시성을 보장하지 않는다. 네트워크 throttle·VPN·proxy, 수신 ID·커서·지도 표시도 미검증이다. 제품 변경·배포·커밋·푸시는 없으며 성능 개선 완료가 아니다.
 
-로컬 원문: `_workspace/path-diagnosis-review-20261013/tasks/off-sequence/001/`의 `raw.json`은 성공한 타이밍 자료가 아니라 실행 오류 기록이다. `progress-observed.json`은 도구 출력에서 옮긴 진행 요약, `summary.json`은 서버 전후 대조다. 계획 검수는 `tasks/off-sequence-plan-review/002/task-result.json`에 보존했다.
+당시 로컬 원문 `raw.json`은 성공한 타이밍 자료가 아니라 실행 오류 기록이었다. `progress-observed.json`은 도구 출력에서 옮긴 진행 요약, `summary.json`은 서버 전후 대조였다. 계획 검수는 `tasks/off-sequence-plan-review/002/task-result.json`에 보존했다.
 
 후속 [일반 탭 OFF 관측](search-path-normal-tab-off-20261014.md)에서는 중간 기록을 보존하며 793건을 회수했다. 위의 탭 소멸·유실 결과와 별도 실행이다.

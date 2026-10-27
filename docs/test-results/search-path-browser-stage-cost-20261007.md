@@ -130,18 +130,12 @@ MapLibre는 고유 feature ID를 전제로 `updateData()`를 제공한다. [공�
 
 ## 재현 명령과 자료
 
-```bash
-node _workspace/client-stage-cost-20261007.IwV6WB/measure-browser.cjs
-```
+당시 측정 스크립트는 저장소에 보존하지 않았다.
 
-최종 실행은 `PASS: same final segment IDs with measurement enabled and disabled`로 끝났다. 디렉터리의 `browser-results.json`에 최종 표본, `browser-results-first.json`에 타이머·source 내용 검사를 추가하기 전 표본을 보존했다. 임시 Vite 서버와 시험 Chrome은 종료했다. 제품 회귀 테스트나 실제 서버 재측정은 실행하지 않았다.
+당시 측정 도구 `measure-browser.cjs`의 최종 실행은 `PASS: same final segment IDs with measurement enabled and disabled`로 끝났다. 결과 파일 `browser-results.json`에 최종 표본, `browser-results-first.json`에 타이머와 source 내용 검사를 추가하기 전 표본을 보존했다. 임시 Vite 서버와 시험 Chrome은 종료했다. 제품 회귀 테스트나 실제 서버 재측정은 실행하지 않았다.
 
-변경분 반영 비교는 같은 도구의 아래 명령으로 실행한다. 브라우저 내 비교 코드는 같은 디렉터리의 `compare-updates.cjs`에 분리했다. 둘 다 로컬 진단용이며 제품 테스트 파일을 추가한 것이 아니다.
-
-```bash
-node _workspace/client-stage-cost-20261007.IwV6WB/measure-browser.cjs --compare-updates
-```
+변경분 반영 비교는 `measure-browser.cjs`의 `--compare-updates` 옵션으로 실행했다. 브라우저 내 비교 코드는 별도 파일 `compare-updates.cjs`로 분리했다. 둘 다 로컬 진단용이며 제품 테스트 파일을 추가한 것이 아니다.
 
 최종 출력은 `PASS: all update modes match full-rebuild geometry and properties`다. `update-comparison-results.json`에 최종 12조건, `update-comparison-individual-removal.json`에 개별 삭제로 실패한 12조건, `update-comparison-attempt1.json`에 오류 수집 보완 전의 부분 결과를 보존했다. 진단 스크립트의 `node --check`도 통과했다. 서버·제품 코드는 변경하지 않았고 시험 Vite·Chrome은 종료했다.
 
-1차 제품 수정의 변환 비교는 `node _workspace/client-stage-cost-20261007.IwV6WB/measure-browser.cjs --compare-mapping`으로 실행했다. `mapping-reuse-results.json`에 표본을 보존했고 `PASS: production mapper values, current positions and unchanged object reuse`로 완료했다. 이 명령은 실제 변환 함수를 비교하며 MapLibre 렌더링이나 HTTP 시간을 측정하지 않는다. 시험 Vite·Chrome은 종료했다.
+1차 제품 수정의 변환 비교는 `measure-browser.cjs`의 `--compare-mapping` 옵션으로 실행했다. `mapping-reuse-results.json`에 표본을 보존했고 `PASS: production mapper values, current positions and unchanged object reuse`로 완료했다. 이 비교는 실제 변환 함수를 비교했으며 MapLibre 렌더링이나 HTTP 시간을 측정하지 않았다. 시험 Vite, Chrome은 종료했다.

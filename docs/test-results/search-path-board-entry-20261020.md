@@ -60,4 +60,3 @@
 - 새 좌표 반영(목표 3초)은 이번 변경 뒤 재지 않았다.
 - 배포 직후 측정(5.30초)에서는 경로 응답이 1회 약 1초 늦었다. 서버가 덜 데워진 영향으로 보이나 확인하지 않았다.
 - 남은 큰 구간은 경로 서버 처리(약 2.3초)와 지도 반영(약 1.8초)이다.
-- 원본(비공유, 로컬): `_workspace/path-diagnosis-review-20261013/tasks/`의 `real-server-baseline/003~008`, `array-point-read/`, `map-reflection-breakdown/001~008`, `map-path-runs/`, `path-prefetch/`.

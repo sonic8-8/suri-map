@@ -54,4 +54,4 @@ Aside에서 루트 주소를 처음 열었을 때 예전 `index-CxihtpDv.js`를 
 
 제품 변경, 새 배포, 커밋, 푸시는 하지 않았다. 이번에는 실행 환경 진단만 했으므로 제품 단위 테스트, 빌드를 다시 실행하지 않았다. 기존 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)의 성능 문제는 해결 완료가 아니다.
 
-자료: 로컬 비공유 `_workspace/map-initialization-diagnosis-20261008.2iQF5V/`. `probe-aside.cjs <시험 탭 target ID> <기록명>`과 `probe-chrome.cjs <임시 시험 세션 파일> [--measured]`로 재검사할 수 있다. 전자는 살아 있는 Aside 시험 탭, 후자는 유효한 시험 계정 세션이 필요하다. JSON에는 집계값만 기록하고 토큰·좌표 응답은 넣지 않았다. `list-repeat.json`은 활성화·캡처 호출과 관찰이 겹쳐 독립 비교 근거에서 제외했다.
+당시 측정 스크립트는 저장소에 보존하지 않았다. 당시 Aside 측정(`probe-aside.cjs`)은 시험 탭 target ID와 살아 있는 Aside 시험 탭, 독립 Chrome 측정(`probe-chrome.cjs`)은 유효한 시험 계정 세션 파일이 필요했다. JSON에는 집계값만 기록하고 토큰, 좌표 응답은 넣지 않았다. `list-repeat.json`은 활성화, 캡처 호출과 관찰이 겹쳐 독립 비교 근거에서 제외했다.

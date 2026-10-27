@@ -41,7 +41,7 @@
 - 실행기: 14:40:43~14:52:37 KST. 관찰기 구간은688.603초이며 마지막 응답 이후 무진전 대기30초를 포함한다. 실행기 종료까지의 폴링 대기는 위657.420초에 넣지 않았다.
 - 기존 Backend·Frontend 이미지와 시작 시각, FCM mock, 응답 한도(경로당1·전체80구간·480좌표)를 유지했다. 선택80경로의 경로·구간·GPS 해시가 전후·후속 확인에서 같았다. 전체 DB 무변경 검증은 아니다.
 - 조회 감사는796건 증가했다. 경로793건+상황판 GET3건과 합계가 맞지만 요청별 ID 조인은 아니다. 그 밖에 타일18건, 사건 상세3건, 사건 목록2건과 SSE 종료 IOException 집계4건 등이 증가했다. 이 SSE 집계만으로 전달 장애를 확정하지 않는다.
-- 14:52:58과14:53:48 KST 서버 표본에서 경로 요청 카운터와 조회 감사가 더 증가하지 않았다. 사용자 탭은 닫지 않았고 사건 목록에 남겼다. 임시 관찰기는 문서 교체로 제거됐으며 측정 기록은 로컬 파일과 탭 sessionStorage에 보존한다.
+- 14:52:58과14:53:48 KST 서버 표본에서 경로 요청 카운터와 조회 감사가 더 증가하지 않았다. 사용자 탭은 닫지 않았고 사건 목록에 남겼다. 임시 관찰기는 문서 교체로 제거됐으며 측정 기록은 당시 로컬 파일과 탭 sessionStorage에 보존했다.
 - 실제 회수의 page copy는0~0.5ms, CLI 왕복은613~1,315ms였다. page copy가 요청 공백과 겹친 표본은0개다. JSON 직렬화·전송 비용 전체가 없다는 뜻은 아니며, CLI 시간을 제품 CPU 시간으로 더하지 않는다. 문서 교체 후 마지막 회수의 상대 시각은 비교 불가로 제외했다.
 - 준비 단계에서 새 기록 형식·미완료 행 복원·시간 기준 변환·중단 중 회수·가짜 증가분40건 전달을 검사했다. 실제 멈춘 WSL CLI의 강제 종료와 디스크 중간 행 손상 복원은 미검증이다.
 
@@ -49,6 +49,6 @@
 
 ## 로컬 근거
 
-비공유 `_workspace/path-diagnosis-review-20261013/tasks/off-sequence/003/`에 `raw.json`, `checkpoints.jsonl`, `analysis.json`, `verification.json`, `before.json`, `after.json`, `settled.json`을 보존했다. `run.cjs`는 기존 실행기를 재사용했고 `analyze.cjs`·`check.cjs`·`deadline-check.cjs`·`browser-check.cjs`·`server.py`는 이 진단의 실행·검산용이다. 준비 검수는 `tasks/normal-tab-off-plan-review/001/`에 있다.
+`run.cjs`는 기존 실행기를 재사용했고 `analyze.cjs`, `check.cjs`, `deadline-check.cjs`, `browser-check.cjs`, `server.py`는 이 진단의 실행, 검산용이다. 준비 검수 기록은 당시 로컬에 보존했다.
 
-`node _workspace/path-diagnosis-review-20261013/tasks/off-sequence/003/summarize.cjs --check`로 저장된 분석의 동일성과 시간 합계를 재검사한다. 옵션 없이 실행하면 같은 분석과 `server-timing.json`의 계산값을 재생성해 stdout으로 출력한다. 별도 Luna 검산은 `independent-check.json`에 보존했다. 793개 원시 시간·24회 회수 복원·선택 원본·감사 증가의 재계산이 일치했으며 전체 지도 정합성 검증과는 구분한다.
+당시 측정 스크립트는 저장소에 보존하지 않았다. 당시 `summarize.cjs --check`는 저장된 분석의 동일성과 시간 합계를 재검사했고, 옵션 없이 실행하면 같은 분석과 `server-timing.json`의 계산값을 재생성해 stdout으로 출력했다. 별도 Luna 검산은 `independent-check.json`에 보존했다. 793개 원시 시간, 24회 회수 복원, 선택 원본, 감사 증가의 재계산이 일치했으며 전체 지도 정합성 검증과는 구분한다.

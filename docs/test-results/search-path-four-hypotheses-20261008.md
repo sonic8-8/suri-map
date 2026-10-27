@@ -94,7 +94,7 @@
 
 ## 보존 자료와 미완료 범위
 
-로컬 비공유 `_workspace/path-hypotheses-20261008.7QogCy/`에 아래 자료를 보존했다.
+당시 로컬에 아래 자료를 보존했다.
 
 - 응답 한도: `runtime.cjs`, `run-configured-history.cjs`, `run-history.cjs`, `probe-coordinate-cap.cjs`, `summarize-history.cjs`, `per-path-4/`, `larger-page/`.
 - 준비 상태: `compare-readiness.cjs`, `readiness-queries.json`, `readiness-comparison.json`.
@@ -145,7 +145,7 @@
 | 기본 `tolerance: 0.375` | 0 | 0 |
 | `tolerance: 0` | 36 | 9 |
 
-타일 feature 36개는 타일별 중복을 포함하므로 고유 구간 36개라는 뜻이 아니다. 두 대조 source의 입력은 같은 9구간이다. 임시 source·레이어는 대조 후 제거했고 브라우저도 종료했다. 실행기의 마지막 `PASS` 문구는 당시 공용 종료 문구였으며, 신규 쓰기·전체 이력 완료의 통과를 뜻하지 않는다. 이 대조의 근거는 `map-diagnostic.json`의 실제 결과이며 종료 문구도 검사 종류에 맞게 수정했다.
+타일 feature 36개는 타일별 중복을 포함하므로 고유 구간 36개라는 뜻이 아니다. 두 대조 source의 입력은 같은 9구간이다. 임시 source와 레이어는 대조 후 제거했고 브라우저도 종료했다. 실행기의 마지막 `PASS` 문구는 당시 공용 종료 문구였으며, 신규 쓰기와 전체 이력 완료의 통과를 뜻하지 않는다. 이 대조의 근거는 당시 `map-diagnostic.json`에 기록한 실제 결과이며 종료 문구도 검사 종류에 맞게 수정했다.
 
 [지도 source 생성](../../frontend/src/features/situationBoard/presentation/components/map/SearchMapCanvas.tsx)은 경로 source의 단순화 값을 지정하지 않는다. 설치된 MapLibre 5.24.0의 기본값은 0.375이며, `@maplibre/geojson-vt` 6.1.0의 타일 생성기는 단순화 기준보다 짧은 선을 타일에 넣지 않는 분기를 가진다. 전체 경로를 짧은 개별 구간으로 표시하는 현재 방식에서는 여러 구간을 이어 봐야 하는 경로도 작은 축척에서 빠질 수 있다. 이번 같은 입력의 대조는 그 조건에서 단순화가 누락을 일으킨다는 근거다.
 
@@ -153,7 +153,9 @@
 
 ### 자료와 정리 상태
 
-- 같은 진단 디렉터리의 `baseline-with-new-gps-retry/`: 전체 진행 기록·수신 ID·쓰기 결과·실패 판정.
+당시 로컬에 아래 자료를 보존했다.
+
+- `baseline-with-new-gps-retry/`: 전체 진행 기록, 수신 ID, 쓰기 결과, 실패 판정.
 - `new-gps-short-probe/`, `new-gps-map-diagnostic/`: 짧은 재현의 상세 보고서·좌표 검사·화면·지도 데이터 진단.
 - `map-simplification-control/map-diagnostic.json`: 같은 좌표의 단순화 대조. 실제 픽셀 색 검사가 아니라 MapLibre의 화면 feature 조회 결과다.
 - `prepare-preserved-writer.py`, `append-preserved-path.py`, `run-history.cjs`: 비공유 진단 도구. 별도 제품 테스트나 영구 실행 도구로 추가하지 않았다.
@@ -182,7 +184,7 @@
 
 모든 실행에서 source 수신 개수·입력 보존·추가 좌표 일치 검사가 통과했다. 표시 여부는 MapLibre의 화면 feature 조회로 확인했으며 픽셀 색 검사는 아니다. 기본값이 빠른 것은 표시해야 할 선이 사라진 상태이므로 유효한 성능 개선으로 볼 수 없다. 반대로 수정값의 약 2.25초도 현장 사용 목표를 충족했다고 판단하지 않는다.
 
-이 비교는 배경 타일 없는 독립 지도에 합성 데이터를 넣은 라이브러리 수준 검사다. 실제 상황판의 HTTP·React·SSE·사용자 GPU·초기 로딩 중 연속 갱신 비용을 포함하지 않는다. 로컬 비공유 `_workspace/path-render-fix-20261008.Xu3zcf/`에 `compare-rendering.cjs`와 `render-comparison.json`을 보존하고 브라우저·로컬 HTTP 서버를 종료했다.
+이 비교는 배경 타일 없는 독립 지도에 합성 데이터를 넣은 라이브러리 수준 검사다. 실제 상황판의 HTTP, React, SSE, 사용자 GPU, 초기 로딩 중 연속 갱신 비용을 포함하지 않는다. `compare-rendering.cjs`와 `render-comparison.json`을 보존하고 브라우저, 로컬 HTTP 서버를 종료했다.
 
 **표시 누락은 로컬 수정·회귀 검사까지 완료했고, 실제 배포본 재검증은 남았다.** 전체 이력 수신에 약 16분이 걸린 문제는 해결하지 않았다. 배포 후 기존·신규 구간 표시를 먼저 확인하고, 응답 한도별 시간 비교와 GPS 범위 일괄 조회의 실제 Mapper·Service 구현을 이어간다.
 

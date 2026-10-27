@@ -36,7 +36,7 @@ curl --silent --show-error --max-time 20 --request OPTIONS \
   https://suri-map.sonic8-8.com/api/markers
 ```
 
-20초는 명령의 대기 한도이지 서비스 응답 시간 목표가 아닙니다. [최초 브라우저 거부 로그](../../_workspace/sse-order-verify-20260928.a9Jz2s/browser-cors-attempt.log)는 로컬에 보존했습니다.
+20초는 명령의 대기 한도이지 서비스 응답 시간 목표가 아닙니다.
 
 # 댓글
 
@@ -62,7 +62,7 @@ curl --silent --show-error --max-time 20 --request OPTIONS \
 
 PATCH·DELETE의 OPTIONS도 현재 출처에서는 403, 기존 허용 출처에서는 200이었습니다. 409는 저장 성공이 아니라 데이터 변경을 막는 의도된 거부입니다. 출처 변경·생략은 원인 비교용 HTTP 검사이며 브라우저 보안을 우회하는 해결책이 아닙니다.
 
-진단 전후 마커 9개, 전송 작업 608개, 대상 버전 1과 전체 마커 내용 해시가 같았습니다. [재현 스크립트](../../_workspace/cors-web-verify-20260928.oUuoni/verify-browser-cors.cjs)는 당시 CORS 거부 때문에 종료 코드 1로 실패했습니다. 인증 정보, 좌표 원문 없이 남긴 [진단 로그](../../_workspace/cors-web-verify-20260928.oUuoni/browser.log)와 함께 보존했습니다.
+진단 전후 마커 9개, 전송 작업 608개, 대상 버전 1과 전체 마커 내용 해시가 같았습니다. 재현 스크립트는 당시 CORS 거부 때문에 종료 코드 1로 실패했습니다. 인증 정보, 좌표 원문 없이 남긴 진단 로그와 함께 보존했습니다.
 
 ### 확인한 원인: 외부 HTTPS 요청을 내부 HTTP 요청으로 판정
 
@@ -97,7 +97,7 @@ Backend에는 `server.forward-headers-strategy: native`를 설정해 Tomcat의 �
 
 Backend는 Docker의 `gradle:8.14.3-jdk17`에서 `./gradlew --offline --no-daemon spotlessJavaApply test -PspotlessIdeHook=/workspace/backend/src/test/java/com/surimap/config/TomcatProxyTest.java --console=plain`으로 검증했습니다. 새 테스트 파일만 포맷했습니다. WSL의 Java 루프백 소켓 연결 실패는 통과로 계산하지 않고 Docker에서 실제 HTTP·DB 검사를 수행했습니다.
 
-[프록시 검사 스크립트](../../_workspace/cors-fix-20260928.heWyQO/verify-local-proxy.cjs)와 [결과](../../_workspace/cors-fix-20260928.heWyQO/proxy-check.log)는 로컬 전용입니다. 격리 컨테이너를 재구성해야 하며 실제 로그인, 마커 저장, 화면 갱신 시험과 구분합니다.
+당시 프록시 검사 스크립트는 격리 컨테이너를 재구성해야 실행할 수 있었으며, 이 검사는 실제 로그인, 마커 저장, 화면 갱신 시험과 구분합니다.
 
 ### 배포 후 화면 검사: 위치 보정과 다른 탭의 지도 갱신 성공
 
@@ -121,6 +121,6 @@ Backend는 Docker의 `gradle:8.14.3-jdk17`에서 `./gradlew --offline --no-daemo
 
 마커는 9개를 유지했고 대상의 원래 좌표·메모와 나머지 마커는 보존했습니다. 다만 정상 수정 API를 거쳤으므로 대상 버전은 1→9, 상태는 `ACTIVE`→`UPDATED`로 바뀌었고 수정 시각도 남았습니다. 같은 좌표 저장·복원 6개와 최종 위치 보정·복원 2개로 전송 작업이 608→616개가 됐으며, 새 순번 17–24는 모두 `COMPLETED`입니다. 기존 작업 608개의 내용 해시는 같고 migration은 41개를 유지했습니다. 이력을 삭제하거나 DB를 직접 되돌리지는 않았습니다.
 
-배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T213452Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. [배포, 실행 명령, 로그, 저장 화면과 다른 탭의 갱신 화면](../../_workspace/cors-deploy-20260928.N6c4HK/RESULTS.md)은 로컬 전용 자료입니다. 최종 성공 로그는 `position-correction-verified.log`이며 앞선 실패 로그도 보존했습니다. `verify-position-correction.cjs`를 다시 실행하면 같은 마커를 수정, 복원하고 이력을 추가하므로 읽기 전용 검사가 아닙니다.
+배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T213452Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. 최종 성공 로그는 `position-correction-verified.log`였으며 앞선 실패 로그도 당시 보존했습니다. 당시 `verify-position-correction.cjs`는 같은 마커를 수정, 복원하고 이력을 추가해 읽기 전용 검사가 아니었습니다.
 
 이번 CORS 문제의 배포·화면 검증은 마쳤습니다. 과거 출처 허용 목록 정리, 실제 삭제 완료·Android·FCM·부하, DB 이력 재전송·서버 재시작 복구는 별도 범위입니다. 배포 후 기록은 아직 추가 커밋하지 않았으며 이 이슈를 GitHub에 등록하지도 않았습니다.

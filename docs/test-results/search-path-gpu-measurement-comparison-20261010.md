@@ -57,16 +57,11 @@ Aside의 Windows 브라우저에서도 Intel Iris Xe를 확인했지만, 지도 
 
 ## 보존 자료와 종료 상태
 
-비공유 `_workspace/board-measurement-gpu-20261010.QxV8d9/`에 `probe.cjs`, `summarize.cjs`, 조건별 `report.json`·`summary.json`, `comparison.json`, DB 대조 결과와 일부 화면 캡처를 보존했다. 요약기는 요청 종류·개수·수신/표시 ID·화면 조건·순차 요청을 assert로 검사한다. 기존 로그인·DB 확인 도구를 재사용했으며 별도 테스트 프레임워크나 의존성을 추가하지 않았다.
+요약기는 요청 종류, 개수, 수신/표시 ID, 화면 조건, 순차 요청을 assert로 검사한다. 기존 로그인, DB 확인 도구를 재사용했으며 별도 테스트 프레임워크나 의존성을 추가하지 않았다.
 
-실행한 WSL 명령은 아래와 같다. `on`을 `off`로 바꾸면 제품 계측을 끈다.
+측정은 WSL에서 실행했고, 인자를 `on`과 `off`로 바꿔 제품 계측을 켜고 껐다. 당시 측정 스크립트는 저장소에 보존하지 않았다.
 
-```sh
-node _workspace/board-measurement-gpu-20261010.QxV8d9/probe.cjs on 60
-node _workspace/board-measurement-gpu-20261010.QxV8d9/summarize.cjs
-```
-
-Windows에서는 같은 파일의 UNC 경로를 `node.exe`로 실행했다. `--software`를 추가한 실행만 SwiftShader를 강제한다. 재실행 전에는 저장한 DB ID 목록과 현재 DB를 다시 대조하고 유효한 비공개 시험 세션을 준비해야 한다. 이번에 만든 세션 사본은 완료 뒤 제거했으며 원래 로그인 계정 파일은 유지했다.
+Windows에서는 같은 측정 스크립트 `probe.cjs`를 UNC 경로로 지정해 `node.exe`로 실행했다. `--software`를 추가한 실행만 SwiftShader를 강제했다. 당시 측정에는 저장한 DB ID 목록과 현재 DB의 대조, 유효한 비공개 시험 세션이 필요했다. 이번에 만든 세션 사본은 완료 뒤 제거했으며 원래 로그인 계정 파일은 유지했다.
 
 종료 시 경로 481개·GPS 341,027개·구간 57,090개와 대상 경로 마지막 순번 767이 유지됐다. 이전 시험의 추가 18좌표·3구간을 제외한 원본 전체 컬럼 해시와 대상 외 경로 480개의 해시가 시작 시점과 같았다. 조회 감사 기록까지 포함한 DB 전체 무변경 검사로 해석하지 않는다.
 

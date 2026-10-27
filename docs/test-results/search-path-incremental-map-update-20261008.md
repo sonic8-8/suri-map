@@ -55,10 +55,8 @@ Node 22.22, Chrome 147, MapLibre 5.24, TanStack Query 5.100.6으로 실행했다
 
 ## 로컬 재현 자료
 
-```bash
-node _workspace/client-stage-cost-20261007.IwV6WB/measure-browser.cjs --verify-production-source --reverse
-```
+당시 측정 스크립트는 저장소에 보존하지 않았다.
 
-진단 코드는 같은 디렉터리의 `verify-production-source.cjs`, 최종 원자료는 `production-source-reverse-results.json`이다. 정순 결과는 `production-source-results.json`, 재로딩 중단 결과는 `production-source-interrupted.json`에 구분해 보존했다. `_workspace` 자료는 Git으로 공유하지 않는 로컬 진단용이다.
+진단은 `measure-browser.cjs`의 `--verify-production-source --reverse` 옵션으로 실행했다. 진단 코드는 `verify-production-source.cjs`, 최종 원자료는 `production-source-reverse-results.json`이었다. 정순 결과는 `production-source-results.json`, 재로딩 중단 결과는 `production-source-interrupted.json`에 구분해 보존했다.
 
 최종 출력은 `PASS: production source content, current positions, draw order and pixels (measurement off/on)`이다. 임시 Vite 서버와 시험 Chrome은 종료했다.

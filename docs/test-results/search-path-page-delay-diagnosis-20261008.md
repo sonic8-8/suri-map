@@ -50,8 +50,9 @@
 
 같은 사건·차수의 481경로를 유지하되, 마지막 한 경로에 4구간만 남은 진행 상태로 실제 배포 API를 호출했다. 지도는 열지 않았다. 두 실행 모두 200 응답으로 1구간씩 4번 받았으며, 각각 2.558초·3.102초가 걸렸다.
 
+당시 측정 스크립트는 저장소에 보존하지 않았다.
+
 ```text
-node _workspace/path-delay-diagnosis-20261008.WGWXUU/reproduce-tail.cjs <시험 세션 JSON>
 RED: four remaining segments require four serial HTTP round trips.
 ```
 
@@ -69,7 +70,7 @@ RED: four remaining segments require four serial HTTP round trips.
 2. 준비 상태 검사의 반복 범위와 구간별 GPS 조회를 줄일 방법을 검토한다. 검사 생략이나 캐시 도입을 먼저 확정하지 않는다.
 3. 실제 표시를 유지한 브라우저에서 누적 후반의 계산 비용을 분리한다. 소프트웨어 그래픽 대기를 제품 JavaScript 병목으로 오인하지 않는다.
 
-로컬 비공유 `_workspace/path-delay-diagnosis-20261008.WGWXUU/`에 보존했다. 진단용 파일이며 제품 테스트에 추가하지 않았다.
+당시 아래 진단용 파일을 로컬에 보존했으며 제품 테스트에 추가하지 않았다.
 
 - API 재현: `prepare-tail.cjs`, `reproduce-tail.cjs`, `tail-*.json`.
 - 서버·DB 대조: `compare-origin.cjs`, `database.cjs`, `explain-page.cjs`, `origin-results.json`, `sql-plans.json`.

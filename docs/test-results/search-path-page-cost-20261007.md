@@ -50,12 +50,12 @@
 
 ## 재집계와 원본
 
-브라우저 원본: `_workspace/image-preservation-20261007.MTKcce/final-observation.json`.
+당시 측정 스크립트는 저장소에 보존하지 않았다.
 
-로컬 분석 디렉터리: `_workspace/path-page-cost-20261007.5lX431/`.
+당시 로컬에 아래 자료를 보존했다.
 
-- `node _workspace/path-page-cost-20261007.5lX431/analyze-trace.cjs`: 요청·페이지 종류 대응, 비중첩, 수신 구간 합계와 마지막 73개 응답을 검사한 뒤 시간을 집계한다. 실행 성공. 성능 통과 판정용 검사는 아니다.
-- `trace-summary.json`: 위 명령의 집계 결과.
+- `analyze-trace.cjs`: 요청, 페이지 종류 대응, 비중첩, 수신 구간 합계와 마지막 73개 응답을 검사한 뒤 시간을 집계한다. 실행 성공. 성능 통과 판정용 검사는 아니다.
+- `trace-summary.json`: `analyze-trace.cjs`의 집계 결과.
 - `query-plans.sql`, `query-plans.txt`: 실제 서버에 실행한 읽기 전용 SQL과 실행 계획. 실행 성공, 트랜잭션 롤백 확인.
 
 ## 경로당 4구간 시험과 중단
@@ -83,4 +83,4 @@
 
 다음 실행에서는 같은 화면 크기·지도 범위·초기화 조건을 먼저 고정하고 경로 전달·렌더링 계측이 가능한지 확인한다. 그 뒤 페이지 한도별 전체 수신과 DB 구간 ID 대조를 다시 진행한다. 이번 부분 실행으로 성능 개선이나 문제 해결을 판정하지 않는다.
 
-자료는 `_workspace/path-page-limit-20261007.OleF9V/`에 보존했다. `observation-199.json`은 4구간, `per-path-1-91.json`은 원복 후 관측이며 `per-path-4-partial.png`는 4구간 실행 중 캡처다. `start-observation.cjs`는 Aside REPL 입력, `collect-observation.cjs`는 수집 명령이다. `check-config.py`·`per-path-4.yml`의 서버 사본은 `/srv/apps/suri-map/backups/path-page-limit-20261007/`에 있으며 현재 실행에는 override를 적용하지 않았다.
+당시 로컬에 보존한 `observation-199.json`은 4구간, `per-path-1-91.json`은 원복 후 관측이었고 `per-path-4-partial.png`는 4구간 실행 중 캡처였다. `start-observation.cjs`는 Aside REPL 입력, `collect-observation.cjs`는 수집 명령이었다. `check-config.py`, `per-path-4.yml`의 서버 사본은 `/srv/apps/suri-map/backups/path-page-limit-20261007/`에 있으며 현재 실행에는 override를 적용하지 않았다.

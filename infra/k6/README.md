@@ -428,7 +428,7 @@ SSE 수신마다 조회가 새로 시작되거나 조회 응답마다 지도 갱
 저장소 루트에서 실행한다. 계정 파일은 아래 준비 도구가 만든 비공개 파일이며 출력 디렉터리는 아직 없어야 한다.
 
 ```bash
-node infra/k6/observe-situation-board.cjs ACCOUNT.json _workspace/board-observation-new 300
+node infra/k6/observe-situation-board.cjs ACCOUNT.json .scratch/situation-board-load/observation-new 300
 node infra/k6/observe-situation-board.cjs --self-check
 ```
 
@@ -463,7 +463,7 @@ GPS·마커 쓰기와 전송 전 FCM 검사, 요청 좌표 해시·화면 범위
 
 ```bash
 node infra/k6/observe-situation-board.cjs \
-  ACCOUNT.json _workspace/board-run-new 300 OPS_SSH_ALIAS NEW_RUN_ID
+  ACCOUNT.json .scratch/situation-board-load/run-new 300 OPS_SSH_ALIAS NEW_RUN_ID
 ```
 
 호스트·실행 ID를 생략하면 기존 읽기 전용 관찰이다. 지정하면 준비 확인 후 Ops의 GPS 쓰기를 시작한다. 새 실행 ID·출력 디렉터리를 사용하며 기존 파일·컨테이너를 덮어쓰지 않는다.
@@ -474,7 +474,7 @@ Frontend·로컬 관찰기·Ops 실행기는 같은 변경 버전으로 준비�
 
 ```bash
 node infra/k6/observe-situation-board.cjs \
-  ACCOUNT.json _workspace/board-run-new 300 OPS_SSH_ALIAS NEW_RUN_ID APP_SSH_ALIAS_ON_OPS
+  ACCOUNT.json .scratch/situation-board-load/run-new 300 OPS_SSH_ALIAS NEW_RUN_ID APP_SSH_ALIAS_ON_OPS
 ```
 
 - Ops의 같은 디렉터리에 `situation-board-write-load.js`, `prepare-situation-board-marker-fixtures.py`, `prepare-situation-board-account.py`, `prepare-search-path-batch-fixtures.py`도 둔다. App의 안전 검사는 아래 제한된 SSH 경로를 사용한다. Ops→App의 비대화형 SSH가 필요하다.

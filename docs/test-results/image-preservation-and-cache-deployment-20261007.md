@@ -63,7 +63,7 @@ Backend CI 1,415개가 통과했다. JUnit XML 222개, 실패·오류·건너뜀
 
 반복 조회 사이 대기가 줄었지만 HTTP 시간도 달라졌다. 같은 서버·데이터·설정에서 각각 한 번 측정한 결과이며 지도 타일 캐시·브라우저 초기화·네트워크 상태까지 통제한 실험은 아니다. 전체 개선량을 캐시 수정만의 효과로 해석하지 않는다. 첫 렌더 계측은 화면 범위 안의 일부 경로 표시이며 전체 이력 표시 완료를 뜻하지 않는다.
 
-이 시점의 비교 자료는 `_workspace/image-preservation-20261007.MTKcce/matched-339.json`, 이전 표본은 `_workspace/path-pages-web-20261007.uzmPgh/read-observation.json`이다. 추가로 수정 후 458.097초 표본에서는 35,440구간을 받았다. 이전 457.043초 표본과 시각이 정확히 같지는 않다.
+추가로 수정 후 458.097초 표본에서는 35,440구간을 받았다. 이전 457.043초 표본과 시각이 정확히 같지는 않다.
 
 ## 전체 이력 완료와 남은 지연
 
@@ -84,11 +84,11 @@ Backend CI 1,415개가 통과했다. JUnit XML 222개, 실패·오류·건너뜀
 
 관찰 후 계측을 끄고 사건 목록으로 이동했다. 경로 요청 수 793건이 두 번의 확인에서 유지됐고, 이번 시험용 탭만 닫았다. Backend health UP·앱 3개 실행·mock-112 healthy, 원본 경로·구간·GPS의 건수와 기존 fingerprint 해시가 배포 후 값과 같은 것을 확인했다. 새 쓰기 Smoke·본 부하는 아직 하지 않았다.
 
-원본은 같은 로컬 디렉터리의 `history-finished.json`, `final-observation.json`, `submitted-id-check.json`, `complete-snapshot.txt`, `cache-after-complete.png`에 보존했다. 캡처는 전체 데이터 수신 후 보이는 화면이며 모든 도형의 렌더링 완료 근거로 대신하지 않는다.
+원본은 당시 로컬 파일 `history-finished.json`, `final-observation.json`, `submitted-id-check.json`, `complete-snapshot.txt`, `cache-after-complete.png`에 보존했다. 캡처는 전체 데이터 수신 후 보이는 화면이며 모든 도형의 렌더링 완료 근거로 대신하지 않는다.
 
 ## 보존 위치와 후속 작업
 
 - App: `/srv/apps/suri-map/backups/path-cache-dc461996.VW0ugH/`. 복구 이미지 아카이브 SHA-256 `456e9cc9cecfb0c88d1a8be4a66bf8ede0bf5aba74595bb1580160b7d8e8258b`.
 - 최종 DB 백업: 같은 디렉터리의 `suri-map-before-load-20261006T212650Z.dump`, 14,435,366바이트·권한 600·SHA-256 `684c7a434ee6a68673379a4fa2f197d5ffe8d390538a6546ab643afd10348d66`.
-- 로컬 재현 도구: `_workspace/image-preservation-20261007.MTKcce/`. Jenkins 기존 설정은 Ops 컨테이너의 `/var/jenkins_home/image-preservation.shPwj2/config-before.xml`에 비공개 보존했다.
+- Jenkins 기존 설정은 Ops 컨테이너의 `/var/jenkins_home/image-preservation.shPwj2/config-before.xml`에 비공개 보존했다.
 - 다음은 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)의 남은 전체 이력 지연을 페이지 수와 브라우저 처리 비용으로 나눠 비교하는 것이다. 이후 차수 전환, 새 좌표, 재접속 Smoke와 본 부하를 진행한다. 이번 infra, 기록 변경은 미커밋이며 새 파이프라인 전체 실행은 다음 빌드에서 확인해야 한다.

@@ -19,7 +19,7 @@
 
 ## 정확성 검증
 
-2026-10-07 커밋 준비 중 Backend 전체를 다시 실행했다. Docker 안의 `./gradlew --no-daemon test --console=plain`이 5분 44초에 완료됐으며, 222개 XML·1,413개 테스트에서 실패·오류·건너뜀은 0개다. 기본 performance 태그는 제외했다. 원본은 `_workspace/sse-nonblocking-impl-20260929.DOocJf/run.h9Ju1T/`에 있다. 실제 서버의 Flyway 적용·HTTP·브라우저 연결 검증은 아니다.
+2026-10-07 커밋 준비 중 Backend 전체를 다시 실행했다. Docker 안의 `./gradlew --no-daemon test --console=plain`이 5분 44초에 완료됐으며, 222개 XML, 1,413개 테스트에서 실패, 오류, 건너뜀은 0개다. 기본 performance 태그는 제외했다. 실제 서버의 Flyway 적용, HTTP, 브라우저 연결 검증은 아니다.
 
 | 실행 | 결과 |
 |---|---|
@@ -46,7 +46,7 @@
 각 후보는 512MiB 테스트 JVM, JaCoCo 비활성, 다른 전체 테스트를 마친 뒤 순서대로 실행했다.
 최초 페이지의 Service 호출 시간과 공개 HTTP DTO 변환·JSON 직렬화를 분리했다.
 HTTP 네트워크, 압축, SSE, 브라우저 표시, 전체 이력 완료 시간은 포함하지 않는다.
-로그에는 각 표본의 시간·응답 크기·경로/구간/좌표 수가 남아 있다.
+당시 로그에는 각 표본의 시간, 응답 크기, 경로/구간/좌표 수를 기록했다.
 
 | 시험 한도: 경로 / 구간 / 좌표 / 경로당 구간 | 실제 반환 | 조회 시간 중앙값 (범위) | 직렬화 중앙값 | JSON 크기 |
 |---|---|---|---|---|
@@ -75,7 +75,7 @@ HTTP 네트워크, 압축, SSE, 브라우저 표시, 전체 이력 완료 시간
 - 최종 `./gradlew --no-daemon test --console=plain`: Docker에서 **222개 XML·1,415개 테스트 통과**, 실패·오류·건너뜀 0, 5분 59초. 기본 performance 태그 제외.
 - 변경 Java 3개 파일의 Spotless 적용·검사 통과. 실제 서버 HTTP·브라우저 연결이나 서버 migration은 하지 않았다.
 
-실행 원본은 `_workspace/sse-nonblocking-impl-20260929.DOocJf/` 아래의 `run.t2kWu2`(Controller 실패), `run.p6RvEa`(Controller 통과), `run.hEz04C`(Service 통과), `run.jOoYr1`(최종 전체)이다. 웹 소비와 캐시 보완은 [프런트엔드 검증 기록](search-path-pages-frontend-20261007.md#코드-리뷰에서-발견한-문제와-수정)에 구분했다.
+웹 소비와 캐시 보완은 [프런트엔드 검증 기록](search-path-pages-frontend-20261007.md#코드-리뷰에서-발견한-문제와-수정)에 구분했다.
 
 ## 이번 변경 파일
 
@@ -94,13 +94,9 @@ HTTP 파일은 `api/controller/path`, Service 파일은 `api/service/path`, 오�
 이전부터 있던 저장 단계·쓰기 경합 수정·문서 변경은 보존했으며 이번 작업의 신규 변경으로 계산하지 않는다.
 로컬 작업 메모와 검증 원본은 Git 공유 대상이 아니다.
 
-## 로컬 실행 원본
+## 실행 방법
 
-- 전체 최종: `_workspace/sse-nonblocking-impl-20260929.DOocJf/run.srzPyL/`
-- 상수 재사용 후 관련 재검사: 같은 상위 경로의 `run.vdGvur/`
-- 전체 최초 실패: 같은 상위 경로의 `run.F2QK6I/`
-- 최초 빈 조회 실패/통과: `run.eogeQ9/`, `run.go12tE/`
-- 최종 측정: `_workspace/path-pages-20261006.pZeTfR/measure.x7S9j0/`, `measure.8ooJ5f/`, `measure.HJqkJg/`
-- 실행: `bash _workspace/sse-nonblocking-impl-20260929.DOocJf/verify.sh` → Docker 안의 `./gradlew test`.
-- 측정: `bash _workspace/path-pages-20261006.pZeTfR/measure.sh` → performance 태그의 기존 Service 테스트 메서드를 실행한다.
-- 인덱스 보강 전/도중 예비 측정은 최종 표에서 제외했다. 원본은 같은 디렉터리에 남아 있다.
+- 당시 실행 원본과 측정 스크립트는 저장소에 보존하지 않았다.
+- 실행: Docker 안의 `./gradlew test`.
+- 측정: performance 태그의 기존 Service 테스트 메서드를 실행한다.
+- 인덱스 보강 전/도중 예비 측정은 최종 표에서 제외했다.

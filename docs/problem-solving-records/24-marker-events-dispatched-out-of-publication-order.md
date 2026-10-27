@@ -79,4 +79,4 @@ Flyway `20260928.001` 적용에는 14ms가 기록됐습니다. 부하 중 잠금
 
 초기 시도는 Node.js의 DNS 조회가 10.52초 걸려 10초 연결 제한으로 실패했습니다. 저장은 0건이었으며, 이후 같은 비브라우저 앱 채널 요청을 `curl`로 보내 검증했습니다. 브라우저에서 대신 POST한 시도도 CORS에 막혀 저장은 0건이었습니다. 이를 순서 수정의 실패로 합치지 않고 [문제 해결 기록 25](25-browser-post-rejected-by-cors.md)로 분리했습니다.
 
-배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T195005Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. [실행 스크립트, 성공/실패 로그, 화면 4개, 배포 식별자](../../_workspace/sse-order-verify-20260928.a9Jz2s/RESULTS.md)는 로컬 전용 자료입니다. 실제 Android, FCM, 사진, 부하와 DB 이력 재접속, 재시작 복구는 이번 검증 범위가 아닙니다. GitHub에는 등록하지 않은 로컬 이슈입니다.
+배포 전 백업 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T195005Z.dump`는 `pg_restore --list`만 확인했으며 실제 복원은 시험하지 않았습니다. 실제 Android, FCM, 사진, 부하와 DB 이력 재접속, 재시작 복구는 이번 검증 범위가 아닙니다. GitHub에는 등록하지 않은 로컬 이슈입니다.

@@ -22,7 +22,7 @@
 
 수리맵·DB·보안 필터를 제외한 최소 서버에서도 같은 로그가 나타났습니다. 초기 데이터를 받자마자 연결을 끊는 10회 검사에서는 8회 발생했지만, 반복 검사에서는 0회였습니다. 당시 오류·완료 콜백도 관측되지 않았습니다. 초기 전송과 연결 종료의 타이밍이 관련돼 보였지만, 이 결과만으로 원인이나 영구적인 리소스 누수를 확정하지 않았습니다.
 
-Spring이 초기 버퍼를 보낸 뒤 종료 콜백을 등록한다는 점에서, 전송 중 예외가 등록을 건너뛸 수 있다는 가설을 세웠습니다. 콜백은 연결의 오류, 완료 시 실행할 정리 코드입니다. [최초 비교와 소스 조사](../../_workspace/notification-followup-20260915.Ilboqt/RESULTS.md) 이후 실제 수리맵의 연결 관리 코드를 붙여 실패 위치를 확인했습니다.
+Spring이 초기 버퍼를 보낸 뒤 종료 콜백을 등록한다는 점에서, 전송 중 예외가 등록을 건너뛸 수 있다는 가설을 세웠습니다. 콜백은 연결의 오류, 완료 시 실행할 정리 코드입니다. 최초 비교와 소스 조사 이후 실제 수리맵의 연결 관리 코드를 붙여 실패 위치를 확인했습니다.
 
 ### 추가 진단: 다음 이벤트를 보낼 때 남은 연결 제거
 
@@ -37,7 +37,7 @@ Spring이 초기 버퍼를 보낸 뒤 종료 콜백을 등록한다는 점에서
 
 초기 이벤트는 서비스의 `emitter.send()` 호출 시 버퍼에 담겼다가 Controller가 반환된 뒤 실제로 전송될 수 있습니다. 계측 결과 `ResponseBodyEmitter.initialize()` → `sendInternal()`에서 `AsyncRequestNotUsableException`이 발생했고, 뒤에 있는 종료 콜백 등록까지 도달하지 못했습니다. [Spring 6.2.18 소스](https://github.com/spring-projects/spring-framework/blob/v6.2.18/spring-webmvc/src/main/java/org/springframework/web/servlet/mvc/method/annotation/ResponseBodyEmitter.java)의 실행 순서와 일치했습니다.
 
-다음 이벤트를 보내자 `SseConnectionRegistry`가 `UncheckedIOException`을 처리하며 남은 연결을 제거했습니다. 따라서 다음 전송 이후에도 남는 누수는 확인하지 않았습니다. 반면 새 이벤트가 없는 동안의 자동 정리도 확인하지 못했습니다. [재현 코드, 조건별 로그, 실패 스택](../../_workspace/sse-connection-cleanup-20260915.OVWEwb/RESULTS.md)은 로컬 전용 자료입니다.
+다음 이벤트를 보내자 `SseConnectionRegistry`가 `UncheckedIOException`을 처리하며 남은 연결을 제거했습니다. 따라서 다음 전송 이후에도 남는 누수는 확인하지 않았습니다. 반면 새 이벤트가 없는 동안의 자동 정리도 확인하지 못했습니다.
 
 ### 수정 방향: 응답 준비 후 전송과 주기적인 연결 확인을 구분
 

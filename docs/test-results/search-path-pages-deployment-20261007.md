@@ -60,7 +60,7 @@ App 서버 내부 loopback에서 순차 요청한 구간 조회 8건은 223–87
 
 첫 데이터 수신과 지도 표시 사이의 지연, 페이지 수 증가와 지도 재전달 비용을 구분해 진단할 필요가 있다. 기존 계측의 `map_data_submitted` 1,740건·`map_update_replaced` 1,734건은 모든 계측 지도 source의 합계다. 이 값만으로 지도 누락이나 원인을 확정하지 않는다. 지도에 전달한 마지막 경로 feature 수는 27,120개였지만 전체 렌더링을 검증한 것은 아니다. 계측 오버헤드·지도 초기화·화면 범위 영향도 아직 분리하지 않았다.
 
-원본은 로컬 `_workspace/path-pages-web-20261007.uzmPgh/`의 `read-observation.json`, `board-loading.png`, `board-before-stop.png`에 보존했다. 원문 좌표와 인증 정보는 측정 JSON에 저장하지 않았다.
+원문 좌표와 인증 정보는 측정 JSON에 저장하지 않았다.
 
 ## 저장한 HTTP 시간 기록의 분리
 
@@ -73,7 +73,7 @@ App 서버 내부 loopback에서 순차 요청한 구간 조회 8건은 223–87
 
 각 묶음의 요청 사이 간격은 내부 49개만 비교했다. 시간이 흐르면서 응답 사이 간격이 커졌지만, 이 간격을 모두 지도 처리나 CPU 사용 시간으로 단정할 수는 없다. 데이터 병합·화면 갱신·계측·브라우저 스케줄링 영향을 분리해야 한다. 한 번의 기록을 앞뒤로 나눈 관찰이며 통제된 성능 비교가 아니다.
 
-이 분석은 저장한 기록을 다시 집계한 것이며 새 브라우저 실행이나 재현 테스트가 아니다. 재실행 명령은 `node _workspace/path-pages-web-20261007.uzmPgh/analyze-timings.cjs`다. 완료 요청 수와 계측 건수 일치, 완료 요청 간 비중첩 검사를 통과했다. 지연 현상과 미확인 원인은 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)에 기록했다.
+이 분석은 저장한 기록을 다시 집계한 것이며 새 브라우저 실행이나 재현 테스트가 아니다. 당시 측정 스크립트는 저장소에 보존하지 않았다. 완료 요청 수와 계측 건수 일치, 완료 요청 간 비중첩 검사를 통과했다. 지연 현상과 미확인 원인은 [문제 해결 기록 36](../problem-solving-records/36-slow-paged-search-path-display.md)에 기록했다.
 
 ## 남은 작업
 
@@ -83,4 +83,4 @@ App 서버 내부 loopback에서 순차 요청한 구간 조회 8건은 223–87
 - Jenkins 재실행 시 첫·두 번째 승인을 다시 확인한다. #58을 성공 처리하거나 실패 단계를 통과한 것으로 가정하지 않는다.
 - 실제 화면 측정 후 HTTP 제한시간과 후속 부하 조건을 결정한다.
 
-비밀값을 제외한 실행 기록과 전환 도구는 로컬 `_workspace/path-pages-cutover-20261007.rQY87B/`에, 최종 DB 백업은 App의 `/srv/apps/suri-map/backups/path-pages-final.h3twqC/snapshot.dump`에 보존했다. 백업 크기는 14,340,034바이트, SHA-256은 `1556396510c1ff9f342a604c5a41eefbbbb15335cc9b5c7efd1d1a5142aad4b9`다. 인증 정보와 백업 원문은 공유하지 않는다.
+최종 DB 백업은 App의 `/srv/apps/suri-map/backups/path-pages-final.h3twqC/snapshot.dump`에 보존했다. 백업 크기는 14,340,034바이트, SHA-256은 `1556396510c1ff9f342a604c5a41eefbbbb15335cc9b5c7efd1d1a5142aad4b9`다. 인증 정보와 백업 원문은 공유하지 않는다.

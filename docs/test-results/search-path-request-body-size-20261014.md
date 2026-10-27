@@ -61,8 +61,10 @@ Frontend의 `searchPathPagesApi.ts`는 응답을 받은 뒤 진행 상태를 갱
 
 ## 재현 자료
 
-비공유 `_workspace/path-diagnosis-review-20261013/tasks/request-body-size/`에 실패 `001`과 실제 측정 `002`를 보존했다. `002/observation.json`, `before.json`, `after.json`은 원본이고 `summary.json`은 계산 결과다.
+당시 `002` 실행의 원본은 `observation.json`, `before.json`, `after.json`이었고 `summary.json`은 계산 결과였다.
 
-- `node .../002/check.cjs`: 합성 입력에서 요청 수·본문 크기·JSON 의미·응답 불일치 중단·중복 실행 방지 확인.
-- `node .../002/summarize.cjs --check`: 원본에서 건수·응답 해시·시간·카운터·선택 원본 및 runtime 동일성을 재계산해 저장 결과와 대조.
-- `001/plan-review-result-002.json`: 실행 절차 Claude 재검수 통과. 결과 해석 검수는 별도 로컬 기록으로 보존한다.
+당시 측정 스크립트는 저장소에 보존하지 않았다.
+
+- `check.cjs`: 합성 입력에서 요청 수, 본문 크기, JSON 의미, 응답 불일치 중단, 중복 실행 방지를 확인했다.
+- `summarize.cjs --check`: 원본에서 건수, 응답 해시, 시간, 카운터, 선택 원본 및 runtime 동일성을 재계산해 저장 결과와 대조했다.
+- `001/plan-review-result-002.json`: 실행 절차 Claude 재검수 통과. 결과 해석 검수는 당시 별도 로컬 기록으로 보존했다.

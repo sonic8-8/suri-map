@@ -53,10 +53,10 @@ Backend의 이미지와 전체 환경변수를 시험 전 값으로 복구했고
 
 ## 실행 자료
 
-로컬 비공유 진단 폴더 `_workspace/path-tail-comparison-20261008.p8Xtnc/`에 보존했다.
+당시 로컬에 아래 자료를 보존했다.
 
 - `compare.cjs`: 동일 입력 조회·응답 검사·설정 변경과 원복. 변경 구간은 `finally`에서 원복을 시도하고, 종료 전에 원복 결과를 검사한다.
 - `fixture.json`, `a-limit-1.json`, `b-limit-4.json`, `a-restored-limit-1.json`, `summary.json`: 입력과 예열·측정 결과.
 - `runtime-before.json`, `database-before.json`, `database-after.json`: 비밀값을 제외한 실행 설정 정보와 데이터 fingerprint.
 
-실행 명령은 `node _workspace/path-tail-comparison-20261008.p8Xtnc/compare.cjs <시험 세션 JSON>`이며, 응답 일치·설정 원복·데이터 무변경 검사까지 통과했다. 제품 코드·영구 설정 변경, 커밋·푸시는 없었다. 제품 테스트·빌드와 전체 이력·동시 저장·부하 시험은 이번에 실행하지 않았다.
+당시 측정 스크립트는 저장소에 보존하지 않았다. 실행은 응답 일치, 설정 원복, 데이터 무변경 검사까지 통과했다. 제품 코드, 영구 설정 변경, 커밋, 푸시는 없었다. 제품 테스트, 빌드와 전체 이력, 동시 저장, 부하 시험은 이번에 실행하지 않았다.

@@ -72,8 +72,7 @@ Backend health UP, 새 배포 유지, 경로·구간·GPS fingerprint 일치를 
 
 ## 자료 위치
 
-- 로컬: `_workspace/path-map-deploy-20261008.ZKUiEz/`. 배포 준비·API 검증 로그, 전후 fingerprint, `observation-*.json`, 진단용 JS와 캡처를 보존했다. Git 공유 대상이 아니다.
-- 진단 개입 전: `observation-146-1791388875581.json`. 마지막 수집: `observation-539-1791389392875.json`.
+- 당시 로컬에 보존한 관찰 기록: 진단 개입 전은 `observation-146-1791388875581.json`, 마지막 수집은 `observation-539-1791389392875.json`이었다.
 - App 백업: `/srv/apps/suri-map/backups/path-map-3cd0dc3e.QJxBuc/`. 이미지 아카이브·설정 사본·최종 dump를 보존했다.
 - 이미지 아카이브 SHA-256: `87c20bfbc7869dec1ea4a03a09ae18ad95d2999153ee709334574ff54d841382`.
 - DB dump: `suri-map-before-load-20261007T155350Z.dump`, SHA-256 `6eea0a0988dddf17e41ebb57bc06e7bc7b6fce84796b58c87c4144ce931d1922`.

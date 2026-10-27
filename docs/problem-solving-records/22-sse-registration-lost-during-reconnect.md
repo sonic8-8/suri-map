@@ -91,4 +91,4 @@ Backend ERROR는 0건이었지만, 마지막 새로고침 이후 다음 전송 �
 
 배포 전 Backend 이미지는 `sha256:9ee904bb810dd9d856397912f5945fa8ec3a41571533c6291e6d4549b8cb00a8`, Frontend는 `sha256:6cfda35415bb60cebbe63f1a64b3f989da8fcd8f555dbff403832534c3eb04bd`였습니다. 배포 후에는 각각 `a21bf01b9c48`·`0f23ff9fd89f`로 바뀌었습니다. 이미지 커밋을 확인하지 못했으므로 앞서 비교한 Git 변경량을 실행 이미지와의 정확한 차이로 보지는 않습니다.
 
-DB 백업은 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T183858Z.dump`이며 `pg_restore --list`만 확인했습니다. 실제 복원 시험은 아닙니다. [배포 식별자, 실행 명령, 로그, 화면 4개](../../_workspace/sse-jenkins-verify-20260928.IeVjpu/RESULTS.md)는 로컬 전용 자료입니다. 검사 도구의 20초 대기 제한은 실행 제어용이며 성능 기준이 아닙니다. 이 문서는 GitHub에 등록하지 않은 로컬 이슈입니다.
+DB 백업은 `/srv/apps/suri-map/backups/suri-map-before-load-20260927T183858Z.dump`이며 `pg_restore --list`만 확인했습니다. 실제 복원 시험은 아닙니다. 검사 도구의 20초 대기 제한은 실행 제어용이며 성능 기준이 아닙니다. 이 문서는 GitHub에 등록하지 않은 로컬 이슈입니다.

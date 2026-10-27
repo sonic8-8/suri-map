@@ -70,10 +70,9 @@ Chrome 147·1440×900·SwiftShader에서 같은 사건·차수의 상황판을 �
 
 서버·브라우저의 임시 인증 파일을 제거했고 Backend health `UP`·환경변수 유지·Python 캐시 미생성을 다시 확인했다. 쓰기·표시 검증용 Chrome도 종료했다. 원본·백업·진단 결과는 보존했다.
 
-`actual-board/`에 `history-report.json`, `map-diagnostic.json`, `write-result.json`, `new-coordinate-result.json`, `observed.png`를 보존했다. 원본 보존 대조는 `after-backend-data.json`·`after-write-data.json`, CI는 `ci-tests.json`·`build-status.json`을 따른다.
+`actual-board/`에 `history-report.json`, `map-diagnostic.json`, `write-result.json`, `new-coordinate-result.json`, `observed.png`를 보존했다. 원본 보존 대조는 `after-backend-data.json`과 `after-write-data.json`, CI 확인은 `ci-tests.json`과 `build-status.json`에 기록했다.
 
 ## 자료 위치
 
-- 로컬 비공유: `_workspace/path-short-render-deploy-20261008.iYul3p/`.
 - App 배포 보존 위치: `/srv/apps/suri-map/backups/path-short-3022dd0b.hsUG75/`.
 - Jenkins: [#61](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/61/), [#62](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/62/).
