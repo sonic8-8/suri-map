@@ -95,4 +95,31 @@ else
   echo "FAIL 실제 커밋에서 맞는 area (기대 pass, 결과 block)"; failed=1
 fi
 
+# 기대, 사례 이름, 문서 경로, 추가할 줄을 받아 그 줄을 문서 끝에 붙여 스테이징하고 pre-commit 훅의 결과와 비교한다.
+expect_pre() {
+  mkdir -p "$tmp/r/$(dirname "$3")"
+  printf '%s\n' "$4" >> "$tmp/r/$3"
+  git -C "$tmp/r" add "$3"
+  if (cd "$tmp/r" && sh "$hooks/pre-commit") > /dev/null 2>&1; then got=pass; else got=block; fi
+  if [ "$got" = "$1" ]; then echo "ok   $2"; else echo "FAIL $2 (기대 $1, 결과 $got)"; failed=1; fi
+}
+
+reset
+expect_pre block "문서에 가운뎃점 줄 추가" docs/a.md "설계·구현"
+
+reset
+expect_pre block "문서에 .scratch 링크 추가" docs/a.md "[기록](.scratch/a/result.md)"
+
+reset
+expect_pre block "문서에 상대 경로 .scratch 링크 추가" docs/issues/a.md "[기록](../../.scratch/a/result.md)"
+
+reset
+expect_pre pass "문서에 .scratch 경로만 언급" agents/a.md "티켓은 \`.scratch/<도메인>/issues/\`에 둔다."
+
+reset
+printf '%s\n' "[기록](.scratch/a/result.md)" > "$tmp/r/a.md"
+git -C "$tmp/r" add a.md
+git -C "$tmp/r" -c user.name=t -c user.email=t@t commit -q --no-verify -m "docs: 기록"
+expect_pre pass "기존 .scratch 링크는 두고 다른 줄 추가" a.md "새 줄"
+
 exit $failed
