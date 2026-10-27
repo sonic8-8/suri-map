@@ -1,7 +1,5 @@
 # [BE] SSE 연결 해제 후 세션 잔존 여부가 검증되지 않은 문제
 
-# 본문
-
 ## 문제 배경
 
 수리맵은 SSE 연결을 오래 유지하면서 지도 변경 알림을 보낸다. 사용자가 사건 화면을 열면 서버는 해당 사건의 SSE 연결을 `SseStreamSessionRegistry`에 등록한다. 사용자가 화면을 나가거나 네트워크가 끊기면, 서버는 그 연결을 registry에서 제거해야 한다.
@@ -62,26 +60,5 @@ cd backend
 - SSE 연결 등록과 해제를 100회 반복해도 `SseStreamSessionRegistry.sinks(incidentId)`가 비어 있음
 - 사건 종료 이벤트 이후 incident sink가 release됨
 - 백엔드 전체 테스트가 통과함
-
-이번 검증은 테스트 환경 기준이다. 운영 환경의 실제 메모리 사용량, 장시간 연결 유지 상황, heap dump는 확인하지 않았다.
-
-# 댓글
-
-## 추가 검증 기록
-
-`SseStreamLifecycleEvidenceTest`를 추가해 incident sink 등록과 해제를 100회 반복했다. 각 반복에서 `SseStreamSessionRegistry.sinks(incidentId)`가 등록 후 1개가 되고, close 후 비어 있는지 확인했다.
-
-기존 `SseIncidentClosureReplayStopTest`도 함께 실행했다. 이 테스트는 사건 종료 이벤트 이후 해당 incident의 sink가 release되는 흐름을 확인한다.
-
-실행한 명령은 다음과 같다.
-
-```bash
-cd backend
-./gradlew test --tests com.surimap.eventhub.SseStreamLifecycleEvidenceTest
-./gradlew test --tests com.surimap.eventhub.SseStreamLifecycleEvidenceTest --tests com.surimap.eventhub.SseIncidentClosureReplayStopTest
-./gradlew test --rerun-tasks
-```
-
-세 명령 모두 `BUILD SUCCESSFUL`이었다.
 
 이번 검증은 SSE 연결이 registry에 남는지 확인한 테스트 환경 기준이다. 운영 환경의 실제 메모리 사용량, 장시간 연결 유지 상황, heap dump는 확인하지 않았다.
