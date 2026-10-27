@@ -1,8 +1,4 @@
-# 제목
-
-[BE/Infra] 테스트 입력을 옮긴 뒤 Docker 빌드에서 파일을 찾지 못하는 문제
-
-# 본문
+# [BE/Infra] 테스트 입력을 옮긴 뒤 Docker 빌드에서 파일을 찾지 못하는 문제
 
 ## 문제 배경
 
@@ -21,8 +17,6 @@ Backend 테스트는 JSON 파일을 입력으로 사용합니다. 같은 소스�
 [공용 JSON 로더](../../backend/src/test/java/com/surimap/sync/outbox/CommonFixtureJson.java)는 작업 디렉터리의 상위 경로에서 `test-fixtures/common-fixtures.json`을 찾습니다. 로컬 저장소에는 파일이 있지만, 당시 Dockerfile은 `docs`만 복사하므로 컨테이너의 같은 상대 경로에는 없었습니다.
 
 JSON을 복제하거나 테스트를 제외할 필요는 없습니다. [Backend Dockerfile](../../backend/Dockerfile)에 공용 입력 복사를 추가해 기존 Backend, Android 소비 경로와 JSON 내용을 유지하기로 했습니다. 이 변경으로 전체 Docker 빌드까지 통과하는지는 별도로 확인해야 했습니다.
-
-# 댓글
 
 ## 변경 내용과 트레이드오프
 

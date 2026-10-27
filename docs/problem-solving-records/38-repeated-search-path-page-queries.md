@@ -1,8 +1,4 @@
-# 제목
-
-[BE] 상황판의 전체 경로 로딩에 페이지 왕복과 DB 검사 비용이 누적됨
-
-# 본문
+# [BE] 상황판의 전체 경로 로딩에 페이지 왕복과 DB 검사 비용이 누적됨
 
 ## 문제 배경
 
@@ -58,8 +54,6 @@
 시험 브라우저에서는 소프트웨어 그래픽 처리 대기도 확인됐습니다. 이를 데이터 병합이나 DB 처리 비용으로 합산하지 않으며, 세 가설을 검증하기 전에 서버 캐시 도입이나 React 추가 수정을 해결책으로 확정하지 않습니다.
 
 근거: [전체 이력 측정](../test-results/search-path-chrome-history-20261008.md), [짧은 재현, SQL, 브라우저 진단](../test-results/search-path-page-delay-diagnosis-20261008.md), [조회 서비스](../../backend/src/main/java/com/surimap/api/service/path/SearchPathBoardService.java), [조회 SQL](../../backend/src/main/resources/mapper/path/SearchPathMapper.xml).
-
-# 댓글
 
 ## 변경 내용과 트레이드오프
 
