@@ -139,7 +139,7 @@
 
 - Jira 발급·브랜치 생성·커밋·푸시·PR/MR 생성은 사용자 요청 범위에서만 수행한다. 일반 작업에 Jira나 Lane task를 필수로 요구하지 않는다.
 - 기능 작업은 git flow의 feature 브랜치로 관리한다. 문서나 에이전트 지침처럼 작은 변경은 develop에 직접 커밋해도 된다. develop에서 `feature/<Issue 번호>-<영문 kebab-case 설명>`을 만들고, 티켓으로 나눈 작업은 spec Issue 번호를 쓴다. `main`과 release, hotfix 브랜치는 아직 정하지 않았다.
-- feature 브랜치는 develop으로 PR을 열어 합친다. 병합은 사용자가 GitHub에서 merge commit으로 한다. squash와 rebase는 Issue 댓글과 기록에 적은 커밋 번호를 develop에서 지우므로 쓰지 않는다.
+- feature 브랜치는 develop으로 PR을 열어 합친다. 병합은 사용자 승인을 받은 뒤 `gh pr merge <번호> --merge`(merge commit)로 한다. squash와 rebase는 Issue 댓글과 기록에 적은 커밋 번호를 develop에서 지우므로 쓰지 않는다.
 - 커밋 형식은 `[Area] type[(scope)]: 한글 요약`이다. 직접 영향받는 runtime/infra area가 없으면 area를 생략한다. 관련 티켓을 연결할 때만 실제 티켓 ID를 덧붙인다.
 - 제목은 **문제와 목적**을 설명한다. 상세 메시지는 **원인과 구현 방식**을 설명하고 필요한 호환성·검증 결과를 뒤에 덧붙인다.
 - area는 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것만 이 순서로 `/`로 연결한다. 공통 문서·에이전트 지침에 `Infra`를 대신 붙이거나 별도 `Docs`·`Spec`·`Contract` tag를 만들지 않는다.
