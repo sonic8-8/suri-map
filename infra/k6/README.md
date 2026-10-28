@@ -612,3 +612,64 @@ python3 prepare-search-path-batch-fixtures.py --cleanup
 ```
 
 정리 명령이 성공하고 Ops 서버의 requester token 파일을 제거하면 정리가 완료된다.
+
+## 경로 표시 시간 측정 스크립트
+
+사용자의 일반 Chrome 탭에 넣어 상황판의 수색 경로 표시를 재는 도구다. 기존 문서의 "관찰기"가 이 도구다. 코드는 [`path-display-timing/`](path-display-timing/)에 있다. 부하 시험 때 화면 없는 Chrome으로 상황판을 관찰하는 `observe-situation-board.cjs`와는 다른 도구다.
+
+| 파일 | 역할 |
+|---|---|
+| `run.cjs` | 측정을 실행한다. 사건 목록에서 "상황판 열기"를 누르고, 경로 이력을 받는 동안 GPS 묶음 1건을 보낸 뒤 DB, 서버 응답, 지도 데이터를 비교한다. |
+| `page-path-observer.cjs`, `page-history-capture.cjs`, `page-readiness.cjs`, `page-gps-send.cjs` | 페이지에 넣는 코드. 경로 응답 본문과 지도 source를 기록하고 시험 GPS 요청을 보낸다. |
+| `history-capture.cjs`, `checkpoint.cjs`, `aside-evaluator.cjs` | 페이지의 기록을 Aside로 나눠 받아 디스크에 fsync한 뒤 다음 기록을 받는다. |
+| `history-compare.cjs`, `capture-db-snapshot.cjs`, `db-snapshot.sql`, `gps-plan.cjs`, `read-writer-path.cjs`, `read-writer-path.sql` | DB 스냅샷을 읽기 전용 트랜잭션으로 조회하고, 서버 응답과 지도 데이터를 DB와 비교한다. |
+| `smoke-run.cjs` | 설정 검사(`validateConfig`)와 Aside 결과 해석이 있다. 단독으로 실행하면 이전 회차의 읽기 전용 관찰 Smoke 실행기다. |
+| `server.cjs` | ssh 서버 이름과 DB 컨테이너 이름의 기본값과 검사 |
+| `check-*.cjs`, `fixtures/` | 실서버 없이 실행하는 자기 점검과 그 입력 |
+
+### 실행
+
+실제 측정은 시험 사건의 경로에 GPS 묶음 1건(좌표 6개)을 저장한다. 실행 전에 Aside로 사건 목록을 연 Chrome 탭, ssh 접속, 서버의 `FCM_PROVIDER=mock`과 경로 응답 한도를 확인한다. 출력 디렉터리는 아직 없어야 하며 권한 `700`으로 만들어진다. 결과에는 경로 좌표가 들어가므로 저장소에 넣지 않는다.
+
+```bash
+node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
+```
+
+`CONFIG.json`은 실행 설정이다. `run.cjs`와 `validateConfig`가 아래 값을 검사하며 하나라도 다르면 측정을 시작하지 않는다.
+
+| 키 | 값 |
+|---|---|
+| `sshHost` | ssh로 접속할 서버 이름. 생략하면 `hetzner-app`. 서버 런타임, DB 조회, APP 시험 자격 증명 읽기에 쓴다. |
+| `databaseContainer` | psql을 실행할 DB 컨테이너 이름. 생략하면 `suri-map-postgis` |
+| `target` | Aside의 Chrome 탭 ID(대문자 16진수 32자) |
+| `accountId` | 탭에 로그인한 지휘 계정 ID |
+| `key` | 페이지에 기록을 둘 이름. `__`로 시작하고 실행마다 새로 정한다. |
+| `script` | 배포된 Frontend 번들 경로(`/assets/index-*.js`) |
+| `deploymentEvidence` | 배포 근거 파일 경로. 파일이 있어야 한다. |
+| `limits` | 서버의 경로 응답 한도 `[경로당 구간 수, 구간 수, 좌표 수]`를 문자열 배열로 쓴다. 예: `["1","80","480"]`. 서버 환경 변수에서 읽은 문자열 배열과 그대로 비교하므로 `[1, 80, 480]`처럼 숫자로 쓰면 서버 런타임을 읽은 뒤 `run_failed`로 끝난다. 서버 설정과 같아야 하며 `1/80/480`, `4/320/1920`, `16/1280/7680`, `200/16000/64000`, `100000/100000/400000` 중 하나다. |
+| `origin`, `incidentId`, `opId` | 고정값. `https://suri-map.sonic8-8.com`과 시험 사건, 수색 차수 |
+| `deadlineMs`, `maxResponses`, `maxBodyCharacters`, `sampleIntervalMs` | 고정값 `1050000`, `800`, `134217728`, `250` |
+
+`sshHost`와 `databaseContainer`에는 영문자, 숫자, `.`, `_`, `@`, `-`만 쓸 수 있다. ssh 옵션이나 원격 셸 명령으로 읽히는 값은 거부한다. DB 스냅샷과 기록 경로만 따로 읽을 때도 같은 값을 넘길 수 있다.
+
+```bash
+node infra/k6/path-display-timing/capture-db-snapshot.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
+node infra/k6/path-display-timing/read-writer-path.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
+```
+
+### 자기 점검
+
+실서버, ssh, 브라우저 없이 실행한다. 종료 코드가 0이면 통과다. 실패하면 assert 오류를 출력하고 종료 코드 1로 끝난다. Frontend의 `searchPathPages.ts`를 직접 불러오므로 TypeScript 타입 제거를 지원하는 Node(22.22.0에서 확인)가 필요하다.
+
+```bash
+node infra/k6/path-display-timing/check-run.cjs
+node infra/k6/path-display-timing/check-server.cjs
+node infra/k6/path-display-timing/check-page-path-observer.cjs
+node infra/k6/path-display-timing/check-history-capture.cjs
+node infra/k6/path-display-timing/check-history-compare.cjs
+node infra/k6/path-display-timing/check-gps-send.cjs
+node infra/k6/path-display-timing/check-checkpoint.cjs
+node infra/k6/path-display-timing/check-aside-evaluator.cjs
+```
+
+`check-server.cjs`는 PATH 앞에 가짜 `ssh`를 두고, 설정하지 않으면 기본값이, 설정하면 지정한 값이 ssh 인자와 psql 명령에 쓰이는지 확인한다.
