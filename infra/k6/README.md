@@ -612,3 +612,89 @@ python3 prepare-search-path-batch-fixtures.py --cleanup
 ```
 
 정리 명령이 성공하고 Ops 서버의 requester token 파일을 제거하면 정리가 완료된다.
+
+## 경로 표시 시간 측정 스크립트
+
+사용자의 일반 Chrome 탭에 넣어 상황판의 수색 경로 표시를 재는 도구다. 기존 문서의 "관찰기"가 이 도구다. 코드는 [`path-display-timing/`](path-display-timing/)에 있다. 부하 시험 때 화면 없는 Chrome으로 상황판을 관찰하는 `observe-situation-board.cjs`와는 다른 도구다.
+
+| 파일 | 역할 |
+|---|---|
+| `run.cjs` | 측정을 실행한다. 사건 목록에서 "상황판 열기"를 누르고, 화면이 끝 시점 이벤트를 보내고 경로 이력도 모두 받으면 마지막 경로 source를 읽은 뒤 DB, 서버 응답, 지도 데이터를 비교한다. |
+| `page-path-observer.cjs`, `page-history-capture.cjs`, `page-readiness.cjs` | 페이지에 넣는 코드. 상황판 계측을 켜고, 경로 응답 본문, 지도 source, 화면이 보낸 시작 시점과 끝 시점 이벤트를 기록한다. |
+| `history-capture.cjs`, `checkpoint.cjs`, `aside-evaluator.cjs` | 페이지의 기록을 Aside로 나눠 받아 디스크에 fsync한 뒤 다음 기록을 받는다. |
+| `history-compare.cjs`, `capture-db-snapshot.cjs`, `db-snapshot.sql` | DB 스냅샷을 읽기 전용 트랜잭션으로 조회하고, 서버 응답을 측정 전 DB 스냅샷과, 측정 후 스냅샷을 측정 전 스냅샷과 비교한다. |
+| `path-coordinates.cjs` | 서버 응답의 구간과 경로 source의 선으로 수색 경로마다 좌표 목록을 만들어 비교하는 순수 함수 `comparePathCoordinates` |
+| `smoke-run.cjs` | 설정 검사(`validateConfig`)와 Aside 결과 해석이 있다. 단독으로 실행하면 이전 회차의 읽기 전용 관찰 Smoke 실행기다. |
+| `server.cjs` | ssh 서버 이름과 DB 컨테이너 이름의 기본값과 검사 |
+| `check-*.cjs`, `fixtures/` | 실서버 없이 실행하는 자기 점검과 그 입력 |
+
+### 실행
+
+측정은 서버에 쓰지 않는다. 상황판을 한 번 열고, 화면이 끝 시점 이벤트 `all_paths_map_idle`을 보내고 경로 이력도 모두 받으면 끝낸다. 끝 시점 이벤트가 오지 않으면 마감 시간까지 기다린 뒤 실패로 끝낸다. 실행 전에 Aside로 사건 목록을 연 Chrome 탭, ssh 접속, 서버의 `FCM_PROVIDER=mock`과 경로 응답 한도를 확인한다. 출력 디렉터리는 아직 없어야 하며 권한 `700`으로 만들어진다. 결과에는 경로 좌표가 들어가므로 저장소에 넣지 않는다.
+
+```bash
+node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
+```
+
+`CONFIG.json`은 실행 설정이다. `run.cjs`와 `validateConfig`가 아래 값을 검사하며 하나라도 다르면 측정을 시작하지 않는다. 설정 전체가 결과 폴더의 `attempt.json`에 저장되므로, 아래 표에 없는 키(토큰, 비밀번호 같은 인증 정보 포함)가 있거나, 값이 표의 자료형과 다르면(문자열 자리에 배열이나 객체, 정수 자리에 문자열 등) 출력 디렉터리를 만들기 전에 `invalid_config`로 거부한다. `sshHost`, `databaseContainer`는 `invalid_server_config`로 거부한다.
+
+| 키 | 값 |
+|---|---|
+| `sshHost` | ssh로 접속할 서버 이름. 생략하면 `hetzner-app`. 서버 런타임과 DB 조회에 쓴다. |
+| `databaseContainer` | psql을 실행할 DB 컨테이너 이름. 생략하면 `suri-map-postgis` |
+| `target` | Aside의 Chrome 탭 ID(대문자 16진수 32자) |
+| `accountId` | 탭에 로그인한 지휘 계정 ID |
+| `key` | 페이지에 기록을 둘 이름. `__`로 시작하고 실행마다 새로 정한다. |
+| `script` | 배포된 Frontend 번들 경로(`/assets/index-*.js`) |
+| `deploymentEvidence` | 배포 근거 파일 경로. 파일이 있어야 한다. |
+| `limits` | 서버의 경로 응답 한도 `[경로당 구간 수, 구간 수, 좌표 수]`를 문자열 배열로 쓴다. 예: `["1","80","480"]`. 서버 환경 변수에서 읽은 문자열 배열과 그대로 비교하므로 `[1, 80, 480]`처럼 숫자로 쓰면 출력 디렉터리를 만들기 전에 `invalid_config`로 거부한다. 서버 설정과 같아야 하며 `1/80/480`, `4/320/1920`, `16/1280/7680`, `200/16000/64000`, `100000/100000/400000` 중 하나다. |
+| `origin`, `incidentId`, `opId` | 고정값. `https://suri-map.sonic8-8.com`과 시험 사건, 수색 차수 |
+| `deadlineMs`, `maxResponses`, `maxBodyCharacters`, `sampleIntervalMs` | 고정값 `1050000`, `800`, `134217728`, `250` |
+
+페이지에 넣는 코드는 설치할 때 `window.__SURI_MAP_MEASUREMENT_ENABLED__`를 `true`로 켜고, 멈출 때 `false`로 끈다. 화면은 이 플래그가 켜져 있을 때만 시작 시점과 끝 시점을 `suri-map:board-measurement` 이벤트로 보낸다(`frontend/src/features/board/model/boardMeasurement.ts`). 측정 도중 플래그가 꺼지면 측정을 멈춘다. 상황판 계측을 켜면 지도 갱신마다 도형 조회 비용이 더해지므로, 계측을 끄고 잰 2026-10-20 상황판 진입 측정과는 비교하지 않는다.
+
+측정이 끝나면 출력 디렉터리에 다음 파일이 남는다.
+
+- `measurement-setup.json`: 측정을 시작하기 전에 쓴다. 실패한 실행에도 남는다.
+  - `scriptVersion.commit`: 저장소의 현재 Git 커밋 해시
+  - `scriptVersion.uncommittedChanges`: `infra/k6/path-display-timing/`과 이 코드가 불러오는 `frontend/src/features/path/model/searchPathPages.ts`에 커밋하지 않은 변경(추적하지 않는 새 파일 포함)이 있으면 `true`
+  - `settings`: 대상 상황판 URL(`boardUrl`), 시험 사건(`incidentId`)과 수색 차수(`opId`), 지도에 경로가 보이는지 확인하는 간격(`sampleIntervalMs`, 밀리초), 서버의 경로 응답 한도(`limits`의 `segmentsPerPath`, `maxSegments`, `maxCoordinates`)
+- `result.json`의 `boardEvents`: `board_open_clicked`(시작 시점)와 `all_paths_map_idle`(끝 시점)마다 화면이 보낸 이벤트 `detail`을 그대로 담는다. 걸린 시간은 두 이벤트의 `atMs` 차이다. 측정 스크립트는 두 값을 계산하거나 바꾸지 않는다.
+- `result.json`의 `missingBoardEvents`: 오지 않은 이벤트 이름 목록. 오지 않은 이벤트의 `boardEvents` 값은 `null`이며 다른 시각으로 채우지 않는다.
+- `database-before.json`, `database-after.json`: 측정 전과 측정 후의 DB 스냅샷
+- `server-responses.json`: 받은 경로 응답(`segments`, `changes`)을 받은 순서대로 담은 기록. 각 기록의 `body`는 응답 본문 문자열이다.
+- `map-source.json`: 마지막에 경로 source에서 읽은 선 데이터(GeoJSON `FeatureCollection`)
+- `result.json`의 `comparison`: 아래 비교 결과
+
+비교는 저장한 네 파일만 읽어서 하므로, 끝난 출력 디렉터리로 `run.cjs`의 `compareSaved(디렉터리, 설정)`를 다시 실행할 수 있다.
+
+- `coordinates`: 수색 경로마다 `{ searchPathId, matches, firstDifferentIndex }`. 서버 쪽은 각 수색 경로의 구간을 응답을 합친 순서대로, 지도 쪽은 선 속성의 `searchPathId`로 묶어 `drawOrder` 순서대로 좌표를 잇는다. 두 쪽 모두 앞의 마지막 좌표와 다음의 첫 좌표가 같으면 한 번만 넣고, 좌표가 두 개보다 적은 서버 구간은 뺀다. 선의 ID는 쓰지 않는다. `firstDifferentIndex`는 처음 달라진 좌표의 순번(0부터)이고 같으면 `null`이다.
+- `responseMatchesBefore`: 서버 응답을 합친 경로가 측정 전 DB 스냅샷과 같은지
+- `afterMatchesBefore`: 측정 후 DB 스냅샷이 측정 전 스냅샷과 같은지
+
+다르다는 결과는 오류로 멈추지 않고 그대로 남는다. 측정은 서버에 쓰지 않으므로, `afterMatchesBefore`가 `false`이면 측정하는 동안 다른 쓰기가 있었다는 뜻이다.
+
+`sshHost`와 `databaseContainer`에는 영문자, 숫자, `.`, `_`, `@`, `-`만 쓸 수 있다. ssh 옵션이나 원격 셸 명령으로 읽히는 값은 거부한다. DB 스냅샷만 따로 읽을 때도 같은 값을 넘길 수 있다.
+
+```bash
+node infra/k6/path-display-timing/capture-db-snapshot.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
+```
+
+### 자기 점검
+
+실서버, ssh, 브라우저 없이 실행한다. 종료 코드가 0이면 통과다. 실패하면 assert 오류를 출력하고 종료 코드 1로 끝난다. Frontend의 `searchPathPages.ts`를 직접 불러오므로 TypeScript 타입 제거를 지원하는 Node(22.22.0에서 확인)가 필요하다.
+
+```bash
+node infra/k6/path-display-timing/check-run.cjs
+node infra/k6/path-display-timing/check-server.cjs
+node infra/k6/path-display-timing/check-page-path-observer.cjs
+node infra/k6/path-display-timing/check-history-capture.cjs
+node infra/k6/path-display-timing/check-history-compare.cjs
+node infra/k6/path-display-timing/check-path-coordinates.cjs
+node infra/k6/path-display-timing/check-checkpoint.cjs
+node infra/k6/path-display-timing/check-aside-evaluator.cjs
+```
+
+`check-run.cjs`는 가짜 페이지 이벤트와 가짜 Git 정보로 두 이벤트가 그대로 저장되는지, 오지 않은 이벤트가 빠졌다고 적히는지, 버전과 실행 설정이 남는지, 결과 파일에 비밀값 모양의 문자열이 없는지 확인한다. 끝에는 PATH 앞에 가짜 `git`을 두고 실제 버전 읽기를 확인한다.
+
+`check-server.cjs`는 PATH 앞에 가짜 `ssh`를 두고, 설정하지 않으면 기본값이, 설정하면 지정한 값이 ssh 인자와 psql 명령에 쓰이는지 확인한다.

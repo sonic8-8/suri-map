@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -16,6 +16,7 @@ afterEach(() => {
   cleanup();
   client.clear();
   vi.restoreAllMocks();
+  onlineManager.setOnline(true);
 });
 const metadata: IncidentBoardResponse = {
   incidentId: 'incident-1',
@@ -111,6 +112,68 @@ test('SSE·저장 후 공통 재조회 요청은, 경로 변경분 API에도 전
   });
   await waitFor(() => expect(post).toHaveBeenCalledTimes(3));
   expect(post.mock.calls[2][0]).toContain('/changes/query');
+});
+
+test('최초 이력, 변경분, 새 구간 알림 뒤 조회가 모두 남지 않았을 때만, 경로 이력을 모두 받은 상태로 알린다', async () => {
+  // given: 경로 응답을 하나씩 보류한다.
+  vi.spyOn(apiClient, 'get').mockResolvedValue(metadata);
+  const responses: Array<(value: unknown) => void> = [];
+  vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => responses.push(resolve)));
+  const { result } = renderBoard();
+  await waitFor(() => expect(responses).toHaveLength(1));
+
+  // when: 최초 이력에 남은 페이지가 있다.
+  await act(async () => responses[0]({ ...emptyPage, hasMore: true }));
+  await waitFor(() => expect(responses).toHaveLength(2));
+  // then: 아직 받는 중이다.
+  expect(result.current.pathHistoryReceived).toBe(false);
+
+  // when: 최초 이력과 변경분을 끝까지 받는다.
+  await act(async () => responses[1](emptyPage));
+  await waitFor(() => expect(responses).toHaveLength(3));
+  expect(result.current.pathHistoryReceived).toBe(false);
+  await act(async () => responses[2](emptyPage));
+  // then: 모두 받은 상태가 된다.
+  await waitFor(() => expect(result.current.pathHistoryReceived).toBe(true));
+
+  // when: 새 구간 저장 알림을 받아 변경분을 다시 조회한다.
+  await act(async () => {
+    void refreshSituationBoards(client, { incidentId: 'incident-1' });
+  });
+  await waitFor(() => expect(responses).toHaveLength(4));
+  // then: 그 변경분을 받을 때까지 다시 받는 중이다.
+  expect(result.current.pathHistoryReceived).toBe(false);
+  await act(async () => responses[3](emptyPage));
+  await waitFor(() => expect(result.current.pathHistoryReceived).toBe(true));
+});
+
+test('변경분 조회 오류가 캐시에 남은 채 재연결로 Query가 success가 되어도, 경로 이력을 모두 받은 상태로 보지 않는다', async () => {
+  // given: 이력을 모두 받은 뒤 새 구간 알림의 변경분 조회가 다시 시도하지 않는 오류로 끝났다.
+  vi.spyOn(apiClient, 'get').mockResolvedValue(metadata);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue(emptyPage);
+  const { result } = renderBoard();
+  await waitFor(() => expect(result.current.pathHistoryReceived).toBe(true));
+  post.mockResolvedValue({ paths: 'invalid_response' });
+  await act(async () => {
+    void refreshSituationBoards(client, { incidentId: 'incident-1' });
+  });
+  await waitFor(() => expect(result.current.paths.isError).toBe(true));
+  const postsAfterFailure = post.mock.calls.length;
+
+  // when: 네트워크가 다시 연결되어 HTTP 요청 없이 오류를 담은 캐시로 success가 된다.
+  act(() => {
+    onlineManager.setOnline(false);
+    onlineManager.setOnline(true);
+  });
+  await waitFor(() => expect(result.current.paths.status).toBe('success'));
+  await waitFor(() => expect(result.current.paths.isFetching).toBe(false));
+
+  // then: 화면은 오류를 그대로 표시하고, render 때의 판정과 idle 때의 확인 모두 받은 상태가 아니다.
+  expect(post.mock.calls.length).toBe(postsAfterFailure);
+  expect(result.current.paths.data?.error).toBe('invalid_search_path_response');
+  expect(result.current.pathSyncStatus?.tone).toBe('error');
+  expect(result.current.pathHistoryReceived).toBe(false);
+  expect(result.current.isPathHistoryStillReceived()).toBe(false);
 });
 
 test('경로 조회가 권한 거부되면, 예전 위치 슬롯을 화면에서 제거한다', async () => {

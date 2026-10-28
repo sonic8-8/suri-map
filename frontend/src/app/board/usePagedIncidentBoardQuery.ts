@@ -1,7 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiHttpError } from '../../shared/api';
-import { useSearchPathPages, restrictSearchPathPages } from '../../features/path/api/searchPathPagesApi';
+import {
+  useSearchPathPages,
+  restrictSearchPathPages,
+  searchPathPagesKey,
+} from '../../features/path/api/searchPathPagesApi';
+import type { SearchPathPages } from '../../features/path/model/searchPathPages';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../../features/board/model/incidentTerminalSlot';
 import {
   isRetryableBoardRead,
@@ -66,6 +71,25 @@ export function usePagedIncidentBoardQuery(
   const restricted = closed || denied || pathRestricted;
   const pathLoading = !restricted && Boolean(current) && (!paths.data || paths.data.hasMoreSegments);
   const pathError = !restricted && (Boolean(paths.data?.error) || paths.isError);
+  // 조회 반복은 남은 최초 이력, 변경분, 아직 조회하지 않은 새 구간 알림이 모두 없을 때만 끝난다.
+  // 캐시에 남은 조회 오류는 Query가 success여도 받지 못한 자료가 있다는 뜻이라, 화면의 오류 표시와 같이 본다.
+  const pathHistoryReceived =
+    !restricted &&
+    !pathError &&
+    !paths.isFetching &&
+    paths.data !== undefined &&
+    !paths.data.hasMoreSegments &&
+    !paths.data.hasMoreChanges;
+  const pathsKey = searchPathPagesKey(incidentId, opIds);
+  const renderedPaths = paths.data;
+  // 캐시는 React 갱신보다 먼저 바뀐다. 이 render 뒤로 캐시가 그대로일 때만 같은 수신 결과다.
+  // 새 조회 시작, 새 자료 수신, 조회 실패, 사건 종료 제한이 모두 이 조건에 걸린다.
+  const isPathHistoryStillReceived = () => {
+    const state = client.getQueryState<SearchPathPages>(pathsKey);
+    return (
+      state?.status === 'success' && state.fetchStatus === 'idle' && state.data === renderedPaths && !state.data?.error
+    );
+  };
   const pathSyncStatus = useMemo(() => {
     if (restricted) return { label: '경로 조회 종료 · 위치 정보 표시 중단', tone: 'error' as const };
     if (pathError) {
@@ -97,6 +121,8 @@ export function usePagedIncidentBoardQuery(
     isError: base.isError || base.failureReason !== null,
     isLocationRestricted: restricted,
     pathLoading,
+    pathHistoryReceived,
+    isPathHistoryStillReceived,
     pathSyncStatus,
     paths,
   };
