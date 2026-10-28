@@ -4,7 +4,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## 이 저장소의 규칙
 
-- 제목은 `[Area] 한글 요약` 형식이다. Area는 커밋 규칙의 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것이다.
+- 제목은 `[Area] 한글 요약` 형식이다. Area는 커밋 규칙의 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것이다. 영향받는 Area가 없으면 커밋 규칙처럼 생략한다.
 - spec Issue는 작업 지시서다. 구현이 끝나면 닫고, 남길 요구는 `docs/features/`에 반영한다.
 - 2026-10-27 이전 Issue(#1~#16)는 본문에 긴 분석을 담은 옛 형식이다. 본문은 고치지 않는다.
 
