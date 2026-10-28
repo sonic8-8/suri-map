@@ -1,5 +1,5 @@
 const { createCheckpointWriter, restoreCheckpoints } = require('./checkpoint.cjs');
-const { readCapturedPages, compareCapturedPaths, pagesComplete } = require('./history-compare.cjs');
+const { readCapturedPages, readFinalCapture, pagesComplete } = require('./history-compare.cjs');
 const { parseSearchPathPage } = require('../../../frontend/src/features/path/model/searchPathPages.ts');
 
 // Browser-side: only finalized rows are immutable enough to transfer across several calls.
@@ -116,7 +116,7 @@ function createHistoryCapture({ file, key, incidentId, opId, evaluate }) {
     } catch (error) { await abort(); throw error; }
   }
 
-  async function finish(snapshot) {
+  async function finish() {
     const before = restoreCheckpoints(file);
     if (before.errors.length || before.incompleteTail || !before.state) throw Error('checkpoint_incomplete');
     const pages = readCapturedPages(before.state.rows, opId);
@@ -137,15 +137,15 @@ function createHistoryCapture({ file, key, incidentId, opId, evaluate }) {
     } while (Object.keys(delta.next).some(name => delta.next[name] < delta.lengths[name]));
     const recovered = restoreCheckpoints(file);
     if (recovered.errors.length || recovered.incompleteTail) throw Error('checkpoint_incomplete');
-    const comparison = compareCapturedPaths(recovered.state.rows, snapshot, incidentId, opId);
+    const captured = readFinalCapture(recovered.state.rows);
     const stopped = await evaluate(confirmCapture, {
       key, identity: identityOf(recovered.state), lengths: delta.next, finish: true,
     });
     // Navigation acknowledgement is not proof that the incident list rendered.
-    return { ...comparison, ...stopped, returnToListVerified: false, performanceComparison: false };
+    return { ...captured, ...stopped, returnToListVerified: false, performanceComparison: false };
   }
-  return { capture, finish: async snapshot => {
-    try { return await finish(snapshot); }
+  return { capture, finish: async () => {
+    try { return await finish(); }
     catch (error) { await abort(); throw error; }
   }, close: () => writer.close() };
 }

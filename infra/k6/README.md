@@ -619,17 +619,18 @@ python3 prepare-search-path-batch-fixtures.py --cleanup
 
 | 파일 | 역할 |
 |---|---|
-| `run.cjs` | 측정을 실행한다. 사건 목록에서 "상황판 열기"를 누르고, 경로 이력을 받는 동안 GPS 묶음 1건을 보낸 뒤 DB, 서버 응답, 지도 데이터를 비교한다. |
-| `page-path-observer.cjs`, `page-history-capture.cjs`, `page-readiness.cjs`, `page-gps-send.cjs` | 페이지에 넣는 코드. 경로 응답 본문과 지도 source를 기록하고 시험 GPS 요청을 보낸다. |
+| `run.cjs` | 측정을 실행한다. 사건 목록에서 "상황판 열기"를 누르고, 경로 이력을 모두 받으면 마지막 경로 source를 읽은 뒤 DB, 서버 응답, 지도 데이터를 비교한다. |
+| `page-path-observer.cjs`, `page-history-capture.cjs`, `page-readiness.cjs` | 페이지에 넣는 코드. 경로 응답 본문과 지도 source를 기록한다. |
 | `history-capture.cjs`, `checkpoint.cjs`, `aside-evaluator.cjs` | 페이지의 기록을 Aside로 나눠 받아 디스크에 fsync한 뒤 다음 기록을 받는다. |
-| `history-compare.cjs`, `capture-db-snapshot.cjs`, `db-snapshot.sql`, `gps-plan.cjs`, `read-writer-path.cjs`, `read-writer-path.sql` | DB 스냅샷을 읽기 전용 트랜잭션으로 조회하고, 서버 응답과 지도 데이터를 DB와 비교한다. |
+| `history-compare.cjs`, `capture-db-snapshot.cjs`, `db-snapshot.sql` | DB 스냅샷을 읽기 전용 트랜잭션으로 조회하고, 서버 응답을 측정 전 DB 스냅샷과, 측정 후 스냅샷을 측정 전 스냅샷과 비교한다. |
+| `path-coordinates.cjs` | 서버 응답의 구간과 경로 source의 선으로 수색 경로마다 좌표 목록을 만들어 비교하는 순수 함수 `comparePathCoordinates` |
 | `smoke-run.cjs` | 설정 검사(`validateConfig`)와 Aside 결과 해석이 있다. 단독으로 실행하면 이전 회차의 읽기 전용 관찰 Smoke 실행기다. |
 | `server.cjs` | ssh 서버 이름과 DB 컨테이너 이름의 기본값과 검사 |
 | `check-*.cjs`, `fixtures/` | 실서버 없이 실행하는 자기 점검과 그 입력 |
 
 ### 실행
 
-실제 측정은 시험 사건의 경로에 GPS 묶음 1건(좌표 6개)을 저장한다. 실행 전에 Aside로 사건 목록을 연 Chrome 탭, ssh 접속, 서버의 `FCM_PROVIDER=mock`과 경로 응답 한도를 확인한다. 출력 디렉터리는 아직 없어야 하며 권한 `700`으로 만들어진다. 결과에는 경로 좌표가 들어가므로 저장소에 넣지 않는다.
+측정은 서버에 쓰지 않는다. 상황판을 한 번 열고, 경로 이력을 모두 받으면 끝낸다. 실행 전에 Aside로 사건 목록을 연 Chrome 탭, ssh 접속, 서버의 `FCM_PROVIDER=mock`과 경로 응답 한도를 확인한다. 출력 디렉터리는 아직 없어야 하며 권한 `700`으로 만들어진다. 결과에는 경로 좌표가 들어가므로 저장소에 넣지 않는다.
 
 ```bash
 node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
@@ -639,7 +640,7 @@ node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
 
 | 키 | 값 |
 |---|---|
-| `sshHost` | ssh로 접속할 서버 이름. 생략하면 `hetzner-app`. 서버 런타임, DB 조회, APP 시험 자격 증명 읽기에 쓴다. |
+| `sshHost` | ssh로 접속할 서버 이름. 생략하면 `hetzner-app`. 서버 런타임과 DB 조회에 쓴다. |
 | `databaseContainer` | psql을 실행할 DB 컨테이너 이름. 생략하면 `suri-map-postgis` |
 | `target` | Aside의 Chrome 탭 ID(대문자 16진수 32자) |
 | `accountId` | 탭에 로그인한 지휘 계정 ID |
@@ -650,11 +651,25 @@ node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
 | `origin`, `incidentId`, `opId` | 고정값. `https://suri-map.sonic8-8.com`과 시험 사건, 수색 차수 |
 | `deadlineMs`, `maxResponses`, `maxBodyCharacters`, `sampleIntervalMs` | 고정값 `1050000`, `800`, `134217728`, `250` |
 
-`sshHost`와 `databaseContainer`에는 영문자, 숫자, `.`, `_`, `@`, `-`만 쓸 수 있다. ssh 옵션이나 원격 셸 명령으로 읽히는 값은 거부한다. DB 스냅샷과 기록 경로만 따로 읽을 때도 같은 값을 넘길 수 있다.
+측정이 끝나면 출력 디렉터리에 다음 파일이 남는다.
+
+- `database-before.json`, `database-after.json`: 측정 전과 측정 후의 DB 스냅샷
+- `server-responses.json`: 받은 경로 응답(`segments`, `changes`)을 받은 순서대로 담은 기록. 각 기록의 `body`는 응답 본문 문자열이다.
+- `map-source.json`: 마지막에 경로 source에서 읽은 선 데이터(GeoJSON `FeatureCollection`)
+- `result.json`의 `comparison`: 아래 비교 결과
+
+비교는 저장한 네 파일만 읽어서 하므로, 끝난 출력 디렉터리로 `run.cjs`의 `compareSaved(디렉터리, 설정)`를 다시 실행할 수 있다.
+
+- `coordinates`: 수색 경로마다 `{ searchPathId, matches, firstDifferentIndex }`. 서버 쪽은 각 수색 경로의 구간을 응답을 합친 순서대로, 지도 쪽은 선 속성의 `searchPathId`로 묶어 `drawOrder` 순서대로 좌표를 잇는다. 두 쪽 모두 앞의 마지막 좌표와 다음의 첫 좌표가 같으면 한 번만 넣고, 좌표가 두 개보다 적은 서버 구간은 뺀다. 선의 ID는 쓰지 않는다. `firstDifferentIndex`는 처음 달라진 좌표의 순번(0부터)이고 같으면 `null`이다.
+- `responseMatchesBefore`: 서버 응답을 합친 경로가 측정 전 DB 스냅샷과 같은지
+- `afterMatchesBefore`: 측정 후 DB 스냅샷이 측정 전 스냅샷과 같은지
+
+다르다는 결과는 오류로 멈추지 않고 그대로 남는다. 측정은 서버에 쓰지 않으므로, `afterMatchesBefore`가 `false`이면 측정하는 동안 다른 쓰기가 있었다는 뜻이다.
+
+`sshHost`와 `databaseContainer`에는 영문자, 숫자, `.`, `_`, `@`, `-`만 쓸 수 있다. ssh 옵션이나 원격 셸 명령으로 읽히는 값은 거부한다. DB 스냅샷만 따로 읽을 때도 같은 값을 넘길 수 있다.
 
 ```bash
 node infra/k6/path-display-timing/capture-db-snapshot.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
-node infra/k6/path-display-timing/read-writer-path.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
 ```
 
 ### 자기 점검
@@ -667,7 +682,7 @@ node infra/k6/path-display-timing/check-server.cjs
 node infra/k6/path-display-timing/check-page-path-observer.cjs
 node infra/k6/path-display-timing/check-history-capture.cjs
 node infra/k6/path-display-timing/check-history-compare.cjs
-node infra/k6/path-display-timing/check-gps-send.cjs
+node infra/k6/path-display-timing/check-path-coordinates.cjs
 node infra/k6/path-display-timing/check-checkpoint.cjs
 node infra/k6/path-display-timing/check-aside-evaluator.cjs
 ```

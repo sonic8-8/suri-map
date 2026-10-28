@@ -131,37 +131,33 @@ async function main() {
   await withCapture(async (b, capture, file) => {
     await b.response(); await b.response('changes', { ...pathRow, segments: [] });
     await capture.capture();
-    const result = await capture.finish(snapshot);
-    assert.equal(result.mapSourceMatchesSnapshot, true); assert.equal(result.stopRequested, true);
+    const result = await capture.finish();
+    assert.deepEqual(result.mapSource, source);
+    assert.deepEqual(result.responses.map(row => row.kind), ['segments', 'changes']);
+    assert.equal(result.stopRequested, true);
     assert.equal(result.returnToListVerified, false); assert.equal(result.performanceComparison, false);
     assert.equal(b.context.location.pathname, '/incidents'); assert.equal(b.timers.size, 0);
     assert.equal(JSON.parse(b.storage.get(key + 'Exit')).finalCheckpointSaved, true);
     assert.equal(restoreCheckpoints(file).state.rows.at(-1).kind, 'map_final_source');
     assert.equal(b.mapReadCount, 1);
-    console.log('PASS actual observer → capture → fsync → DB/map comparison → stop/navigation wiring');
+    console.log('PASS actual observer → capture → fsync → server responses and path source returned → stop/navigation wiring');
   });
 
   await withCapture(async (b, capture) => {
     await b.response('segments', pathRow, true); await capture.capture();
-    await assert.rejects(capture.finish(snapshot), /pages_incomplete/);
+    await assert.rejects(capture.finish(), /pages_incomplete/);
     assert.equal(b.mapReadCount, 0); assert.equal(b.state.reason, 'capture_failed');
     assert.equal(JSON.parse(b.storage.get(key + 'Exit')).finalCheckpointSaved, false);
   });
-  await withCapture(async (b, capture) => {
-    await b.response(); await b.response('changes', { ...pathRow, segments: [] }); await capture.capture();
-    b.values.source.features[0].geometry.coordinates = [[0, 0], [1, 1]];
-    await assert.rejects(capture.finish(snapshot), /map_snapshot_mismatch/);
-    assert.equal(b.state.reason, 'capture_failed');
-  });
-  console.log('PASS incomplete history and stale map cannot request successful exit');
+  console.log('PASS incomplete history cannot request successful exit');
 
   await withCapture(async (b, capture) => {
     await b.response('segments', pathRow, true); await capture.capture();
     const continuation = { ...pathRow }; delete continuation.baselineVersion;
     await b.response('segments', continuation); await capture.capture();
     await b.response('changes', { ...pathRow, segments: [] }); await capture.capture();
-    const result = await capture.finish(snapshot);
-    assert.equal(result.receivedMatchesSnapshot, true);
+    const result = await capture.finish();
+    assert.equal(result.responses.length, 3);
     assert.equal(b.state.reason, 'complete');
   });
   console.log('PASS continuation without repeated baseline works across checkpoint boundaries');
@@ -169,13 +165,13 @@ async function main() {
   await withCapture(async (b, capture) => {
     await b.response(); await b.response('changes', { ...pathRow, segments: [] }); await capture.capture();
     b.values.loaded = false;
-    await assert.rejects(capture.finish(snapshot), /not ready/);
+    await assert.rejects(capture.finish(), /not ready/);
     assert.equal(b.state.reason, 'capture_failed');
   });
   await withCapture(async (b, capture) => {
     await b.response(); await b.response('changes', { ...pathRow, segments: [] }); await capture.capture();
     b.state.rows.push({ kind: 'segments', returned: false });
-    await assert.rejects(capture.finish(snapshot), /response_in_flight/);
+    await assert.rejects(capture.finish(), /response_in_flight/);
     assert.equal(b.state.reason, 'capture_failed');
   });
   console.log('PASS unloaded source and in-flight response cannot finalize');
@@ -197,7 +193,7 @@ async function main() {
 
   await withCapture(async (b, capture) => {
     await b.response(); await b.response('changes', { ...pathRow, segments: [] }); await capture.capture();
-    await assert.rejects(capture.finish(snapshot), /capture_changed_before_stop/);
+    await assert.rejects(capture.finish(), /capture_changed_before_stop/);
     assert.equal(b.state.reason, 'capture_failed');
   }, async (b, fn, args) => {
     if (fn === confirmCapture && args.finish) await b.response('changes', { ...pathRow, segments: [] });

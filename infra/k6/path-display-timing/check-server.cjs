@@ -4,10 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
 const { defaults, serverOf } = require('./server.cjs');
-const { realIO } = require('./run.cjs');
-const { scope } = require('./gps-plan.cjs');
+const { realIO, scope } = require('./run.cjs');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'suri-server-config-'));
 const log = path.join(root, 'ssh.jsonl'), reply = path.join(root, 'reply');
@@ -24,9 +22,8 @@ const lastCall = () => JSON.parse(fs.readFileSync(log, 'utf8').trim().split('\n'
 const config = { ...scope, target: '7EC67B1ADE0732A5B21357B5872144A9' };
 const inspect = [{ Image: 'backend', State: { StartedAt: 't' }, Config: { Env: ['FCM_PROVIDER=mock'] } },
   { Image: 'frontend', State: { StartedAt: 't' } }];
-const writer = fs.readFileSync(path.join(__dirname, 'fixtures/writer-path-before.json'));
 const snapshot = { incidentId: scope.incidentId, opId: scope.opId,
-  paths: [{ id: scope.pathId, accountId: scope.accountId, opId: scope.opId, version: '1', status: 'RECORDING', segments: [] }] };
+  paths: [{ id: 'path', accountId: 'account', opId: scope.opId, version: '1', status: 'RECORDING', segments: [] }] };
 
 assert.deepEqual(serverOf({}), defaults);
 assert.deepEqual(defaults, { sshHost: 'hetzner-app', databaseContainer: 'suri-map-postgis' });
@@ -46,22 +43,9 @@ for (const [label, settings, expected] of [
   assert.equal(io.runtime().fcm, 'mock');
   assert.deepEqual(lastCall().slice(4), [expected.sshHost, 'docker inspect suri-map-backend suri-map-frontend'], label);
 
-  fs.writeFileSync(reply, writer);
-  assert.equal(io.writer().pathId, scope.pathId);
-  assert.deepEqual(lastCall().slice(4), [expected.sshHost, dbCommand], label);
-
   fs.writeFileSync(reply, JSON.stringify(snapshot));
   assert.equal(io.snapshot(path.join(root, label + '-snapshot.json')).paths.length, 1);
   assert.deepEqual(lastCall().slice(4), [expected.sshHost, dbCommand], label);
-
-  // 측정 실행 진입점은 설정 검사 전에 APP 자격 증명을 ssh로 읽는다. 읽기 실패로 끝나게 해 실제 측정은 시작하지 않는다.
-  const configFile = path.join(root, label + '-config.json');
-  fs.writeFileSync(configFile, JSON.stringify({ ...config, ...settings }));
-  fs.writeFileSync(reply, 'not-json');
-  const entry = spawnSync(process.execPath, [path.join(__dirname, 'run.cjs'), configFile, path.join(root, label + '-run')], { encoding: 'utf8' });
-  assert.equal(entry.status, 1); assert.equal(entry.stderr.trim(), 'app_credential_unavailable');
-  assert.equal(lastCall()[4], expected.sshHost, label);
-  assert.equal(fs.existsSync(path.join(root, label + '-run')), false);
 }
 assert.throws(() => realIO({ ...config, databaseContainer: 'db;rm' }), /invalid_server_config/);
-console.log('PASS ssh host and DB container default to hetzner-app/suri-map-postgis and follow config in runtime, writer, DB snapshot and credential reads');
+console.log('PASS ssh host and DB container default to hetzner-app/suri-map-postgis and follow config in runtime and DB snapshot reads');

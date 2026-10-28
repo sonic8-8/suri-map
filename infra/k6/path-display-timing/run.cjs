@@ -5,19 +5,18 @@ const { execFileSync, execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
 const { createAsideEvaluator } = require('./aside-evaluator.cjs');
-const { createGpsPlan, verifyStoredGps, scope } = require('./gps-plan.cjs');
-const { sendGpsBatch } = require('./page-gps-send.cjs');
-const { readWriterPath } = require('./read-writer-path.cjs');
 const { createHistoryCapture } = require('./history-capture.cjs');
 const { armHistoryCapture } = require('./page-history-capture.cjs');
 const { installPathObserver } = require('./page-path-observer.cjs');
 const { readReadiness, readTarget } = require('./page-readiness.cjs');
 const { validateConfig, parseResult, waitForList } = require('./smoke-run.cjs');
 const { restoreCheckpoints } = require('./checkpoint.cjs');
-const { validateSnapshot, pagesComplete } = require('./history-compare.cjs');
+const { validateSnapshot, pagesComplete, compareMeasurement } = require('./history-compare.cjs');
 const { serverOf, sshArgs } = require('./server.cjs');
 const { createSearchPathPages, parseSearchPathPage, mergeSearchPathPage } = require('../../../frontend/src/features/path/model/searchPathPages.ts');
 const execute = promisify(execFile);
+// Same fixed incident and operational period as db-snapshot.sql.
+const scope = Object.freeze({ incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', opId: '88888888-8888-8888-8888-888888880001' });
 
 function save(file, value) {
   const fd = fs.openSync(file, 'wx', 0o600);
@@ -39,28 +38,16 @@ function snapshot(file, server = serverOf()) {
   catch (_) { throw Error('database_snapshot_failed'); }
   const data = JSON.parse(fs.readFileSync(file)); validateSnapshot(data); return data;
 }
-function classifyWrite(plan, database) {
-  if (database.version === plan.target.version && database.pointCount === plan.beforePointCount + 6 &&
-      database.recentPoints.every((p,i) => p.pointId === plan.body.points[i].pointId &&
-        p.pointOrder === plan.beforePointCount+i && p.lon === plan.body.points[i].lon && p.lat === plan.body.points[i].lat) &&
-      database.latestSegment.id === plan.target.segmentId) return 'planned_points_observed';
-  if (database.version === plan.beforeVersion && database.pointCount === plan.beforePointCount) return 'not_observed_at_read_time';
-  return 'conflicting_state';
-}
-function onlyPlannedChange(before, after, plan) {
-  const normalized = structuredClone(after), p = normalized.paths.find(p => p.id === plan.pathId);
-  assert.ok(p && p.version === plan.target.version, 'snapshot_target_version');
-  const additions = p.segments.filter(s => s.id === plan.target.segmentId);
-  assert.equal(additions.length, 1, 'snapshot_target_missing');
-  assert.deepEqual(additions[0], { id: plan.target.segmentId, version: '1', startPointOrder: plan.beforePointCount,
-    endPointOrder: plan.beforePointCount+5, movementType: 'FOOT', coordinates: plan.target.coordinates });
-  p.version = plan.beforeVersion; p.segments = p.segments.filter(s => s.id !== plan.target.segmentId);
-  assert.deepEqual(normalized, before, 'unexpected_database_change');
+// Compares only from the saved files so a finished result directory can be compared again.
+function compareSaved(directory, config) {
+  const read=name=>JSON.parse(fs.readFileSync(path.join(directory,name)));
+  return compareMeasurement(read('server-responses.json'),read('map-source.json'),read('database-before.json'),
+    read('database-after.json'),config.incidentId,config.opId);
 }
 // Same criterion as the capture finish and DB comparison; see pathComplete for the late-baseline case.
 const complete = pagesComplete;
 async function pageAction(config, action) {
-  // UI-only arguments: no APP credential or GPS payload is put on argv.
+  // UI-only arguments on argv.
   const code = `await(async()=>{const p=await attachBrowserTab(${JSON.stringify(config.target)});` +
     (action === 'open' ? `const s=await snapshot(p,{interactive:true});console.log(s.tree);const matches=[...s.tree.matchAll(/button "상황판 열기" \\[ref=(\\w+)\\]/g)];if(matches.length!==1)throw Error('board_button_ambiguous');await p.locator(matches[0][1]).click({timeout:5000});console.log((await snapshot(p,{interactive:true})).diff);console.log('RESULT:'+JSON.stringify({clicked:true}));` :
       `const fn=(0,eval)(${JSON.stringify('('+waitForList.toString()+')')});console.log('RESULT:'+JSON.stringify(await fn(p,snapshot,${JSON.stringify(config)})));`) + `})()`;
@@ -72,21 +59,19 @@ async function pageAction(config, action) {
 }
 function realIO(config) {
   const server = serverOf(config);
-  return { runtime: () => runtime(server), writer: () => readWriterPath(server), snapshot: file => snapshot(file, server),
+  return { runtime: () => runtime(server), snapshot: file => snapshot(file, server),
     evaluate: createAsideEvaluator({target:config.target,timeoutMs:30000}),
     action: action => pageAction(config, action), now: Date.now, pause: () => new Promise(r => setTimeout(r,1000)) };
 }
 
-async function run(config, directory, credential, io = realIO(config)) {
+async function run(config, directory, io = realIO(config)) {
   validateConfig(config);
   assert.equal(config.incidentId,scope.incidentId); assert.equal(config.opId,scope.opId);
   assert.deepEqual([config.deadlineMs,config.maxResponses,config.maxBodyCharacters,config.sampleIntervalMs], [1050000,800,134217728,250]);
   assert.ok(['1/80/480','4/320/1920','16/1280/7680','200/16000/64000','100000/100000/400000'].includes(config.limits.join('/')));
-  const claims = JSON.parse(Buffer.from(credential.accessToken.split('.')[1],'base64url').toString());
-  assert.ok(claims.exp*1000-io.now()>config.deadlineMs+150000,'app_token_expiring');
   fs.mkdirSync(directory,{mode:0o700}); save(path.join(directory,'attempt.json'),config);
-  const result = { started:new Date().toISOString(), completed:false, gpsAttempted:false, calls:0 }, file=path.join(directory,'checkpoints.jsonl');
-  let armed=false, capture, plan, end, diskState={rows:[]};
+  const result = { started:new Date().toISOString(), completed:false, calls:0 }, file=path.join(directory,'checkpoints.jsonl');
+  let armed=false, capture, end, diskState={rows:[]};
   const evaluate = async (fn,args) => {
     if (end && io.now()>=end) throw Error('external_deadline');
     result.calls++; return io.evaluate(fn,args);
@@ -94,41 +79,30 @@ async function run(config, directory, credential, io = realIO(config)) {
   try {
     const environment=io.runtime(); save(path.join(directory,'runtime-before.json'),environment);
     assert.equal(environment.fcm,'mock'); assert.deepEqual(environment.limits,config.limits);
-    const writerBefore=io.writer(); save(path.join(directory,'writer-before.json'),writerBefore);
-    plan=createGpsPlan(writerBefore,environment.fcm); save(path.join(directory,'gps-plan.json'),plan);
-    const databaseBefore=io.snapshot(path.join(directory,'database-before.json'));
+    io.snapshot(path.join(directory,'database-before.json'));
     const ready=await evaluate(readReadiness,config); assert.ok(ready.tokenSeconds*1000>config.deadlineMs+150000,'web_token_expiring');
     await evaluate(readTarget,config);
     capture=createHistoryCapture({file,key:config.key,incidentId:config.incidentId,opId:config.opId,evaluate});
     const arm = new Function('return function(config){return ('+armHistoryCapture.toString()+')(config,('+installPathObserver.toString()+'),('+readReadiness.toString()+'));}')();
     armed=true; end=io.now()+1080000;
     await evaluate(arm,config); await io.action('open');
-    let pages=createSearchPathPages(), lastProgress=io.now(), targetSeen=false, mapConnected=false, fullReceivedAt;
+    let pages=createSearchPathPages(), lastProgress=io.now(), fullReceivedAt;
     while (io.now()<end) {
       const delta=await capture.capture();
       for (const row of delta.records.rows) {
         diskState.rows.push(row);
-        if (row.kind==='map_connected') mapConnected=true;
-        if (row.kind==='map_target_observed') targetSeen=true;
         if (['segments','changes'].includes(row.kind)) {
           pages=mergeSearchPathPage(pages,parseSearchPathPage(JSON.parse(row.body),row.kind,[config.opId]),row.kind);
           lastProgress=io.now();
           if (complete(pages) && fullReceivedAt === undefined) fullReceivedAt=row.bodyReadAt;
         }
       }
-      if (!result.gpsAttempted && mapConnected && pages.paths.length>0 && !complete(pages)) {
-        assert.deepEqual(io.writer(),writerBefore,'writer_changed_before_send');
-        result.gpsAttempted=true; save(path.join(directory,'gps-dispatch.json'),{requestId:plan.requestId,at:new Date().toISOString()});
-        await evaluate(sendGpsBatch,{key:config.key,plan,credential,timeoutMs:15000});
-        lastProgress=io.now(); // Do not count the caller's own writer/send wait as a stalled page response.
-      }
-      if (complete(pages) && result.gpsAttempted && targetSeen) {
-        const writerAfter=io.writer(); save(path.join(directory,'writer-after.json'),writerAfter);
-        result.gps=verifyStoredGps(plan,writerAfter,diskState.rows);
-        const databaseAfter=io.snapshot(path.join(directory,'database-after.json'));
-        onlyPlannedChange(databaseBefore,databaseAfter,plan);
+      if (complete(pages)) {
+        io.snapshot(path.join(directory,'database-after.json'));
         await capture.capture(); // Sequential fresh drain; finish rejects late responses instead of retrying.
-        result.comparison=await capture.finish(databaseAfter);
+        const {responses,mapSource,...finished}=await capture.finish();
+        save(path.join(directory,'server-responses.json'),responses); save(path.join(directory,'map-source.json'),mapSource);
+        result.comparison={...finished,...compareSaved(directory,config)};
         result.fullReceivedAt=fullReceivedAt;
         result.firstObservedAt=diskState.rows.find(r=>r.kind==='map_first_observed')?.at;
         result.httpResponses=diskState.rows.filter(r=>['segments','changes'].includes(r.kind)).length;
@@ -155,10 +129,6 @@ async function run(config, directory, credential, io = realIO(config)) {
       } catch (_) { result.returnUnconfirmed=true; result.completed=false; }
     }
     if (capture) capture.close();
-    if (result.gpsAttempted && !result.gps) {
-      try {const db=io.writer();save(path.join(directory,'writer-recovery.json'),db);result.writeObservation=classifyWrite(plan,db);}
-      catch (_) {result.writeObservation='unconfirmed';}
-    }
     if (fs.existsSync(file)) {
       try {const restored=restoreCheckpoints(file);result.checkpoints=restored.checkpoints;
         result.checkpointErrors=restored.errors.length;result.incompleteTail=restored.incompleteTail;
@@ -175,16 +145,9 @@ async function run(config, directory, credential, io = realIO(config)) {
   return result;
 }
 
-module.exports={run,runtime,classifyWrite,onlyPlannedChange,complete,save,pageAction,realIO};
+module.exports={run,runtime,scope,compareSaved,complete,save,pageAction,realIO};
 if(require.main===module){
   const config=JSON.parse(fs.readFileSync(process.argv[2]));
-  const server=serverOf(config);
-  // The temporary credential stays in memory; never print the SSH buffer or native errors.
-  let credential;
-  try {const raw=JSON.parse(execFileSync('ssh',sshArgs(server,'cat /srv/ops/k6/secrets/preserved-path-probe-writer.json'),
-    {timeout:15000,maxBuffer:100000}));
-    credential=Array.isArray(raw)?raw[0]:raw;
-  } catch (_) {console.error('app_credential_unavailable');process.exit(1);}
-  run(config,process.argv[3],credential).then(r=>{console.log(JSON.stringify(r));if(!r.completed)process.exitCode=1;})
+  run(config,process.argv[3]).then(r=>{console.log(JSON.stringify(r));if(!r.completed)process.exitCode=1;})
     .catch(()=>{console.error('run_preparation_failed');process.exitCode=1;});
 }

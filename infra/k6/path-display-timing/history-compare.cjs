@@ -1,6 +1,7 @@
 const { isDeepStrictEqual } = require('node:util');
 const { createSearchPathPages, parseSearchPathPage, mergeSearchPathPage } =
   require('../../../frontend/src/features/path/model/searchPathPages.ts');
+const { comparePathCoordinates } = require('./path-coordinates.cjs');
 
 function requireValue(condition, message) {
   if (!condition) throw Error(message);
@@ -78,60 +79,33 @@ function pagesComplete(pages) {
   return pages.paths.length > 0 && !pages.hasMoreSegments && !pages.hasMoreChanges && pages.paths.every(pathComplete);
 }
 
-function compareCapturedPaths(rows, snapshot, incidentId, opId) {
-  validateSnapshot(snapshot);
-  requireValue(snapshot.incidentId === incidentId && snapshot.opId === opId, 'snapshot_scope_mismatch');
-  const state = readCapturedPages(rows, opId);
-  requireValue(pagesComplete(state), 'pages_incomplete');
-  const expected = expectedPaths(snapshot);
-  const received = state.paths.map(pathValue).sort((a, b) => a.id.localeCompare(b.id));
-  requireValue(isDeepStrictEqual(received, expected), 'received_snapshot_mismatch');
+// Splits the final checkpoint rows into what the run saves: server responses and the path source data.
+function readFinalCapture(rows) {
   const captures = rows.filter(row => row.kind === 'map_final_source');
   requireValue(captures.length === 1 && captures[0].returned === true && typeof captures[0].body === 'string', 'final_source_missing');
   const captureIndex = rows.indexOf(captures[0]);
   requireValue(!rows.slice(captureIndex + 1).some(row => ['segments', 'changes'].includes(row.kind)), 'response_after_final_source');
-  const source = JSON.parse(captures[0].body);
-  requireValue(source.type === 'FeatureCollection' && Array.isArray(source.features), 'invalid_final_source');
-  const expectedFeatures = [];
-  for (const path of expected) {
-    const segments = [...path.segments].sort((a, b) => a.startPointOrder - b.startPointOrder);
-    segments.forEach((segment, index) => {
-      const previous = segments[index - 1];
-      let coordinates = segment.coordinates;
-      if (previous && segment.startPointOrder === previous.endPointOrder + 1 &&
-          !isDeepStrictEqual(previous.coordinates.at(-1), coordinates[0])) {
-        coordinates = [previous.coordinates.at(-1), ...coordinates];
-      }
-      expectedFeatures.push({ id: segment.id, pathId: path.id, version: path.version, opId: path.opId,
-        accountId: path.accountId, movementType: segment.movementType, coordinates });
-    });
-  }
-  const actualFeatures = source.features.map(feature => {
-    requireValue(feature.type === 'Feature' && feature.geometry?.type === 'LineString' && feature.properties?.slot === 'path', 'invalid_path_feature');
-    const p = feature.properties;
-    return { id: p.entityId, pathId: p.searchPathId, version: p.searchPathVersion, opId: p.opId,
-      accountId: p.accountId, movementType: p.movementType, coordinates: feature.geometry.coordinates };
-  });
-  const sorted = values => values.sort((a, b) => a.id.localeCompare(b.id));
-  requireValue(isDeepStrictEqual(sorted(actualFeatures), sorted(expectedFeatures)), 'map_snapshot_mismatch');
-  return { receivedMatchesSnapshot: true, mapSourceMatchesSnapshot: true, progressComplete: true,
-    paths: expected.length, segments: expectedFeatures.length,
-    storedCoordinates: snapshot.paths.reduce((sum, path) => sum + path.segments.reduce((n, segment) => n + segment.coordinates.length, 0), 0) };
+  const mapSource = JSON.parse(captures[0].body);
+  requireValue(mapSource.type === 'FeatureCollection' && Array.isArray(mapSource.features), 'invalid_final_source');
+  return { responses: rows.filter(row => ['segments', 'changes'].includes(row.kind)), mapSource };
 }
 
-function compareNewCoordinates(rows, target, write) {
-  requireValue(Number.isFinite(write.startedAt) && Number.isFinite(write.completedAt) &&
-    write.startedAt >= 0 && write.completedAt >= write.startedAt && write.clock === 'observer-relative-performance', 'write_clock_invalid');
-  const expected = rows.find(row => row.kind === 'map_target_expected');
-  const observed = rows.find(row => row.kind === 'map_target_observed');
-  requireValue(expected && observed && isDeepStrictEqual(expected.target, target) && isDeepStrictEqual(observed.target, target), 'target_not_observed');
-  requireValue(Number.isFinite(expected.at) && expected.at >= 0 && observed.at >= write.startedAt &&
-    Number.isFinite(observed.sourceReadStarted) && observed.sourceReadStarted >= Math.max(write.startedAt, expected.at) &&
-    Number.isFinite(observed.sourceReadEnded) && observed.sourceReadEnded >= observed.sourceReadStarted &&
-    observed.sourceReadEnded <= observed.at, 'target_time_invalid');
-  // Display may precede the write response; only send-to-observation is necessarily non-negative.
-  return { sendToObservedMs: observed.at - write.startedAt,
-    responseToObservedMs: observed.at - write.completedAt, sourceConfirmedAt: observed.sourceReadEnded };
+// Mismatches are results, not errors; only incomplete or malformed inputs throw.
+function compareMeasurement(responses, mapSource, before, after, incidentId, opId) {
+  for (const snapshot of [before, after]) {
+    validateSnapshot(snapshot);
+    requireValue(snapshot.incidentId === incidentId && snapshot.opId === opId, 'snapshot_scope_mismatch');
+  }
+  const state = readCapturedPages(responses, opId);
+  requireValue(pagesComplete(state), 'pages_incomplete');
+  const received = state.paths.map(pathValue).sort((a, b) => a.id.localeCompare(b.id));
+  // Not the raw response order (the server sends start_point_order DESC): merged pages sort each path's
+  // segments by startPointOrder ascending, the order the board draws them.
+  const segments = state.paths.flatMap(path => path.segments.map(segment =>
+    ({ searchPathId: path.id, coordinates: segment.geometry.coordinates })));
+  return { responseMatchesBefore: isDeepStrictEqual(received, expectedPaths(before)),
+    afterMatchesBefore: isDeepStrictEqual(after, before),
+    coordinates: comparePathCoordinates(segments, mapSource.features) };
 }
 
 function compareReceivedSubset(rows, snapshot, incidentId, opId) {
@@ -154,4 +128,4 @@ function compareReceivedSubset(rows, snapshot, incidentId, opId) {
     fullComparisonPassed: false };
 }
 
-module.exports = { readCapturedPages, compareCapturedPaths, compareNewCoordinates, compareReceivedSubset, validateSnapshot, pathComplete, pagesComplete };
+module.exports = { readCapturedPages, readFinalCapture, compareMeasurement, compareReceivedSubset, validateSnapshot, pathComplete, pagesComplete };
