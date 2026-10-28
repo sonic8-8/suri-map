@@ -15,6 +15,8 @@ function installPathObserver(config, onStop) {
     rows: [], resources: [], cadence: [], visibility: [], stopped: false,
   };
   window[config.key] = state;
+  // The board sends board_open_clicked and all_paths_map_idle only while board measurement is on.
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
   const prefix = `/api/incidents/${config.incidentId}/board/search-paths/`;
   const originalDescriptor = Object.getOwnPropertyDescriptor(Response.prototype, 'text');
   const originalText = Response.prototype.text;
@@ -55,6 +57,14 @@ function installPathObserver(config, onStop) {
     if (!state.stopped) appendResources(list.getEntries());
   });
   const sourceChanged = event => { if (event.sourceId === sourceId) generation++; };
+  // Keeps the two board timings exactly as the page sent them; the runner never derives them.
+  const boardMeasured = event => {
+    const detail = event.detail;
+    if (state.stopped || detail?.incidentId !== config.incidentId ||
+        !['board_open_clicked', 'all_paths_map_idle'].includes(detail.stage)) return;
+    record('board_measurement', { event: JSON.parse(JSON.stringify(detail)) });
+  };
+  window.addEventListener('suri-map:board-measurement', boardMeasured);
   const mapObserver = {
     connect(nextMap) {
       if (state.stopped) return;
@@ -132,7 +142,7 @@ function installPathObserver(config, onStop) {
   async function sample() {
     if (state.stopped || sampling || capturingSource) return;
     if (document.visibilityState !== 'visible') { stop('hidden'); return; }
-    if (window.__SURI_MAP_MEASUREMENT_ENABLED__ === true) { stop('measurement_enabled'); return; }
+    if (window.__SURI_MAP_MEASUREMENT_ENABLED__ !== true) { stop('measurement_disabled'); return; }
     if (Response.prototype.text !== wrappedText || window.__SURI_MAP_OBSERVER__ !== mapObserver) {
       stop('observer_replaced'); return;
     }
@@ -212,6 +222,8 @@ function installPathObserver(config, onStop) {
     clearInterval(intervalId);
     clearTimeout(deadlineId);
     document.removeEventListener('visibilitychange', visibilityChanged);
+    window.removeEventListener('suri-map:board-measurement', boardMeasured);
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = false;
     appendResources(resourceObserver.takeRecords());
     resourceObserver.disconnect();
     if (map) {

@@ -15,9 +15,21 @@ function parseResult(stdout) {
   return JSON.parse(line.slice(7));
 }
 
+// Every key the runners read. attempt.json saves the whole config, so any other key (a credential, for example) is refused.
+const configKeys = ['origin', 'target', 'accountId', 'incidentId', 'opId', 'key', 'script', 'deploymentEvidence',
+  'sshHost', 'databaseContainer', 'limits', 'deadlineMs', 'maxResponses', 'maxBodyCharacters', 'sampleIntervalMs'];
+
+// Values are checked by type too: regex tests coerce a one-item array, and objects could carry other fields.
+const stringKeys = ['origin', 'target', 'accountId', 'incidentId', 'opId', 'key', 'script', 'deploymentEvidence'];
+const countKeys = ['deadlineMs', 'maxResponses', 'maxBodyCharacters', 'sampleIntervalMs'];
+
 function validateConfig(config) {
   const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-  if (config.origin !== 'https://suri-map.sonic8-8.com' || !/^[A-F0-9]{32}$/.test(config.target) ||
+  const has = name => Object.hasOwn(config, name);
+  if (Object.keys(config).some(name => !configKeys.includes(name)) || stringKeys.some(name => typeof config[name] !== 'string') ||
+      countKeys.some(name => has(name) && !(Number.isSafeInteger(config[name]) && config[name] > 0)) ||
+      (has('limits') && !(Array.isArray(config.limits) && config.limits.length === 3 &&
+        config.limits.every(value => typeof value === 'string' && /^[1-9]\d*$/.test(value)))) || config.origin !== 'https://suri-map.sonic8-8.com' || !/^[A-F0-9]{32}$/.test(config.target) ||
       ![config.accountId, config.incidentId, config.opId].every(value => uuid.test(value)) ||
       !/^__[A-Za-z0-9_]+$/.test(config.key) || !/^\/assets\/index-[\w-]+\.js$/.test(config.script) ||
       typeof config.deploymentEvidence !== 'string' || !fs.existsSync(config.deploymentEvidence)) throw Error('invalid_config');
@@ -104,7 +116,7 @@ async function run(config, outputDirectory, call = callAside) {
       const delta = await capture();
       if (delta.state.stopped) { result.reason = delta.state.reason; break; }
       if (delta.page.path !== `/incidents/${config.incidentId}/board`) throw Error('wrong_board');
-      if (delta.page.visibility !== 'visible' || delta.page.measurement) throw Error('environment_changed');
+      if (delta.page.visibility !== 'visible' || !delta.page.measurement) throw Error('environment_changed');
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     if (!result.reason) throw Error('external_deadline');

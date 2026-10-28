@@ -32,7 +32,7 @@ function browser() {
   document.querySelector = selector => selector.includes('script') ? { getAttribute: () => config.script } : {};
   class BrowserResponse extends Response {}
   class ResourceObserver { observe() {} disconnect() {} takeRecords() { return []; } }
-  const context = vm.createContext({ config, window: {}, document, performance: { now: () => ++tick, timeOrigin: 1000 },
+  const context = vm.createContext({ config, window: new EventTarget(), document, performance: { now: () => ++tick, timeOrigin: 1000 },
     location: { origin: config.origin, pathname: '/incidents', replace(value) { this.pathname = value; } },
     sessionStorage: { getItem: key => storage.get(key) ?? null, setItem(key, value) {
       if (value.length > 1000) throw Error('storage_quota');
@@ -175,6 +175,15 @@ async function main() {
     assert.equal(b.state.reason, 'capture_failed');
   });
   console.log('PASS unloaded source and in-flight response cannot finalize');
+
+  await withCapture(async (b, capture) => {
+    await b.response(); await capture.capture();
+    b.context.window.__SURI_MAP_MEASUREMENT_ENABLED__ = false;
+    await b.response('changes', { ...pathRow, segments: [] });
+    await assert.rejects(capture.capture(), /capture_environment_changed/);
+    assert.equal(b.state.reason, 'capture_failed');
+  });
+  console.log('PASS board measurement turned off by the page stops the capture');
 
   let changed = false;
   await withCapture(async (b, capture, file) => {

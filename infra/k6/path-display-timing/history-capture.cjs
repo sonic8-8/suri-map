@@ -86,7 +86,7 @@ function createHistoryCapture({ file, key, incidentId, opId, evaluate }) {
     try {
     const captured = await writer.capture(async cursors => {
       const delta = await evaluate(readManifest, { key, cursors });
-      if (delta.page.path !== `/incidents/${incidentId}/board` || delta.page.visibility !== 'visible' || delta.page.measurement) {
+      if (delta.page.path !== `/incidents/${incidentId}/board` || delta.page.visibility !== 'visible' || !delta.page.measurement) {
         throw Error('capture_environment_changed');
       }
       const identity = identityOf(delta.state);

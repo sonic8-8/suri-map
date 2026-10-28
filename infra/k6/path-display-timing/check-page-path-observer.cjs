@@ -25,7 +25,7 @@ function createBrowser(overrides = {}) {
     disconnect() { this.active = false; }
     takeRecords() { return []; }
   }
-  const window = {};
+  const window = new EventTarget();
   const document = new EventTarget();
   document.visibilityState = 'visible';
   const config = { key, incidentId, maxResponses: 20, maxBodyCharacters: 10000, deadlineMs: 1000, sampleIntervalMs: 20, ...overrides };
@@ -230,14 +230,14 @@ async function checkInvalidObservations() {
 }
 
 async function checkExitAndFailures() {
-  for (const mode of ['hidden', 'deadline', 'map-replaced', 'measurement-enabled', 'http-failed', 'response-limit', 'read-failed']) {
+  for (const mode of ['hidden', 'deadline', 'map-replaced', 'measurement-disabled', 'http-failed', 'response-limit', 'read-failed']) {
     const b = createBrowser({ maxResponses: 1 });
     const m = createMap();
     b.window.__SURI_MAP_OBSERVER__.connect(m.map);
     if (mode === 'hidden') { b.document.visibilityState = 'hidden'; b.document.dispatchEvent(new Event('visibilitychange')); }
     if (mode === 'deadline') [...b.timers.values()].at(-1)();
     if (mode === 'map-replaced') b.window.__SURI_MAP_OBSERVER__.connect(createMap().map);
-    if (mode === 'measurement-enabled') { b.window.__SURI_MAP_MEASUREMENT_ENABLED__ = true; await b.observer.sample(); }
+    if (mode === 'measurement-disabled') { b.window.__SURI_MAP_MEASUREMENT_ENABLED__ = false; await b.observer.sample(); }
     if (mode === 'http-failed') assert.equal(await b.response('failure-body', url, 500).text(), 'failure-body');
     if (mode === 'response-limit') { await b.response().text(); assert.equal(await b.response().text(), rawBody); }
     if (mode === 'read-failed') {
@@ -254,6 +254,29 @@ async function checkExitAndFailures() {
     assert.equal(b.window[key].rows.some(row => row.body === 'failure-body'), false);
   }
   console.log('PASS visibility/deadline/replacement/HTTP/body failure stops release own hooks');
+}
+
+async function checkBoardMeasurementEvents() {
+  // given: 관찰기를 켜면 상황판 계측도 켜진다.
+  const b = createBrowser();
+  assert.equal(b.window.__SURI_MAP_MEASUREMENT_ENABLED__, true);
+  const opened = { incidentId, atMs: 1234.5, stage: 'board_open_clicked', timeOriginMs: 1000, elapsedMs: 1240.25 };
+  const idle = { incidentId, atMs: 5678.125, stage: 'all_paths_map_idle', timeOriginMs: 1000, elapsedMs: 5678.125 };
+  const send = detail => b.window.dispatchEvent(new CustomEvent('suri-map:board-measurement', { detail }));
+
+  // when: 화면이 두 시점과 함께 다른 단계와 다른 사건의 이벤트를 보낸다.
+  send(opened);
+  send({ ...idle, incidentId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001' });
+  send({ incidentId, stage: 'map_data_submitted', timeOriginMs: 1000, elapsedMs: 3000 });
+  send(idle);
+  b.observer.stop('manual');
+  send({ ...idle, atMs: 9999 });
+
+  // then: 이 사건의 두 시점만 화면이 보낸 값 그대로 남고, 멈추면 계측을 다시 끈다.
+  const events = JSON.parse(JSON.stringify(b.window[key].rows.filter(row => row.kind === 'board_measurement').map(row => row.event)));
+  assert.deepEqual(events, [opened, idle]);
+  assert.equal(b.window.__SURI_MAP_MEASUREMENT_ENABLED__, false);
+  console.log('PASS observer turns board measurement on and keeps both board events exactly as sent');
 }
 
 async function checkScopeAndCheckpointLoss() {
@@ -331,6 +354,7 @@ async function checkChangingSourceIsBounded() {
   await checkStopDuringBodyRead();
   await checkInvalidObservations();
   await checkExitAndFailures();
+  await checkBoardMeasurementEvents();
   await checkScopeAndCheckpointLoss();
   await checkConcurrentCapture();
   await checkChangingSourceIsBounded();

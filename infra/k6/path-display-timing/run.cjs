@@ -17,6 +17,30 @@ const { createSearchPathPages, parseSearchPathPage, mergeSearchPathPage } = requ
 const execute = promisify(execFile);
 // Same fixed incident and operational period as db-snapshot.sql.
 const scope = Object.freeze({ incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', opId: '88888888-8888-8888-8888-888888880001' });
+// The measurement code: this directory and the Frontend module it loads.
+const repository = path.join(__dirname, '../../..');
+const scriptPaths = ['infra/k6/path-display-timing', 'frontend/src/features/path/model/searchPathPages.ts'];
+const boardStages = ['board_open_clicked', 'all_paths_map_idle'];
+
+function scriptVersion() {
+  try {
+    const git = args => execFileSync('git', ['-C', repository, ...args], { timeout: 10000, encoding: 'utf8' });
+    const commit = git(['rev-parse', 'HEAD']).trim();
+    assert.match(commit, /^[0-9a-f]{40}$/);
+    return { commit, uncommittedChanges: git(['status', '--porcelain', '--', ...scriptPaths]).trim() !== '' };
+  } catch (_) { throw Error('script_version_unreadable'); }
+}
+function measurementSettings(config) {
+  const [segmentsPerPath, maxSegments, maxCoordinates] = config.limits;
+  return { boardUrl: `${config.origin}/incidents/${config.incidentId}/board`, incidentId: config.incidentId, opId: config.opId,
+    sampleIntervalMs: config.sampleIntervalMs, limits: { segmentsPerPath, maxSegments, maxCoordinates } };
+}
+// Each value is the page's event as sent. A missing one stays null and is listed, never filled from another time.
+function boardEventsOf(rows) {
+  const boardEvents = Object.fromEntries(boardStages.map(stage =>
+    [stage, rows.find(row => row.kind === 'board_measurement' && row.event?.stage === stage)?.event ?? null]));
+  return { boardEvents, missingBoardEvents: boardStages.filter(stage => !boardEvents[stage]) };
+}
 
 function save(file, value) {
   const fd = fs.openSync(file, 'wx', 0o600);
@@ -59,7 +83,7 @@ async function pageAction(config, action) {
 }
 function realIO(config) {
   const server = serverOf(config);
-  return { runtime: () => runtime(server), snapshot: file => snapshot(file, server),
+  return { runtime: () => runtime(server), snapshot: file => snapshot(file, server), scriptVersion,
     evaluate: createAsideEvaluator({target:config.target,timeoutMs:30000}),
     action: action => pageAction(config, action), now: Date.now, pause: () => new Promise(r => setTimeout(r,1000)) };
 }
@@ -70,13 +94,15 @@ async function run(config, directory, io = realIO(config)) {
   assert.deepEqual([config.deadlineMs,config.maxResponses,config.maxBodyCharacters,config.sampleIntervalMs], [1050000,800,134217728,250]);
   assert.ok(['1/80/480','4/320/1920','16/1280/7680','200/16000/64000','100000/100000/400000'].includes(config.limits.join('/')));
   fs.mkdirSync(directory,{mode:0o700}); save(path.join(directory,'attempt.json'),config);
-  const result = { started:new Date().toISOString(), completed:false, calls:0 }, file=path.join(directory,'checkpoints.jsonl');
+  const result = { started:new Date().toISOString(), completed:false, calls:0, ...boardEventsOf([]) }, file=path.join(directory,'checkpoints.jsonl');
   let armed=false, capture, end, diskState={rows:[]};
   const evaluate = async (fn,args) => {
     if (end && io.now()>=end) throw Error('external_deadline');
     result.calls++; return io.evaluate(fn,args);
   };
   try {
+    // Results are compared only with runs of the same script version and settings.
+    save(path.join(directory,'measurement-setup.json'),{scriptVersion:io.scriptVersion(),settings:measurementSettings(config)});
     const environment=io.runtime(); save(path.join(directory,'runtime-before.json'),environment);
     assert.equal(environment.fcm,'mock'); assert.deepEqual(environment.limits,config.limits);
     io.snapshot(path.join(directory,'database-before.json'));
@@ -86,18 +112,20 @@ async function run(config, directory, io = realIO(config)) {
     const arm = new Function('return function(config){return ('+armHistoryCapture.toString()+')(config,('+installPathObserver.toString()+'),('+readReadiness.toString()+'));}')();
     armed=true; end=io.now()+1080000;
     await evaluate(arm,config); await io.action('open');
-    let pages=createSearchPathPages(), lastProgress=io.now(), fullReceivedAt;
+    let pages=createSearchPathPages(), lastProgress=io.now(), fullReceivedAt, boardIdle=false;
     while (io.now()<end) {
       const delta=await capture.capture();
       for (const row of delta.records.rows) {
         diskState.rows.push(row);
+        if (row.kind==='board_measurement' && row.event?.stage==='all_paths_map_idle') boardIdle=true;
         if (['segments','changes'].includes(row.kind)) {
           pages=mergeSearchPathPage(pages,parseSearchPathPage(JSON.parse(row.body),row.kind,[config.opId]),row.kind);
           lastProgress=io.now();
           if (complete(pages) && fullReceivedAt === undefined) fullReceivedAt=row.bodyReadAt;
         }
       }
-      if (complete(pages)) {
+      // The board's own end event closes the run; without it the run waits until the deadline.
+      if (boardIdle && complete(pages)) {
         io.snapshot(path.join(directory,'database-after.json'));
         await capture.capture(); // Sequential fresh drain; finish rejects late responses instead of retrying.
         const {responses,mapSource,...finished}=await capture.finish();
@@ -109,7 +137,7 @@ async function run(config, directory, io = realIO(config)) {
         const after=io.runtime();save(path.join(directory,'runtime-after.json'),after);assert.deepEqual(after,environment,'runtime_changed');
         result.completed=true; break;
       }
-      if (io.now()-lastProgress>30000) throw Error('no_progress');
+      if (!complete(pages) && io.now()-lastProgress>30000) throw Error('no_progress');
       await io.pause();
     }
     if (!result.completed) throw Error('external_deadline');
@@ -133,6 +161,7 @@ async function run(config, directory, io = realIO(config)) {
       try {const restored=restoreCheckpoints(file);result.checkpoints=restored.checkpoints;
         result.checkpointErrors=restored.errors.length;result.incompleteTail=restored.incompleteTail;
         const rows=restored.state?.rows??[], responses=rows.filter(r=>['segments','changes'].includes(r.kind));
+        Object.assign(result,boardEventsOf(rows));
         result.httpResponses=responses.length;result.lastResponseBodyReadAt=responses.at(-1)?.bodyReadAt;
         result.firstObservedAt=rows.find(r=>r.kind==='map_first_observed')?.at;
         result.resourceCount=restored.state?.resources.length??0;
@@ -145,7 +174,7 @@ async function run(config, directory, io = realIO(config)) {
   return result;
 }
 
-module.exports={run,runtime,scope,compareSaved,complete,save,pageAction,realIO};
+module.exports={run,runtime,scope,compareSaved,complete,save,pageAction,realIO,scriptVersion};
 if(require.main===module){
   const config=JSON.parse(fs.readFileSync(process.argv[2]));
   run(config,process.argv[3]).then(r=>{console.log(JSON.stringify(r));if(!r.completed)process.exitCode=1;})
