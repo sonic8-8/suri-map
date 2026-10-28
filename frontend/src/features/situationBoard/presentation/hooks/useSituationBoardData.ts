@@ -6,6 +6,7 @@ import { refreshSituationBoards } from '../../../../app/board/refreshSituationBo
 import { usePagedIncidentBoardQuery } from '../../../../app/board/usePagedIncidentBoardQuery';
 import { useIncidentBoardEvents } from '../../../../app/board/useIncidentBoardEvents';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
+import { holdBoardOpenTrace, markBoardPathHistoryReceived } from '../../../board/model/boardMeasurement';
 import {
   createIncidentScopedFallbackBoard,
   type SearchAreaAssignedAccount,
@@ -90,6 +91,15 @@ export function useSituationBoardData(
   }, [refreshVersion, queryClient]);
 
   useIncidentBoardEvents(incidentId, hasApiBoard && shouldSubscribeEvents);
+
+  // 아래 조회 상태 알림보다 먼저 선언해, 다른 사건의 추적을 지운 뒤에 알린다.
+  useEffect(() => holdBoardOpenTrace(incidentId), [incidentId]);
+
+  // 상위 화면의 effect라 같은 render에서 지도 경로 source를 갱신한 뒤에 실행된다.
+  // 확인 함수가 render마다 바뀌어, idle에서 버린 뒤 React 값이 그대로여도 다음 render에서 다시 기다린다.
+  useEffect(() => {
+    markBoardPathHistoryReceived(boardQuery.pathHistoryReceived, boardQuery.isPathHistoryStillReceived);
+  }, [boardQuery.pathHistoryReceived, boardQuery.isPathHistoryStillReceived]);
 
   useEffect(() => {
     stableApiBoardRef.current = null;

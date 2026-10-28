@@ -94,6 +94,85 @@ export function recordBoardMeasurement(stage: string, details: Record<string, un
   );
 }
 
+type BoardOpenTrace = {
+  incidentId: string;
+  pathHistoryReceived: boolean;
+  isPathHistoryStillReceived: () => boolean;
+  pathMap?: MapLibreMap;
+  pathSourceCurrent: boolean;
+  waitingIdle: boolean;
+  holders: number;
+};
+
+// 상황판을 한 번 열 때 끝 시점을 한 번만 기록한다. 계측이 꺼져 있으면 만들지 않는다.
+let boardOpenTrace: BoardOpenTrace | null = null;
+
+// click 이벤트의 timeStamp는 performance.now와 같은 기준이다.
+export function recordBoardOpenClicked(incidentId: string, timeStamp: number) {
+  boardOpenTrace = null;
+  if (!isBoardMeasurementEnabled()) return;
+  boardOpenTrace = {
+    incidentId,
+    pathHistoryReceived: false,
+    isPathHistoryStillReceived: () => true,
+    pathSourceCurrent: false,
+    waitingIdle: false,
+    holders: 0,
+  };
+  recordBoardMeasurement('board_open_clicked', { incidentId, atMs: timeStamp });
+}
+
+// 열린 상황판이 추적을 붙잡는다. 다른 사건이면 바로, 상황판을 떠나면 해제 뒤에 추적을 지운다.
+export function holdBoardOpenTrace(incidentId: string) {
+  const trace = boardOpenTrace;
+  if (!trace) return () => {};
+  if (trace.incidentId !== incidentId) {
+    boardOpenTrace = null;
+    return () => {};
+  }
+  trace.holders += 1;
+  return () => {
+    trace.holders -= 1;
+    // StrictMode는 해제 직후 같은 작업 안에서 다시 붙잡으므로, 그 뒤에도 남은 holder가 없을 때만 지운다.
+    queueMicrotask(() => {
+      if (trace.holders === 0 && boardOpenTrace === trace) boardOpenTrace = null;
+    });
+  };
+}
+
+// 상황판 화면이 렌더한 경로 조회 상태를 알린다. 지도 갱신 효과보다 늦게 호출해야 같은 render의 자료와 맞는다.
+// isStillReceived는 render 뒤 React에 아직 전달되지 않은 새 조회가 있는지 idle 때 다시 확인한다.
+export function markBoardPathHistoryReceived(received: boolean, isStillReceived: () => boolean = () => true) {
+  if (!boardOpenTrace) return;
+  boardOpenTrace.pathHistoryReceived = received;
+  boardOpenTrace.isPathHistoryStillReceived = isStillReceived;
+  waitForBoardPathsIdle(boardOpenTrace);
+}
+
+// 경로 source가 마지막으로 받은 자료를 반영했는지 알린다.
+export function markBoardPathSourceCurrent(map: MapLibreMap, current: boolean) {
+  if (!boardOpenTrace) return;
+  boardOpenTrace.pathMap = map;
+  boardOpenTrace.pathSourceCurrent = current;
+  waitForBoardPathsIdle(boardOpenTrace);
+}
+
+function waitForBoardPathsIdle(trace: BoardOpenTrace) {
+  const map = trace.pathMap;
+  if (!map || !trace.pathHistoryReceived || !trace.pathSourceCurrent || trace.waitingIdle) return;
+  trace.waitingIdle = true;
+  map.once('idle', () => {
+    trace.waitingIdle = false;
+    if (boardOpenTrace !== trace || !isBoardMeasurementEnabled()) return;
+    // 기다리는 동안 새 조회나 새 자료가 생겼으면, 다시 두 조건을 채운 뒤의 idle을 기다린다.
+    if (!trace.pathHistoryReceived || !trace.isPathHistoryStillReceived() || !trace.pathSourceCurrent) return;
+    boardOpenTrace = null;
+    recordBoardMeasurement('all_paths_map_idle', { incidentId: trace.incidentId, atMs: performance.now() });
+  });
+  // source가 이미 같은 자료를 반영해 새 render가 없을 때도 idle을 한 번 받는다.
+  map.triggerRepaint();
+}
+
 type PendingMapUpdate = {
   sourceId: string;
   updateId: string;

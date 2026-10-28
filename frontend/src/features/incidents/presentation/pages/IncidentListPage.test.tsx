@@ -104,6 +104,55 @@ describe('IncidentListPage', () => {
     // then: 상황판이 경로 조회를 먼저 시작할 수 있도록 차수를 함께 넘긴다.
     expect(onOpenSituationBoard).toHaveBeenCalledWith(importedIncidentId, 'op-active-1');
   });
+
+  test.each([
+    { enabled: true, expected: 1 },
+    { enabled: false, expected: 0 },
+  ])('상황판 계측이 $enabled 일 때 상황판 열기를 누르면, click 이벤트 시각을 시작 시점으로 $expected건 기록한다', async ({ enabled, expected }) => {
+    // given: 계측 수집기를 연결하고, 처리 코드 실행 시각이 click 발생 시각과 다르게 보이도록 고정한다.
+    vi.mocked(incidentReadApi.list).mockResolvedValueOnce(incidentListResponse([importedIncident()]));
+    vi.mocked(incidentReadApi.detail).mockResolvedValueOnce(activeIncidentDetail());
+    const records: Array<Record<string, unknown>> = [];
+    const collect = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail.stage === 'board_open_clicked') records.push(event.detail);
+    };
+    let clickTimeStamp = Number.NaN;
+    const captureClick = (event: Event) => {
+      clickTimeStamp = event.timeStamp;
+    };
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = enabled;
+    window.addEventListener('suri-map:board-measurement', collect);
+    document.addEventListener('click', captureClick, true);
+    const onOpenSituationBoard = vi.fn();
+    const now = vi.spyOn(performance, 'now');
+    try {
+      render(
+        <IncidentListPage
+          currentUserAccount={currentUserAccount()}
+          onOpenLogin={vi.fn()}
+          onOpenSituationBoard={onOpenSituationBoard}
+        />,
+      );
+      const button = await screen.findByRole('button', { name: '상황판 열기' });
+      now.mockReturnValue(-1);
+
+      // when: 상황판 열기를 누른다.
+      button.click();
+
+      // then: 처리 코드 실행 시각이 아니라 click 이벤트의 timeStamp를 남기고, 화면 이동은 그대로 요청한다.
+      expect(records).toHaveLength(expected);
+      if (enabled) {
+        expect(records[0]).toMatchObject({ incidentId: importedIncidentId, atMs: clickTimeStamp });
+        expect(clickTimeStamp).not.toBe(-1);
+      }
+      expect(onOpenSituationBoard).toHaveBeenCalledWith(importedIncidentId, null);
+    } finally {
+      now.mockRestore();
+      delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+      window.removeEventListener('suri-map:board-measurement', collect);
+      document.removeEventListener('click', captureClick, true);
+    }
+  });
 });
 
 function renderIncidentListPage() {

@@ -1,6 +1,7 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { GeoJSONSourceDiff, Map as MapLibreMap } from 'maplibre-gl';
 import type { BoardMapFeature, BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
+import { markBoardPathHistoryReceived, recordBoardOpenClicked } from '../../../../board/model/boardMeasurement';
 import { syncMovementPathSource } from './movementPathSource';
 
 const sourceId = 'operational-movement-path';
@@ -36,10 +37,21 @@ function createMap(initiallyLoaded = true) {
       listeners.set(name, listener),
     ),
   };
-  const map = { getSource: () => source } as unknown as MapLibreMap;
+  const idleListeners: Array<() => void> = [];
+  const triggerRepaint = vi.fn();
+  const map = {
+    getSource: () => source,
+    on: vi.fn(),
+    once: (name: string, listener: () => void) => {
+      if (name === 'idle') idleListeners.push(listener);
+    },
+    triggerRepaint,
+  } as unknown as MapLibreMap;
   return {
     map,
     source,
+    triggerRepaint,
+    idle: () => idleListeners.splice(0).forEach((listener) => listener()),
     finish: () => {
       loaded = true;
       listeners.get('data')?.({ sourceDataType: 'content' });
@@ -143,6 +155,139 @@ describe('syncMovementPathSource', () => {
       expect(log).toHaveBeenCalled();
     } finally {
       log.mockRestore();
+    }
+  });
+});
+
+describe('상황판 열기부터 전체 경로 지도 반영까지 계측', () => {
+  let records: Array<Record<string, unknown>> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent && event.detail.stage === 'all_paths_map_idle') records.push(event.detail);
+  };
+  beforeEach(() => {
+    records = [];
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+    window.addEventListener('suri-map:board-measurement', collect);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+  });
+
+  test('이력을 모두 받고 그 자료로 source를 갱신한 뒤, 첫 idle의 시각을 끝 시점으로 한 번만 기록한다', () => {
+    // given: 상황판을 열었다.
+    const { map, finish, idle } = createMap();
+    recordBoardOpenClicked('incident-1', 10);
+
+    // when: 모든 이력을 source에 보내고, 이력을 모두 받은 상태를 알린 뒤 source 반영이 끝나 idle이 두 번 발생한다.
+    syncMovementPathSource(map, sourceId, collection(feature('a')), []);
+    markBoardPathHistoryReceived(true);
+    finish();
+    vi.spyOn(performance, 'now').mockReturnValue(1234);
+    idle();
+    // 같은 상황판에서 변경분 조회가 다시 끝나고 지도가 다시 idle이 된다.
+    markBoardPathHistoryReceived(false);
+    markBoardPathHistoryReceived(true);
+    idle();
+
+    // then: 첫 idle 시각만 performance.now 기준 값으로 남는다.
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ incidentId: 'incident-1', atMs: 1234 });
+  });
+
+  test('이력을 모두 받기 전에 발생한 idle은, 일부 경로를 반영했어도 끝 시점으로 기록하지 않는다', () => {
+    // given: 상황판을 열고 첫 페이지 경로를 source에 반영했다.
+    const { map, finish, idle } = createMap();
+    recordBoardOpenClicked('incident-1', 10);
+    syncMovementPathSource(map, sourceId, collection(feature('a')), []);
+    finish();
+
+    // when: 남은 이력이 있는 동안 idle이 발생한다.
+    markBoardPathHistoryReceived(false);
+    idle();
+
+    // then: 끝 시점을 남기지 않는다.
+    expect(records).toHaveLength(0);
+  });
+
+  test('이력을 모두 받았지만 그 자료로 source를 갱신하기 전에 발생한 idle은, 끝 시점으로 기록하지 않는다', () => {
+    // given: 상황판을 열고 첫 페이지 경로를 source에 반영했다.
+    const { map, finish, idle } = createMap();
+    recordBoardOpenClicked('incident-1', 10);
+    syncMovementPathSource(map, sourceId, collection(feature('a')), []);
+    finish();
+
+    // when: 마지막 페이지 자료를 source에 보냈지만 반영이 끝나기 전에 idle이 발생한다.
+    syncMovementPathSource(map, sourceId, collection(feature('a'), feature('b')), []);
+    markBoardPathHistoryReceived(true);
+    idle();
+
+    // then: 이전 자료를 그린 idle은 남기지 않고, 반영 뒤 첫 idle만 남긴다.
+    expect(records).toHaveLength(0);
+    finish();
+    idle();
+    expect(records).toHaveLength(1);
+  });
+
+  test('source가 이미 마지막 자료를 반영한 뒤 이력을 모두 받으면, 지도를 다시 그려 그다음 idle을 끝 시점으로 기록한다', () => {
+    // given: 상황판을 열고 마지막 페이지 경로까지 source에 반영했다.
+    const { map, finish, idle, triggerRepaint } = createMap();
+    recordBoardOpenClicked('incident-1', 10);
+    syncMovementPathSource(map, sourceId, collection(feature('a')), []);
+    finish();
+    idle();
+
+    // when: 같은 자료로 조회가 끝났음을 알린다.
+    markBoardPathHistoryReceived(true);
+
+    // then: 새 source 갱신이 없어도 idle을 다시 받아 기록한다.
+    expect(triggerRepaint).toHaveBeenCalled();
+    idle();
+    expect(records).toHaveLength(1);
+  });
+
+  test('경로 데이터가 하나도 없는 차수도, 빈 자료를 source에 반영한 뒤 첫 idle을 끝 시점으로 기록한다', () => {
+    // given: 상황판을 열었다.
+    const { map, source, finish, idle } = createMap();
+    recordBoardOpenClicked('incident-1', 10);
+
+    // when: 빈 경로 자료를 보내고 이력을 모두 받은 뒤 반영이 끝난다.
+    syncMovementPathSource(map, sourceId, collection(), []);
+    markBoardPathHistoryReceived(true);
+    idle();
+    expect(records).toHaveLength(0);
+    finish();
+    idle();
+
+    // then: 기존처럼 빈 자료를 한 번 보내고, 끝 시점을 남긴다.
+    expect(source.setData).toHaveBeenCalledTimes(1);
+    expect(records).toHaveLength(1);
+  });
+
+  test('상황판 계측을 끄면, 시작 시점과 끝 시점을 기록하지 않고 지도를 다시 그리지 않는다', () => {
+    // given: 계측을 끈 상황판이다.
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = false;
+    const all: string[] = [];
+    const collectAll = (event: Event) => {
+      if (event instanceof CustomEvent) all.push(event.detail.stage);
+    };
+    window.addEventListener('suri-map:board-measurement', collectAll);
+    try {
+      const { map, finish, idle, triggerRepaint } = createMap();
+
+      // when: 열기부터 반영 뒤 idle까지 같은 순서로 진행한다.
+      recordBoardOpenClicked('incident-1', 10);
+      syncMovementPathSource(map, sourceId, collection(feature('a')), []);
+      markBoardPathHistoryReceived(true);
+      finish();
+      idle();
+
+      // then: 두 단계 모두 남지 않는다.
+      expect(all).toEqual([]);
+      expect(triggerRepaint).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('suri-map:board-measurement', collectAll);
     }
   });
 });

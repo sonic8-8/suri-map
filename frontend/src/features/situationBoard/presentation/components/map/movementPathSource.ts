@@ -1,6 +1,10 @@
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import type { BoardMapFeature, BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
-import { isBoardMeasurementEnabled, measureBoardMapUpdate } from '../../../../board/model/boardMeasurement';
+import {
+  isBoardMeasurementEnabled,
+  markBoardPathSourceCurrent,
+  measureBoardMapUpdate,
+} from '../../../../board/model/boardMeasurement';
 
 type PathSnapshot = {
   data: BoardMapFeatureCollection;
@@ -37,6 +41,7 @@ export function syncMovementPathSource(
         created.failures = 0;
       }
       flushMovementPaths(map, sourceId, source, layerIds, created);
+      markPathSourceCurrent(map, created);
     });
     source.on('error', (event) => {
       created.sending = undefined;
@@ -45,11 +50,17 @@ export function syncMovementPathSource(
       console.error('Failed to update movement path source', event.error);
       // 증분 기준을 신뢰할 수 없으므로 최신 전체 자료로 한 번만 복구한다.
       if (created.failures === 1) flushMovementPaths(map, sourceId, source, layerIds, created);
+      markPathSourceCurrent(map, created);
     });
   }
   if (state.latest !== data) state.failures = 0;
   state.latest = data;
   flushMovementPaths(map, sourceId, source, layerIds, state);
+  markPathSourceCurrent(map, state);
+}
+
+function markPathSourceCurrent(map: MapLibreMap, state: PathSourceState) {
+  markBoardPathSourceCurrent(map, !state.sending && state.applied?.data === state.latest);
 }
 
 function flushMovementPaths(

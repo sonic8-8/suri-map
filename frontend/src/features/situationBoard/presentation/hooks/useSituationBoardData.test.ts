@@ -1,25 +1,41 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { ApiHttpError } from '../../../../shared/api/client';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import { createIncidentScopedFallbackBoard } from '../constants/mockSituationBoard';
 import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
+import { markBoardPathSourceCurrent, recordBoardOpenClicked } from '../../../board/model/boardMeasurement';
 import { openIncidentBoardEventStream, type BoardEventEnvelope } from '../../../board/api/incidentBoardEventStream';
 import { shouldSubscribeIncidentBoardEvents, useSituationBoardData } from './useSituationBoardData';
 import { incidentBoardQueryKeys, boardSlotsWithoutPaths } from '../../../board/api/incidentBoardApi';
 import { refreshSituationBoards } from '../../../../app/board/refreshSituationBoards';
 
-const { pathPageState } = vi.hoisted(() => ({ pathPageState: { paths: [] as unknown[] } }));
+const { pathPageState } = vi.hoisted(() => ({ pathPageState: { paths: [] as unknown[], hasMoreSegments: false } }));
 
 // HTTP 페이지 실행은 별도 QueryClient 검사로 다루고, 여기서는 수신 자료의 화면 연결을 검증한다.
-vi.mock('../../../path/api/searchPathPagesApi', () => ({
-  useSearchPathPages: () => ({ data: { paths: pathPageState.paths, hasMoreSegments: false }, isError: false }),
-  refreshSearchPathPages: vi.fn(),
-  restrictSearchPathPages: vi.fn(),
-}));
+vi.mock('../../../path/api/searchPathPagesApi', async () => {
+  const { useQueryClient } = await import('@tanstack/react-query');
+  return {
+    // 실제 훅처럼 받은 자료를 Query cache에 둔다. 계측은 idle 때 이 캐시가 render의 자료와 같은지 확인한다.
+    useSearchPathPages: (incidentId: string) => {
+      const client = useQueryClient();
+      const key = ['searchPathPages', incidentId];
+      const cached = client.getQueryData<{ paths: unknown[]; hasMoreSegments: boolean }>(key);
+      const data =
+        cached?.paths === pathPageState.paths && cached.hasMoreSegments === pathPageState.hasMoreSegments
+          ? cached
+          : client.setQueryData(key, { paths: pathPageState.paths, hasMoreSegments: pathPageState.hasMoreSegments });
+      return { data, isError: false };
+    },
+    searchPathPagesKey: (incidentId: string) => ['searchPathPages', incidentId],
+    refreshSearchPathPages: vi.fn(),
+    restrictSearchPathPages: vi.fn(),
+  };
+});
 
 const { fetchBoard } = vi.hoisted(() => {
   const fetchBoard = vi.fn<typeof fetch>();
@@ -35,6 +51,7 @@ let queryClient: QueryClient;
 
 beforeEach(() => {
   pathPageState.paths = [];
+  pathPageState.hasMoreSegments = false;
   queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } } });
   vi.spyOn(queryClient, 'invalidateQueries');
   queryClient.setQueryData(incidentBoardQueryKeys.detail({ incidentId: 'incident-001', includeSlots: boardSlotsWithoutPaths }), boardResponse({}));
@@ -267,6 +284,126 @@ test('SSE 계측을 켜면 중복 수신도 기록하되 같은 이벤트의 재
     delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
     window.removeEventListener('suri-map:board-measurement', collect);
   }
+});
+
+test.each([
+  { hasMoreSegments: true, expected: 0 },
+  { hasMoreSegments: false, expected: 1 },
+])('상황판 열기 뒤 남은 최초 이력이 $hasMoreSegments 이면, 경로 반영 뒤 idle에서 끝 시점을 $expected건 기록한다', ({ hasMoreSegments, expected }) => {
+  // given: 계측을 켜고 상황판 열기를 누른 뒤, 경로 source가 이미 받은 자료를 반영한 지도다.
+  vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
+  pathPageState.hasMoreSegments = hasMoreSegments;
+  const stages: string[] = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent) stages.push(event.detail.stage);
+  };
+  const idleListeners: Array<() => void> = [];
+  const map = {
+    once: (name: string, listener: () => void) => {
+      if (name === 'idle') idleListeners.push(listener);
+    },
+    triggerRepaint: vi.fn(),
+  } as unknown as MapLibreMap;
+  window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+  window.addEventListener('suri-map:board-measurement', collect);
+  try {
+    recordBoardOpenClicked('incident-001', 1);
+    markBoardPathSourceCurrent(map, true);
+
+    // when: 상황판 화면이 경로 조회 상태를 렌더하고 지도가 idle이 된다.
+    renderBoardHook(() => useSituationBoardData('incident-001', []));
+    idleListeners.splice(0).forEach((listener) => listener());
+
+    // then: 이력을 모두 받은 상태일 때만 끝 시점이 남는다.
+    expect(stages.filter((stage) => stage === 'all_paths_map_idle')).toHaveLength(expected);
+  } finally {
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+  }
+});
+
+describe('상황판 열기 추적의 정리', () => {
+  let ends: Array<Record<string, unknown>> = [];
+  let idleListeners: Array<() => void> = [];
+  const collect = (event: Event) => {
+    if (event instanceof CustomEvent && event.detail.stage === 'all_paths_map_idle') ends.push(event.detail);
+  };
+  const map = {
+    once: (name: string, listener: () => void) => {
+      if (name === 'idle') idleListeners.push(listener);
+    },
+    triggerRepaint: () => {},
+  } as unknown as MapLibreMap;
+  const idle = () => idleListeners.splice(0).forEach((listener) => listener());
+  beforeEach(() => {
+    ends = [];
+    idleListeners = [];
+    vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
+    window.__SURI_MAP_MEASUREMENT_ENABLED__ = true;
+    window.addEventListener('suri-map:board-measurement', collect);
+  });
+  afterEach(() => {
+    delete window.__SURI_MAP_MEASUREMENT_ENABLED__;
+    window.removeEventListener('suri-map:board-measurement', collect);
+  });
+
+  test('이력을 다 받기 전에 상황판을 떠나면, 클릭 없이 다시 연 상황판의 시각을 끝 시점으로 기록하지 않는다', async () => {
+    // given: 상황판 열기를 누르고, 이력을 다 받기 전에 상황판을 떠났다.
+    recordBoardOpenClicked('incident-001', 1);
+    pathPageState.hasMoreSegments = true;
+    const first = renderBoardHook(() => useSituationBoardData('incident-001', []));
+    first.unmount();
+    await Promise.resolve();
+
+    // when: 상세 화면 이동처럼 클릭 없이 같은 상황판을 다시 열고, 이력을 모두 받아 지도가 idle이 된다.
+    pathPageState.hasMoreSegments = false;
+    markBoardPathSourceCurrent(map, true);
+    renderBoardHook(() => useSituationBoardData('incident-001', []));
+    idle();
+
+    // then: 이전 열기의 끝 시점으로 남기지 않는다.
+    expect(ends).toHaveLength(0);
+  });
+
+  test('열어 둔 상황판이 다른 사건으로 바뀌면, 바뀐 사건의 시각을 이전 사건의 끝 시점으로 기록하지 않는다', () => {
+    // given: 사건 1의 상황판 열기를 누르고, 이력을 다 받기 전이다.
+    queryClient.setQueryData(
+      incidentBoardQueryKeys.detail({ incidentId: 'incident-002', includeSlots: boardSlotsWithoutPaths }),
+      { ...boardResponse({}), incidentId: 'incident-002' },
+    );
+    recordBoardOpenClicked('incident-001', 1);
+    pathPageState.hasMoreSegments = true;
+    const { rerender } = renderBoardHook(({ incidentId }) => useSituationBoardData(incidentId, []), {
+      initialProps: { incidentId: 'incident-001' },
+    });
+
+    // when: 사건 2로 바뀐 뒤 이력을 모두 받아 지도가 idle이 된다.
+    pathPageState.hasMoreSegments = false;
+    markBoardPathSourceCurrent(map, true);
+    rerender({ incidentId: 'incident-002' });
+    idle();
+
+    // then: 사건 1의 끝 시점으로 남기지 않는다.
+    expect(ends).toHaveLength(0);
+  });
+
+  test('개발 모드 StrictMode가 상황판을 바로 다시 마운트해도, 클릭한 열기의 끝 시점을 기록한다', async () => {
+    // given: 상황판 열기를 누르고 source가 마지막 자료를 반영했다.
+    recordBoardOpenClicked('incident-001', 1);
+    markBoardPathSourceCurrent(map, true);
+
+    // when: StrictMode로 상황판을 열고 이력을 모두 받은 뒤 지도가 idle이 된다.
+    renderHook(() => useSituationBoardData('incident-001', []), {
+      reactStrictMode: true,
+      wrapper: ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: queryClient }, children),
+    });
+    await Promise.resolve();
+    idle();
+
+    // then: 마운트, 해제, 재마운트 뒤에도 같은 열기의 끝 시점을 남긴다.
+    expect(ends).toHaveLength(1);
+    expect(ends[0]).toMatchObject({ incidentId: 'incident-001' });
+  });
 });
 
 test('다른 사건으로 이동하면, 이전 구독을 닫고 수신 순번 없이 연결한다', () => {

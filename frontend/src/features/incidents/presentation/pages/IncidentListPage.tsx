@@ -13,6 +13,7 @@ import {
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
 import { ApiError } from '../../../../shared/api/client';
+import { recordBoardOpenClicked } from '../../../board/model/boardMeasurement';
 import { openAssignedIncidentEventStream } from '../../../../shared/api/eventStream';
 import type { IncidentCard, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
@@ -491,7 +492,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       <button
                         type="button"
                         className={styles.boardButton}
-                        onClick={() => onOpenSituationBoard(incident.id, incident.activeOpId)}
+                        onClick={(event) => {
+                          recordBoardOpenClicked(incident.id, event.timeStamp);
+                          onOpenSituationBoard(incident.id, incident.activeOpId);
+                        }}
                       >
                         상황판 열기
                       </button>
