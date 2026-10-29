@@ -6,6 +6,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 - 제목은 `[Area] 한글 요약` 형식이다. Area는 커밋 규칙의 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것이다. 영향받는 Area가 없으면 커밋 규칙처럼 생략한다.
 - spec Issue는 작업 지시서다. 구현이 끝나면 닫고, 남길 요구는 `docs/features/`에 반영한다.
+- Issue 종류는 라벨로 나눈다. 개인 계정 저장소라 GitHub Issue Types를 쓸 수 없기 때문이다. 작업 단위 Issue를 sub-issue로 묶는 상위 계획 Issue에는 `spec`을, 작업자에게 배정하는 작업 단위 Issue(티켓)에는 `task`를 붙인다. spec 없이 혼자 있는 작업 Issue에도 `task`를 붙인다. 이름을 고른 근거는 [Issue 라벨 이름 조사](../research/issue-label-ticket-vs-task-research.md)에 있다.
 - 2026-10-27 이전 Issue(#1~#16)는 본문에 긴 분석을 담은 옛 형식이다. 본문은 고치지 않는다.
 
 ## Conventions
