@@ -695,6 +695,8 @@ node infra/k6/path-display-timing/check-checkpoint.cjs
 node infra/k6/path-display-timing/check-aside-evaluator.cjs
 ```
 
-`check-run.cjs`는 가짜 페이지 이벤트와 가짜 Git 정보로 두 이벤트가 그대로 저장되는지, 오지 않은 이벤트가 빠졌다고 적히는지, 버전과 실행 설정이 남는지, 결과 파일에 비밀값 모양의 문자열이 없는지 확인한다. 끝에는 PATH 앞에 가짜 `git`을 두고 실제 버전 읽기를 확인한다.
+`check-run.cjs`는 가짜 페이지 이벤트와 가짜 Git 정보로 두 이벤트가 그대로 저장되는지, 오지 않은 이벤트가 빠졌다고 적히는지, 버전과 실행 설정이 남는지, 결과 파일에 비밀값 모양의 문자열이 없는지 확인한다. 끝에는 가짜 `exec` 함수를 넘겨 실제 버전 읽기가 부르는 두 `git` 명령을 확인한다.
 
-`check-server.cjs`는 PATH 앞에 가짜 `ssh`를 두고, 설정하지 않으면 기본값이, 설정하면 지정한 값이 ssh 인자와 psql 명령에 쓰이는지 확인한다.
+`check-server.cjs`는 가짜 `exec` 함수를 넘겨, 설정하지 않으면 기본값이, 설정하면 지정한 값이 ssh 인자와 psql 명령에 쓰이는지 확인한다.
+
+두 점검은 `git`, `ssh` 프로세스를 실행하지 않으므로 Codex sandbox 안에서 승인 없이 돌아간다. 가짜 `exec`를 거치지 않은 호출이 생기면 진짜 서버에 닿지 않고 실패하도록 PATH를 빈 폴더로 둔다.

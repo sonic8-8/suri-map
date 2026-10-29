@@ -13,6 +13,7 @@ const { validateConfig, parseResult, waitForList } = require('./smoke-run.cjs');
 const { restoreCheckpoints } = require('./checkpoint.cjs');
 const { validateSnapshot, pagesComplete, compareMeasurement } = require('./history-compare.cjs');
 const { serverOf, sshArgs } = require('./server.cjs');
+const { captureDbSnapshot } = require('./capture-db-snapshot.cjs');
 const { createSearchPathPages, parseSearchPathPage, mergeSearchPathPage } = require('../../../frontend/src/features/path/model/searchPathPages.ts');
 const execute = promisify(execFile);
 // Same fixed incident and operational period as db-snapshot.sql.
@@ -22,9 +23,10 @@ const repository = path.join(__dirname, '../../..');
 const scriptPaths = ['infra/k6/path-display-timing', 'frontend/src/features/path/model/searchPathPages.ts'];
 const boardStages = ['board_open_clicked', 'all_paths_map_idle'];
 
-function scriptVersion() {
+// exec is execFileSync's shape; the checks pass a fake one so no real git or ssh runs.
+function scriptVersion(exec = execFileSync) {
   try {
-    const git = args => execFileSync('git', ['-C', repository, ...args], { timeout: 10000, encoding: 'utf8' });
+    const git = args => exec('git', ['-C', repository, ...args], { timeout: 10000, encoding: 'utf8' });
     const commit = git(['rev-parse', 'HEAD']).trim();
     assert.match(commit, /^[0-9a-f]{40}$/);
     return { commit, uncommittedChanges: git(['status', '--porcelain', '--', ...scriptPaths]).trim() !== '' };
@@ -46,8 +48,8 @@ function save(file, value) {
   const fd = fs.openSync(file, 'wx', 0o600);
   try { fs.writeFileSync(fd, JSON.stringify(value)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
-function runtime(server = serverOf()) {
-  const raw = execFileSync('ssh', sshArgs(server, 'docker inspect suri-map-backend suri-map-frontend'),
+function runtime(server = serverOf(), exec = execFileSync) {
+  const raw = exec('ssh', sshArgs(server, 'docker inspect suri-map-backend suri-map-frontend'),
     { timeout: 15000, maxBuffer: 2000000 });
   const [backend, frontend] = JSON.parse(raw);
   const env = Object.fromEntries(backend.Config.Env.map(v => [v.slice(0,v.indexOf('=')),v.slice(v.indexOf('=')+1)]));
@@ -56,9 +58,8 @@ function runtime(server = serverOf()) {
     environmentHash: createHash('sha256').update(JSON.stringify(Object.entries(env).sort())).digest('hex'),
     limits: ['SEGMENTSPERPATH','MAXSEGMENTS','MAXCOORDINATES'].map(k => env['SURIMAP_BOARD_SEARCHPATH_'+k]) };
 }
-function snapshot(file, server = serverOf()) {
-  try { execFileSync(process.execPath, [path.join(__dirname, 'capture-db-snapshot.cjs'), file, server.sshHost, server.databaseContainer],
-    { timeout: 50000, stdio: ['ignore','ignore','pipe'] }); }
+function snapshot(file, server = serverOf(), exec = execFileSync) {
+  try { captureDbSnapshot(file, server, exec); }
   catch (_) { throw Error('database_snapshot_failed'); }
   const data = JSON.parse(fs.readFileSync(file)); validateSnapshot(data); return data;
 }
@@ -81,9 +82,9 @@ async function pageAction(config, action) {
   }
   catch (_) { throw Error('browser_action_failed'); }
 }
-function realIO(config) {
+function realIO(config, exec = execFileSync) {
   const server = serverOf(config);
-  return { runtime: () => runtime(server), snapshot: file => snapshot(file, server), scriptVersion,
+  return { runtime: () => runtime(server, exec), snapshot: file => snapshot(file, server, exec), scriptVersion: () => scriptVersion(exec),
     evaluate: createAsideEvaluator({target:config.target,timeoutMs:30000}),
     action: action => pageAction(config, action), now: Date.now, pause: () => new Promise(r => setTimeout(r,1000)) };
 }

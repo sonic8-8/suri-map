@@ -1,6 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {run,scope,compareSaved,scriptVersion}=require('./run.cjs');
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'suri-full-flow-'));
+// A call that skips the fake exec fails here instead of running the real git or ssh.
+process.env.PATH=fs.mkdtempSync(path.join(root,'no-bin-'));
 const config={...scope,accountId:'c1000000-0000-4000-8000-000000000001',origin:'https://suri-map.sonic8-8.com',target:'7EC67B1ADE0732A5B21357B5872144A9',key:'__fullFlowTest',
  script:'/assets/index-test.js',deploymentEvidence:__filename,limits:['1','80','480'],deadlineMs:1050000,maxResponses:800,maxBodyCharacters:134217728,sampleIntervalMs:250};
 const pathId='e1000000-0000-4000-8000-000000000001',accountId='a1000000-0000-4000-8000-000000000001';
@@ -111,17 +113,14 @@ async function trial(mode){
   assert.equal(fs.existsSync(dir),false,label);
  }
  console.log(`PASS ${wrong.length} credential-carrying or wrongly typed values in allowed keys are refused by both runners before any result file`);
- // A fake git on PATH answers the two git calls the real runner makes.
- const bin=path.join(root,'bin'),status=path.join(root,'git-status'),calls=path.join(root,'git-calls');fs.mkdirSync(bin);
- fs.writeFileSync(path.join(bin,'git'),`#!${process.execPath}
-const fs=require('node:fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(calls)},JSON.stringify(a)+'\\n');
-if(a.includes('rev-parse'))process.stdout.write(${JSON.stringify(fakeVersion.commit+'\n')});
-else process.stdout.write(fs.readFileSync(${JSON.stringify(status)},'utf8'));
-`,{mode:0o755});
- process.env.PATH=bin+path.delimiter+process.env.PATH;
- fs.writeFileSync(status,'');assert.deepEqual(scriptVersion(),{commit:fakeVersion.commit,uncommittedChanges:false});
- fs.writeFileSync(status,' M infra/k6/path-display-timing/run.cjs\n?? infra/k6/path-display-timing/new.cjs\n');assert.deepEqual(scriptVersion(),fakeVersion);
- const statusCall=fs.readFileSync(calls,'utf8').trim().split('\n').map(JSON.parse).find(a=>a.includes('status'));
- assert.deepEqual(statusCall.slice(statusCall.indexOf('--')+1),['infra/k6/path-display-timing','frontend/src/features/path/model/searchPathPages.ts']);
+ // A fake exec answers the two git calls the real runner makes, so no git process starts.
+ const calls=[];let status='';
+ const git=(file,args)=>{calls.push([file,...args]);return args.includes('rev-parse')?fakeVersion.commit+'\n':status;};
+ assert.deepEqual(scriptVersion(git),{commit:fakeVersion.commit,uncommittedChanges:false});
+ status=' M infra/k6/path-display-timing/run.cjs\n?? infra/k6/path-display-timing/new.cjs\n';assert.deepEqual(scriptVersion(git),fakeVersion);
+ const repository=path.join(__dirname,'../../..');
+ assert.deepEqual(calls.slice(0,2),[['git','-C',repository,'rev-parse','HEAD'],
+  ['git','-C',repository,'status','--porcelain','--','infra/k6/path-display-timing','frontend/src/features/path/model/searchPathPages.ts']]);
+ assert.throws(()=>scriptVersion(()=>{throw Error('no git');}),/script_version_unreadable/);
  console.log('PASS script version is the current commit and whether the measurement code has uncommitted changes');
 })().catch(e=>{console.error(e);process.exitCode=1;});
