@@ -7,6 +7,17 @@ description: TODO 항목을 spec Issue와 티켓 Issue로 나눠 작업자, 리�
 
 Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결정을 맡는다. 결과물은 [작업자](worker.md)가, 리뷰는 [리뷰어](reviewer.md)가, 판정은 [검수자](verifier.md)가 맡는다.
 
+## 간단한 일
+
+간단한 일은 오케스트레이터가 Issue 없이 직접 하고 develop에 커밋한다. 간단한 일은 다음을 모두 만족한다.
+
+- 한 영역 안에서 몇 개 파일만 바꾼다.
+- 공개 API, 이벤트, DB schema, fixture, 앱 화면 동작을 바꾸지 않는다.
+- 실서버에 쓰거나 접속하지 않는다.
+- 기존 검증 명령으로 결과를 확인할 수 있다.
+
+직접 해도 검증 명령을 실행하고 결과를 보고한다. 하나라도 어긋나면 작업자, 리뷰어, 검수자에게 배정한다.
+
 ## 준비
 
 - **spec과 티켓:** TODO 항목 하나를 `/mattpocock-skills:to-spec`으로 spec Issue 하나로 만들고, `/mattpocock-skills:to-tickets`로 그 sub-issue인 티켓 Issue로 나눈다. 두 스킬은 모델이 부를 수 없으므로 사용자에게 차례로 불러 달라고 한다. Issue 형식과 `gh` 명령은 각 스킬과 [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)를 따른다. 티켓의 판정 기준은 Issue 본문의 `## Acceptance criteria`다. TODO 완료 조건은 TODO 항목에만 두고 Issue에 옮겨 적지 않는다. Issue 본문에는 `TODO.md`와 `.scratch/` 링크를 넣지 않는다.
