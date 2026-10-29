@@ -574,8 +574,8 @@ test('이전에 방문한 차수 범위로 돌아와도, 계속 선택한 경로
   });
 });
 
-test('시스템 시계가 뒤로 가도, 이전에 방문한 차수 범위로 돌아오면 변경을 다시 확인한다', async () => {
-  // given: 1차와 1·2차를 차례로 조회한 뒤 시스템 시계가 2초 뒤로 돌아갔다.
+test('먼저 읽은 Date.now()보다 나중에 읽은 Date.now()가 작아져도, 이전에 방문한 차수 범위로 돌아오면 변경을 다시 확인한다', async () => {
+  // given: 1차, 그리고 1차와 2차를 차례로 조회한 뒤 Date.now()가 저장 시각보다 2초 작은 값을 돌려준다.
   const clock = vi.spyOn(Date, 'now').mockReturnValue(10000);
   const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce(page([row()])).mockResolvedValue(page());
   const view = renderPaths(['op-1']);

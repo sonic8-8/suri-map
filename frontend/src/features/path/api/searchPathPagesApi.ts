@@ -71,7 +71,7 @@ export function useSearchPathPages(
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     // 캐시된 범위로 돌아올 때도 다른 화면에서 진행한 공통 경로를 반영하고 확인한다.
-    // 0은 시스템 시계가 뒤로 가면 저장 시각이 미래가 되어 신선으로 판정되므로, 시각과 무관하게 항상 오래된 것으로 둔다.
+    // 0이면 먼저 읽은 Date.now()(저장 시각)보다 나중에 읽은 Date.now()가 작아질 때 방금 받은 데이터로 판정되므로, Date.now() 값과 관계없이 항상 오래된 데이터로 둔다.
     staleTime: -Infinity,
     queryFn: async ({ signal }) => {
       const query = client.getQueryCache().find({ queryKey: key, exact: true });
