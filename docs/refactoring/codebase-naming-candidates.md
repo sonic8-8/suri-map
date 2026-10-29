@@ -328,6 +328,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 |---|---|
 | [infra/ci/verify-evidence.sh](../../infra/ci/verify-evidence.sh)·[사용 안내](../../infra/ci/README.md) | `RED`·`L2-D01` 표현과 포괄적인 `evidence` 이름이 남아 있다. 현재 Jenkinsfile의 직접 호출은 찾지 못했으며 CI 결과 파일 존재·문구 검사와 실제 품질 판정을 구분해 필요성·이름·안내를 함께 검토 |
 | [collect-s4-evidence.sh](../../infra/ci/collect-s4-evidence.sh)·[verify-s4-evidence.sh](../../infra/ci/verify-s4-evidence.sh) | Jenkins에서 호출한다. 2026-09-28 DB 재전송·실시간 전송 테스트 참조를 갱신하고 고정 성공률을 제거했으며 건너뜀·0개 실행·누락 결과를 통과로 처리하지 않게 했다. `S4`·`evidence` 파일명은 CI 호출·산출물 참조와 함께 정리할 후보로 남긴다. |
+| [infra/ci/verify-backend.test.cjs](../../infra/ci/verify-backend.test.cjs) | 2026-10-29 Issue #25에서 Jenkins에 Frontend 테스트 단계를 넣으면서 확인했다. 이 파일은 Backend 기동 확인 shell뿐 아니라 파이프라인 전체의 단계 순서, 수동 승인 없음, 동시 빌드 방지, 이미지 보존 순서를 검사하고, 이제 `Frontend Test CI`가 `Sync`보다 먼저 오는지도 검사한다. 파일 이름만으로는 Frontend 단계까지 검사한다는 사실이 드러나지 않는다. 파이프라인 검사라는 역할이 드러나는 이름이나 검사별 파일 분리를 검토한다. `infra/ci/README.md`의 실행 명령을 함께 바꿔야 한다. 후보 등록이며 파일 이름은 바꾸지 않았다. |
 
 이미 합의한 k6 이름은 유지한다.
 

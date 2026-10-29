@@ -190,6 +190,8 @@ exit "${artifact_exit}"
                 skipPublishingChecks: true,
                 testResults: "${env.FRONTEND_TEST_ARTIFACT_DIR}/junit.xml"
               )
+              // Test Result merges Backend and Frontend, so log the Frontend counts separately.
+              echo "Frontend tests: total=${tests.totalCount}, failed=${tests.failCount}, skipped=${tests.skipCount}"
               if (tests.failCount > 0) {
                 error('Frontend test failures block deployment.')
               }

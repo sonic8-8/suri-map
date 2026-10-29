@@ -1,4 +1,4 @@
-# Backend CI 실행
+# Hetzner Jenkins CI 실행
 
 Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
@@ -101,7 +101,15 @@ SonarQube는 현재 Hetzner 작업에서 실행하지 않는다. 옛 Jenkinsfile
 | 결과 | 위치와 확인 방법 |
 |---|---|
 | 대상 커밋 | `ci-artifacts/frontend-test/<빌드 번호>/commit.txt` |
-| JUnit | `ci-artifacts/frontend-test/<빌드 번호>/junit.xml`. Jenkins의 **Test Result**에 Backend 결과와 함께 게시한다. Frontend 테스트는 클래스 이름이 `src/...test.ts(x)`, `nginx.conf.test.ts`처럼 파일 경로라서 Backend의 `com.surimap...`와 구분된다. 콘솔 로그에도 vitest의 `Test Files`, `Tests` 집계가 남는다. |
+| JUnit | `ci-artifacts/frontend-test/<빌드 번호>/junit.xml`. Jenkins의 **Test Result**에 Backend 결과와 함께 게시하므로, 빌드 화면의 테스트 수는 Backend와 Frontend를 합친 값이다. |
+| Frontend만의 테스트 수 | `Frontend Test CI` 단계 로그의 `Frontend tests: total=<수>, failed=<수>, skipped=<수>` 줄. `junit` 단계의 반환값으로 남긴다. vitest의 `Test Files`, `Tests` 집계 줄도 같은 단계 로그에 있다. |
+
+Test Result 화면에서 Frontend 테스트는 vitest가 JUnit의 classname에 넣은 파일 경로로 묶인다. Jenkins JUnit 플러그인은 classname을 마지막 `.`에서 나눠 패키지와 클래스로 보여 준다. 그래서 `src/shared/config.test.ts`는 패키지 `src/shared/config.test`, 클래스 `ts`로 보이고, Frontend 파일은 모두 `ts`나 `tsx` 클래스가 된다. Backend의 `com.surimap...` 패키지와는 패키지 이름으로 구분한다.
+
+실제 Jenkins에서 확인할 항목(새 빌드에서 확인 전):
+
+- `junit` 반환값이 이번 호출에서 읽은 Frontend 결과만 세는지, 앞서 게시한 Backend 결과까지 더한 값인지. 단계 로그의 `total`이 vitest의 `Tests` 수와 같으면 이번 호출만 센 것이다.
+- Test Result 화면에서 Frontend 테스트가 위 설명대로 패키지와 클래스로 나뉘어 보이는지.
 
 아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 Jenkins 단계의 테스트 실행을 재현한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 변경은 반영되지 않는다.
 
