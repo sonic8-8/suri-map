@@ -76,6 +76,8 @@ pipeline {
     BACKEND_TEST_ARTIFACT_DIR = "ci-artifacts/backend-test/${BUILD_NUMBER}"
     BACKEND_TEST_RESULT_DIR = "${BACKEND_TEST_ARTIFACT_DIR}/test-results"
     S4_EVIDENCE_ARTIFACT_DIR = "${BACKEND_TEST_ARTIFACT_DIR}/sse"
+    FRONTEND_TEST_IMAGE = 'suri-map-frontend-test:jenkins'
+    FRONTEND_TEST_ARTIFACT_DIR = "ci-artifacts/frontend-test/${BUILD_NUMBER}"
   }
 
   stages {
@@ -146,6 +148,55 @@ exit "${evidence_exit}"
               archiveArtifacts(
                 allowEmptyArchive: false,
                 artifacts: "${env.BACKEND_TEST_ARTIFACT_DIR}/**"
+              )
+            }
+          }
+        }
+      }
+    }
+
+    stage('Frontend Test CI') {
+      steps {
+        script { env.FAILED_STAGE = 'Frontend Test CI' }
+        sh '''
+set -eu
+test ! -e "${FRONTEND_TEST_ARTIFACT_DIR}"
+mkdir -p "${FRONTEND_TEST_ARTIFACT_DIR}"
+git rev-parse HEAD > "${FRONTEND_TEST_ARTIFACT_DIR}/commit.txt"
+git archive HEAD:frontend | docker build --target tester -t "${FRONTEND_TEST_IMAGE}" -f Dockerfile -
+
+# Unit tests need no network, secrets or databases.
+test_container=$(docker create --network none "${FRONTEND_TEST_IMAGE}")
+trap 'docker rm -fv "${test_container}" >/dev/null 2>&1 || true' EXIT
+
+test_exit=0
+docker start --attach "${test_container}" || test_exit=$?
+
+artifact_exit=0
+docker cp "${test_container}:/app/reports/junit.xml" \
+  "${FRONTEND_TEST_ARTIFACT_DIR}/junit.xml" || artifact_exit=1
+test -s "${FRONTEND_TEST_ARTIFACT_DIR}/junit.xml" || artifact_exit=1
+
+[ "${test_exit}" -eq 0 ] || exit "${test_exit}"
+exit "${artifact_exit}"
+        '''
+      }
+      post {
+        always {
+          script {
+            try {
+              def tests = junit(
+                allowEmptyResults: false,
+                skipPublishingChecks: true,
+                testResults: "${env.FRONTEND_TEST_ARTIFACT_DIR}/junit.xml"
+              )
+              if (tests.failCount > 0) {
+                error('Frontend test failures block deployment.')
+              }
+            } finally {
+              archiveArtifacts(
+                allowEmptyArchive: false,
+                artifacts: "${env.FRONTEND_TEST_ARTIFACT_DIR}/**"
               )
             }
           }
