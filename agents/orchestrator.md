@@ -31,6 +31,8 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
   - 작업자: 배정된 worktree에서 띄우고 실행 기록 폴더를 `--add-dir`로 더한다. 결과 파일과 답 파일은 실행 기록 폴더에 두고 쓸 수 있는 경로에 넣는다. 티켓에 필요한 명령(파일 복사, 의존성 설치, 테스트와 자기 점검 실행, 티켓에 필요하면 실서버의 읽기 조회)은 허용한다. `git commit`, `git push`와 실서버에 쓰는 실행처럼 [사용자에게 묻기](#사용자에게-묻기)에 있는 행동은 막는다.
   - 리뷰어: 리뷰할 worktree에서 띄운다. 실행 기록 폴더를 `--add-dir`로 더하고, `Read`, `Grep`, `Glob`, `Bash(git diff *)`, `Bash(git log *)`, `Bash(git status *)`, `Edit(//<실행 기록 폴더>/**)`만 허용한다. 파일 쓰기 허용은 `Write(...)`가 아니라 `Edit(...)` 규칙으로 준다.
   - Codex 검수자: 검수 회차 폴더를 `/tmp` 아래에 새로 만들어(`mktemp -d /tmp/suri-verify-XXXX`) 배정을 `assignment.md`로 쓰고, 그 안에서 `workspace-write` sandbox로 띄운다. 이 sandbox는 그 폴더 밖의 쓰기를 거절하므로, 검수자가 만드는 재현 코드와 임시 파일은 실행 기록 폴더에 남지 않는다. Issue 사본처럼 넘길 파일은 그 폴더의 `inputs/`에 복사한다. 검수가 끝나면 `result.md`와 `evidence/`를 실행 기록 폴더의 `verify/<회차>/`로 복사한다. 띄우거나 `/new`를 연 뒤 화면의 모델 표시가 배정한 모델인지 확인하고 지시를 보낸다.
+  - 시작 인자 기록: 역할을 띄울 때 `herdr agent start`에 준 인자 전체를 실행 기록에 남긴다.
+  - 세션이 끊긴 뒤 다시 띄우기: Herdr는 역할 pane을 `claude --resume <session id>`만으로 다시 열어 역할 파일과 권한 인자를 빼먹는다. 다시 열린 pane은 `/proc/<pid>/cmdline`으로 인자를 확인하고, 빠졌으면 `/exit`로 끝낸 뒤 기록한 시작 인자에 `--resume <session id>`를 붙여 다시 띄운다.
 
 ## 흐름
 
