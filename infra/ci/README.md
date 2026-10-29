@@ -4,7 +4,7 @@ Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
 `Checkout → Backend Test CI → Frontend Test CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
 
-`Frontend Test CI`는 Issue #25에서 이 사본에 추가한 단계다. 실제 작업 설정에 저장하고 새 빌드로 확인하기 전까지 실제 작업은 이 단계 없이 실행된다. 단계 설명은 [Frontend 테스트 실행](#frontend-테스트-실행)에 있다.
+`Frontend Test CI`는 Issue #25에서 추가한 단계다. 2026-10-29에 이 파일과 같은 스크립트를 작업 설정에 저장하고 다시 조회해 일치하는지 확인했다. 이어서 [#93](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/93/)에서 Frontend 테스트 372개가 통과하고 웹 배포까지 끝났다. 단계 설명은 [Frontend 테스트 실행](#frontend-테스트-실행)에 있다.
 
 2026-10-14 전환용 수동 승인을 제거한 설정을 Jenkins에 저장하고 이 파일과 원문이 일치하는지 확인했다. 이전 승인에서 대기하던 #63은 중단했다. #64에서 발견한 로그인 셸 종료 오류를 수정한 뒤 [#65](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/65/)에서 Backend 테스트·기동 확인·웹 배포가 수동 승인 없이 통과했다. 설정 저장만으로 이미 실행 중인 빌드가 바뀌지는 않는다.
 
@@ -106,10 +106,11 @@ SonarQube는 현재 Hetzner 작업에서 실행하지 않는다. 옛 Jenkinsfile
 
 Test Result 화면에서 Frontend 테스트는 vitest가 JUnit의 classname에 넣은 파일 경로로 묶인다. Jenkins JUnit 플러그인은 classname을 마지막 `.`에서 나눠 패키지와 클래스로 보여 준다. 그래서 `src/shared/config.test.ts`는 패키지 `src/shared/config.test`, 클래스 `ts`로 보이고, Frontend 파일은 모두 `ts`나 `tsx` 클래스가 된다. Backend의 `com.surimap...` 패키지와는 패키지 이름으로 구분한다.
 
-실제 Jenkins에서 확인할 항목(새 빌드에서 확인 전):
+#93에서 실제 Jenkins 동작을 확인한 결과는 다음과 같다.
 
-- `junit` 반환값이 이번 호출에서 읽은 Frontend 결과만 세는지, 앞서 게시한 Backend 결과까지 더한 값인지. 단계 로그의 `total`이 vitest의 `Tests` 수와 같으면 이번 호출만 센 것이다.
-- Test Result 화면에서 Frontend 테스트가 위 설명대로 패키지와 클래스로 나뉘어 보이는지.
+- 단계 로그의 `Frontend tests: total=372, failed=0, skipped=0`은 vitest의 `Tests  372 passed (372)`와 같다. `junit` 반환값은 앞서 게시한 Backend 결과를 더하지 않고 이번 호출에서 읽은 Frontend 결과만 센다. 빌드 화면의 Test Result는 Backend와 Frontend를 합쳐 통과 1801개다.
+- Test Result 화면에서 Frontend 테스트는 위 설명대로 `src/app/useAppSession.test` 같은 패키지로 보인다.
+- 집계 값을 읽을 때 Jenkins script sandbox의 거부는 없었다. `--target tester` 빌드에서 Frontend `builder`와 nginx 단계는 실행되지 않았다.
 
 아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 Jenkins 단계의 테스트 실행을 재현한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 변경은 반영되지 않는다.
 
