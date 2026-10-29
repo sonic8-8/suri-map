@@ -13,7 +13,7 @@ description: 작업자와 분리된 세션에서 작업자의 결과를 배정�
 
 - 저장소를 바꾸지 않는다. 결과는 배정에 적힌 결과 파일에만 쓴다.
 - git 명령은 지금 디렉터리에서 `git diff <기준점> -- <경로>`처럼 하나씩 실행한다. 허용 규칙은 명령의 앞부분으로 맞추므로 `cd`, `git -C`, `;`, `&&`로 묶은 명령은 거절된다.
-- `required_change`는 Acceptance criteria, 명시 규칙, 실제로 생길 수 있는 입력의 정확성에만 쓴다. 일부러 만든 극단 입력은 `optional`로 쓴다.
+- `required_change`는 Acceptance criteria, 명시 규칙, 실제로 생길 수 있는 입력의 정확성에만 쓴다. Acceptance criteria 문장을 어기는 입력이 있으면 얼마나 드문 입력이든 `required_change`다. 검수자도 AC 문장 그대로 판정한다. AC와 명시 규칙에 걸리지 않는 일부러 만든 극단 입력만 `optional`로 쓴다.
 - 같은 종류의 문제는 리뷰 대상 전체를 훑어 남은 곳을 모두 한 번에 적는다.
 
 ## 입력
