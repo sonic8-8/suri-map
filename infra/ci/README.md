@@ -140,11 +140,11 @@ Docker 없이 같은 테스트를 실행하려면 `cd frontend && npm ci && npm 
 
 점검이 하나라도 실패하면 Jenkins는 단계를 실패로, 빌드를 UNSTABLE로 표시하고 `Sync` 이후 배포 단계를 계속 실행한다. 이 동작은 `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', catchInterruptions: false)`로 정했다. Discord에는 `불안정` 알림을 보낸다.
 
-사용자가 이 단계가 도는 동안 빌드를 중단하면 Jenkins는 이를 점검 실패로 처리하지 않는다. `catchInterruptions: false`라서 중단을 다시 던지므로 빌드는 UNSTABLE이 아니라 중단으로 끝나고, `Sync` 이후 단계를 실행하지 않는다.
+사용자가 이 단계가 도는 동안 빌드를 중단하면 Jenkins는 이를 점검 실패로 처리하지 않는다. `catchInterruptions: false`로 두었으므로 `catchError`는 중단을 잡지 않고 다시 던진다. 그래서 빌드는 UNSTABLE이 아니라 중단으로 끝나고, Jenkins는 `Sync` 이후 단계를 실행하지 않는다.
 
 실패해도 배포를 막지 않는 이유는 이 점검이 서비스 동작이 아니라 측정 도구를 확인하기 때문이다. 측정 도구가 깨져도 Backend와 웹의 동작은 앞의 두 테스트 단계에서 이미 확인했다. 대신 점검이 깨진 것을 측정하는 날이 아니라 그 커밋의 빌드에서 알 수 있게 한다. 사용자가 Issue #27에서 이 결정을 승인했다.
 
-아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 단계의 shell을 Jenkinsfile에서 꺼내 그대로 실행한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 점검 변경은 반영되지 않는다. 종료 코드 0이면 통과, 1이면 실패한 점검이 있다.
+아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 단계의 shell을 Jenkinsfile에서 꺼내 그대로 실행한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 점검 변경은 반영되지 않는다. 종료 코드가 0이면 모든 점검이 통과한 것이다. 0이 아니면 실패한 점검이 있거나 Docker 실행이나 파일 전달이 실패한 것이므로, 출력에서 `Path display timing check FAILED` 줄을 확인한다.
 
 ```sh
 node -e "process.stdout.write(require('fs').readFileSync('infra/ci/hetzner.Jenkinsfile','utf8').split(\"stage('Path Display Timing Checks CI')\")[1].split(\"sh '''\")[1].split(\"'''\")[0])" > /tmp/path-display-timing-checks.sh
