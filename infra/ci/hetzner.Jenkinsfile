@@ -18,6 +18,11 @@ case "$DISCORD_STATUS" in
     color=3066993
     description="${PROJECT_NAME} 배포가 끝났습니다."
     ;;
+  UNSTABLE)
+    status_label="불안정"
+    color=16776960
+    description="${PROJECT_NAME} 배포는 끝났지만 ${failed_stage} 단계가 실패했습니다."
+    ;;
   ABORTED)
     status_label="중단"
     color=9807270
@@ -78,6 +83,8 @@ pipeline {
     S4_EVIDENCE_ARTIFACT_DIR = "${BACKEND_TEST_ARTIFACT_DIR}/sse"
     FRONTEND_TEST_IMAGE = 'suri-map-frontend-test:jenkins'
     FRONTEND_TEST_ARTIFACT_DIR = "ci-artifacts/frontend-test/${BUILD_NUMBER}"
+    // The checks load a .ts module, so Node must strip types by default.
+    OBSERVER_CHECK_IMAGE = 'node:22.22.0-alpine'
   }
 
   stages {
@@ -202,6 +209,38 @@ exit "${artifact_exit}"
               )
             }
           }
+        }
+      }
+    }
+
+    stage('Observer Checks CI') {
+      steps {
+        script { env.FAILED_STAGE = 'Observer Checks CI' }
+        // Broken measurement checks must not block deployment: mark the build UNSTABLE and continue.
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+          sh '''
+set -eu
+# Only the measurement scripts and the Frontend module they load; no network, secrets or databases.
+git archive HEAD infra/k6/path-display-timing frontend/package.json frontend/src/features/path/model/searchPathPages.ts |
+  docker run --rm -i --network none "${OBSERVER_CHECK_IMAGE}" sh -c '
+set -eu
+cd "$(mktemp -d)"
+tar -xf -
+total=0
+failed=""
+for check in infra/k6/path-display-timing/check-*.cjs; do
+  total=$((total + 1))
+  if node "${check}"; then
+    echo "Observer check passed: ${check}"
+  else
+    echo "Observer check FAILED: ${check}"
+    failed="${failed} ${check}"
+  fi
+done
+echo "Observer checks: total=${total}, failed=$(echo ${failed} | wc -w)"
+[ -z "${failed}" ] || { echo "Failed observer checks:${failed}" >&2; exit 1; }
+'
+          '''
         }
       }
     }
@@ -345,6 +384,8 @@ REMOTE
 
   post {
     success { script { notifyDiscord('SUCCESS') } }
+    // Only Observer Checks CI ends a build UNSTABLE; later stages overwrote FAILED_STAGE.
+    unstable { script { env.FAILED_STAGE = 'Observer Checks CI'; notifyDiscord('UNSTABLE') } }
     failure { script { notifyDiscord('FAILURE') } }
     aborted { script { notifyDiscord('ABORTED') } }
   }

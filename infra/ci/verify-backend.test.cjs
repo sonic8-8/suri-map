@@ -14,7 +14,7 @@ assert.match(pipeline, /disableConcurrentBuilds\(\)/);
 assert.match(pipeline, /disableRestartFromStage\(\)/);
 assert.ok(pipeline.indexOf('docker tag') < pipeline.indexOf('docker build -t'));
 assert.deepEqual([...pipeline.matchAll(/stage\('([^']+)'\)/g)].map(match => match[1]),
-  ['Checkout', 'Backend Test CI', 'Frontend Test CI', 'Sync', 'Build Images', 'Deploy Backend', 'Verify Backend', 'Deploy Web']);
+  ['Checkout', 'Backend Test CI', 'Frontend Test CI', 'Observer Checks CI', 'Sync', 'Build Images', 'Deploy Backend', 'Verify Backend', 'Deploy Web']);
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'suri-backend-health-'));
 const mock = path.join(directory, 'mock.cjs');
