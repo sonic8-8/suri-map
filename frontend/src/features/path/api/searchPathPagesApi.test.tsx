@@ -574,6 +574,25 @@ test('이전에 방문한 차수 범위로 돌아와도, 계속 선택한 경로
   });
 });
 
+test('먼저 읽은 Date.now()보다 나중에 읽은 Date.now()가 작아져도, 이전에 방문한 차수 범위로 돌아오면 변경을 다시 확인한다', async () => {
+  // given: 1차, 그리고 1차와 2차를 차례로 조회한 뒤 Date.now()가 저장 시각보다 2초 작은 값을 돌려준다.
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(10000);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce(page([row()])).mockResolvedValue(page());
+  const view = renderPaths(['op-1']);
+  await waitFor(() => expect(view.result.current.isFetching).toBe(false));
+  view.rerender({ ids: ['op-1', 'op-2'] });
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(view.result.current.isFetching).toBe(false));
+  clock.mockReturnValue(8000);
+
+  // when: 예전 1차 캐시가 있는 범위로 돌아온다.
+  view.rerender({ ids: ['op-1'] });
+
+  // then: 캐시 저장 시각이 현재보다 늦어도 변경분을 다시 확인한다.
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(5));
+  expect(post.mock.lastCall?.[0]).toContain('/changes/query');
+});
+
 test('다른 화면의 좁은 조회 범위가 갱신돼도, 현재 화면의 경로와 완료한 진행을 유지한다', async () => {
   // given: 1·2차 화면을 모두 받은 뒤 1차만 보는 화면을 추가로 연다.
   const clock = vi.spyOn(Date, 'now').mockReturnValue(1000);
