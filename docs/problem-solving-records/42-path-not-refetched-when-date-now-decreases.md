@@ -107,7 +107,7 @@ timeUntilStale = Math.max(저장 시각 + staleTime - Date.now(), 0)
 - **첫째 항목:** 회귀 테스트는 `staleTime: 0`에서 요청이 4번에서 멈춰 실패했고 `staleTime: -Infinity`에서 통과했습니다. 별도 검수에서 보완 전 소스를 사본으로 만들어 다시 실행했을 때도 요청이 5번이 아니라 4번이라 실패했고, 보완 뒤 소스에서는 통과했습니다.
 - **둘째 항목:** 보완 뒤 300회 반복 실행을 세 차례에 걸쳐 모두 13번 했고 실패는 없었습니다.
 - **셋째 항목:** 차수 전환, SSE 갱신, 조회 제한과 권한 상실 테스트(`searchPathPagesApi.test.tsx`, `useIncidentBoardEvents.test.tsx`, `usePagedIncidentBoardQuery.test.tsx`)는 본문을 바꾸지 않고 통과했습니다.
-- **넷째 항목:** Frontend `npm test`가 63개 파일, 372개 테스트를 모두 통과했고 `npm run typecheck`, `npm run build`도 통과했습니다. 별도 검수 환경에서는 읽기 전용 폴더 때문에 build를 직접 실행하지 못해, 같은 커밋 `c39164f0`에서 따로 실행한 build 출력(종료 코드 0)을 근거로 썼습니다.
+- **넷째 항목:** Frontend `npm test`가 63개 파일, 372개 테스트를 모두 통과했고 `npm run typecheck`, `npm run build`도 통과했습니다. 별도 검수 환경에서는 읽기 전용 폴더 때문에 build를 직접 실행하지 못해, 같은 커밋 `c39164f0`에서 따로 실행한 build 출력을 받았습니다. 이 출력에는 종료 코드가 없어서, 검수가 끝난 뒤 같은 커밋에서 build를 다시 실행해 종료 코드 0을 확인했습니다.
 
 ### 확인한 범위의 한계
 
