@@ -16,6 +16,17 @@ RUN V_WORLD_API_KEY="${V_WORLD_API_KEY}" \
     VITE_KEYCLOAK_BASE_URL="${VITE_KEYCLOAK_BASE_URL:-$SURI_MAP_KEYCLOAK_REALM_URL}" \
     npm run build
 
+# CI runs tests when the container starts so the exit code and JUnit report survive a failure.
+FROM node:22-alpine AS tester
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+CMD ["npm", "test", "--", "--reporter=default", "--reporter=junit", "--outputFile.junit=reports/junit.xml"]
+
 FROM nginx:1.27.5-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf

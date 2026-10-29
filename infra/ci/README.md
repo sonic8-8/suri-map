@@ -1,8 +1,10 @@
-# Backend CI 실행
+# Hetzner Jenkins CI 실행
 
 Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
-`Checkout → Backend Test CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
+`Checkout → Backend Test CI → Frontend Test CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
+
+`Frontend Test CI`는 Issue #25에서 이 사본에 추가한 단계다. 실제 작업 설정에 저장하고 새 빌드로 확인하기 전까지 실제 작업은 이 단계 없이 실행된다. 단계 설명은 [Frontend 테스트 실행](#frontend-테스트-실행)에 있다.
 
 2026-10-14 전환용 수동 승인을 제거한 설정을 Jenkins에 저장하고 이 파일과 원문이 일치하는지 확인했다. 이전 승인에서 대기하던 #63은 중단했다. #64에서 발견한 로그인 셸 종료 오류를 수정한 뒤 [#65](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/65/)에서 Backend 테스트·기동 확인·웹 배포가 수동 승인 없이 통과했다. 설정 저장만으로 이미 실행 중인 빌드가 바뀌지는 않는다.
 
@@ -87,3 +89,40 @@ JUnit 게시에는 기존 플러그인, 파일 보관에는 Jenkins의 `archiveA
 SonarQube는 현재 Hetzner 작업에서 실행하지 않는다. 옛 Jenkinsfile의 `SKIPPED_NO_SERVER`를 분석 성공으로 해석하지 않는다.
 
 기존 `verify-evidence.sh`는 커버리지 파일·요약·SonarQube 상태 파일의 존재와 문구를 확인하는 수동 검사다. 현재 Jenkins에서 직접 호출하지 않으며, 테스트 통과나 커버리지 기준 충족을 대신 판정하지 않는다.
+
+## Frontend 테스트 실행
+
+`Frontend Test CI`는 Backend 테스트가 통과한 뒤, `Sync`보다 먼저 Ops 서버의 Docker에서 실행한다. `git archive HEAD:frontend`로 체크아웃한 커밋의 Frontend 코드만 빌드 입력으로 넘기고, [Frontend Dockerfile](../../frontend/Dockerfile)의 `tester` 이미지에서 `npm ci`를 실행한다. 테스트는 이미지 빌드 중이 아니라 컨테이너를 시작할 때 `npm test`(vitest)로 실행한다.
+
+- 테스트 컨테이너는 `--network none`으로 실행한다. 운영 비밀값(`V_WORLD_API_KEY` 등), 운영 DB, Backend, Docker 소켓을 넘기지 않는다. 이미지 빌드의 `npm ci`는 npm 저장소에 접속한다.
+- 실행 방식은 Backend와 같다. `docker create` → `docker start --attach`로 실행하고, 실패해도 컨테이너를 지우기 전에 JUnit 결과를 복사한다. 테스트의 실패 종료 코드는 보고서 회수 여부와 관계없이 유지한다.
+- 테스트가 하나라도 실패하거나, JUnit 결과가 없거나 비어 있거나, JUnit에 실패한 테스트가 있으면 단계가 실패하고 `Sync` 이후 단계를 실행하지 않는다.
+
+| 결과 | 위치와 확인 방법 |
+|---|---|
+| 대상 커밋 | `ci-artifacts/frontend-test/<빌드 번호>/commit.txt` |
+| JUnit | `ci-artifacts/frontend-test/<빌드 번호>/junit.xml`. Jenkins의 **Test Result**에 Backend 결과와 함께 게시하므로, 빌드 화면의 테스트 수는 Backend와 Frontend를 합친 값이다. |
+| Frontend만의 테스트 수 | `Frontend Test CI` 단계 로그의 `Frontend tests: total=<수>, failed=<수>, skipped=<수>` 줄. `junit` 단계의 반환값으로 남긴다. vitest의 `Test Files`, `Tests` 집계 줄도 같은 단계 로그에 있다. |
+
+Test Result 화면에서 Frontend 테스트는 vitest가 JUnit의 classname에 넣은 파일 경로로 묶인다. Jenkins JUnit 플러그인은 classname을 마지막 `.`에서 나눠 패키지와 클래스로 보여 준다. 그래서 `src/shared/config.test.ts`는 패키지 `src/shared/config.test`, 클래스 `ts`로 보이고, Frontend 파일은 모두 `ts`나 `tsx` 클래스가 된다. Backend의 `com.surimap...` 패키지와는 패키지 이름으로 구분한다.
+
+실제 Jenkins에서 확인할 항목(새 빌드에서 확인 전):
+
+- `junit` 반환값이 이번 호출에서 읽은 Frontend 결과만 세는지, 앞서 게시한 Backend 결과까지 더한 값인지. 단계 로그의 `total`이 vitest의 `Tests` 수와 같으면 이번 호출만 센 것이다.
+- Test Result 화면에서 Frontend 테스트가 위 설명대로 패키지와 클래스로 나뉘어 보이는지.
+
+아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 Jenkins 단계의 테스트 실행을 재현한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 변경은 반영되지 않는다.
+
+```sh
+git archive HEAD:frontend | docker build --target tester -t suri-map-frontend-test:local -f Dockerfile -
+docker run --rm --network none suri-map-frontend-test:local
+```
+
+Docker 없이 같은 테스트를 실행하려면 `cd frontend && npm ci && npm test`를 쓴다. JUnit 파일까지 만들려면 `npm test -- --reporter=default --reporter=junit --outputFile.junit=reports/junit.xml`을 쓴다.
+
+한계:
+
+- vitest와 jsdom으로 실행하는 단위 테스트다. 실제 브라우저, 지도 타일, Backend API와 SSE 연결은 검증하지 않는다.
+- Backend 테스트가 실패하면 Jenkins가 이후 단계를 건너뛰므로 그 빌드에는 Frontend 테스트 결과가 없다.
+- `Build Images`의 `npm run build`는 따로 typecheck와 build를 실행한다. 이 단계는 그 빌드를 대신하지 않는다.
+- 실행마다 결과가 달라지는 테스트를 자동으로 다시 실행하거나 따로 표시하지 않는다. 한 번이라도 실패하면 배포를 막는다.
