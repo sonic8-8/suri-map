@@ -84,7 +84,7 @@ pipeline {
     FRONTEND_TEST_IMAGE = 'suri-map-frontend-test:jenkins'
     FRONTEND_TEST_ARTIFACT_DIR = "ci-artifacts/frontend-test/${BUILD_NUMBER}"
     // The checks load a .ts module, so Node must strip types by default.
-    OBSERVER_CHECK_IMAGE = 'node:22.22.0-alpine'
+    PATH_DISPLAY_TIMING_CHECK_IMAGE = 'node:22.22.0-alpine'
   }
 
   stages {
@@ -213,16 +213,17 @@ exit "${artifact_exit}"
       }
     }
 
-    stage('Observer Checks CI') {
+    stage('Path Display Timing Checks CI') {
       steps {
-        script { env.FAILED_STAGE = 'Observer Checks CI' }
+        script { env.FAILED_STAGE = 'Path Display Timing Checks CI' }
         // Broken measurement checks must not block deployment: mark the build UNSTABLE and continue.
-        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+        // A user abort or timeout must still stop the build instead of counting as a failed check.
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', catchInterruptions: false) {
           sh '''
 set -eu
 # Only the measurement scripts and the Frontend module they load; no network, secrets or databases.
 git archive HEAD infra/k6/path-display-timing frontend/package.json frontend/src/features/path/model/searchPathPages.ts |
-  docker run --rm -i --network none "${OBSERVER_CHECK_IMAGE}" sh -c '
+  docker run --rm -i --network none "${PATH_DISPLAY_TIMING_CHECK_IMAGE}" sh -c '
 set -eu
 cd "$(mktemp -d)"
 tar -xf -
@@ -231,14 +232,14 @@ failed=""
 for check in infra/k6/path-display-timing/check-*.cjs; do
   total=$((total + 1))
   if node "${check}"; then
-    echo "Observer check passed: ${check}"
+    echo "Path display timing check passed: ${check}"
   else
-    echo "Observer check FAILED: ${check}"
+    echo "Path display timing check FAILED: ${check}"
     failed="${failed} ${check}"
   fi
 done
-echo "Observer checks: total=${total}, failed=$(echo ${failed} | wc -w)"
-[ -z "${failed}" ] || { echo "Failed observer checks:${failed}" >&2; exit 1; }
+echo "Path display timing checks: total=${total}, failed=$(echo ${failed} | wc -w)"
+[ -z "${failed}" ] || { echo "Failed path display timing checks:${failed}" >&2; exit 1; }
 '
           '''
         }
@@ -384,8 +385,8 @@ REMOTE
 
   post {
     success { script { notifyDiscord('SUCCESS') } }
-    // Only Observer Checks CI ends a build UNSTABLE; later stages overwrote FAILED_STAGE.
-    unstable { script { env.FAILED_STAGE = 'Observer Checks CI'; notifyDiscord('UNSTABLE') } }
+    // Only Path Display Timing Checks CI ends a build UNSTABLE; later stages overwrote FAILED_STAGE.
+    unstable { script { env.FAILED_STAGE = 'Path Display Timing Checks CI'; notifyDiscord('UNSTABLE') } }
     failure { script { notifyDiscord('FAILURE') } }
     aborted { script { notifyDiscord('ABORTED') } }
   }

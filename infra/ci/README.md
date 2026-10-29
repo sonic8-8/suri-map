@@ -2,9 +2,9 @@
 
 Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
-`Checkout → Backend Test CI → Frontend Test CI → Observer Checks CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
+`Checkout → Backend Test CI → Frontend Test CI → Path Display Timing Checks CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
 
-`Observer Checks CI`는 Issue #27에서 추가한 단계다. 이 파일에는 반영했지만 작업 설정에 저장하고 새 빌드로 확인하기 전이다. 단계 설명은 [측정 스크립트 자기 점검](#측정-스크립트-자기-점검)에 있다.
+`Path Display Timing Checks CI`는 Issue #27에서 추가한 단계다. 이 파일에는 반영했지만 작업 설정에 저장하고 새 빌드로 확인하기 전이다. 단계 설명은 [경로 표시 시간 측정 스크립트 자기 점검](#경로-표시-시간-측정-스크립트-자기-점검)에 있다.
 
 `Frontend Test CI`는 Issue #25에서 추가한 단계다. 2026-10-29에 이 파일과 같은 스크립트를 작업 설정에 저장하고 다시 조회해 일치하는지 확인했다. 이어서 [#93](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/93/)에서 Frontend 테스트 372개가 통과하고 웹 배포까지 끝났다. 단계 설명은 [Frontend 테스트 실행](#frontend-테스트-실행)에 있다.
 
@@ -130,23 +130,25 @@ Docker 없이 같은 테스트를 실행하려면 `cd frontend && npm ci && npm 
 - `Build Images`의 `npm run build`는 따로 typecheck와 build를 실행한다. 이 단계는 그 빌드를 대신하지 않는다.
 - 실행마다 결과가 달라지는 테스트를 자동으로 다시 실행하거나 따로 표시하지 않는다. 한 번이라도 실패하면 배포를 막는다.
 
-## 측정 스크립트 자기 점검
+## 경로 표시 시간 측정 스크립트 자기 점검
 
-`Observer Checks CI`는 `Frontend Test CI` 다음, `Sync`보다 먼저 Ops 서버의 Docker에서 실행한다. 이 단계는 `infra/k6/path-display-timing/check-*.cjs`를 모두 실행한다. 점검마다 무엇을 확인하는지는 [k6 README의 자기 점검](../k6/README.md#자기-점검)에 있다.
+`Path Display Timing Checks CI`는 `Frontend Test CI` 다음, `Sync`보다 먼저 Ops 서버의 Docker에서 실행한다. 이 단계는 경로 표시 시간 측정 스크립트의 자기 점검인 `infra/k6/path-display-timing/check-*.cjs`를 모두 실행한다. 점검마다 무엇을 확인하는지는 [k6 README의 자기 점검](../k6/README.md#자기-점검)에 있다.
 
 - `git archive HEAD`로 체크아웃한 커밋의 `infra/k6/path-display-timing/`과, 점검이 직접 불러오는 `frontend/src/features/path/model/searchPathPages.ts`와 `frontend/package.json`만 컨테이너에 넘긴다. 이미지는 빌드하지 않는다.
 - 컨테이너는 `node:22.22.0-alpine`을 `--network none`으로 실행한다. 점검이 TypeScript 파일을 불러오므로 타입 제거를 기본으로 지원하는 Node 버전을 고정했다. 실서버, ssh, 운영 비밀값, Docker 소켓을 넘기지 않는다. 이미지를 처음 받을 때만 Docker가 저장소에 접속한다.
-- 단계 로그에는 점검 파일마다 `Observer check passed: <파일>` 또는 `Observer check FAILED: <파일>` 줄이 남고, 끝에 `Observer checks: total=<수>, failed=<수>` 줄과 실패한 파일 목록이 남는다.
+- 단계 로그에는 점검 파일마다 `Path display timing check passed: <파일>` 또는 `Path display timing check FAILED: <파일>` 줄이 남고, 끝에 `Path display timing checks: total=<수>, failed=<수>` 줄과 실패한 파일 목록이 남는다.
 
-점검이 하나라도 실패하면 단계는 실패로, 빌드는 UNSTABLE로 표시하고 `Sync` 이후 배포 단계는 계속 실행한다. Jenkins의 `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE')`를 쓴다. Discord에는 `불안정` 알림을 보낸다.
+점검이 하나라도 실패하면 Jenkins는 단계를 실패로, 빌드를 UNSTABLE로 표시하고 `Sync` 이후 배포 단계를 계속 실행한다. 이 동작은 `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', catchInterruptions: false)`로 정했다. Discord에는 `불안정` 알림을 보낸다.
 
-실패해도 배포를 막지 않는 이유는 이 점검이 서비스 동작이 아니라 측정 도구를 확인하기 때문이다. 측정 도구가 깨져도 Backend와 웹의 동작은 앞의 두 테스트 단계에서 이미 확인했다. 대신 점검이 깨진 것을 측정하는 날이 아니라 그 커밋의 빌드에서 알 수 있게 한다. 이 결정은 Issue #27에서 승인받았다.
+사용자가 이 단계가 도는 동안 빌드를 중단하면 Jenkins는 이를 점검 실패로 처리하지 않는다. `catchInterruptions: false`라서 중단을 다시 던지므로 빌드는 UNSTABLE이 아니라 중단으로 끝나고, `Sync` 이후 단계를 실행하지 않는다.
+
+실패해도 배포를 막지 않는 이유는 이 점검이 서비스 동작이 아니라 측정 도구를 확인하기 때문이다. 측정 도구가 깨져도 Backend와 웹의 동작은 앞의 두 테스트 단계에서 이미 확인했다. 대신 점검이 깨진 것을 측정하는 날이 아니라 그 커밋의 빌드에서 알 수 있게 한다. 사용자가 Issue #27에서 이 결정을 승인했다.
 
 아래 명령은 Linux Docker Engine이 있는 저장소 루트에서 단계의 shell을 Jenkinsfile에서 꺼내 그대로 실행한다. `git archive`는 커밋한 내용만 넘기므로 커밋하지 않은 점검 변경은 반영되지 않는다. 종료 코드 0이면 통과, 1이면 실패한 점검이 있다.
 
 ```sh
-node -e "process.stdout.write(require('fs').readFileSync('infra/ci/hetzner.Jenkinsfile','utf8').split(\"stage('Observer Checks CI')\")[1].split(\"sh '''\")[1].split(\"'''\")[0])" > /tmp/observer-checks.sh
-OBSERVER_CHECK_IMAGE=node:22.22.0-alpine sh /tmp/observer-checks.sh
+node -e "process.stdout.write(require('fs').readFileSync('infra/ci/hetzner.Jenkinsfile','utf8').split(\"stage('Path Display Timing Checks CI')\")[1].split(\"sh '''\")[1].split(\"'''\")[0])" > /tmp/path-display-timing-checks.sh
+PATH_DISPLAY_TIMING_CHECK_IMAGE=node:22.22.0-alpine sh /tmp/path-display-timing-checks.sh
 ```
 
 Docker 없이 실행하려면 [k6 README의 자기 점검](../k6/README.md#자기-점검) 명령을 쓴다.
