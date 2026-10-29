@@ -148,7 +148,7 @@
 - 제목은 **문제와 목적**을 설명한다. 상세 메시지는 **원인과 구현 방식**을 설명하고 필요한 호환성·검증 결과를 뒤에 덧붙인다.
 - area는 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것만 이 순서로 `/`로 연결한다. 공통 문서·에이전트 지침에 `Infra`를 대신 붙이거나 별도 `Docs`·`Spec`·`Contract` tag를 만들지 않는다.
 - type은 `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`를 사용한다. scope는 제품 도메인·모듈이 분명할 때만 쓰고 area를 반복하지 않는다.
-- 커밋 형식, 바뀐 경로에 필요한 area, 커밋 메시지와 `.md` 파일에 추가한 줄의 가운뎃점은 `.githooks/`가 커밋할 때 검사한다. 클론마다 `git config core.hooksPath .githooks`로 켜고, 훅을 고치면 `sh .githooks/test.sh`로 확인한다.
+- 커밋 형식, 바뀐 경로에 필요한 area, 커밋 메시지, `.md` 파일에 추가한 줄과 코드에 추가한 주석의 가운뎃점은 `.githooks/`가 커밋할 때 검사한다. 클론마다 `git config core.hooksPath .githooks`로 켜고, 훅을 고치면 `sh .githooks/test.sh`로 확인한다.
 - PR 제목도 같은 형식을 사용한다. 본문에는 변경 이유·내용, 호환성 영향, 검증 결과와 미확인 사항을 적고, 관련 Issue가 있으면 연결한다.
 
 ## Agent skills

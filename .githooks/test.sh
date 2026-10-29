@@ -107,6 +107,27 @@ expect_pre() {
 reset
 expect_pre block "문서에 가운뎃점 줄 추가" docs/a.md "설계·구현"
 
+# 이 파일도 같은 훅으로 커밋하므로, 주석 사례의 가운뎃점은 변수로 만든다.
+dot=$(printf '\302\267')
+
+reset
+expect_pre block "코드 주석 줄에 가운뎃점" frontend/a.ts "// 설계${dot}구현"
+
+reset
+expect_pre block "줄 끝 주석에 가운뎃점" android/A.kt "val a = 1 // 설계${dot}구현"
+
+reset
+expect_pre block "SQL 주석에 가운뎃점" backend/a.sql "-- 설계${dot}구현"
+
+reset
+expect_pre block "shell 주석에 가운뎃점" infra/a.sh "  # 설계${dot}구현"
+
+reset
+expect_pre pass "화면 문구의 구분자 가운뎃점" android/A.kt 'subtitle = "기동대 1부대 A팀 · 14:23",'
+
+reset
+expect_pre pass "URL 뒤 문자열의 가운뎃점" frontend/a.ts 'const a = "http://a.b · c";'
+
 reset
 expect_pre block "문서에 .scratch 링크 추가" docs/a.md "[기록](.scratch/a/result.md)"
 
