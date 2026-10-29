@@ -156,4 +156,5 @@ Docker 없이 실행하려면 [k6 README의 자기 점검](../k6/README.md#자�
 한계:
 
 - 측정 도구의 자기 점검이다. 실서버 측정, 브라우저 동작, 상황판 성능은 검증하지 않는다.
-- 로컬 재현은 단계의 shell과 종료 코드만 확인한다. 빌드가 UNSTABLE이 되고 배포가 계속되는 것은 Jenkins 빌드에서 확인한다.
+- 위 명령은 단계의 shell과 종료 코드만 확인한다. 실패 처리는 2026-10-30에 로컬 Jenkins(`jenkins/jenkins:lts-jdk17`, 2.541.3)에서 따로 확인했다. 이 단계와 같은 `catchError` 줄 안에서 `exit 1`로 끝나는 shell을 실행하면 Stage View에서 이 단계가 FAILED로, 빌드가 UNSTABLE로 끝나고, 다음 `Sync` 단계와 `post { unstable }`이 실행됐다. 같은 `catchError` 안에서 실행 중인 빌드를 중단하거나, `catchError`를 감싼 `timeout`이 지나면 빌드가 ABORTED로 끝나고 `Sync`를 건너뛰었다. `catchInterruptions` 인자를 뺀 대조 실행에서는 timeout으로 빌드가 ABORTED로 표시됐지만 `Sync`가 실행됐다.
+- 로컬 Jenkins 재현은 점검 shell 대신 `exit 1`과 `sleep`을 썼고, 실제 Docker 점검과 배포 단계는 실행하지 않았다. 로컬 Jenkins와 플러그인 버전은 운영 Jenkins와 다를 수 있다. 운영 Jenkins에서 점검이 실패한 빌드는 아직 확인하지 않았다.
