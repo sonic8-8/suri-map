@@ -3,8 +3,10 @@
 
 본문의 `## Acceptance criteria` 체크박스를 체크하고, 댓글 하나를 쓰고, Issue를 닫는다.
 옵션 없이 실행하면 바뀔 본문 diff와 댓글만 보여 준다. 사용자 승인을 받은 뒤 `--apply`로 실행한다.
+PR의 `Closes`로 이미 닫힌 티켓은 `--checks-only`로 댓글 없이 체크박스만 체크한다.
 
 usage: close-ticket.py <issue> <comment-file> [--apply]
+       close-ticket.py <issue> --checks-only [--apply]
        close-ticket.py --self-check
 """
 import difflib
@@ -38,21 +40,27 @@ def gh(*args):
 
 
 def main(issue, comment_file, apply):
-    with open(comment_file, encoding='utf-8') as f:
-        comment = f.read()
+    """comment_file이 None이면 이미 닫힌 티켓의 체크박스만 체크한다."""
     current = json.loads(gh('issue', 'view', issue, '--json', 'body,state'))
-    if current['state'] != 'OPEN':
+    if current['state'] != ('CLOSED' if comment_file is None else 'OPEN'):
         raise SystemExit(f'#{issue} is {current["state"]}')
     checked = check_acceptance_criteria(current['body'])
     sys.stdout.writelines(difflib.unified_diff(
         current['body'].splitlines(True), checked.splitlines(True), f'#{issue} before', f'#{issue} after'))
-    print(f'\n--- comment on #{issue}\n{comment}\n--- then close #{issue} as completed')
+    if comment_file is not None:
+        with open(comment_file, encoding='utf-8') as f:
+            print(f'\n--- comment on #{issue}\n{f.read()}\n--- then close #{issue} as completed')
     if not apply:
         return
     with tempfile.NamedTemporaryFile('w', suffix='.md', encoding='utf-8') as body_file:
         body_file.write(checked)
         body_file.flush()
         gh('issue', 'edit', issue, '--body-file', body_file.name)
+    if comment_file is None:
+        if '- [ ] ' in after_section(json.loads(gh('issue', 'view', issue, '--json', 'body'))['body']):
+            raise SystemExit(f'#{issue} has unchecked criteria')
+        print(f'#{issue} checked')
+        return
     gh('issue', 'comment', issue, '--body-file', comment_file)
     gh('issue', 'close', issue, '--reason', 'completed')
     after = json.loads(gh('issue', 'view', issue, '--json', 'body,state'))
@@ -84,7 +92,7 @@ if __name__ == '__main__':
     if sys.argv[1:] == ['--self-check']:
         self_check()
     elif len(sys.argv) in (3, 4) and sys.argv[3:] in ([], ['--apply']):
-        main(sys.argv[1], sys.argv[2], sys.argv[3:] == ['--apply'])
+        main(sys.argv[1], None if sys.argv[2] == '--checks-only' else sys.argv[2], sys.argv[3:] == ['--apply'])
     else:
         print(__doc__, file=sys.stderr)
         sys.exit(2)
