@@ -4,7 +4,7 @@ Hetzner Jenkins의 `수리맵` 작업은 다음 순서로 실행한다.
 
 `Checkout → Backend Test CI → Frontend Test CI → Path Display Timing Checks CI → Sync → Build Images → Deploy Backend → Verify Backend → Deploy Web`
 
-`Path Display Timing Checks CI`는 Issue #27에서 추가한 단계다. 2026-10-30 [#102](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/102/)에서 이 단계가 Jenkinsfile 안의 반복문으로 측정 스크립트 테스트 9개를 모두 통과했다. 반복문 대신 `run-checks.sh`를 부르도록 바꾼 이 파일은 아직 작업 설정에 저장하고 새 빌드로 확인하기 전이다. 단계 설명은 [경로 표시 시간 측정 스크립트 자기 점검](#경로-표시-시간-측정-스크립트-자기-점검)에 있다.
+`Path Display Timing Checks CI`는 Issue #27에서 추가한 단계다. 2026-10-31 반복문 대신 `run-checks.sh`를 부르도록 바꾼 이 파일을 작업 설정에 저장하고, 다시 읽어 이 파일과 같은지 확인했다. 이어서 [#105](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/105/)에서 컨테이너가 `run-checks.sh`를 실행해 측정 스크립트 테스트 9개를 모두 통과했다. 단계 설명은 [경로 표시 시간 측정 스크립트 자기 점검](#경로-표시-시간-측정-스크립트-자기-점검)에 있다.
 
 `Frontend Test CI`는 Issue #25에서 추가한 단계다. 2026-10-29에 이 파일과 같은 스크립트를 작업 설정에 저장하고 다시 조회해 일치하는지 확인했다. 이어서 [#93](https://jenkins.sonic8-8.com/job/%EC%88%98%EB%A6%AC%EB%A7%B5/93/)에서 Frontend 테스트 372개가 통과하고 웹 배포까지 끝났다. 단계 설명은 [Frontend 테스트 실행](#frontend-테스트-실행)에 있다.
 
