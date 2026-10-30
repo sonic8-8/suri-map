@@ -17,6 +17,7 @@ case "$1 $2" in
     if [ "$s" = gone ]; then echo '{"error":{"code":"agent_not_found"}}'; exit 0; fi
     echo "{\"result\":{\"agent\":{\"agent_status\":\"$s\",\"pane_id\":\"w1:p9\"}}}" ;;
   "agent prompt") cat "$FAKE/prompt_out"; exit "$(cat "$FAKE/prompt_exit")" ;;
+  "agent read") cat "$FAKE/screen" ;;
   *) exit 0 ;;
 esac
 EOF
@@ -31,6 +32,7 @@ case_() { # name, statuses, prompt_exit, prompt_out, expected exit, expected std
   echo "$pexit" >"$work/prompt_exit"
   printf '%s' "$pout" >"$work/prompt_out"
   : >"$work/log"
+  printf '%s' "${SCREEN:-}" >"$work/screen"
   # 기다리는 조건이 틀리면 role.sh가 끝나지 않으므로 경우마다 시간 제한을 둔다.
   out=$(timeout 10 "$here/role.sh" "$@" 2>/dev/null)
   code=$?
@@ -42,6 +44,12 @@ case_ "send counts a settled prompt as started" "done" 0 '{}' 0 started send a m
 case_ "send counts a prompt still running at its timeout as started" "working" 1 '{"error":{"code":"timeout"}}' 0 started send a msg
 case_ "send waits after a stalled prompt until the agent starts" 'idle\nidle\nworking' 1 '{"error":{"code":"agent_prompt_stalled"}}' 0 started send a msg
 case_ "send fails when the agent never starts" 'idle' 1 '{"error":{"code":"agent_prompt_stalled"}}' 1 '' send a msg
+[ "$(grep -c 'agent prompt' "$work/log")" = 2 ] && ! grep -q 'send-keys' "$work/log" || { echo "FAIL send did not resend exactly once"; failed=1; }
+case_ "send resends once when the first message was dropped" 'idle\nidle\nidle\nworking' 1 '{"error":{"code":"agent_prompt_stalled"}}' 0 started send a msg
+SCREEN='> msg' case_ "send presses Enter once when the message is left in the input box" 'idle\nidle\nidle\nworking' 1 '{"error":{"code":"agent_prompt_stalled"}}' 0 started send a msg
+[ "$(grep -cx 'agent send-keys a enter' "$work/log")" = 1 ] || { echo "FAIL send did not press Enter exactly once"; failed=1; }
+SCREEN='> msg' case_ "send fails when Enter does not start the agent" 'idle' 1 '{"error":{"code":"agent_prompt_stalled"}}' 1 '' send a msg
+[ "$(grep -c 'agent prompt' "$work/log")" = 1 ] || { echo "FAIL send resent the message"; failed=1; }
 case_ "send fails when the prompt is refused" 'blocked' 1 '{"error":{"code":"agent_blocked"}}' 1 '' send a msg
 case_ "wait ends on done" 'working\nworking\ndone' 0 '' 0 done wait a
 case_ "wait ends on idle without a result file" 'idle' 0 '' 0 idle wait a

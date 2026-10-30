@@ -28,11 +28,24 @@ send() {
     *agent_prompt_stalled*) ;;
     *) echo "send_failed: $out" >&2; return 1 ;;
   esac
+  wait_started "$name" && { echo started; return 0; }
+  # 막 띄운 역할은 idle로 보여도 아직 입력을 받지 못해 Enter나 문장 전체를 버릴 때가 있다.
+  # 문장이 화면에 남아 있으면 Enter만 누르고, 없으면 한 번 다시 보낸다. 어느 쪽도 배정이 두 번 들어가지 않는다.
+  if herdr agent read "$name" --source visible 2>/dev/null | grep -qF -- "${message:0:30}"; then
+    herdr agent send-keys "$name" enter >/dev/null
+  else
+    herdr agent prompt "$name" "$message" >/dev/null 2>&1 || true
+  fi
+  wait_started "$name" && { echo started; return 0; }
+  echo "not_started: $(status "$name")" >&2
+  return 1
+}
+
+wait_started() {
   for _ in $(seq 1 "${ROLE_START_CHECKS:-15}"); do
-    case $(status "$name") in working | blocked) echo started; return 0 ;; esac
+    case $(status "$1") in working | blocked) return 0 ;; esac
     sleep "${ROLE_POLL_SECONDS:-2}"
   done
-  echo "not_started: $(status "$name")" >&2
   return 1
 }
 
