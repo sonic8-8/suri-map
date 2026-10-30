@@ -158,3 +158,17 @@ Docker 없이 실행하려면 [k6 README의 자기 점검](../k6/README.md#자�
 - 측정 도구의 자기 점검이다. 실서버 측정, 브라우저 동작, 상황판 성능은 검증하지 않는다.
 - 위 명령은 단계의 shell과 종료 코드만 확인한다. 실패 처리는 2026-10-30에 로컬 Jenkins(`jenkins/jenkins:lts-jdk17`, 2.541.3)에서 따로 확인했다. 이 단계와 같은 `catchError` 줄 안에서 `exit 1`로 끝나는 shell을 실행하면 Stage View에서 이 단계가 FAILED로, 빌드가 UNSTABLE로 끝나고, 다음 `Sync` 단계와 `post { unstable }`이 실행됐다. 같은 `catchError` 안에서 실행 중인 빌드를 중단하거나, `catchError`를 감싼 `timeout`이 지나면 빌드가 ABORTED로 끝나고 `Sync`를 건너뛰었다. `catchInterruptions` 인자를 뺀 대조 실행에서는 timeout으로 빌드가 ABORTED로 표시됐지만 `Sync`가 실행됐다.
 - 로컬 Jenkins 재현은 점검 shell 대신 `exit 1`과 `sleep`을 썼고, 실제 Docker 점검과 배포 단계는 실행하지 않았다. 로컬 Jenkins와 플러그인 버전은 운영 Jenkins와 다를 수 있다. 운영 Jenkins에서 점검이 실패한 빌드는 아직 확인하지 않았다.
+
+## 빌드 결과 확인
+
+운영 Jenkins는 Ops 서버의 `ops-jenkins` 컨테이너에서 돈다. 빌드 결과와 콘솔 로그는 Ops 서버에 ssh로 접속해 Jenkins 데이터 폴더에서 읽는다. 브라우저 로그인이나 API 토큰이 필요 없다. 읽기만 하고 파일을 바꾸지 않는다.
+
+```sh
+OPS=<Ops 서버의 ssh 호스트>
+J=/var/lib/docker/volumes/ops_jenkins_home/_data/jobs/수리맵/builds
+ssh "$OPS" "ls $J | sort -n | tail -3"                          # 최근 빌드 번호
+ssh "$OPS" "grep -o '<result>[A-Z]*</result>' $J/<번호>/build.xml"  # SUCCESS, UNSTABLE, FAILURE, ABORTED
+ssh "$OPS" "grep 'Path display timing' $J/<번호>/log"           # 단계 로그 검색
+```
+
+빌드가 도는 동안에는 `build.xml`에 결과가 아직 없고 `log`가 계속 늘어난다.
