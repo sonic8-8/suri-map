@@ -620,6 +620,7 @@ python3 prepare-search-path-batch-fixtures.py --cleanup
 | 파일 | 역할 |
 |---|---|
 | `run.cjs` | 측정을 실행한다. 사건 목록에서 "상황판 열기"를 누르고, 화면이 끝 시점 이벤트를 보내고 경로 이력도 모두 받으면 마지막 경로 source를 읽은 뒤 DB, 서버 응답, 지도 데이터를 비교한다. |
+| `light-run.cjs`, `page-light-timing.cjs` | 경로 기록을 뺀 가벼운 모드. 아래 [가벼운 모드](#가벼운-모드)를 본다. |
 | `page-path-observer.cjs`, `page-history-capture.cjs`, `page-readiness.cjs` | 페이지에 넣는 코드. 상황판 계측을 켜고, 경로 응답 본문, 지도 source, 화면이 보낸 시작 시점과 끝 시점 이벤트를 기록한다. |
 | `history-capture.cjs`, `checkpoint.cjs`, `aside-evaluator.cjs` | 페이지의 기록을 Aside로 나눠 받아 디스크에 fsync한 뒤 다음 기록을 받는다. |
 | `history-compare.cjs`, `capture-db-snapshot.cjs`, `db-snapshot.sql` | DB 스냅샷을 읽기 전용 트랜잭션으로 조회하고, 서버 응답을 측정 전 DB 스냅샷과, 측정 후 스냅샷을 측정 전 스냅샷과 비교한다. |
@@ -680,6 +681,38 @@ node infra/k6/path-display-timing/run.cjs CONFIG.json NEW-OUTPUT-DIR
 node infra/k6/path-display-timing/capture-db-snapshot.cjs NEW-OUTPUT.json [SSH_HOST DB_CONTAINER]
 ```
 
+### 가벼운 모드
+
+위 측정에는 페이지에 넣는 코드가 경로를 기록하는 비용이 섞여 있다. 이 코드는 경로 응답 본문을 페이지에 보존하고, 0.25초마다 지도에 경로가 그려졌는지 확인하고, 지도 source 이벤트를 받는다. 가벼운 모드는 이 일을 하지 않고 화면이 보낸 두 이벤트만 받는다. 두 모드로 잰 시간의 차이가 경로 기록 비용이다. 상황판 계측 플래그는 두 모드 모두 켜므로 상황판 계측 비용은 두 값에 똑같이 남는다.
+
+```bash
+node infra/k6/path-display-timing/light-run.cjs CONFIG.json NEW-OUTPUT-DIR
+```
+
+`CONFIG.json`은 위 측정과 같은 파일을 쓰고 같은 검사를 거친다. 실행 전에 확인할 것도 같지만 DB 스냅샷을 찍지 않는다. 설정 검사, 로그인 토큰 확인, 탭 확인, "상황판 열기" 클릭, 서버 런타임 비교, 사건 목록 복귀는 `run.cjs`의 코드를 그대로 쓴다.
+
+페이지에 넣는 코드(`page-light-timing.cjs`)는 다음 일만 한다.
+
+- 설치할 때 `window.__SURI_MAP_MEASUREMENT_ENABLED__`를 `true`로 켠다.
+- `suri-map:board-measurement` 이벤트 중 이 사건의 `board_open_clicked`와 `all_paths_map_idle`을 종류마다 처음 온 것 하나씩 받아 둔다.
+- 탭이 가려지면 기록하고 멈춘다.
+- 0.25초마다 위 측정과 같은 기준으로 origin, 경로(사건 목록이나 이 사건의 상황판), 배포 번들, 계정, 토큰 만료를 확인하고, 탭 가림과 플래그 꺼짐도 확인한다. 하나라도 어긋나면 멈춘다.
+
+두 이벤트가 모두 오면 플래그를 끄고 멈춘다. 끝 시점 이벤트가 오지 않으면 마감 시간(`deadlineMs`) 뒤에 멈춘다. 어느 경우든 멈출 때 플래그를 끄고 받은 이벤트를 `sessionStorage`에 남긴다. 측정 스크립트는 멈춘 것을 확인하면 사건 목록으로 돌아간 뒤 이벤트를 읽어 결과 파일에 쓴다. 측정 스크립트가 중간에 실패하면 페이지의 코드에 멈추라고 요청해 플래그를 끈다. 이 요청이 닿지 않아도 페이지의 코드는 마감 시간에 스스로 멈춘다.
+
+출력 디렉터리에는 `attempt.json`, `measurement-setup.json`, `runtime-before.json`, `runtime-after.json`, `exit.json`, `result.json`이 남는다.
+
+- `measurement-setup.json`: `mode`가 `"light"`라서 경로 기록을 포함한 결과와 구분된다. 지도를 확인하지 않으므로 `settings`에 `sampleIntervalMs`가 없다.
+- `result.json`의 `boardEvents`, `missingBoardEvents`: 위 측정과 같다. 화면이 보낸 `detail`을 그대로 담고, 걸린 시간은 두 이벤트의 `atMs` 차이다.
+- `result.json`의 `error`: 실패한 이유. 페이지가 멈춘 이유(`deadline`, `hidden`, `environment_changed`, `authentication_lost`, `measurement_disabled`)나 측정 스크립트의 오류(`runtime_changed` 등)다.
+- `exit.json`: 페이지가 멈춘 이유(`reason`)와 이벤트를 `sessionStorage`에 남겼는지(`saved`)
+
+가벼운 모드는 다음을 확인하지 않는다. 이것을 확인하려면 위 측정을 쓴다.
+
+- 지도에 그려진 경로의 좌표와 순서가 서버 응답과 같은지
+- 서버 응답과 측정 전후 DB 스냅샷의 대조, 측정하는 동안 다른 쓰기가 있었는지
+- 경로 응답의 수, 받은 시각, 처음 지도에 보인 시각
+
 ### 자기 점검
 
 실서버, ssh, 브라우저 없이 실행한다. 종료 코드가 0이면 통과다. 실패하면 assert 오류를 출력하고 종료 코드 1로 끝난다. Frontend의 `searchPathPages.ts`를 직접 불러오므로 TypeScript 타입 제거를 지원하는 Node(22.22.0에서 확인)가 필요하다.
@@ -693,9 +726,12 @@ node infra/k6/path-display-timing/check-history-compare.cjs
 node infra/k6/path-display-timing/check-path-coordinates.cjs
 node infra/k6/path-display-timing/check-checkpoint.cjs
 node infra/k6/path-display-timing/check-aside-evaluator.cjs
+node infra/k6/path-display-timing/check-light-run.cjs
 ```
 
 `check-run.cjs`는 가짜 페이지 이벤트와 가짜 Git 정보로 두 이벤트가 그대로 저장되는지, 오지 않은 이벤트가 빠졌다고 적히는지, 버전과 실행 설정이 남는지, 결과 파일에 비밀값 모양의 문자열이 없는지 확인한다. 끝에는 가짜 `exec` 함수를 넘겨 실제 버전 읽기가 부르는 두 `git` 명령을 확인한다.
+
+`check-light-run.cjs`는 가벼운 모드의 페이지 코드를 가짜 탭에서 실제로 실행하고, 가짜 시계로 시간을 넘긴다. 두 이벤트가 오면 성공으로 끝나는지, 끝 시점 이벤트가 오지 않으면 마감 시간 뒤 실패로 끝나는지, 탭이 가려지면 멈추는지, 성공과 실패 모두 끝날 때 플래그가 꺼지는지 확인한다. `measurement-setup.json`의 `mode`, 화면이 보낸 `detail`이 그대로 저장되는지, DB 스냅샷과 응답, 지도 파일을 쓰지 않는지도 확인한다.
 
 `check-server.cjs`는 가짜 `exec` 함수를 넘겨, 설정하지 않으면 기본값이, 설정하면 지정한 값이 ssh 인자와 psql 명령에 쓰이는지 확인한다.
 
