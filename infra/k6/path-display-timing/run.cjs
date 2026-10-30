@@ -89,11 +89,15 @@ function realIO(config, exec = execFileSync) {
     action: action => pageAction(config, action), now: Date.now, pause: () => new Promise(r => setTimeout(r,1000)) };
 }
 
-async function run(config, directory, io = realIO(config)) {
+function checkConfig(config) {
   validateConfig(config);
   assert.equal(config.incidentId,scope.incidentId); assert.equal(config.opId,scope.opId);
   assert.deepEqual([config.deadlineMs,config.maxResponses,config.maxBodyCharacters,config.sampleIntervalMs], [1050000,800,134217728,250]);
   assert.ok(['1/80/480','4/320/1920','16/1280/7680','200/16000/64000','100000/100000/400000'].includes(config.limits.join('/')));
+}
+
+async function run(config, directory, io = realIO(config)) {
+  checkConfig(config);
   fs.mkdirSync(directory,{mode:0o700}); save(path.join(directory,'attempt.json'),config);
   const result = { started:new Date().toISOString(), completed:false, calls:0, ...boardEventsOf([]) }, file=path.join(directory,'checkpoints.jsonl');
   let armed=false, capture, end, diskState={rows:[]};
@@ -175,7 +179,7 @@ async function run(config, directory, io = realIO(config)) {
   return result;
 }
 
-module.exports={run,runtime,scope,compareSaved,complete,save,pageAction,realIO,scriptVersion};
+module.exports={run,runtime,scope,compareSaved,complete,save,pageAction,realIO,scriptVersion,checkConfig,measurementSettings,boardEventsOf};
 if(require.main===module){
   const config=JSON.parse(fs.readFileSync(process.argv[2]));
   run(config,process.argv[3]).then(r=>{console.log(JSON.stringify(r));if(!r.completed)process.exitCode=1;})
