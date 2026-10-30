@@ -731,16 +731,10 @@ sh infra/k6/path-display-timing/pair-run.sh CONFIG.json NEW-OUTPUT-ROOT [PAIRS]
 실서버, ssh, 브라우저 없이 실행한다. 종료 코드가 0이면 통과다. 실패하면 assert 오류를 출력하고 종료 코드 1로 끝난다. Frontend의 `searchPathPages.ts`를 직접 불러오므로 TypeScript 타입 제거를 지원하는 Node(22.22.0에서 확인)가 필요하다.
 
 ```bash
-node infra/k6/path-display-timing/check-run.cjs
-node infra/k6/path-display-timing/check-server.cjs
-node infra/k6/path-display-timing/check-page-path-observer.cjs
-node infra/k6/path-display-timing/check-history-capture.cjs
-node infra/k6/path-display-timing/check-history-compare.cjs
-node infra/k6/path-display-timing/check-path-coordinates.cjs
-node infra/k6/path-display-timing/check-checkpoint.cjs
-node infra/k6/path-display-timing/check-aside-evaluator.cjs
-node infra/k6/path-display-timing/check-light-run.cjs
+sh infra/k6/path-display-timing/run-checks.sh
 ```
+
+이 스크립트는 `check-*.cjs`를 모두 돌리고, 하나가 실패해도 나머지를 돌린 뒤 실패한 파일 목록과 함께 종료 코드 1로 끝난다. 저장소의 Jenkinsfile도 이 파일을 부른다. 운영 Jenkins 작업 설정에 반영했는지는 [CI README](../ci/README.md)에 적는다. 측정 스크립트 테스트 하나만 돌리려면 `node infra/k6/path-display-timing/check-run.cjs`처럼 파일을 직접 실행한다.
 
 `check-run.cjs`는 가짜 페이지 이벤트와 가짜 Git 정보로 두 이벤트가 그대로 저장되는지, 오지 않은 이벤트가 빠졌다고 적히는지, 버전과 실행 설정이 남는지, 결과 파일에 비밀값 모양의 문자열이 없는지 확인한다. 끝에는 가짜 `exec` 함수를 넘겨 실제 버전 읽기가 부르는 두 `git` 명령을 확인한다.
 

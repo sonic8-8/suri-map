@@ -227,19 +227,7 @@ git archive HEAD infra/k6/path-display-timing frontend/package.json frontend/src
 set -eu
 cd "$(mktemp -d)"
 tar -xf -
-total=0
-failed=""
-for check in infra/k6/path-display-timing/check-*.cjs; do
-  total=$((total + 1))
-  if node "${check}"; then
-    echo "Path display timing check passed: ${check}"
-  else
-    echo "Path display timing check FAILED: ${check}"
-    failed="${failed} ${check}"
-  fi
-done
-echo "Path display timing checks: total=${total}, failed=$(echo ${failed} | wc -w)"
-[ -z "${failed}" ] || { echo "Failed path display timing checks:${failed}" >&2; exit 1; }
+sh infra/k6/path-display-timing/run-checks.sh
 '
           '''
         }
