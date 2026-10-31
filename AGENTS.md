@@ -89,6 +89,7 @@
 - Herdr로 pane, 탭, 에이전트를 확인하거나 조작하기 전에 `herdr` 스킬을 불러 그 절차를 따른다.
 - Aside로 브라우저를 쓰거나 Aside 메모리를 조회하기 전에 `aside-browser` 스킬을 불러 그 절차를 따른다.
 - 작업 오케스트레이션을 운영할 때 `agents/orchestrator.md`를 따른다. 역할을 띄울 때는 `agents/`의 역할 파일을 넘긴다.
+- `AGENTS.md`, `agents/`, 스킬처럼 에이전트가 읽는 문서를 고칠 때는 `/mattpocock-skills:writing-for-agents`를 불러 그 기준으로 쓴다.
 
 ## API 규칙
 
@@ -145,8 +146,7 @@
 - 기능 작업은 git flow의 feature 브랜치로 관리한다. 문서나 에이전트 지침처럼 작은 변경은 develop에 직접 커밋해도 된다. develop에서 `feature/<Issue 번호>-<영문 kebab-case 설명>`을 만들고, 티켓으로 나눈 작업은 spec Issue 번호를 쓴다. Issue 없이 리뷰만 받는 작은 일([오케스트레이터 절차](agents/orchestrator.md#리뷰만-받는-작은-일))은 `feature/<영문 kebab-case 설명>`을 쓴다. `main`과 release, hotfix 브랜치는 아직 정하지 않았다.
 - feature 브랜치는 develop으로 PR을 열어 합친다. 병합은 사용자 승인을 받은 뒤 `gh pr merge <번호> --merge`(merge commit)로 한다. squash와 rebase는 Issue 댓글과 기록에 적은 커밋 번호를 develop에서 지우므로 쓰지 않는다.
 - 커밋 형식은 `[Area] type[(scope)]: 한글 요약`이다. 직접 영향받는 runtime/infra area가 없으면 area를 생략한다. 관련 Issue를 연결할 때만 실제 Issue 번호(예: `#23`)를 덧붙인다.
-- 제목은 **문제와 목적**을 설명한다. 상세 메시지는 **원인과 구현 방식**을 설명하고 필요한 호환성·검증 결과를 뒤에 덧붙인다.
-  - 제목에는 무엇을 하려는지(목적)와 어떤 원인으로 어떤 결과가 났는지를 함께 담고, 한 번에 읽히는 길이로 줄인다. 예: `[Infra] feat: 경로 표시 목표를 판정하기 위해, 경로 기록 비용이 섞여 상황판 시간을 알 수 없던 것을 가벼운 측정 모드로 분리 #29`
+- 제목에는 목적과 어떤 원인으로 어떤 결과가 났는지를 한 번에 읽히는 길이로 담는다. 예: `[Infra] feat: 경로 표시 목표를 판정하기 위해, 경로 기록 비용이 섞여 상황판 시간을 알 수 없던 것을 가벼운 측정 모드로 분리 #29`. 상세 메시지는 원인과 구현 방식을 겹치는 말 없이 쓰고, 필요한 호환성과 검증 결과를 뒤에 덧붙인다.
 - area는 `BE`, `FE`, `Android`, `Infra` 중 실제 영향받는 것만 이 순서로 `/`로 연결한다. 공통 문서·에이전트 지침에 `Infra`를 대신 붙이거나 별도 `Docs`·`Spec`·`Contract` tag를 만들지 않는다.
 - type은 `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`를 사용한다. scope는 제품 도메인·모듈이 분명할 때만 쓰고 area를 반복하지 않는다.
 - 커밋 형식, 바뀐 경로에 필요한 area, 커밋 메시지, `.md` 파일에 추가한 줄과 코드에 추가한 주석의 가운뎃점은 `.githooks/`가 커밋할 때 검사한다. 클론마다 `git config core.hooksPath .githooks`로 켜고, 훅을 고치면 `sh .githooks/test.sh`로 확인한다.
