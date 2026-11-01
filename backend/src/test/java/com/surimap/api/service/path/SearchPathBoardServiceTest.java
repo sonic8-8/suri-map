@@ -34,10 +34,14 @@ import org.apache.ibatis.session.RowBounds;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -66,10 +70,11 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private PlatformTransactionManager transactionManager;
   @Autowired private ObjectMapper objectMapper;
 
-  @Test
+  @ParameterizedTest(name = "구간 묶기 migration 적용: {0}")
+  @ValueSource(booleans = {false, true})
   @Tag("performance")
-  @DisplayName("누적 경로 468개의 최초 구간 조회 시간과 직렬화 크기를 측정한다")
-  void measure_first_page_with_accumulated_paths() throws Exception {
+  @DisplayName("누적 경로 468개의 최초 구간 조회 시간과 직렬화 크기를 구간 묶기 migration을 적용하기 전과 뒤에 각각 측정한다")
+  void measure_first_page_with_accumulated_paths(boolean mergeSegments) throws Exception {
     // given: 468개 경로 각각에 720개 GPS와 120개 구간을 저장한다.
     // 계정·근무는 공용 fixture를 재사용한다. 업무폰 468대의 쓰기 부하 시험은 아니다.
     seedPath();
@@ -82,6 +87,9 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         """);
     jdbcTemplate.execute(
         "DELETE FROM search_path WHERE id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'");
+    // 구간에는 경로 FK가 없어 함께 지워지지 않는다. 경로 없는 구간이 남으면 구간 묶기 migration이 중단된다.
+    jdbcTemplate.execute(
+        "DELETE FROM search_path_segment WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'");
     jdbcTemplate.execute(
         """
         INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps)
@@ -105,6 +113,24 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate.queryForObject("SELECT count(*) FROM search_path_gps_point", Long.class))
         .isEqualTo(336960L);
+    long baselineVersion = 121L;
+    if (mergeSegments) {
+      // 배포할 구간 묶기 SQL로 좌표 6개짜리 구간 120개를 경로마다 좌표 120개짜리 구간 6개로 묶는다.
+      long migrationStart = System.nanoTime();
+      new TransactionTemplate(transactionManager)
+          .executeWithoutResult(
+              status ->
+                  new ResourceDatabasePopulator(
+                          new ClassPathResource(
+                              "db/migration/V20261102_001__merge_search_path_segments_by_movement_type.sql"))
+                      .execute(jdbcTemplate.getDataSource()));
+      System.out.printf("MERGE_MIGRATION ms=%.3f%n", (System.nanoTime() - migrationStart) / 1e6);
+      jdbcTemplate.execute("ANALYZE search_path");
+      jdbcTemplate.execute("ANALYZE search_path_segment");
+      assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM search_path_segment", Long.class))
+          .isEqualTo(468L * 6);
+      baselineVersion = 122L;
+    }
     // when: 두 번 예열한 뒤 첫 페이지를 다섯 번 독립 조회한다.
     for (int run = 0; run < 7; run++) {
       long start = System.nanoTime();
@@ -121,15 +147,17 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
               .sum();
       // then: 전체 이력은 남아 있고, 각 경로의 마지막 좌표를 포함한다.
       assertThat(response.isHasMore()).isTrue();
+      long expectedBaselineVersion = baselineVersion;
       assertThat(response.getPaths())
           .allSatisfy(
               path -> {
-                assertThat(path.getBaselineVersion()).isEqualTo(121L);
+                assertThat(path.getBaselineVersion()).isEqualTo(expectedBaselineVersion);
                 assertThat(path.getSegments().get(0).getEndPointOrder()).isEqualTo(719);
               });
       if (run >= 2) {
         System.out.printf(
-            "PAGE_MEASURE run=%d query_ms=%.3f serialize_ms=%.3f response_json_bytes=%d paths=%d segments=%d coordinates=%d%n",
+            "PAGE_MEASURE merged=%b run=%d query_ms=%.3f serialize_ms=%.3f response_json_bytes=%d paths=%d segments=%d coordinates=%d%n",
+            mergeSegments,
             run - 1,
             (queried - start) / 1e6,
             (serialized - queried) / 1e6,
