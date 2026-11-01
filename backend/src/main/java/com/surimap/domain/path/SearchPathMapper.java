@@ -86,6 +86,12 @@ public interface SearchPathMapper {
       @Param("expectedVersion") long expectedVersion,
       @Param("updatedAt") Instant updatedAt);
 
+  Optional<SearchPathSegment> findLastSegment(@Param("pathId") UUID pathId);
+
+  int updateSegmentExtension(
+      @Param("segment") SearchPathSegment segment,
+      @Param("expectedVersion") long expectedVersion);
+
   List<SearchPathSegment> findSegmentsByPathId(@Param("pathId") UUID pathId);
 
   void insertExcludedPoints(@Param("excludedPoints") List<SearchPathExcludedPoint> excludedPoints);

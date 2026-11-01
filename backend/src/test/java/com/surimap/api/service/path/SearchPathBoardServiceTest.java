@@ -7,11 +7,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.path.response.SearchPathSegmentsQueryResponse;
 import com.surimap.api.service.path.request.SearchPathPageServiceRequest;
 import com.surimap.api.service.path.request.SearchPathPageServiceRequest.PathProgress;
+import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
+import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
 import com.surimap.api.service.path.response.SearchPathPageServiceResponse;
+import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.common.auth.*;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.math.BigDecimal;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -52,7 +57,9 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID INCIDENT = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP = UUID.fromString("65000000-0000-0000-0000-000000002621");
   private static final UUID ACCOUNT = UUID.fromString("62000000-0000-0000-0000-000000002621");
+  private static final UUID PATH = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
   @Autowired private SearchPathBoardService service;
+  @Autowired private SearchPathService searchPathService;
   @Autowired private SnapshotPause snapshotPause;
   @Autowired private StatementCounter statementCounter;
   @Autowired private FetchSizeRecorder fetchSizeRecorder;
@@ -841,6 +848,72 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
       assertThat(segment.getStartedAt()).isEqualTo(segment.getEndedAt());
       assertThat(response.getPaths().get(0).getBeforeStartPointOrder()).isEqualTo(2);
     }
+  }
+
+  @Test
+  @DisplayName("이어 붙이기 전 경로 버전으로 변경분을 조회하면 늘어난 구간 전체를 같은 ID와 더 높은 버전으로 반환한다")
+  void changes_after_extension_return_whole_extended_segment() {
+    // given: 도보 묶음 하나로 만든 구간과 그때의 경로 버전이다.
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(footBatch("board-extend-first", 0));
+
+    // when: 같은 이동 유형의 묶음을 이어 붙인 뒤 첫 업로드의 경로 버전 이후 변경분을 조회한다.
+    searchPathService.appendPoints(footBatch("board-extend-second", 6));
+    SearchPathPageServiceResponse changes =
+        service.getSearchPathChanges(
+            request(List.of(OP)).toBuilder()
+                .paths(
+                    List.of(
+                        PathProgress.builder()
+                            .id(PATH)
+                            .baselineVersion(first.getVersion())
+                            .build()))
+                .build());
+
+    // then: 기존 좌표부터 새 좌표까지 늘어난 구간 전체가 같은 ID로 담긴다.
+    assertThat(changes.getPaths().get(0).getSegments())
+        .singleElement()
+        .satisfies(
+            segment -> {
+              assertThat(segment.getId().toString()).isEqualTo(first.getSegments().get(0).getId());
+              assertThat(segment.getVersion())
+                  .isGreaterThan(first.getSegments().get(0).getVersion());
+              assertThat(segment.getStartPointOrder()).isZero();
+              assertThat(segment.getEndPointOrder()).isEqualTo(11);
+              assertThat(segment.getCoordinates()).hasSize(12);
+              assertThat(segment.getCoordinates().get(0)).containsExactly(126.913, 35.162);
+              assertThat(segment.getCoordinates().get(11)).containsExactly(126.91311, 35.162);
+            });
+  }
+
+  private SearchPathPointsAppendServiceRequest footBatch(String idempotencyKey, int from) {
+    return SearchPathPointsAppendServiceRequest.builder()
+        .incidentId(INCIDENT)
+        .opId(OP)
+        .pathId(PATH)
+        .accountId(ACCOUNT)
+        .clockOffsetMs(0L)
+        .idempotencyKey(idempotencyKey)
+        .points(
+            IntStream.range(from, from + 6)
+                .mapToObj(
+                    i ->
+                        SearchPathPointServiceRequest.builder()
+                            .pointId("board-" + i)
+                            .lon(
+                                new BigDecimal("126.913000")
+                                    .add(
+                                        new BigDecimal("0.000010").multiply(BigDecimal.valueOf(i))))
+                            .lat(new BigDecimal("35.162000"))
+                            .speedMps(new BigDecimal("1.2"))
+                            .horizontalAccuracyM(5)
+                            .clientTs(
+                                OffsetDateTime.parse("2026-04-28T09:00:00+09:00")
+                                    .plusSeconds(i))
+                            .elapsedRealtimeNanos(10_000_000_000L + i * 1_000_000_000L)
+                            .build())
+                .toList())
+        .build();
   }
 
   private SearchPathPageServiceRequest request(List<UUID> opIds) {

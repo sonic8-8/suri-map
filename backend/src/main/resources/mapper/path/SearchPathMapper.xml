@@ -238,7 +238,8 @@
         WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
-    <select id="findPathMetadataForUpdate" resultMap="searchPathMap">
+    <!-- 잠금을 기다리는 사이 바뀐 행을 다시 읽도록, 잠그기 전에 같은 트랜잭션에서 읽어 둔 세션 캐시를 비운다. -->
+    <select id="findPathMetadataForUpdate" resultMap="searchPathMap" flushCache="true" useCache="false">
         SELECT
             sp.id,
             op.incident_id,
@@ -599,6 +600,51 @@
             version = #{segment.version},
             last_changed_path_version = #{segment.lastChangedPathVersion},
             updated_at = #{updatedAt}
+        WHERE id = #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
+    </update>
+
+    <resultMap id="lastSearchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment" extends="searchPathSegmentMap">
+        <result property="startPointId" column="start_point_id" javaType="string"/>
+    </resultMap>
+
+    <!-- 좌표 추가는 경로 행을 잠근 뒤 이 SQL을 실행하므로 읽은 마지막 구간이 커밋 전에 바뀌지 않는다. -->
+    <select id="findLastSegment" resultMap="lastSearchPathSegmentMap">
+        SELECT
+            s.id,
+            s.search_path_id,
+            s.start_point_order,
+            s.end_point_order,
+            s.last_changed_path_version,
+            s.movement_type,
+            s.movement_type_source,
+            ST_AsEWKT(s.geometry) AS geometry,
+            s.started_at,
+            s.ended_at,
+            s.corrected_by_account_id,
+            s.corrected_at,
+            s.version,
+            s.created_at,
+            s.updated_at,
+            g.point_id AS start_point_id
+        FROM search_path_segment s
+        LEFT JOIN search_path_gps_point g
+          ON g.search_path_id = s.search_path_id
+         AND g.point_order = s.start_point_order
+        WHERE s.search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND s.start_point_order IS NOT NULL
+        ORDER BY s.start_point_order DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateSegmentExtension">
+        UPDATE search_path_segment
+        SET end_point_order = #{segment.endIndex},
+            geometry = ST_GeomFromEWKT(#{segment.geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            ended_at = #{segment.endedAt},
+            version = #{segment.version},
+            last_changed_path_version = #{segment.lastChangedPathVersion},
+            updated_at = #{segment.updatedAt}
         WHERE id = #{segment.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND version = #{expectedVersion}
     </update>
