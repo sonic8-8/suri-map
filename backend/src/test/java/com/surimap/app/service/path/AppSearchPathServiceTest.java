@@ -102,7 +102,7 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
             () -> appSearchPathService.updateStatus(request));
 
     // then: 시작·각 좌표 추가·상태 변경의 버전과 좌표·이벤트가 모두 보존된다.
-    // 묶음마다 UNKNOWN 구간이 되므로 두 번째 묶음은 마지막 구간에 이어 붙고 마지막 추가의 경로 버전을 남긴다.
+    // 묶음마다 UNKNOWN 구간이 되므로 두 번째 묶음은 첫 구간에 이어 붙고, 구간에는 마지막으로 좌표를 추가한 때의 경로 버전이 남는다.
     assertThat(response.getVersion()).isEqualTo(expectedVersion);
     assertThat(response.getStatus()).isEqualTo(expectedStatus);
     SearchPathQueryRowServiceResponse saved = queryPath();

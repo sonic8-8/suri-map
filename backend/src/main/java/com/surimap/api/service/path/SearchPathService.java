@@ -636,7 +636,7 @@ public class SearchPathService {
         searchPathMapper
             .findPathMetadataForUpdate(findSegment(segmentId).getSearchPathId())
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
-    // 잠금을 기다리는 동안 좌표 추가가 같은 구간을 늘렸을 수 있어 잠근 뒤 최신 구간을 다시 읽는다.
+    // 잠금을 기다리는 동안 다른 요청이 좌표를 추가해 같은 구간이 늘어났을 수 있으므로, 잠근 뒤 최신 구간을 다시 읽는다.
     SearchPathSegment corrected = findSegment(segmentId);
     long expectedPathVersion = owner.getVersion();
     long expectedSegmentVersion = corrected.getVersion();

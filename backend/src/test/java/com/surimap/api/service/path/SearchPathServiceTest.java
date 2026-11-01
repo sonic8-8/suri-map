@@ -1029,7 +1029,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     // when: 같은 이동 유형의 묶음을 더 올린다.
     searchPathService.appendPoints(trackBatch("cap-next", 120, 6, FOOT_SPEED));
 
-    // then: 120개 구간은 그대로 두고 새 구간을 만든다.
+    // then: 120개 구간은 그대로이고 새 구간이 생긴다.
     List<SavedSegment> segments = savedSegments();
     assertThat(segments)
         .extracting(SavedSegment::range)
@@ -1048,7 +1048,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     searchPathService.appendPoints(
         trackBatch("partial-second", 115, 8, FOOT_SPEED, 116, 120));
 
-    // then: 구간 하나가 통과 좌표 120개를 순서대로 담고 원본 GPS와 제외 좌표 행이 남는다.
+    // then: 통과 좌표 120개가 순서대로 구간 하나에 들어가고, 원본 GPS와 제외 좌표 행이 남는다.
     assertThat(savedSegments())
         .singleElement()
         .satisfies(
@@ -1093,7 +1093,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     // when: 같은 방식으로 UNKNOWN이 되는 묶음을 올린다.
     searchPathService.appendPoints(trackBatch("unknown-second", 2, 2, FOOT_SPEED));
 
-    // then: 도보 속도 좌표 4개를 담아도 다시 분류하지 않는다.
+    // then: 구간에 도보 속도 좌표가 4개 들어 있어도 이동 유형은 다시 분류되지 않는다.
     assertThat(savedSegments())
         .singleElement()
         .satisfies(
@@ -1140,7 +1140,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     // when: 다시 1개만 통과하는 묶음을 올린다.
     searchPathService.appendPoints(trackBatch("single-second", 2, 2, FOOT_SPEED, 3));
 
-    // then: 좌표 하나짜리 구간에 이어 붙어 원본 좌표 2개를 순서대로 담는다.
+    // then: 좌표 하나짜리 구간에 이어 붙어, 구간에 원본 좌표 2개가 순서대로 들어간다.
     assertThat(savedSegments())
         .singleElement()
         .satisfies(
@@ -1214,7 +1214,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     // when: 같은 멱등성 키로 같은 묶음을 다시 보낸다.
     SearchPathPointsAppendServiceResponse replayed = searchPathService.appendPoints(second);
 
-    // then: 처음 응답을 그대로 돌려주고 저장 상태는 바뀌지 않는다.
+    // then: 처음과 같은 응답을 받고 저장 상태는 바뀌지 않는다.
     assertThat(replayed).usingRecursiveComparison().isEqualTo(appended);
     assertThat(afterFirstSend)
         .singleElement()
@@ -1594,7 +1594,7 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
         PATH_ID.toString());
   }
 
-  // 저장된 구간 행이다. matchesGpsRange는 도형, 시작 시각, 끝 시각이 순번 범위의 원본 GPS와 같은지 나타낸다.
+  // 저장된 구간 행이다. 도형, 시작 시각, 끝 시각이 모두 순번 범위의 원본 GPS와 같으면 matchesGpsRange가 true다.
   private record SavedSegment(
       UUID id,
       List<Integer> range,

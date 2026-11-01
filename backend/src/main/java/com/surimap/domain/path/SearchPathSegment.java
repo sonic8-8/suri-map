@@ -128,7 +128,7 @@ public class SearchPathSegment {
     return endIndex - startIndex + 1;
   }
 
-  // 좌표 하나짜리 구간은 같은 좌표 두 개로 저장하므로 순번 범위의 좌표 수만큼만 쓴다.
+  // 좌표 하나짜리 구간의 도형에는 같은 좌표가 두 개 들어 있으므로, 이어 붙일 때는 순번 범위의 좌표 수만큼만 쓴다.
   private Coordinate[] sourceCoordinates() {
     return Arrays.copyOf(geometry.getCoordinates(), pointCount());
   }

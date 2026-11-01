@@ -238,7 +238,7 @@
         WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
-    <!-- 잠금을 기다리는 사이 바뀐 행을 다시 읽도록, 잠그기 전에 같은 트랜잭션에서 읽어 둔 세션 캐시를 비운다. -->
+    <!-- 잠그기 전에 같은 트랜잭션에서 읽은 행이 MyBatis 세션 캐시에 남아 있으면, 잠근 뒤 다시 읽어도 잠금을 기다리는 사이 바뀐 행 대신 옛 행이 돌아온다. 그래서 이 SQL을 실행할 때 세션 캐시를 비운다. -->
     <select id="findPathMetadataForUpdate" resultMap="searchPathMap" flushCache="true" useCache="false">
         SELECT
             sp.id,
@@ -608,7 +608,7 @@
         <result property="startPointId" column="start_point_id" javaType="string"/>
     </resultMap>
 
-    <!-- 좌표 추가는 경로 행을 잠근 뒤 이 SQL을 실행하므로 읽은 마지막 구간이 커밋 전에 바뀌지 않는다. -->
+    <!-- 좌표를 추가할 때 경로 행을 먼저 잠근 뒤 이 SQL을 실행하므로, 읽은 마지막 구간은 커밋 전에 바뀌지 않는다. -->
     <select id="findLastSegment" resultMap="lastSearchPathSegmentMap">
         SELECT
             s.id,
