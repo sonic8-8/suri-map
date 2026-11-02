@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -70,6 +71,8 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   private static final UUID LIFECYCLE_EVENT_ID =
       UUID.fromString("74000000-0000-0000-0000-000000002621");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
+  // 구간 묶기 migration에서 바뀌지 않아야 하는 구간 번호다. MANUAL 구간(4), 앞 구간과 합치면 좌표가 120개를 넘어 묶이지 않는 구간(11), 좌표가 120개를 넘는 구간(12)과 그 뒤 구간(13), 다른 경로의 구간(14, 15)이다.
+  private static final List<Integer> MERGE_KEPT_SEGMENTS = List.of(4, 11, 12, 13, 14, 15);
 
   @Autowired private SearchPathMapper searchPathMapper;
   @Autowired private SqlSessionFactory sqlSessionFactory;
@@ -199,6 +202,181 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
                 String.class,
                 SEGMENT_ID))
         .isEqualTo(originalSegment);
+  }
+
+  @Test
+  @DisplayName("구간 묶기 migration을 실행하면 이어진 같은 이동 유형의 자동 구간만 좌표 120개 안에서 앞 구간에 묶인다")
+  void merge_migration_joins_consecutive_auto_segments_of_same_type_within_limit() {
+    // given: 묶을 자동 구간, MANUAL 구간, 좌표가 120개를 넘는 구간이 섞인 경로와 묶을 구간이 없는 경로가 있다.
+    insertMergeFixture();
+    List<Map<String, Object>> gpsBefore = tableRows("search_path_gps_point");
+    List<Map<String, Object>> excludedBefore = tableRows("search_path_excluded_point");
+    List<Map<String, Object>> pointCountsBefore = pointCountsByMovementType();
+    List<String> keptBefore = segmentRows(MERGE_KEPT_SEGMENTS);
+
+    // when: 배포할 구간 묶기 SQL을 실행한다.
+    mergeSegments();
+
+    // then: 묶을 수 있는 구간만 앞 구간에 묶이고 나머지 구간과 원본 좌표는 그대로다.
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id, start_point_order, end_point_order, movement_type, movement_type_source"
+                    + " FROM search_path_segment WHERE search_path_id = ? ORDER BY start_point_order",
+                PATH_ID))
+        .extracting(
+            row -> row.get("id"),
+            row -> row.get("start_point_order"),
+            row -> row.get("end_point_order"),
+            row -> row.get("movement_type"),
+            row -> row.get("movement_type_source"))
+        .containsExactly(
+            tuple(mergeSegmentId(1), 0, 4, "FOOT", "AUTO"),
+            tuple(mergeSegmentId(4), 5, 6, "FOOT", "MANUAL"),
+            tuple(mergeSegmentId(5), 7, 10, "FOOT", "AUTO"),
+            tuple(mergeSegmentId(7), 11, 15, "VEHICLE", "AUTO"),
+            tuple(mergeSegmentId(9), 16, 135, "FOOT", "AUTO"),
+            tuple(mergeSegmentId(11), 136, 137, "FOOT", "AUTO"),
+            tuple(mergeSegmentId(12), 138, 258, "FOOT", "AUTO"),
+            tuple(mergeSegmentId(13), 259, 259, "FOOT", "AUTO"));
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT id FROM search_path_segment WHERE search_path_id = ? ORDER BY start_point_order",
+                UUID.class,
+                OTHER_PATH_ID))
+        .containsExactly(mergeSegmentId(14), mergeSegmentId(15));
+    assertThat(segmentRows(MERGE_KEPT_SEGMENTS)).isEqualTo(keptBefore);
+    assertThat(pointCountsByMovementType()).isEqualTo(pointCountsBefore);
+    assertThat(tableRows("search_path_gps_point")).isEqualTo(gpsBefore);
+    assertThat(tableRows("search_path_excluded_point")).isEqualTo(excludedBefore);
+  }
+
+  @Test
+  @DisplayName("구간을 묶으면 첫 구간 ID가 유지되고, 도형과 시각은 원본 좌표와 측정 시각으로 다시 만들어진다")
+  void merge_migration_rebuilds_merged_segment_from_gps_points() {
+    // given: 순번 0~4, 7~10, 11~15, 16~135를 여러 구간으로 나눠 저장한 경로가 있다.
+    insertMergeFixture();
+
+    // when: 배포할 구간 묶기 SQL을 실행한다.
+    mergeSegments();
+
+    // then: 묶음마다 첫 구간이 순번 범위 전체의 원본 좌표와 측정 시각을 가진다.
+    // 구간 번호, 시작 순번, 끝 순번 순서다. 원본 GPS의 측정 시각은 순번 n에서 STARTED_AT + n초다.
+    int[][] merges = {{1, 0, 4}, {5, 7, 10}, {7, 11, 15}, {9, 16, 135}};
+    for (int[] merge : merges) {
+      SearchPathSegment merged =
+          searchPathMapper.findSegmentById(mergeSegmentId(merge[0])).orElseThrow();
+      String segment = "구간 " + merge[0];
+      assertThat(merged.getStartIndex()).as(segment).isEqualTo(merge[1]);
+      assertThat(merged.getEndIndex()).as(segment).isEqualTo(merge[2]);
+      assertThat(merged.getGeometry().getCoordinates())
+          .as(segment)
+          .containsExactly(
+              IntStream.rangeClosed(merge[1], merge[2])
+                  .mapToObj(SearchPathMapperTest::mergeFixtureCoordinate)
+                  .toArray(Coordinate[]::new));
+      assertThat(merged.getStartedAt()).as(segment).isEqualTo(STARTED_AT.plusSeconds(merge[1]));
+      assertThat(merged.getEndedAt()).as(segment).isEqualTo(STARTED_AT.plusSeconds(merge[2]));
+    }
+  }
+
+  @Test
+  @DisplayName("구간을 묶은 경로만 버전이 1 오르고, 묶기 전 버전 이후의 변경분을 조회하면 묶은 구간이 담긴다")
+  void merge_migration_bumps_versions_only_for_changed_paths_and_exposes_changes() {
+    // given: 경로 버전이 10인 경로와, 묶을 구간이 없고 경로 버전이 5인 경로가 있다.
+    insertMergeFixture();
+    Map<String, Object> otherPathBefore =
+        jdbcTemplate.queryForMap("SELECT * FROM search_path WHERE id = ?", OTHER_PATH_ID);
+
+    // when: 배포할 구간 묶기 SQL을 실행한다.
+    mergeSegments();
+
+    // then: 바뀐 경로와 묶은 구간만 버전이 오르고, 묶기 전 버전 이후의 변경분을 조회하면 묶은 구간이 담긴다.
+    assertThat(searchPathMapper.findPathById(PATH_ID).orElseThrow().getVersion()).isEqualTo(11L);
+    assertThat(jdbcTemplate.queryForMap("SELECT * FROM search_path WHERE id = ?", OTHER_PATH_ID))
+        .isEqualTo(otherPathBefore);
+    assertThat(
+            List.of(1, 5, 7, 9).stream()
+                .map(n -> searchPathMapper.findSegmentById(mergeSegmentId(n)).orElseThrow())
+                .toList())
+        .extracting(SearchPathSegment::getVersion, SearchPathSegment::getLastChangedPathVersion)
+        .containsExactly(tuple(2L, 11L), tuple(2L, 11L), tuple(2L, 11L), tuple(2L, 11L));
+    assertThat(
+            searchPathMapper.findBoardSegments(
+                List.of(
+                    SearchPathBoardSegmentQuery.builder()
+                        .pathId(PATH_ID)
+                        .lowerVersion(10L)
+                        .upperVersion(11L)
+                        .limit(100)
+                        .build())))
+        .extracting(
+            SearchPathSegment::getId, SearchPathSegment::getStartIndex, SearchPathSegment::getEndIndex)
+        .containsExactly(
+            tuple(mergeSegmentId(9), 16, 135),
+            tuple(mergeSegmentId(7), 11, 15),
+            tuple(mergeSegmentId(5), 7, 10),
+            tuple(mergeSegmentId(1), 0, 4));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "segment_gap, gps_covered_once",
+    "segment_overlap, gps_covered_once",
+    "gps_missing, gps_order_contiguous",
+    "progress_missing, segment_progress_known",
+    "geometry_mismatch, merged_sources_match_gps",
+    "single_point_second_point_mismatch, merged_sources_match_gps"
+  })
+  @DisplayName("구간 범위나 원본 좌표를 확정할 수 없으면 구간 묶기 migration이 실패하고 아무 행도 바뀌지 않는다")
+  void merge_migration_aborts_without_partial_changes_on_unresolved_data(
+      String invalidData, String failedRule) {
+    // given: 구간 순번에 빈틈이나 겹침이 있거나, GPS 순번이 빠졌거나, 순번을 보완하지 않은 구간이나 원본 GPS와 다른 도형이 있다.
+    // 좌표 1개짜리 구간 2의 도형은 첫 점만 GPS 순번 2와 같고 두 번째 점이 다를 수도 있다.
+    insertMergeFixture();
+    switch (invalidData) {
+      case "segment_gap" ->
+          jdbcTemplate.update("DELETE FROM search_path_segment WHERE id = ?", mergeSegmentId(2));
+      case "segment_overlap" ->
+          jdbcTemplate.update(
+              "UPDATE search_path_segment SET start_point_order = 2 WHERE id = ?",
+              mergeSegmentId(3));
+      case "gps_missing" ->
+          jdbcTemplate.update(
+              "DELETE FROM search_path_gps_point WHERE search_path_id = ? AND point_order = 3",
+              PATH_ID);
+      case "progress_missing" ->
+          jdbcTemplate.update(
+              "UPDATE search_path_segment SET start_point_order = NULL, end_point_order = NULL"
+                  + " WHERE id = ?",
+              mergeSegmentId(13));
+      case "geometry_mismatch" ->
+          jdbcTemplate.update(
+              "UPDATE search_path_segment"
+                  + " SET geometry = ST_GeomFromText('LINESTRING(127 37,127 37)',4326) WHERE id = ?",
+              mergeSegmentId(2));
+      case "single_point_second_point_mismatch" ->
+          jdbcTemplate.update(
+              "UPDATE search_path_segment SET geometry"
+                  + " = ST_GeomFromText('LINESTRING(126.90002 37.5,127 37.5)',4326) WHERE id = ?",
+              mergeSegmentId(2));
+      default -> throw new IllegalArgumentException(invalidData);
+    }
+    List<Map<String, Object>> segmentsBefore = tableRows("search_path_segment");
+    List<Map<String, Object>> pathsBefore = tableRows("search_path");
+
+    // when: 불확실한 자료에 구간 묶기 SQL을 실행한다.
+    assertThatThrownBy(this::mergeSegments)
+        .rootCause()
+        .isInstanceOfSatisfying(
+            SQLException.class,
+            error -> {
+              assertThat(error.getSQLState()).isEqualTo("23514");
+              assertThat(error.getMessage()).contains("(" + failedRule + ", f)");
+            });
+
+    // then: 정상으로 보이는 경로와 구간도 바뀌지 않는다.
+    assertThat(tableRows("search_path_segment")).isEqualTo(segmentsBefore);
+    assertThat(tableRows("search_path")).isEqualTo(pathsBefore);
   }
 
   @Test
@@ -846,6 +1024,138 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
         .speedMps(new BigDecimal(speedMps))
         .horizontalAccuracyM(horizontalAccuracyM)
         .build();
+  }
+
+  private void insertMergeFixture() {
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path(id,duty_shift_id,account_id,status,version,started_at,created_at,updated_at)
+        VALUES (?,?,?,'RECORDING',10,'2026-04-28T00:00:00Z','2026-04-28T00:00:00Z','2026-04-28T00:00:00Z'),
+          (?,?,?,'ENDED',5,'2026-04-28T00:00:00Z','2026-04-28T00:00:00Z','2026-04-28T00:00:00Z')
+        """,
+        PATH_ID,
+        DUTY_SHIFT_ID,
+        ACCOUNT_ID,
+        OTHER_PATH_ID,
+        DUTY_SHIFT_ID,
+        ACCOUNT_ID);
+    insertMergeGpsPoints(PATH_ID, 259);
+    insertMergeGpsPoints(OTHER_PATH_ID, 5);
+    jdbcTemplate.update(
+        "INSERT INTO search_path_excluded_point(id,search_path_id,point_id,reason,client_ts)"
+            + " VALUES (?,?,'excluded','low_accuracy','2026-04-28T00:00:01Z')",
+        EXCLUDED_POINT_ID,
+        PATH_ID);
+    // 번호, 시작 순번, 끝 순번, 이동 유형, 분류 출처, 자체 버전, 마지막 변경 경로 버전 순서다.
+    insertMergeSegment(PATH_ID, 1, 0, 1, "FOOT", "AUTO", 1, 3);
+    insertMergeSegment(PATH_ID, 2, 2, 2, "FOOT", "AUTO", 1, 4);
+    insertMergeSegment(PATH_ID, 3, 3, 4, "FOOT", "AUTO", 2, 5);
+    insertMergeSegment(PATH_ID, 4, 5, 6, "FOOT", "MANUAL", 3, 6);
+    insertMergeSegment(PATH_ID, 5, 7, 8, "FOOT", "AUTO", 1, 6);
+    insertMergeSegment(PATH_ID, 6, 9, 10, "FOOT", "AUTO", 1, 7);
+    insertMergeSegment(PATH_ID, 7, 11, 13, "VEHICLE", "AUTO", 1, 7);
+    insertMergeSegment(PATH_ID, 8, 14, 15, "VEHICLE", "AUTO", 1, 8);
+    insertMergeSegment(PATH_ID, 9, 16, 134, "FOOT", "AUTO", 1, 8);
+    insertMergeSegment(PATH_ID, 10, 135, 135, "FOOT", "AUTO", 1, 9);
+    insertMergeSegment(PATH_ID, 11, 136, 137, "FOOT", "AUTO", 1, 9);
+    insertMergeSegment(PATH_ID, 12, 138, 258, "FOOT", "AUTO", 1, 10);
+    insertMergeSegment(PATH_ID, 13, 259, 259, "FOOT", "AUTO", 1, 10);
+    insertMergeSegment(OTHER_PATH_ID, 14, 0, 2, "FOOT", "AUTO", 1, 4);
+    insertMergeSegment(OTHER_PATH_ID, 15, 3, 5, "VEHICLE", "AUTO", 1, 5);
+  }
+
+  private void insertMergeGpsPoints(UUID pathId, int lastOrder) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps)
+        SELECT ?,n,'p'||n,'2026-04-28T00:00:00Z'::timestamptz+n*interval '1 second',126.9+n*0.00001,37.5,1.25
+        FROM generate_series(0,?) n
+        """,
+        pathId,
+        lastOrder);
+  }
+
+  // 앱에서 저장할 때와 같게, 순번 범위의 원본 좌표로 도형과 시각을 만든다. 좌표 하나짜리 도형에는 같은 좌표를 두 번 넣는다.
+  private void insertMergeSegment(
+      UUID pathId,
+      int number,
+      int start,
+      int end,
+      String movementType,
+      String source,
+      long version,
+      long lastChangedPathVersion) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_segment(id,search_path_id,start_point_order,end_point_order,
+          last_changed_path_version,movement_type,movement_type_source,geometry,started_at,ended_at,
+          corrected_by_account_id,corrected_at,version,created_at,updated_at)
+        SELECT ?,?,?,?,?,?,?::text,
+          ST_SetSRID(ST_MakeLine(CASE WHEN count(*) = 1 THEN array_agg(g.point) || array_agg(g.point)
+            ELSE array_agg(g.point ORDER BY g.point_order) END),4326),
+          min(g.client_ts),max(g.client_ts),
+          CASE WHEN ?::text = 'MANUAL' THEN '63000000-0000-0000-0000-000000002621'::uuid END,
+          CASE WHEN ?::text = 'MANUAL' THEN '2026-04-28T01:00:00Z'::timestamptz END,
+          ?,'2026-04-28T00:00:00Z','2026-04-28T00:00:00Z'
+        FROM (SELECT point_order,client_ts,ST_MakePoint(lon::float8,lat::float8) AS point
+          FROM search_path_gps_point WHERE search_path_id = ? AND point_order BETWEEN ? AND ?) g
+        """,
+        mergeSegmentId(number),
+        pathId,
+        start,
+        end,
+        lastChangedPathVersion,
+        movementType,
+        source,
+        source,
+        source,
+        version,
+        pathId,
+        start,
+        end);
+  }
+
+  private List<Map<String, Object>> tableRows(String table) {
+    return jdbcTemplate.queryForList("SELECT * FROM " + table + " ORDER BY 1, 2");
+  }
+
+  private List<Map<String, Object>> pointCountsByMovementType() {
+    return jdbcTemplate.queryForList(
+        "SELECT search_path_id, movement_type, sum(end_point_order - start_point_order + 1) AS points"
+            + " FROM search_path_segment GROUP BY search_path_id, movement_type ORDER BY 1, 2");
+  }
+
+  private List<String> segmentRows(List<Integer> numbers) {
+    return numbers.stream()
+        .map(
+            number ->
+                jdbcTemplate.queryForObject(
+                    "SELECT to_jsonb(s)::text FROM search_path_segment s WHERE id = ?",
+                    String.class,
+                    mergeSegmentId(number)))
+        .toList();
+  }
+
+  private void mergeSegments() {
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(
+            status ->
+                new ResourceDatabasePopulator(
+                        new ClassPathResource(
+                            "db/migration/V20261102_001__merge_search_path_segments_by_movement_type.sql"))
+                    .execute(jdbcTemplate.getDataSource()));
+  }
+
+  private static UUID mergeSegmentId(int number) {
+    return UUID.fromString("75000000-0000-0000-0000-%012d".formatted(number));
+  }
+
+  private static Coordinate mergeFixtureCoordinate(int pointOrder) {
+    return new Coordinate(
+        new BigDecimal("126.9")
+            .add(new BigDecimal("0.00001").multiply(BigDecimal.valueOf(pointOrder)))
+            .doubleValue(),
+        37.5);
   }
 
   private void insertPath(Geometry geometry) {

@@ -279,6 +279,8 @@ public class SearchPathService {
     }
 
     List<SearchPathSegment> newSegments = autoSegments(acceptedPoints, pointOffset);
+    SearchPathSegment lastSegment =
+        newSegments.isEmpty() ? null : searchPathMapper.findLastSegment(path.getId()).orElse(null);
 
     long expectedVersion = path.getVersion();
     path.bumpVersion();
@@ -289,8 +291,14 @@ public class SearchPathService {
     }
     path = path.toBuilder().updatedAt(now).build();
     List<SearchPathSegment> persistedNewSegments =
-        insertSegments(
-            path.getId(), acceptedPoints, pointOffset, newSegments, path.getVersion(), now);
+        saveSegments(
+            path.getId(),
+            acceptedPoints,
+            pointOffset,
+            newSegments,
+            lastSegment,
+            path.getVersion(),
+            now);
     insertExcludedPoints(path.getId(), excludedPoints, now);
     if (!acceptedPoints.isEmpty()) {
       searchPathMapper.insertGpsPoints(path.getId(), pointOffset, acceptedPoints, now);
@@ -458,11 +466,12 @@ public class SearchPathService {
         .build();
   }
 
-  private List<SearchPathSegment> insertSegments(
+  private List<SearchPathSegment> saveSegments(
       UUID pathId,
       List<GpsPoint> points,
       int pointOffset,
       List<SearchPathSegment> segments,
+      SearchPathSegment lastSegment,
       long pathVersion,
       Instant now) {
     List<SearchPathSegment> persistedSegments = new ArrayList<>();
@@ -483,10 +492,22 @@ public class SearchPathService {
               .build();
       persistedSegments.add(persistedSegment);
     }
+    List<SearchPathSegment> savedSegments = new ArrayList<>();
+    if (lastSegment != null
+        && !persistedSegments.isEmpty()
+        && lastSegment.canExtendWith(persistedSegments.get(0))) {
+      long expectedSegmentVersion = lastSegment.getVersion();
+      lastSegment.extendWith(persistedSegments.remove(0), pathVersion, now);
+      if (searchPathMapper.updateSegmentExtension(lastSegment, expectedSegmentVersion) == 0) {
+        throw new SearchPathApiException("write_conflict");
+      }
+      savedSegments.add(lastSegment);
+    }
     if (!persistedSegments.isEmpty()) {
       searchPathMapper.insertSegments(persistedSegments);
     }
-    return List.copyOf(persistedSegments);
+    savedSegments.addAll(persistedSegments);
+    return List.copyOf(savedSegments);
   }
 
   private UUID uuidSegmentId(UUID pathId, SearchPathSegment segment) {
@@ -611,14 +632,12 @@ public class SearchPathService {
   private SearchPathSegmentCorrectionServiceResponse correctSegmentOnce(
       SearchPathSegmentCorrectionServiceRequest request) {
     UUID segmentId = parseSegmentId(request.getSearchPathSegmentId());
-    SearchPathSegment corrected =
-        searchPathMapper
-            .findSegmentById(segmentId)
-            .orElseThrow(() -> new SearchPathApiException("write_conflict"));
     SearchPath owner =
         searchPathMapper
-            .findPathMetadataForUpdate(corrected.getSearchPathId())
+            .findPathMetadataForUpdate(findSegment(segmentId).getSearchPathId())
             .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+    // 잠금을 기다리는 동안 다른 요청이 좌표를 추가해 같은 구간이 늘어났을 수 있으므로, 잠근 뒤 최신 구간을 다시 읽는다.
+    SearchPathSegment corrected = findSegment(segmentId);
     long expectedPathVersion = owner.getVersion();
     long expectedSegmentVersion = corrected.getVersion();
     Instant now = Instant.now();
@@ -647,6 +666,12 @@ public class SearchPathService {
     } catch (IllegalArgumentException | NullPointerException exception) {
       throw new SearchPathApiException("write_conflict");
     }
+  }
+
+  private SearchPathSegment findSegment(UUID segmentId) {
+    return searchPathMapper
+        .findSegmentById(segmentId)
+        .orElseThrow(() -> new SearchPathApiException("write_conflict"));
   }
 
   private ResponseMetadata metadataForSegmentCorrection(

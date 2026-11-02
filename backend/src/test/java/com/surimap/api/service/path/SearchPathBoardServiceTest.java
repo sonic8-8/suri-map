@@ -7,11 +7,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.path.response.SearchPathSegmentsQueryResponse;
 import com.surimap.api.service.path.request.SearchPathPageServiceRequest;
 import com.surimap.api.service.path.request.SearchPathPageServiceRequest.PathProgress;
+import com.surimap.api.service.path.request.SearchPathPointServiceRequest;
+import com.surimap.api.service.path.request.SearchPathPointsAppendServiceRequest;
 import com.surimap.api.service.path.response.SearchPathPageServiceResponse;
+import com.surimap.api.service.path.response.SearchPathPointsAppendServiceResponse;
 import com.surimap.common.auth.*;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
+import java.math.BigDecimal;
 import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -29,10 +34,14 @@ import org.apache.ibatis.session.RowBounds;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -52,17 +61,20 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID INCIDENT = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP = UUID.fromString("65000000-0000-0000-0000-000000002621");
   private static final UUID ACCOUNT = UUID.fromString("62000000-0000-0000-0000-000000002621");
+  private static final UUID PATH = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
   @Autowired private SearchPathBoardService service;
+  @Autowired private SearchPathService searchPathService;
   @Autowired private SnapshotPause snapshotPause;
   @Autowired private StatementCounter statementCounter;
   @Autowired private FetchSizeRecorder fetchSizeRecorder;
   @Autowired private PlatformTransactionManager transactionManager;
   @Autowired private ObjectMapper objectMapper;
 
-  @Test
+  @ParameterizedTest(name = "구간 묶기 migration 적용: {0}")
+  @ValueSource(booleans = {false, true})
   @Tag("performance")
-  @DisplayName("누적 경로 468개의 최초 구간 조회 시간과 직렬화 크기를 측정한다")
-  void measure_first_page_with_accumulated_paths() throws Exception {
+  @DisplayName("누적 경로 468개의 최초 구간 조회 시간과 직렬화 크기를 구간 묶기 migration을 적용하기 전과 뒤에 각각 측정한다")
+  void measure_first_page_with_accumulated_paths(boolean mergeSegments) throws Exception {
     // given: 468개 경로 각각에 720개 GPS와 120개 구간을 저장한다.
     // 계정·근무는 공용 fixture를 재사용한다. 업무폰 468대의 쓰기 부하 시험은 아니다.
     seedPath();
@@ -75,6 +87,9 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         """);
     jdbcTemplate.execute(
         "DELETE FROM search_path WHERE id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'");
+    // 구간에는 경로 FK가 없어 함께 지워지지 않는다. 경로 없는 구간이 남으면 구간 묶기 migration이 중단된다.
+    jdbcTemplate.execute(
+        "DELETE FROM search_path_segment WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'");
     jdbcTemplate.execute(
         """
         INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps)
@@ -98,6 +113,24 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     assertThat(
             jdbcTemplate.queryForObject("SELECT count(*) FROM search_path_gps_point", Long.class))
         .isEqualTo(336960L);
+    long baselineVersion = 121L;
+    if (mergeSegments) {
+      // 배포할 구간 묶기 SQL로 좌표 6개짜리 구간 120개를 경로마다 좌표 120개짜리 구간 6개로 묶는다.
+      long migrationStart = System.nanoTime();
+      new TransactionTemplate(transactionManager)
+          .executeWithoutResult(
+              status ->
+                  new ResourceDatabasePopulator(
+                          new ClassPathResource(
+                              "db/migration/V20261102_001__merge_search_path_segments_by_movement_type.sql"))
+                      .execute(jdbcTemplate.getDataSource()));
+      System.out.printf("MERGE_MIGRATION ms=%.3f%n", (System.nanoTime() - migrationStart) / 1e6);
+      jdbcTemplate.execute("ANALYZE search_path");
+      jdbcTemplate.execute("ANALYZE search_path_segment");
+      assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM search_path_segment", Long.class))
+          .isEqualTo(468L * 6);
+      baselineVersion = 122L;
+    }
     // when: 두 번 예열한 뒤 첫 페이지를 다섯 번 독립 조회한다.
     for (int run = 0; run < 7; run++) {
       long start = System.nanoTime();
@@ -114,15 +147,17 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
               .sum();
       // then: 전체 이력은 남아 있고, 각 경로의 마지막 좌표를 포함한다.
       assertThat(response.isHasMore()).isTrue();
+      long expectedBaselineVersion = baselineVersion;
       assertThat(response.getPaths())
           .allSatisfy(
               path -> {
-                assertThat(path.getBaselineVersion()).isEqualTo(121L);
+                assertThat(path.getBaselineVersion()).isEqualTo(expectedBaselineVersion);
                 assertThat(path.getSegments().get(0).getEndPointOrder()).isEqualTo(719);
               });
       if (run >= 2) {
         System.out.printf(
-            "PAGE_MEASURE run=%d query_ms=%.3f serialize_ms=%.3f response_json_bytes=%d paths=%d segments=%d coordinates=%d%n",
+            "PAGE_MEASURE merged=%b run=%d query_ms=%.3f serialize_ms=%.3f response_json_bytes=%d paths=%d segments=%d coordinates=%d%n",
+            mergeSegments,
             run - 1,
             (queried - start) / 1e6,
             (serialized - queried) / 1e6,
@@ -841,6 +876,72 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
       assertThat(segment.getStartedAt()).isEqualTo(segment.getEndedAt());
       assertThat(response.getPaths().get(0).getBeforeStartPointOrder()).isEqualTo(2);
     }
+  }
+
+  @Test
+  @DisplayName("이어 붙이기 전 경로 버전으로 변경분을 조회하면 늘어난 구간 전체를 같은 ID와 더 높은 버전으로 반환한다")
+  void changes_after_extension_return_whole_extended_segment() {
+    // given: 도보 묶음 하나로 만든 구간과 그때의 경로 버전이다.
+    SearchPathPointsAppendServiceResponse first =
+        searchPathService.appendPoints(footBatch("board-extend-first", 0));
+
+    // when: 같은 이동 유형의 묶음을 이어 붙인 뒤 첫 업로드의 경로 버전 이후 변경분을 조회한다.
+    searchPathService.appendPoints(footBatch("board-extend-second", 6));
+    SearchPathPageServiceResponse changes =
+        service.getSearchPathChanges(
+            request(List.of(OP)).toBuilder()
+                .paths(
+                    List.of(
+                        PathProgress.builder()
+                            .id(PATH)
+                            .baselineVersion(first.getVersion())
+                            .build()))
+                .build());
+
+    // then: 기존 좌표부터 새 좌표까지 늘어난 구간 전체가 같은 ID로 담긴다.
+    assertThat(changes.getPaths().get(0).getSegments())
+        .singleElement()
+        .satisfies(
+            segment -> {
+              assertThat(segment.getId().toString()).isEqualTo(first.getSegments().get(0).getId());
+              assertThat(segment.getVersion())
+                  .isGreaterThan(first.getSegments().get(0).getVersion());
+              assertThat(segment.getStartPointOrder()).isZero();
+              assertThat(segment.getEndPointOrder()).isEqualTo(11);
+              assertThat(segment.getCoordinates()).hasSize(12);
+              assertThat(segment.getCoordinates().get(0)).containsExactly(126.913, 35.162);
+              assertThat(segment.getCoordinates().get(11)).containsExactly(126.91311, 35.162);
+            });
+  }
+
+  private SearchPathPointsAppendServiceRequest footBatch(String idempotencyKey, int from) {
+    return SearchPathPointsAppendServiceRequest.builder()
+        .incidentId(INCIDENT)
+        .opId(OP)
+        .pathId(PATH)
+        .accountId(ACCOUNT)
+        .clockOffsetMs(0L)
+        .idempotencyKey(idempotencyKey)
+        .points(
+            IntStream.range(from, from + 6)
+                .mapToObj(
+                    i ->
+                        SearchPathPointServiceRequest.builder()
+                            .pointId("board-" + i)
+                            .lon(
+                                new BigDecimal("126.913000")
+                                    .add(
+                                        new BigDecimal("0.000010").multiply(BigDecimal.valueOf(i))))
+                            .lat(new BigDecimal("35.162000"))
+                            .speedMps(new BigDecimal("1.2"))
+                            .horizontalAccuracyM(5)
+                            .clientTs(
+                                OffsetDateTime.parse("2026-04-28T09:00:00+09:00")
+                                    .plusSeconds(i))
+                            .elapsedRealtimeNanos(10_000_000_000L + i * 1_000_000_000L)
+                            .build())
+                .toList())
+        .build();
   }
 
   private SearchPathPageServiceRequest request(List<UUID> opIds) {

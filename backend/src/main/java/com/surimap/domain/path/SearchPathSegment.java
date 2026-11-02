@@ -2,16 +2,23 @@ package com.surimap.domain.path;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SearchPathSegment {
+
+  // 자동 구간을 만들거나 늘릴 때 넘지 않는 좌표 수다. 한 묶음에 올릴 수 있는 최대 좌표 수와 같다.
+  public static final int MAX_AUTO_POINT_COUNT = 120;
 
   private UUID id;
   private UUID searchPathId;
@@ -89,5 +96,40 @@ public class SearchPathSegment {
 
   public void recordPathChange(long pathVersion) {
     this.lastChangedPathVersion = pathVersion;
+  }
+
+  public boolean canExtendWith(SearchPathSegment next) {
+    return movementTypeSource == MovementTypeSource.AUTO
+        && movementType == next.movementType
+        && endIndex >= 0
+        && endIndex + 1 == next.startIndex
+        && geometry != null
+        && geometry.getNumPoints() >= pointCount()
+        && pointCount() + next.pointCount() <= MAX_AUTO_POINT_COUNT;
+  }
+
+  public void extendWith(SearchPathSegment next, long pathVersion, Instant updatedAt) {
+    Coordinate[] coordinates =
+        Stream.concat(
+                Arrays.stream(sourceCoordinates()), Arrays.stream(next.sourceCoordinates()))
+            .toArray(Coordinate[]::new);
+    LineString extended = geometry.getFactory().createLineString(coordinates);
+    extended.setSRID(geometry.getSRID());
+    this.geometry = extended;
+    this.endIndex = next.endIndex;
+    this.endPointId = next.endPointId;
+    this.endedAt = next.endedAt;
+    this.version += 1L;
+    this.lastChangedPathVersion = pathVersion;
+    this.updatedAt = updatedAt;
+  }
+
+  private int pointCount() {
+    return endIndex - startIndex + 1;
+  }
+
+  // 좌표 하나짜리 구간의 도형에는 같은 좌표가 두 개 들어 있으므로, 이어 붙일 때는 순번 범위의 좌표 수만큼만 쓴다.
+  private Coordinate[] sourceCoordinates() {
+    return Arrays.copyOf(geometry.getCoordinates(), pointCount());
   }
 }
