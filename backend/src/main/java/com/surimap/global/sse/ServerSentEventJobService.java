@@ -64,21 +64,14 @@ public class ServerSentEventJobService {
   @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
   public List<ServerSentEventJob> getContiguousHistoryPage(
       UUID incidentId, long afterSequence, long throughSequence, int limit) {
-    List<ServerSentEventJob> jobs =
-        getRetainedHistoryPage(incidentId, afterSequence, throughSequence, limit);
-    validateHistoryContinuity(jobs, afterSequence, throughSequence, limit);
-    return jobs;
-  }
-
-  /** 마지막 수신 순번 없는 새 연결은 누락 복구 대신 현재 남은 이력을 읽는다. */
-  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-  public List<ServerSentEventJob> getRetainedHistoryPage(
-      UUID incidentId, long afterSequence, long throughSequence, int limit) {
     validateHistoryRange(afterSequence, throughSequence, limit);
     if (throughSequence > getHistoryEndSequence(incidentId)) {
       throw new ServerSentEventRefetchRequiredException();
     }
-    return mapper.findBySseSequenceRange(incidentId, afterSequence, throughSequence, limit);
+    List<ServerSentEventJob> jobs =
+        mapper.findBySseSequenceRange(incidentId, afterSequence, throughSequence, limit);
+    validateHistoryContinuity(jobs, afterSequence, throughSequence, limit);
+    return jobs;
   }
 
   /** 응답 시작 전에 뒤 페이지의 누락도 확인한다. 순번의 양수·사건별 유일성은 DB 제약이 보장한다. */

@@ -354,6 +354,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Request: path `incidentId`, optional `lastEventId` or `Last-Event-ID`
 - Response: `200 text/event-stream`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `gone_refetch_required`
+- 시작 위치: `Last-Event-ID`가 없으면 과거 이벤트는 전송되지 않는다. 연결을 등록하기 전의 마지막 확정 순번이 시작 위치로 정해진다. 그 다음 순번부터 빈틈없이 전송된다. 시작 위치 이하의 순번은 재시도돼도 전송되지 않는다. 시작 위치 다음 이력에 빈틈이 있으면 `409 gone_refetch_required`로 거절된다. 종료된 사건에는 확정된 종료 알림이 전송된다. 파기가 완료된 사건에 연결하면 `409 gone_refetch_required`로 거절된다. `Last-Event-ID`가 있으면 그 순번 다음부터 빈틈없이 전송된다. 그 순번 이하는 재시도돼도 전송되지 않는다. `0`은 "0번까지 반영했다"는 순번이므로 1번부터 전송된다. 이어 받을 이력에 빈틈이 있거나 순번이 잘못됐으면 `409 gone_refetch_required`로 거절된다.
 - Note: Android product client는 EventSource를 만들지 않고 FCM data message와 REST/Outbox 복구 경로를 사용한다.
 
 #### GET `/api/incidents/events`

@@ -23,10 +23,12 @@ public class ServerSentEventSubscriptionService {
   private final ServerSentEventConnectionRegistry connectionRegistry;
 
   public DeferredResult<Void> openIncidentStream(UUID incidentId, String lastEventId) {
+    // 순번 없는 연결의 시작 순번은 연결을 등록하기 전에 정해진다. 그 순번 이하의 과거 이벤트는 재시도돼도 이 연결에 전송되지 않는다.
+    String startEventId = historyService.getStartEventId(incidentId, lastEventId);
     // 스트림을 시작하기 전에 재조회가 필요한 요청은 기존 HTTP 409로 거부한다.
-    historyService.getFirstPageAfter(incidentId, lastEventId);
+    historyService.getFirstPageAfter(incidentId, startEventId);
     return new ServerSentEventStream(
-        response -> startIncidentSubscription(incidentId, lastEventId, response));
+        response -> startIncidentSubscription(incidentId, startEventId, response));
   }
 
   public DeferredResult<Void> openAccountStream(UUID accountId) {
@@ -46,7 +48,8 @@ public class ServerSentEventSubscriptionService {
 
   private void startIncidentSubscription(
       UUID incidentId, String lastEventId, ServerSentEventStream response) {
-    var sender = new ServerSentEventConnection(response, true);
+    long receivedThroughSequence = lastEventId == null ? 0L : Long.parseLong(lastEventId);
+    var sender = new ServerSentEventConnection(response, true, receivedThroughSequence);
     AutoCloseable registration = connectionRegistry.registerForIncident(incidentId, sender);
     if (response.attachRegistration(
         () -> {

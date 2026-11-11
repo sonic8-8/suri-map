@@ -31,8 +31,15 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
   private boolean connectedPending;
 
   public ServerSentEventConnection(ServerSentEventStream response, boolean incidentStream) {
+    this(response, incidentStream, 0L);
+  }
+
+  /** 이 순번 이하의 사건 이벤트는 재시도로 다시 전달돼도 이 연결에 쓰지 않는다. */
+  public ServerSentEventConnection(
+      ServerSentEventStream response, boolean incidentStream, long receivedThroughSequence) {
     this.response = response;
     this.incidentStream = incidentStream;
+    this.lastSentSequence = receivedThroughSequence;
   }
 
   @Override
