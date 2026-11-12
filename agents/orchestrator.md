@@ -38,9 +38,9 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 - **역할 띄우기:** `herdr` 스킬대로 pane에 띄운다. 작업자와 검수자는 서로 다른 모델 종류(Claude, Codex)다. 같은 종류만 쓸 수 있으면 사용자에게 묻는다.
   - Claude 역할: `--append-system-prompt-file agents/<역할>.md`로 역할 파일을 덧붙이고, `--permission-mode dontAsk`와 `--allowedTools`, `--disallowedTools`로 권한을 준다. 권한은 공유 설정 파일이 아니라 시작 인자로 준다. 금지 규칙은 막을 명령의 앞부분으로 쓴다(예: `Bash(git push *)`). `Bash(*aside*)`처럼 앞뒤에 `*`를 붙이면 그 글자가 들어간 파일 이름(`check-aside-evaluator.cjs`)을 쓰는 명령까지 막힌다.
   - 작업자: 배정된 worktree에서 띄우고 실행 기록 폴더를 `--add-dir`로 더한다. 결과 파일과 답 파일은 실행 기록 폴더에 두고 쓸 수 있는 경로에 넣는다. 티켓에 필요한 명령(파일 복사, 의존성 설치, 테스트와 자기 점검 실행, 티켓에 필요하면 실서버의 읽기 조회)은 허용한다. `git commit`, `git push`와 실서버에 쓰는 실행처럼 [사용자에게 묻기](#사용자에게-묻기)에 있는 행동은 막는다.
-  - 리뷰어: 리뷰할 worktree에서 띄운다. 실행 기록 폴더를 `--add-dir`로 더하고, `Read`, `Grep`, `Glob`, `Bash(git diff *)`, `Bash(git log *)`, `Bash(git status *)`, `Edit(//<실행 기록 폴더>/**)`만 허용한다. 파일 쓰기 허용은 `Write(...)`가 아니라 `Edit(...)` 규칙으로 준다.
-  - Codex 검수자: 검수 회차 폴더를 `/tmp` 아래에 새로 만들어(`mktemp -d /tmp/suri-verify-XXXX`) 배정을 `assignment.md`로 쓰고, 그 안에서 `workspace-write` sandbox로 띄운다. 이 sandbox는 그 폴더 밖의 쓰기를 거절하므로, 검수자가 만드는 재현 코드와 임시 파일은 실행 기록 폴더에 남지 않는다. Issue 사본처럼 넘길 파일은 그 폴더의 `inputs/`에 복사한다. 검수가 끝나면 `result.md`와 `evidence/`를 실행 기록 폴더의 `verify/<회차>/`로 복사한다. 띄우거나 `/new`를 연 뒤 화면의 모델 표시가 배정한 모델인지 확인하고 지시를 보낸다.
-  - 시작 인자 기록: 역할을 띄울 때 `herdr agent start`에 준 인자 전체를 실행 기록에 남긴다.
+  - 리뷰어: `agents/scripts/role.sh start-reviewer <이름> <pane> <worktree> <실행 기록 폴더>`로 띄운다. 리뷰할 worktree에서 읽기 도구, 스킬과 git 조회 명령만 허용된다. 쓰기는 실행 기록 폴더 안에서만 허용된다. 허용 규칙을 바꿀 때는 이 명령을 고친다.
+  - Codex 검수자: 검수 회차 폴더를 `/tmp` 아래에 새로 만들어(`mktemp -d /tmp/suri-verify-XXXX`) 배정을 `assignment.md`로 쓰고, `role.sh start-codex <이름> <pane> <회차 폴더> -- <codex 인자>`로 그 안에서 `workspace-write` sandbox로 띄운다. 다음 회차는 `restart-codex`로 새 회차 폴더에서 다시 띄운다. `still_running`이 나오면 pane에 아무것도 입력하지 않는다. `herdr agent get <이름>`의 결과가 `agent_not_found`가 될 때까지 기다린 뒤, 안내에 출력된 `start-codex` 명령을 실행한다. 이 sandbox는 그 폴더 밖의 쓰기를 거절하므로, 검수자가 만드는 재현 코드와 임시 파일은 실행 기록 폴더에 남지 않는다. Issue 사본처럼 넘길 파일은 그 폴더의 `inputs/`에 복사한다. 검수가 끝나면 `result.md`와 `evidence/`를 실행 기록 폴더의 `verify/<회차>/`로 복사한다. 띄우거나 `/new`를 연 뒤 화면의 모델 표시가 배정한 모델인지 확인하고 지시를 보낸다.
+  - 시작 인자 기록: 역할을 띄울 때 `herdr agent start`에 준 인자 전체를 실행 기록에 남긴다. `role.sh`로 띄웠으면 출력된 `started in` 줄을 그대로 남긴다.
   - 세션이 끊긴 뒤 다시 띄우기: Herdr는 역할 pane을 `claude --resume <session id>`만으로 다시 열어 역할 파일과 권한 인자를 빼먹는다. 다시 열린 pane은 `/proc/<pid>/cmdline`으로 인자를 확인하고, 빠졌으면 `/exit`로 끝낸 뒤 기록한 시작 인자에 `--resume <session id>`를 붙여 다시 띄운다.
 
 ## 흐름
@@ -72,7 +72,7 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 - 지적 ID나 티켓이 달라도 같은 내용(같은 필드, 같은 규칙)의 수정이 런 전체에서 세 번째로 나온다.
 - 새 근거 없이 같은 설정과 조건으로 다시 실패한다.
 
-배정 보내기, 기다리기, 승인, 새 대화 열기는 `agents/scripts/role.sh`로 한다(`send`, `wait`, `approve`, `clear`, `restart-codex`). `wait`가 끝나면 pane과 결과 파일을 본다. 스크립트를 고치면 `bash agents/scripts/check-role.sh`로 확인한다.
+배정 보내기, 기다리기, 승인, 새 대화 열기는 `agents/scripts/role.sh`로 한다(`send`, `wait`, `approve`, `clear`, `start-reviewer`, `start-codex`, `restart-codex`). `wait`가 끝나면 pane과 결과 파일을 본다. 스크립트를 고치면 `bash agents/scripts/check-role.sh`로 확인한다.
 
 시간 초과(작업자 30분, 리뷰어와 검수자 15분)는 pane과 결과 파일을 확인하라는 신호다. 결과가 있으면 받고, 같은 지시를 다시 보내지 않는다.
 

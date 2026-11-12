@@ -58,8 +58,20 @@ case_ "approve sends y once and waits again" 'blocked\nworking\nidle' 0 '' 0 idl
 grep -qx 'agent send-keys a y' "$work/log" || { echo "FAIL approve did not send y"; failed=1; }
 case_ "approve refuses when no approval screen is open" 'working' 0 '' 1 '' approve a
 grep -q 'send-keys' "$work/log" && { echo "FAIL approve sent keys without an approval screen"; failed=1; }
-case_ "restart-codex exits, changes directory and starts again" 'working\ngone' 0 '' 0 'started in /tmp/v x' restart-codex a '/tmp/v x' -- -s workspace-write
+codex_start='agent start a --kind codex --pane w1:p9 --timeout 60000 -- -c check_for_update_on_startup=false -s workspace-write'
+case_ "restart-codex exits, changes directory and starts again" 'working\ngone' 0 '' 0 "started in /tmp/v x: herdr $codex_start " restart-codex a '/tmp/v x' -- -s workspace-write
 grep -qx 'pane run w1:p9 /exit' "$work/log" && grep -qx 'pane run w1:p9 cd /tmp/v\\ x' "$work/log" &&
-  grep -qx 'agent start a --kind codex --pane w1:p9 -- -s workspace-write' "$work/log" || { echo "FAIL restart-codex commands"; cat "$work/log"; failed=1; }
-case_ "restart-codex fails when Codex does not exit" 'working' 0 '' 1 '' restart-codex a /tmp/v -- -s x
+  grep -qxF "$codex_start" "$work/log" || { echo "FAIL restart-codex commands"; cat "$work/log"; failed=1; }
+ROLE_EXIT_CHECKS=3 case_ "restart-codex fails when Codex does not exit" 'working' 0 '' 1 '' restart-codex a /tmp/v -- -s x
+grep -q 'pane run w1:p9 cd\|agent start' "$work/log" && { echo "FAIL restart-codex typed into a running Codex"; failed=1; }
+hint=$(printf 'working\n' >"$work/statuses"; ROLE_EXIT_CHECKS=1 "$here/role.sh" restart-codex a '/tmp/v x' -- -s x 2>&1 >/dev/null | tail -1)
+case $hint in *"start-codex a w1:p9 /tmp/v\\ x -- -s x "*) echo "PASS restart-codex prints the start-codex command to run after Codex exits" ;;
+  *) echo "FAIL restart-codex hint: $hint"; failed=1 ;; esac
+ROLE_EXIT_CHECKS=5 case_ "restart-codex waits while Codex is shutting down" 'working\nworking\nworking\ngone' 0 '' 0 "started in /tmp/v: herdr $codex_start " restart-codex a /tmp/v -- -s workspace-write
+case_ "start-codex starts in the directory without the update prompt" 'idle' 0 '' 0 "started in /tmp/v: herdr agent start a --kind codex --pane w1:p5 --timeout 60000 -- -c check_for_update_on_startup=false -s workspace-write " start-codex a w1:p5 /tmp/v -- -s workspace-write
+case_ "start-reviewer allows writes only in the run folder with an Edit rule" 'idle' 0 '' 0 "started in /w: herdr agent start r --kind claude --pane w1:p5 --timeout 60000 -- --append-system-prompt-file /w/agents/reviewer.md --add-dir /run/1 --permission-mode dontAsk --allowedTools Read Grep Glob Skill Bash\\(git\\ diff\\ \\*\\) Bash\\(git\\ log\\ \\*\\) Bash\\(git\\ status\\ \\*\\) Bash\\(git\\ show\\ \\*\\) Edit\\(//run/1/\\*\\*\\) " start-reviewer r w1:p5 /w /run/1/
+grep -qx 'pane run w1:p5 cd /w' "$work/log" && grep -q "Edit(//run/1/\\*\\*)\$" "$work/log" && ! grep -q 'Write(' "$work/log" || { echo "FAIL start-reviewer commands"; cat "$work/log"; failed=1; }
+case_ "start-reviewer refuses a relative run folder" 'idle' 0 '' 1 '' start-reviewer r w1:p5 /w run/1
+case_ "start-reviewer refuses a relative worktree" 'idle' 0 '' 1 '' start-reviewer r w1:p5 w /run/1
+grep -q 'agent start' "$work/log" && { echo "FAIL start-reviewer started with a relative run folder"; failed=1; }
 exit $failed
