@@ -45,7 +45,8 @@ public final class BoardAssembler {
         immutableSlotRows,
         immutableCursors,
         immutableCursors,
-        immutableCursors);
+        immutableCursors,
+        request.lastSseSequence());
   }
 
   private static Map<String, List<BoardSlotRow>> emptySlotMap() {

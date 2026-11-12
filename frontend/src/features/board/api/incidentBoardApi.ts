@@ -75,6 +75,8 @@ export interface IncidentBoardResponse {
   readonly slotSources: Partial<Record<BoardSlotName, readonly BoardSourceRowCursor[]>>;
   readonly sourceVersions: Partial<Record<BoardSlotName, readonly BoardSourceRowCursor[]>>;
   readonly sourceHashes: Partial<Record<BoardSlotName, readonly BoardSourceRowCursor[]>>;
+  // 이 응답에 반영된 사건의 마지막 확정 SSE 순번이다. 이 필드가 없는 서버 응답에서는 순번 없이 연결된다.
+  readonly lastSseSequence?: number;
 }
 
 export type SituationBoardResponseDto = {

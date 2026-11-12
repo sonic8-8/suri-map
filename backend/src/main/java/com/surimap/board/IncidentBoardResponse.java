@@ -14,7 +14,8 @@ public record IncidentBoardResponse(
     Map<String, List<BoardSourceRowCursor>> sourceVersions,
     String geometryHash,
     Map<String, List<BoardSourceRowCursor>> sourceHashes,
-    Map<String, List<BoardSourceRowCursor>> slotSources) {
+    Map<String, List<BoardSourceRowCursor>> slotSources,
+    long lastSseSequence) {
 
   static IncidentBoardResponse from(BoardDTO board) {
     return new IncidentBoardResponse(
@@ -27,6 +28,7 @@ public record IncidentBoardResponse(
         board.sourceVersions(),
         board.geometryHash(),
         board.sourceHashes(),
-        board.slotSources());
+        board.slotSources(),
+        board.lastSseSequence());
   }
 }

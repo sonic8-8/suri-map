@@ -83,9 +83,8 @@ test('조회 중 여러 변경을 받으면, 현재 요청을 유지하고 성�
   });
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
 
-  // when: 연결 복구·이벤트 48건·구역 저장이 첫 재조회가 끝나기 전에 겹친다.
+  // when: 이벤트 48건과 구역 저장이 첫 재조회가 끝나기 전에 겹친다.
   act(() => {
-    subscription.onOpen?.();
     for (let index = 0; index < 48; index += 1) {
       subscription.onEvent({ ...boardEvent(), eventId: `event-${index}` }, { lastEventId: `${index + 1}`, eventType: 'PERSON_FOUND' });
     }
@@ -107,7 +106,6 @@ test('조회 중 화면을 떠나면, HTTP 요청을 취소하고 대기 중 변
   const { unmount } = renderBoardHook(() => useSituationBoardData('incident-001', []));
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
   act(() => {
-    subscription.onOpen?.();
     subscription.onEvent(boardEvent(), { lastEventId: '901', eventType: 'PERSON_FOUND' });
   });
   const signal = fetchBoard.mock.calls[0][1]?.signal;
@@ -152,7 +150,9 @@ test('후속 조회 중 새 변경이 와도, 이미 반영한 저장 작업의 
   vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close: vi.fn() });
   const { result } = renderBoardHook(() => useSituationBoardData('incident-001', []));
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
-  act(() => subscription.onOpen?.());
+  act(() =>
+    subscription.onEvent({ ...boardEvent(), eventId: 'event-before-save' }, { lastEventId: '900', eventType: 'PERSON_FOUND' }),
+  );
   let saveRefreshCompleted = false;
   void refreshSituationBoards(queryClient, { incidentId: 'incident-001' }).then(() => { saveRefreshCompleted = true; });
   await act(async () => responses[0](Response.json({ ...boardResponse({}), boardResponseVersion: 2 })));
@@ -178,7 +178,6 @@ test.each([401, 403])('재조회 대기 중 SSE가 HTTP %s로 거부되면, 진�
   renderBoardHook(() => useSituationBoardData('incident-001', []));
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
   act(() => {
-    subscription.onOpen?.();
     subscription.onEvent(boardEvent(), { lastEventId: '901', eventType: 'PERSON_FOUND' });
   });
   const signal = fetchBoard.mock.calls[0][1]?.signal;
@@ -199,7 +198,6 @@ test('조회가 실패하면, 대기 중 변경으로 즉시 재요청하지 않
   const { result } = renderBoardHook(() => useSituationBoardData('incident-001', []));
   const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
   act(() => {
-    subscription.onOpen?.();
     subscription.onEvent(boardEvent(), { lastEventId: '901', eventType: 'PERSON_FOUND' });
   });
 
@@ -231,7 +229,9 @@ test.each(['INCIDENT_CLOSED', 'INCIDENT_PURGED'])(
     vi.mocked(openIncidentBoardEventStream).mockReturnValue({ closed: new Promise<void>(() => {}), close });
     const { result } = renderBoardHook(() => useSituationBoardData('incident-001', []));
     const subscription = vi.mocked(openIncidentBoardEventStream).mock.calls[0][0];
-    act(() => subscription.onOpen?.());
+    act(() =>
+      subscription.onEvent({ ...boardEvent(), eventId: 'event-before-close' }, { lastEventId: '900', eventType: 'PERSON_FOUND' }),
+    );
 
     // when: 기존 응답보다 늦게 종료 이벤트가 도착한다.
     act(() => subscription.onEvent({ ...boardEvent(), type: eventType }, { lastEventId: '901', eventType }));
@@ -445,10 +445,11 @@ test('상황판 재연결 대기 중 화면을 떠나면, 타이머와 구독을
 });
 
 test.each(['event_stream_error', 'gone_refetch_required'] as const)(
-  '%s로 연결이 끊기면, 재조회하고 재전송 불가일 때만 수신 순번을 초기화한다',
+  '%s로 연결이 끊기면 재조회한다. 재전송 불가일 때만 다시 조회한 상황판의 순번으로 다시 연결한다',
   async (reason) => {
-    // given: 첫 연결에서 이벤트 901을 수신했다.
+    // given: 첫 연결에서 이벤트 901을 수신했다. 다시 조회한 상황판 응답에는 순번 950까지 반영돼 있다.
     vi.useFakeTimers();
+    fetchBoard.mockImplementation(async () => Response.json({ ...boardResponse({}), lastSseSequence: 950 }));
     const openStream = vi.mocked(openIncidentBoardEventStream);
     openStream
       .mockImplementation(() => ({ closed: new Promise<void>(() => {}), close: vi.fn() }))
@@ -465,7 +466,7 @@ test.each(['event_stream_error', 'gone_refetch_required'] as const)(
 
     // then: 현재 상태를 다시 조회하고, 네트워크 오류이면 이어서 수신한다.
     expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
-    expect(openStream.mock.calls[1][0].lastEventId).toBe(reason === 'gone_refetch_required' ? null : '901');
+    expect(openStream.mock.calls[1][0].lastEventId).toBe(reason === 'gone_refetch_required' ? '950' : '901');
     // 재연결에서 같은 이벤트가 재전송돼도 중복 반영하지 않는다.
     openStream.mock.calls[1][0].onEvent(boardEvent(), { lastEventId: '902', eventType: 'PERSON_FOUND' });
     expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
@@ -493,9 +494,10 @@ test.each([401, 403])('상황판 SSE가 HTTP %s로 거부되면, 재연결과 �
   expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
 });
 
-test('재전송 불가 후 연결이 다시 열리면, 연결 대기 중 변경된 상태도 재조회한다', async () => {
-  // given: 재전송 불가로 전체 상태를 조회한 뒤 재연결을 기다린다.
+test('재전송 불가 후 다시 연결해도, 연결이 열렸다는 이유로 상황판을 다시 조회하지 않는다', async () => {
+  // given: 재전송 불가로 전체 상태를 다시 조회했다. 그 응답에는 순번 950까지 반영돼 있다.
   vi.useFakeTimers();
+  fetchBoard.mockImplementation(async () => Response.json({ ...boardResponse({}), lastSseSequence: 950 }));
   const openStream = vi.mocked(openIncidentBoardEventStream);
   openStream
     .mockImplementation(() => ({ closed: new Promise<void>(() => {}), close: vi.fn() }))
@@ -510,8 +512,9 @@ test('재전송 불가 후 연결이 다시 열리면, 연결 대기 중 변경�
   });
   openStream.mock.calls[1][0].onOpen?.();
 
-  // then: 연결이 없던 동안의 변경도 현재 상태로 보완한다.
-  expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
+  // then: 다시 연결한 요청의 Last-Event-ID는 950이다. 연결이 열렸다는 이유로 상황판 조회가 다시 나가지 않는다.
+  expect(openStream.mock.calls[1][0].lastEventId).toBe('950');
+  expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(1);
 });
 
 test.each(['INCIDENT_CLOSED', 'INCIDENT_PURGED'])(

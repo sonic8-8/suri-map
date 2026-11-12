@@ -12,7 +12,30 @@ public record BoardAssemblyRequest(
     String activeOpId,
     List<String> selectedOpIds,
     String geometryHash,
-    List<BoardSourceRow> sourceRows) {
+    List<BoardSourceRow> sourceRows,
+    long lastSseSequence) {
+
+  /** SSE 순번을 담지 않는 조립 요청이다. 순번은 0으로 둔다. */
+  public BoardAssemblyRequest(
+      String incidentId,
+      String boardResponseId,
+      long boardResponseVersion,
+      OffsetDateTime serverTs,
+      String activeOpId,
+      List<String> selectedOpIds,
+      String geometryHash,
+      List<BoardSourceRow> sourceRows) {
+    this(
+        incidentId,
+        boardResponseId,
+        boardResponseVersion,
+        serverTs,
+        activeOpId,
+        selectedOpIds,
+        geometryHash,
+        sourceRows,
+        0L);
+  }
 
   public BoardAssemblyRequest {
     Objects.requireNonNull(incidentId, "incidentId must not be null");

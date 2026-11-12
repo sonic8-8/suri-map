@@ -18,6 +18,7 @@ import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
+import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.retention.purge.LocationAccessRecorder;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
@@ -48,11 +49,14 @@ class IncidentBoardApiContractTest {
   @MockitoBean private IncidentAccessPort incidentAccessPort;
   @MockitoBean private IncidentBoardSourceRowCollector boardSourceRowCollector;
   @MockitoBean private LocationAccessRecorder locationAccessRecorder;
+  // H2 테스트 스키마에는 incident 테이블이 없어서 사건의 마지막 확정 순번 조회만 대역으로 둔다.
+  @MockitoBean private IncidentMapper incidentMapper;
 
   @BeforeEach
   void setUp() {
     when(boardSourceRowCollector.collect(any()))
         .thenReturn(new IncidentBoardSourceRowSnapshot(null, List.of(), "hash-board-empty", List.of()));
+    when(incidentMapper.findLastSseSequence(INCIDENT_ID)).thenReturn(41L);
   }
 
   @Test
@@ -101,6 +105,7 @@ class IncidentBoardApiContractTest {
         .andExpect(jsonPath("$.slotSources.marker[0].id").value("marker-source-001"))
         .andExpect(jsonPath("$.sourceVersions.path").isArray())
         .andExpect(jsonPath("$.sourceHashes.path").isArray())
+        .andExpect(jsonPath("$.lastSseSequence").value(41))
         .andExpect(jsonPath("$.location_data_access_audit").doesNotExist())
         .andExpect(jsonPath("$.locationAccessAudit").doesNotExist());
 

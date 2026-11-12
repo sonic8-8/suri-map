@@ -22,6 +22,7 @@ public final class BoardDTO {
   private final Map<String, List<BoardSourceRowCursor>> slotSources;
   private final Map<String, List<BoardSourceRowCursor>> sourceVersions;
   private final Map<String, List<BoardSourceRowCursor>> sourceHashes;
+  private final long lastSseSequence;
 
   BoardDTO(
       String incidentId,
@@ -35,7 +36,8 @@ public final class BoardDTO {
       Map<String, List<BoardSlotRow>> slotRows,
       Map<String, List<BoardSourceRowCursor>> slotSources,
       Map<String, List<BoardSourceRowCursor>> sourceVersions,
-      Map<String, List<BoardSourceRowCursor>> sourceHashes) {
+      Map<String, List<BoardSourceRowCursor>> sourceHashes,
+      long lastSseSequence) {
     this.incidentId = Objects.requireNonNull(incidentId, "incidentId must not be null");
     this.boardResponseId =
         Objects.requireNonNull(boardResponseId, "boardResponseId must not be null");
@@ -50,6 +52,7 @@ public final class BoardDTO {
     this.slotSources = copyCursorMap(slotSources);
     this.sourceVersions = copyCursorMap(sourceVersions);
     this.sourceHashes = copyCursorMap(sourceHashes);
+    this.lastSseSequence = lastSseSequence;
   }
 
   public String incidentId() {
@@ -94,6 +97,10 @@ public final class BoardDTO {
 
   public Map<String, List<BoardSourceRowCursor>> sourceHashes() {
     return sourceHashes;
+  }
+
+  public long lastSseSequence() {
+    return lastSseSequence;
   }
 
   public BoardSlotRow slotRow(String slot, String id) {
