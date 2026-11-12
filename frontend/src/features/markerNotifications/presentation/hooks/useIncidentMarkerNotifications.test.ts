@@ -187,6 +187,33 @@ test.each(['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '10000000-0000-4000-8000-0000
   },
 );
 
+test('순번 없이 연결한 뒤 받은 지원 요청과 발견 알림만 팝업 대기열에 들어간다', () => {
+  // given: 상황판에 들어가 알림 구독을 시작한다.
+  const openStream = vi.mocked(openIncidentEventStream);
+  openStream.mockImplementation(() => new Promise<void>(() => {}));
+  const incidentId = '10000000-0000-4000-8000-000000000001';
+  const onNotification = vi.fn();
+  renderHook(() => useIncidentMarkerNotifications({ incidentId, enabled: true, onNotification }));
+  const connection = openStream.mock.calls[0][0];
+
+  // when: 연결한 뒤 생긴 이벤트가 알림 대상이 아닌 이벤트와 섞여 도착한다.
+  const eventTypes = ['PATH_APPENDED', 'SUPPORT_REQUEST_CREATED', 'MARKER_CREATED', 'PERSON_FOUND'];
+  eventTypes.forEach((eventType, index) => {
+    connection.onMessage({
+      id: String(11 + index),
+      event: eventType,
+      data: { incidentId, eventId: `40000000-0000-4000-8000-00000000091${index}`, type: eventType },
+    });
+  });
+
+  // then: 첫 연결 요청에는 마지막 수신 순번이 없다. 두 알림만 받은 순서대로 팝업 대기열에 들어간다.
+  expect(connection.lastEventId).toBeNull();
+  expect(onNotification.mock.calls.map(([notification]) => notification.title)).toEqual([
+    '지원 요청 마커 수신',
+    '발견 마커 수신',
+  ]);
+});
+
 test.each([
   { incidentId: '', enabled: true },
   { incidentId: 'incident-001', enabled: true },

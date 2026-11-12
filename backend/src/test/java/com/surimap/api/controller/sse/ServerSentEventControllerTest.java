@@ -113,6 +113,9 @@ class ServerSentEventControllerTest {
   void reset_replay_store() {
     mockMvc = mvcBuilder().build();
     replayStore.clear();
+    // 시작 순번은 ServerSentEventHistoryServiceTest에서 검증한다. 여기서는 받은 순번을 그대로 쓴다.
+    when(replayService.getStartEventId(any(), nullable(String.class)))
+        .thenAnswer(invocation -> invocation.getArgument(1));
     when(replayService.getFirstPageAfter(any(), nullable(String.class)))
         .thenAnswer(
             invocation -> {

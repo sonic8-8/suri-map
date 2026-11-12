@@ -22,18 +22,32 @@ public class ServerSentEventHistoryService {
   private final ServerSentEventJobService jobService;
 
   public HistoryPage getFirstPageAfter(UUID incidentId, String lastEventId) {
-    long cursor = parseCursor(lastEventId);
+    Long cursor = parseCursor(lastEventId);
     try {
       long throughSequence = jobService.getHistoryEndSequence(incidentId);
+      if (cursor == null) {
+        // 순번 없는 조회에는 과거 이벤트가 없다. 구독 흐름에서는 getStartEventId로 정해진 순번으로 조회한다.
+        return HistoryPage.builder().messages(List.of()).throughSequence(throughSequence).build();
+      }
       if (cursor > throughSequence) {
         throw new ServerSentEventRefetchRequiredException();
       }
-      if (cursor > 0) {
-        jobService.validateHistoryContinuity(incidentId, cursor, throughSequence);
-      }
-      return getPage(incidentId, cursor, throughSequence, cursor > 0);
+      jobService.validateHistoryContinuity(incidentId, cursor, throughSequence);
+      return getPage(incidentId, cursor, throughSequence);
     } catch (ServerSentEventRefetchRequiredException exception) {
-      return getTerminalPage(incidentId, cursor);
+      return getTerminalPage(incidentId, cursor == null ? 0L : cursor);
+    }
+  }
+
+  /** 순번 없는 연결은 연결을 등록하기 전의 마지막 확정 순번까지 받은 연결로 다룬다. 종료되거나 파기된 사건에는 시작 순번이 없다. */
+  public String getStartEventId(UUID incidentId, String lastEventId) {
+    if (parseCursor(lastEventId) != null) {
+      return lastEventId;
+    }
+    try {
+      return Long.toString(jobService.getHistoryEndSequence(incidentId));
+    } catch (ServerSentEventRefetchRequiredException exception) {
+      return null;
     }
   }
 
@@ -44,15 +58,16 @@ public class ServerSentEventHistoryService {
     long cursor =
         Long.parseLong(previous.getMessages().get(previous.getMessages().size() - 1).getId());
     try {
-      return getPage(incidentId, cursor, previous.getThroughSequence(), previous.isResumed());
+      return getPage(incidentId, cursor, previous.getThroughSequence());
     } catch (ServerSentEventRefetchRequiredException exception) {
       return getTerminalPage(incidentId, cursor);
     }
   }
 
-  private long parseCursor(String lastEventId) {
+  /** 순번이 없으면 null이다. 0은 "0번까지 반영했다"는 정상 순번이다. */
+  private Long parseCursor(String lastEventId) {
     if (lastEventId == null || lastEventId.isBlank()) {
-      return 0L;
+      return null;
     }
     try {
       long parsed = Long.parseLong(lastEventId);
@@ -65,17 +80,12 @@ public class ServerSentEventHistoryService {
     }
   }
 
-  private HistoryPage getPage(UUID incidentId, long cursor, long throughSequence, boolean resumed) {
+  private HistoryPage getPage(UUID incidentId, long cursor, long throughSequence) {
     var jobs =
-        resumed
-            ? jobService.getContiguousHistoryPage(
-                incidentId, cursor, throughSequence, HISTORY_PAGE_SIZE)
-            : jobService.getRetainedHistoryPage(
-                incidentId, cursor, throughSequence, HISTORY_PAGE_SIZE);
+        jobService.getContiguousHistoryPage(incidentId, cursor, throughSequence, HISTORY_PAGE_SIZE);
     return HistoryPage.builder()
         .messages(jobs.stream().map(ServerSentEventMessage::from).toList())
         .throughSequence(throughSequence)
-        .resumed(resumed)
         .build();
   }
 
@@ -102,7 +112,6 @@ public class ServerSentEventHistoryService {
     private List<ServerSentEventMessage> messages;
     private long throughSequence;
     private boolean terminalReached;
-    private boolean resumed;
 
     public boolean hasMore() {
       return !terminalReached

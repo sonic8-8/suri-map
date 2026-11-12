@@ -1,7 +1,9 @@
 package com.surimap.board;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
+import com.surimap.incident.repository.IncidentMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -23,7 +25,8 @@ class IncidentBoardQueryServiceSourceCollectorTest {
   void assembles_board_response_from_collected_source_rows() {
     CapturingCollector collector = new CapturingCollector();
     IncidentBoardQueryService service =
-        new IncidentBoardQueryService(Clock.fixed(SERVER_TS, ZoneOffset.UTC), collector);
+        new IncidentBoardQueryService(
+            Clock.fixed(SERVER_TS, ZoneOffset.UTC), collector, mock(IncidentMapper.class));
 
     BoardDTO board =
         service.getBoard(INCIDENT_ID, List.of(OP_ID), List.of("marker"), 12L);

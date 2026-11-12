@@ -10,6 +10,7 @@ import {
   isRetryableBoardRead,
   waitForBoardReadRetry,
 } from '../../features/board/model/boardReadRecovery';
+import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../features/board/api/incidentBoardApi';
 import { refreshSearchPathPages, useSearchPathPages } from '../../features/path/api/searchPathPagesApi';
 import type { SearchPathPage, SearchPathPageRow } from '../../features/path/model/searchPathPages';
 import { useIncidentBoardEvents } from './useIncidentBoardEvents';
@@ -28,7 +29,7 @@ afterEach(() => {
   try {
     expect(maxActiveRequests).toBe(1);
     for (const url of requestUrls)
-      expect(url).toMatch(/\/incidents\/incident-1\/(events|board\/search-paths\/(segments|changes)\/query)$/);
+      expect(url).toMatch(/\/incidents\/incident-1\/(events|board|board\/search-paths\/(segments|changes)\/query)$/);
     for (const query of client.getQueryCache().findAll({ queryKey: ['searchPathPages'] })) {
       expect(query.state.error).toBeNull();
       expect(query.state.data).toHaveProperty('error', null);
@@ -276,7 +277,7 @@ async function renderConnectedPaths() {
     });
     await advance();
   }
-  // onOpen의 갱신을 먼저 처리해 이후 업무 이벤트와 구분한다.
+  // 연결을 시작할 때 예약한 경로 변경분 조회를 먼저 처리해 이후 업무 이벤트와 구분한다.
   await advance();
   expect(fetchSse).toHaveBeenCalledTimes(1);
   expect(String(fetchSse.mock.calls[0][0])).toMatch(/\/incidents\/incident-1\/events$/);
@@ -432,6 +433,264 @@ test.each([
     expect(board.result.current.isFetching).toBe(false);
   },
 );
+
+function boardResponse(lastSseSequence: number, opIds: readonly string[]): IncidentBoardResponse {
+  return {
+    incidentId: 'incident-1',
+    boardResponseVersion: 1,
+    serverTs: '2026-11-12T00:00:00Z',
+    activeOpId: opIds[0] ?? null,
+    selectedOpIds: opIds,
+    geometryHash: 'hash-board',
+    slots: {},
+    slotSources: {},
+    sourceVersions: {},
+    sourceHashes: {},
+    lastSseSequence,
+  };
+}
+
+async function advanceTimers(ms = 0) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+}
+
+// 상황판 조회, 경로 조회, 지도 갱신 연결을 실제 화면처럼 함께 연결한다. 지도 갱신 연결은 첫 상황판 응답이 온 뒤에 시작된다.
+function renderBoardWithEvents() {
+  const connections: Array<{ lastEventId: string | null; writer: WritableStreamDefaultWriter<Uint8Array> | null }> = [];
+  const rejectedConnections: Response[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof fetch>().mockImplementation(async (url, options) => {
+      requestUrls.push(String(url));
+      const lastEventId = (options?.headers as Record<string, string> | undefined)?.['Last-Event-ID'] ?? null;
+      const rejected = rejectedConnections.shift();
+      if (rejected) {
+        connections.push({ lastEventId, writer: null });
+        return rejected;
+      }
+      const stream = new TransformStream<Uint8Array, Uint8Array>();
+      const writer = stream.writable.getWriter();
+      options?.signal?.addEventListener('abort', () => void writer.abort().catch(() => {}), { once: true });
+      connections.push({ lastEventId, writer });
+      return new Response(stream.readable, { headers: { 'Content-Type': 'text/event-stream' } });
+    }),
+  );
+  const boardReads: Array<{ opIds: readonly string[]; resolve: (value: IncidentBoardResponse) => void }> = [];
+  vi.spyOn(apiClient, 'get').mockImplementation((url, options) => {
+    requestUrls.push(url);
+    const opIds = (options?.query?.opIds ?? []) as readonly string[];
+    return new Promise((resolve) => boardReads.push({ opIds, resolve }));
+  });
+  const pathCalls: string[] = [];
+  const pathResponses: Array<(value: SearchPathPage) => void> = [];
+  let active = 0;
+  vi.spyOn(apiClient, 'post').mockImplementation((url) => {
+    requestUrls.push(url);
+    pathCalls.push(url.includes('/segments/') ? 'segments' : 'changes');
+    active++;
+    maxActiveRequests = Math.max(maxActiveRequests, active);
+    return new Promise((resolve) =>
+      pathResponses.push((value) => {
+        active--;
+        resolve(value);
+      }),
+    );
+  });
+  const view = renderHook(
+    ({ opIds }: { opIds: readonly string[] }) => {
+      const board = useIncidentBoardQuery({ incidentId: 'incident-1', opIds });
+      useSearchPathPages('incident-1', opIds, true, {
+        isRetryable: isRetryableBoardRead,
+        retryDelay: boardReadRetryDelay,
+        waitForRetry: waitForBoardReadRetry,
+        recordMeasurement: recordBoardMeasurement,
+      });
+      useIncidentBoardEvents('incident-1', Boolean(board.data));
+    },
+    {
+      initialProps: { opIds: ['op-1'] },
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    },
+  );
+  async function respondBoard(index: number, lastSseSequence: number) {
+    await act(async () => {
+      boardReads[index].resolve(boardResponse(lastSseSequence, boardReads[index].opIds));
+    });
+    await advanceTimers();
+  }
+  async function respondPath(index: number, value: SearchPathPage) {
+    await act(async () => {
+      pathResponses[index](value);
+    });
+    await advanceTimers();
+  }
+  async function send(id: string, eventId: string) {
+    await act(async () => {
+      await connections.at(-1)?.writer?.write(
+        new TextEncoder().encode(
+          `id: ${id}\nevent: PATH_APPENDED\ndata: ${JSON.stringify({
+            eventId,
+            incidentId: 'incident-1',
+            type: 'PATH_APPENDED',
+            payloadFormatVersion: 1,
+            sourceEntityType: 'search_path',
+            sourceEntityId: 'path-1',
+            occurredAt: '2026-11-12T00:00:00Z',
+            payload: { version: 2 },
+          })}\n\n`,
+        ),
+      );
+    });
+    await advanceTimers();
+  }
+  async function closeConnection() {
+    await act(async () => {
+      await connections.at(-1)?.writer?.close();
+    });
+    await advanceTimers();
+  }
+  function rejectNextConnection(status: number, error: string) {
+    rejectedConnections.push(
+      new Response(JSON.stringify({ error }), { status, headers: { 'Content-Type': 'application/json' } }),
+    );
+  }
+  return {
+    ...view,
+    connections,
+    boardReads,
+    pathCalls,
+    respondBoard,
+    respondPath,
+    send,
+    closeConnection,
+    rejectNextConnection,
+  };
+}
+
+test('첫 상황판 응답을 받으면, 그 응답의 순번을 Last-Event-ID로 보내 연결한다', async () => {
+  // given: 첫 상황판 응답에는 순번 7까지 반영돼 있다.
+  const board = renderBoardWithEvents();
+  await advanceTimers();
+  expect(board.connections).toHaveLength(0);
+
+  // when: 첫 상황판 응답을 받는다.
+  await board.respondBoard(0, 7);
+
+  // then: 연결 요청의 Last-Event-ID는 7이다.
+  expect(board.connections.map((connection) => connection.lastEventId)).toEqual(['7']);
+});
+
+test('연결이 열려도, 상황판을 다시 조회하지 않는다', async () => {
+  // given: 첫 상황판 응답으로 연결을 시작했다.
+  const board = renderBoardWithEvents();
+  await board.respondBoard(0, 7);
+
+  // when: 연결이 열리고 시간이 지난다.
+  await advanceTimers(10_000);
+
+  // then: 상황판 조회는 첫 조회 한 번뿐이다.
+  expect(board.connections).toHaveLength(1);
+  expect(board.boardReads).toHaveLength(1);
+});
+
+test('경로 이력 첫 조회 중에 연결을 시작하면, 경로 변경분 조회 요청이 늘지 않는다', async () => {
+  // given: 경로 이력 첫 조회가 진행 중이다.
+  const board = renderBoardWithEvents();
+  await advanceTimers();
+  expect(board.pathCalls).toEqual(['segments']);
+
+  // when: 첫 상황판 응답을 받아 연결을 시작한다. 그 뒤 경로 이력과 경로 변경분 응답을 받는다.
+  await board.respondBoard(0, 7);
+  await board.respondPath(0, page([history, recent], true));
+  await board.respondPath(1, page([], true));
+
+  // then: 예약은 첫 조회의 경로 변경분 요청에 합쳐져 경로 변경분 요청은 한 번뿐이다.
+  expect(board.pathCalls).toEqual(['segments', 'changes']);
+});
+
+test('경로 이력 첫 조회를 마친 뒤 연결을 시작하면, 경로 변경분 조회를 한 번만 예약한다', async () => {
+  // given: 상황판 응답보다 먼저 경로 이력 첫 조회를 마쳤다.
+  const board = renderBoardWithEvents();
+  await advanceTimers();
+  await board.respondPath(0, page([history, recent], true));
+  await board.respondPath(1, page([], true));
+  expect(board.pathCalls).toEqual(['segments', 'changes']);
+
+  // when: 첫 상황판 응답을 받아 연결을 시작한다. 그 뒤 연결이 끊겨 다시 연결한다.
+  await board.respondBoard(0, 7);
+  expect(board.pathCalls).toEqual(['segments', 'changes', 'changes']);
+  await board.respondPath(2, page([], true));
+  await board.closeConnection();
+  await advanceTimers(3_000);
+
+  // then: 경로 변경분 조회는 연결을 시작할 때 한 번만 나간다. 다시 연결할 때는 나가지 않는다.
+  expect(board.connections).toHaveLength(2);
+  expect(board.pathCalls).toEqual(['segments', 'changes', 'changes']);
+});
+
+test('409를 받으면, 상황판을 다시 조회한 뒤 새 응답의 순번으로 다시 연결한다', async () => {
+  // given: 첫 상황판 응답의 순번 7로 연결하면 이어 받을 이력이 없어 409가 온다.
+  const board = renderBoardWithEvents();
+  board.rejectNextConnection(409, 'gone_refetch_required');
+  await board.respondBoard(0, 7);
+  expect(board.boardReads).toHaveLength(2);
+
+  // when: 다시 조회한 상황판 응답이 오기 전에 재연결 대기 시간이 지난다. 그 뒤 순번 12의 응답을 받는다.
+  await advanceTimers(3_000);
+  expect(board.connections).toHaveLength(1);
+  await board.respondBoard(1, 12);
+  await advanceTimers(3_000);
+
+  // then: 다시 연결한 요청의 Last-Event-ID는 새 응답의 순번 12다.
+  expect(board.connections.map((connection) => connection.lastEventId)).toEqual(['7', '12']);
+});
+
+test('수색 차수를 바꿔 상황판을 다시 조회해도, 이미 연결한 수신 위치는 바뀌지 않는다', async () => {
+  // given: 경로 조회를 모두 마쳤다. 첫 상황판 응답의 순번 7로 연결했다.
+  const board = renderBoardWithEvents();
+  await advanceTimers();
+  await board.respondPath(0, page([history, recent], true));
+  await board.respondPath(1, page([], true));
+  await board.respondBoard(0, 7);
+  await board.respondPath(2, page([], true));
+
+  // when: 수색 차수를 바꿔 상황판을 다시 조회한다. 순번 20의 응답을 받는다. 그 뒤 연결이 끊긴다.
+  board.rerender({ opIds: ['op-2'] });
+  await advanceTimers();
+  expect(board.boardReads.map((read) => read.opIds)).toEqual([['op-1'], ['op-2']]);
+  await board.respondBoard(1, 20);
+  await board.closeConnection();
+  await advanceTimers(3_000);
+
+  // then: 다시 연결한 요청의 Last-Event-ID도 처음 연결한 순번 7이다.
+  expect(board.connections.map((connection) => connection.lastEventId)).toEqual(['7', '7']);
+});
+
+test('새 이벤트를 받으면, 상황판과 경로 변경분을 다시 조회한다', async () => {
+  // given: 경로 조회를 모두 마쳤다. 첫 상황판 응답의 순번 7로 연결했다.
+  const board = renderBoardWithEvents();
+  await advanceTimers();
+  await board.respondPath(0, page([history, recent], true));
+  await board.respondPath(1, page([], true));
+  await board.respondBoard(0, 7);
+  await board.respondPath(2, page([], true));
+
+  // when: 순번 8의 새 이벤트를 받는다.
+  await board.send('8', 'event-8');
+
+  // then: 상황판 조회와 경로 변경분 조회가 한 번씩 더 나간다. 다시 연결한 요청의 Last-Event-ID는 받은 순번 8이다.
+  expect(board.boardReads).toHaveLength(2);
+  expect(board.pathCalls).toEqual(['segments', 'changes', 'changes', 'changes']);
+  await board.respondBoard(1, 8);
+  await board.respondPath(3, page([newGps], true, '2'));
+  await board.closeConnection();
+  await advanceTimers(3_000);
+  expect(board.connections.map((connection) => connection.lastEventId)).toEqual(['7', '8']);
+});
 
 test('새 알림이 계속 도착하면, 변경분 두 페이지 뒤에는 남은 과거 경로도 받는다', async () => {
   // given: 과거 경로가 남은 상태에서 변경분을 조회하고 있다.
