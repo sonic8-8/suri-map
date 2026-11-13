@@ -4,6 +4,15 @@ import { describe, expect, test } from 'vitest';
 describe('frontend nginx runtime routing', () => {
   const nginxConfig = readFileSync('nginx.conf', 'utf8');
 
+  test('접근 로그에 요청마다 upstream 응답 헤더 수신, upstream 응답 수신, 전체 요청 시간이 남는다', () => {
+    const start = nginxConfig.indexOf('log_format timing');
+    const format = nginxConfig.slice(start, nginxConfig.indexOf(';', start));
+    for (const field of ['$http_x_forwarded_for', 'msec=$msec', 'rt=$request_time', 'uht=$upstream_header_time', 'urt=$upstream_response_time']) {
+      expect(format).toContain(field);
+    }
+    expect(nginxConfig).toContain('access_log /var/log/nginx/access.log timing;');
+  });
+
   test('uses relative redirects behind the EC2 TLS reverse proxy', () => {
     expect(nginxConfig).toContain('absolute_redirect off;');
   });
