@@ -332,6 +332,32 @@ SQL
 
 검증 명령이 `result=PASS`로 끝나고 `-db.log`가 저장되면 DB 검증이 완료된다.
 
+## 경로 이력 요청 시간
+
+[path-history-read.js](path-history-read.js)를 실행하면 상황판에 들어갈 때 나가는 첫 경로 이력 요청이 한 번에 하나씩 나간다. 본문은 캐시가 없을 때 상황판에서 나가는 첫 segments 요청과 같다. 상황판 코드에서 넣는 헤더(`Authorization`, `X-Client-Channel`, `Accept`, `Content-Type`)도 같게 넣었다. `Accept-Encoding`은 `gzip, br`로 지정했다. 브라우저 요청의 `Accept-Encoding`과 브라우저에서 자동으로 넣는 `User-Agent`, `Origin` 같은 헤더는 맞추지 않았다.
+
+사용자 PC 회선을 빼고 보려고 Ops 서버에서 실행한다. Ops에서 Cloudflare까지의 회선 시간은 결과에 들어간다. 부하 테스트가 아니다. 서버에서 정상 처리된 조회마다 위치 조회 감사 기록이 한 줄씩 쌓이므로 횟수는 20번까지로 제한했다.
+
+웹 로그인 토큰은 측정할 때마다 Ops의 임시 폴더에 권한 600 파일로 두고, 끝나면 지운다. 토큰을 환경 변수나 명령 인자로 넘기지 않는다. 아래 명령은 Ops에서 `path-history-read.js`가 있는 폴더에서 실행한다.
+
+```bash
+D=$(mktemp -d /tmp/path-history-XXXX)
+cp path-history-read.js "$D/"
+(
+  trap 'rm -f "$D/token"' EXIT
+  trap 'exit 130' INT TERM HUP   # INT, TERM, HUP trap이 실행되면 남은 명령은 실행되지 않고 토큰 파일이 지워진다.
+  umask 077
+  cat > "$D/token"   # 토큰을 붙여 넣고 Enter, Ctrl-D를 누른다. shell history에 남지 않는다.
+  docker run --rm -u "$(id -u)" \
+    -v "$D/path-history-read.js:/scripts/path-history-read.js:ro" -v "$D/token:/secrets/token:ro" \
+    -e WEB_ACCESS_TOKEN_FILE=/secrets/token -e ITERATIONS=5 -e PAUSE_SECONDS=5 \
+    grafana/k6@sha256:e7eeddf1ce2361df6920d925297f487c0ba549c44be242c6a9c22f28d9b08efa \
+    run -q /scripts/path-history-read.js 2>&1 | tee "$D/k6.log"
+)
+```
+
+요청마다 `path_history_request` 한 줄이 남는다. `waitingMs`는 요청을 다 보낸 뒤 첫 바이트가 올 때까지 걸린 시간이다. `receivingMs`는 첫 바이트부터 본문을 다 받을 때까지 걸린 시간이다. 같은 시각의 Frontend nginx 접근 로그(`uht`, `urt`, `rt`)와 맞춰 보면 Frontend nginx 앞쪽의 몫을 어림할 수 있다. 시각은 Ops 시계 기준이므로 App 서버 시각과 바로 빼지 않는다.
+
 ## 상황판 반영 시간과 읽기 부하 — 구현 중
 
 합의한 시험 조건과 구현 진척을 기록한다. 전체 실행기와 브라우저 계측은 아직 연결 중이다.
