@@ -31,23 +31,17 @@
         <result property="elapsedRealtimeNanos" column="elapsed_realtime_nanos" javaType="java.lang.Long"/>
     </resultMap>
 
-    <resultMap id="searchPathBoardPointMap" type="com.surimap.domain.path.SearchPathBoardPoint">
-        <result property="rangeOrder" column="range_order" javaType="_int"/>
-        <result property="pointOrder" column="point_order" javaType="_int"/>
-        <result property="lon" column="lon" javaType="_double"/>
-        <result property="lat" column="lat" javaType="_double"/>
-        <result property="clientTsEpochMicros" column="client_ts_epoch_micros" javaType="_long"/>
-        <result property="outOfRangeClientTs" column="out_of_range_client_ts" javaType="java.time.OffsetDateTime"/>
-    </resultMap>
-
     <resultMap id="searchPathBoardPointRunMap" type="com.surimap.domain.path.SearchPathBoardPointRun">
         <result property="rangeOrder" column="range_order" javaType="_int"/>
         <result property="startPointOrder" column="start_point_order" javaType="_int"/>
         <result property="pointCount" column="point_count" javaType="_int"/>
         <result property="lons" column="lons" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"/>
         <result property="lats" column="lats" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"/>
-        <result property="clientTsEpochMicros" column="client_ts_epoch_micros" typeHandler="org.apache.ibatis.type.ArrayTypeHandler"/>
-        <result property="hasOutOfRangeClientTs" column="has_out_of_range_client_ts" javaType="_boolean"/>
+    </resultMap>
+
+    <resultMap id="searchPathBoardSegmentTimeMap" type="com.surimap.domain.path.SearchPathBoardSegmentTime">
+        <result property="startedAt" column="started_at" javaType="java.time.OffsetDateTime"/>
+        <result property="endedAt" column="ended_at" javaType="java.time.OffsetDateTime"/>
     </resultMap>
 
     <resultMap id="searchPathSegmentMap" type="com.surimap.domain.path.SearchPathSegment">
@@ -407,43 +401,18 @@
         ORDER BY s.search_path_id, s.start_point_order DESC, s.id
     </select>
 
-    <!-- 구간마다 읽지 않고 경로별 순번 범위로 한 번에 읽는다. fetchSize의 이유는 findBoardSegments와 같다. -->
-    <!-- 상황판은 평소 findBoardPointRuns로 읽고, 294247-01-01 이상 시각이나 무한 시각이 있는 범위만 이 SQL로 좌표마다 읽는다. -->
-    <!-- 범위는 배열 인자로 넘겨 범위 수가 바인딩 인자 상한에 걸리지 않는다. 행마다 경로 ID 대신 범위 순서를 돌려준다. -->
-    <!-- 좌표와 시각은 숫자형으로 바꿔 보낸다. NUMERIC과 TIMESTAMPTZ 글자를 행마다 BigDecimal과 OffsetDateTime으로 해석하는 비용을 없앤다. -->
-    <!-- epoch 마이크로초 bigint는 294247-01-10 근처에서 넘친다. 294247-01-01 이상 시각과 무한 시각(JDBC가 저장 범위 밖 시각을 바꿔 저장한 값)만 원래 열로 받는다. -->
-    <select id="findBoardPoints" resultMap="searchPathBoardPointMap" fetchSize="10000">
-        SELECT r.range_order::integer AS range_order, g.point_order,
-               g.lon::float8 AS lon, g.lat::float8 AS lat,
-               CASE WHEN isfinite(g.client_ts) AND g.client_ts &lt; '294247-01-01 00:00:00+00'
-                    THEN (EXTRACT(EPOCH FROM g.client_ts) * 1000000)::bigint ELSE 0 END AS client_ts_epoch_micros,
-               CASE WHEN isfinite(g.client_ts) AND g.client_ts &lt; '294247-01-01 00:00:00+00'
-                    THEN NULL ELSE g.client_ts END AS out_of_range_client_ts
-        FROM unnest(
-            #{ranges.pathIds,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::uuid[],
-            #{ranges.startOrders,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::integer[],
-            #{ranges.endOrders,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::integer[]
-        ) WITH ORDINALITY AS r(path_id, start_order, end_order, range_order)
-        JOIN search_path_gps_point g
-          ON g.search_path_id = r.path_id AND g.point_order BETWEEN r.start_order AND r.end_order
-        ORDER BY r.range_order, g.point_order
-    </select>
-
+    <!-- 경로 구간마다 읽지 않고 경로별 순번 범위로 한 번에 읽는다. 범위는 배열 인자로 넘겨 범위 수가 바인딩 인자 상한에 걸리지 않는다. -->
     <!-- 범위마다 한 행으로 묶어 좌표마다 행을 만들지 않는다. 배열은 순번 오름차순이고 범위 안 좌표가 모두 있으면 길이가 범위 길이와 같다. -->
-    <!-- 좌표가 없는 범위는 행이 없다. 시각 계산과 294247-01-01 기준은 findBoardPoints와 같다. 기준 밖 시각이 있으면 표시만 하고 그 범위는 findBoardPoints로 다시 읽는다. -->
-    <!-- 이 SQL은 fetch size 0으로 결과를 한 번에 받는다. 트랜잭션 안에서 fetch size가 0보다 크면 병렬 작업자가 쓰이지 않기 때문이다.
+    <!-- 좌표는 float8로 바꿔 보낸다. NUMERIC 글자를 좌표마다 BigDecimal로 해석하는 비용을 없앤다. 좌표가 없는 범위는 행이 없다. -->
+    <!-- 측정 시각은 읽지 않는다. 응답에는 경로 구간의 시작 시각과 끝 시각만 담으므로 findBoardSegmentTimes로 따로 읽는다. -->
+    <!-- 이 SQL의 결과는 fetch size 0으로 한 번에 받는다. 트랜잭션 안에서 fetch size가 0보다 크면 parallel worker가 쓰이지 않기 때문이다.
          한 번에 받아도 되는 이유는 응답에 담기로 정한 경로 구간의 좌표만 읽기 때문이다. 결과 행 수는 이어지는 순번 범위의 수다.
          배열에 담기는 좌표 수는 응답의 좌표 한도를 넘지 않는다. -->
     <select id="findBoardPointRuns" resultMap="searchPathBoardPointRunMap" fetchSize="0">
         SELECT r.range_order::integer AS range_order, r.start_order AS start_point_order,
                count(*)::integer AS point_count,
                array_agg(g.lon::float8 ORDER BY g.point_order) AS lons,
-               array_agg(g.lat::float8 ORDER BY g.point_order) AS lats,
-               array_agg(CASE WHEN isfinite(g.client_ts) AND g.client_ts &lt; '294247-01-01 00:00:00+00'
-                              THEN (EXTRACT(EPOCH FROM g.client_ts) * 1000000)::bigint ELSE 0 END
-                         ORDER BY g.point_order) AS client_ts_epoch_micros,
-               bool_or(NOT (isfinite(g.client_ts) AND g.client_ts &lt; '294247-01-01 00:00:00+00'))
-                   AS has_out_of_range_client_ts
+               array_agg(g.lat::float8 ORDER BY g.point_order) AS lats
         FROM unnest(
             #{ranges.pathIds,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::uuid[],
             #{ranges.startOrders,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::integer[],
@@ -452,6 +421,24 @@
         JOIN search_path_gps_point g
           ON g.search_path_id = r.path_id AND g.point_order BETWEEN r.start_order AND r.end_order
         GROUP BY r.range_order, r.start_order
+        ORDER BY r.range_order
+    </select>
+
+    <!-- 이 SQL로 읽으면 경로 구간마다 시작 순번과 끝 순번에 있는 GPS 좌표의 측정 시각이 요청 순서대로 한 행씩 나온다. 경계 좌표가 없으면 그 시각은 NULL이다. -->
+    <!-- 시각마다 스칼라 하위 쿼리로 읽어, 경계마다 기본 키(search_path_id, point_order)로 조회한다.
+         그냥 JOIN으로 쓰면 로컬에서 GPS 좌표 테이블 전체를 읽는 Hash Join 계획이 나왔다. -->
+    <!-- 시각은 경로 구간마다 2개뿐이라 숫자로 바꾸지 않고 OffsetDateTime으로 받는다. 무한 시각은 OffsetDateTime.MAX와 MIN으로 읽힌다. -->
+    <!-- 결과 행 수는 응답에 담기로 정한 경로 구간 수다. 그래서 결과는 fetch size 0으로 한 번에 받는다. -->
+    <select id="findBoardSegmentTimes" resultMap="searchPathBoardSegmentTimeMap" fetchSize="0">
+        SELECT (SELECT g.client_ts FROM search_path_gps_point g
+                WHERE g.search_path_id = r.path_id AND g.point_order = r.start_order) AS started_at,
+               (SELECT g.client_ts FROM search_path_gps_point g
+                WHERE g.search_path_id = r.path_id AND g.point_order = r.end_order) AS ended_at
+        FROM unnest(
+            #{ranges.pathIds,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::uuid[],
+            #{ranges.startOrders,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::integer[],
+            #{ranges.endOrders,typeHandler=org.apache.ibatis.type.ArrayTypeHandler}::integer[]
+        ) WITH ORDINALITY AS r(path_id, start_order, end_order, range_order)
         ORDER BY r.range_order
     </select>
 

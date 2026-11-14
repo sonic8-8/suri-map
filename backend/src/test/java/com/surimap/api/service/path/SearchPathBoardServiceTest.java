@@ -2,6 +2,7 @@ package com.surimap.api.service.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.api.controller.path.response.SearchPathSegmentsQueryResponse;
@@ -32,6 +33,7 @@ import org.apache.ibatis.reflection.SystemMetaObject;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -316,8 +318,8 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("한 페이지의 여러 경로 중 기준 밖 측정 시각이 있는 경로만 좌표마다 다시 읽어도 경로별 좌표와 시각을 지킨다")
-  void board_page_rereads_only_range_with_out_of_range_time_and_keeps_each_path() {
+  @DisplayName("한 페이지의 여러 경로 중 한 경로에만 기준 밖 측정 시각이 있어도 경로별 좌표와 시각이 섞이지 않는다")
+  void board_page_keeps_each_path_when_one_path_has_out_of_range_time() {
     // given: 앞 경로(e)는 보통 시각이고, 뒤 경로(f)의 끝 구간 마지막 좌표만 infinity다.
     seedPath();
     seedSecondPath();
@@ -327,7 +329,7 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     // when: 두 경로를 한 페이지로 조회한다.
     List<SearchPathPageServiceResponse.Path> paths =
         service.getSearchPathSegments(request(List.of(OP))).getPaths();
-    // then: 앞 경로는 배열 값 그대로, 뒤 경로는 다시 읽은 좌표와 OffsetDateTime.MAX의 Instant를 받는다.
+    // then: 두 경로 모두 저장한 좌표가 나온다. 뒤 경로의 끝 시각은 OffsetDateTime.MAX의 Instant다.
     assertThat(paths)
         .extracting(SearchPathPageServiceResponse.Path::getId)
         .containsExactly(
@@ -343,6 +345,81 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
         .containsExactly(List.of(126.9002, 35.1), List.of(126.9003, 35.1));
     assertThat(second.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:10Z"));
     assertThat(second.getEndedAt()).isEqualTo(OffsetDateTime.MAX.toInstant());
+  }
+
+  @Test
+  @DisplayName("기준 밖 측정 시각이 경로 구간 가운데 좌표에만 있어도 조회가 실패하지 않는다. 좌표와 경계 GPS 좌표의 측정 시각이 그대로 나온다")
+  void out_of_range_time_only_inside_segment_returns_stored_points_and_boundary_times() {
+    // given: 끝 경로 구간을 좌표 2..4로 늘리고 가운데 좌표 3만 infinity로 둔다.
+    seedPath();
+    jdbcTemplate.update(
+        """
+        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
+        VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff',4,'p4','2026-04-28T00:00:20.000007Z',126.9004,35.1,1,now())
+        """);
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = 'infinity' WHERE point_order = 3");
+    jdbcTemplate.update(
+        "UPDATE search_path_segment SET end_point_order = 4 WHERE start_point_order = 2");
+    // when: 최초 이력의 끝 경로 구간을 조회한다.
+    SearchPathPageServiceResponse.Segment segment =
+        service.getSearchPathSegments(request(List.of(OP))).getPaths().get(0).getSegments().get(0);
+    // then: 좌표 세 개는 저장한 값이다. 시작과 끝 시각은 좌표 2와 좌표 4의 측정 시각이다.
+    assertThat(segment.getCoordinates())
+        .containsExactly(
+            List.of(126.9002, 35.1), List.of(126.9003, 35.1), List.of(126.9004, 35.1));
+    assertThat(segment.getStartedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:10Z"));
+    assertThat(segment.getEndedAt()).isEqualTo(Instant.parse("2026-04-28T00:00:20.000007Z"));
+  }
+
+  @Test
+  @DisplayName("응답에 담을 경로 구간의 시작 경계 좌표가 없으면 조회가 준비되지 않음으로 거부된다")
+  void missing_start_boundary_point_of_returned_segment_is_not_ready() {
+    // given: 첫 페이지에 담길 끝 경로 구간(2..3)의 시작 좌표 2가 없다.
+    seedPath();
+    jdbcTemplate.update(
+        "DELETE FROM search_path_gps_point WHERE search_path_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff' AND point_order = 2");
+    // when/then: 경로 구간의 시작 시각을 채울 수 없으므로 조회가 거부된다.
+    assertThatThrownBy(() -> service.getSearchPathSegments(request(List.of(OP))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
+  }
+
+  @Nested
+  @DisplayName("한 경로의 경로 구간을 한 페이지에 두 개까지 담을 때")
+  @TestPropertySource(properties = "path-query-test.segments-per-path=2")
+  class TwoSegmentsPerPath {
+    @Autowired private SearchPathBoardService twoSegmentsService;
+
+    @Test
+    @DisplayName("순번이 이어지는 경로 구간 두 개를 한 범위로 읽어도 경로 구간마다 첫 GPS 좌표와 끝 GPS 좌표의 측정 시각이 나온다")
+    void contiguous_segments_in_one_range_keep_their_own_boundary_times() {
+      // given: 경로 구간 0..1과 2..3이 이어져 있다. 경계 좌표의 측정 시각은 마이크로초까지 다르다.
+      seedPath();
+      jdbcTemplate.update(
+          "UPDATE search_path_gps_point SET client_ts = '2026-04-28T00:00:05.000001Z' WHERE point_order = 1");
+      jdbcTemplate.update(
+          "UPDATE search_path_gps_point SET client_ts = '2026-04-28T00:00:10.000002Z' WHERE point_order = 2");
+      // when: 두 경로 구간을 한 페이지로 조회한다.
+      List<SearchPathPageServiceResponse.Segment> segments =
+          twoSegmentsService.getSearchPathSegments(request(List.of(OP))).getPaths().get(0).getSegments();
+      // then: 뒤 경로 구간부터 받는다. 각 경로 구간의 시각은 자기 첫 좌표와 끝 좌표의 측정 시각이다.
+      assertThat(segments)
+          .extracting(
+              SearchPathPageServiceResponse.Segment::getStartPointOrder,
+              SearchPathPageServiceResponse.Segment::getStartedAt,
+              SearchPathPageServiceResponse.Segment::getEndedAt)
+          .containsExactly(
+              tuple(
+                  2,
+                  Instant.parse("2026-04-28T00:00:10.000002Z"),
+                  Instant.parse("2026-04-28T00:00:15Z")),
+              tuple(
+                  0,
+                  Instant.parse("2026-04-28T00:00:00Z"),
+                  Instant.parse("2026-04-28T00:00:05.000001Z")));
+    }
   }
 
   @Test

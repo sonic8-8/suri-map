@@ -53,9 +53,10 @@ public interface SearchPathMapper {
   List<SearchPathSegment> findBoardSegments(
       @Param("queries") List<SearchPathBoardSegmentQuery> queries);
 
-  List<SearchPathBoardPoint> findBoardPoints(@Param("ranges") SearchPathBoardPointRanges ranges);
-
   List<SearchPathBoardPointRun> findBoardPointRuns(
+      @Param("ranges") SearchPathBoardPointRanges ranges);
+
+  List<SearchPathBoardSegmentTime> findBoardSegmentTimes(
       @Param("ranges") SearchPathBoardPointRanges ranges);
 
   List<SearchPath> findPaths(

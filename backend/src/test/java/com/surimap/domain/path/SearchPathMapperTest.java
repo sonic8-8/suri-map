@@ -745,20 +745,20 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("상황판 좌표는 요청한 범위 순서와 범위 안 순번대로 읽고 측정 시각의 저장 범위를 보존한다")
-  void board_points_follow_requested_range_order_and_keep_stored_time_range() {
-    // given: 한 경로에 좌표 0..5를 저장하고 처음과 끝 좌표를 1970년 이전 시각과 저장 상한 시각으로 바꾼다.
+  @DisplayName("상황판 경계 시각 SQL로 읽으면 경로 구간마다 시작과 끝 GPS 좌표에 저장한 측정 시각이 요청 순서대로 나온다. 경계 좌표가 없으면 그 시각은 null이다")
+  void board_segment_times_follow_requested_order_and_keep_stored_time_range() {
+    // given: 한 경로에 좌표 0..5를 저장하고 1970년 이전 시각, 저장 상한 시각, 무한 시각을 섞는다.
     insertPath(null);
     searchPathMapper.insertGpsPoints(
         PATH_ID,
         0,
         List.of(
-            gpsPoint("board-0", "126.900000", "35.100000", "1.25", 4, "2026-04-28T00:00:00Z"),
-            gpsPoint("board-1", "126.900100", "35.100000", "1.25", 4, "2026-04-28T00:00:05Z"),
-            gpsPoint("board-2", "126.900200", "35.100000", "1.25", 4, "2026-04-28T00:00:10Z"),
-            gpsPoint("board-3", "126.900300", "35.100000", "1.25", 4, "2026-04-28T00:00:15Z"),
-            gpsPoint("board-4", "126.900400", "35.100000", "1.25", 4, "2026-04-28T00:00:20Z"),
-            gpsPoint("board-5", "-0.000001", "-35.100000", "1.25", 4, "2026-04-28T00:00:25Z")),
+            gpsPoint("time-0", "126.900000", "35.100000", "1.25", 4, "2026-04-28T00:00:00Z"),
+            gpsPoint("time-1", "126.900100", "35.100000", "1.25", 4, "2026-04-28T00:00:05Z"),
+            gpsPoint("time-2", "126.900200", "35.100000", "1.25", 4, "2026-04-28T00:00:10Z"),
+            gpsPoint("time-3", "126.900300", "35.100000", "1.25", 4, "2026-04-28T00:00:15Z"),
+            gpsPoint("time-4", "126.900400", "35.100000", "1.25", 4, "2026-04-28T00:00:20Z"),
+            gpsPoint("time-5", "126.900500", "35.100000", "1.25", 4, "2026-04-28T00:00:25Z")),
         STARTED_AT);
     jdbcTemplate.update(
         "UPDATE search_path_gps_point SET client_ts = '1969-12-31 23:59:59.999999+00'"
@@ -766,74 +766,45 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         "UPDATE search_path_gps_point SET client_ts = '294276-12-31 23:59:59.999999+00'"
             + " WHERE point_order = 5");
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = 'infinity' WHERE point_order = 2");
+    jdbcTemplate.update(
+        "UPDATE search_path_gps_point SET client_ts = '-infinity' WHERE point_order = 3");
 
-    // when: 같은 경로의 떨어진 두 범위를 뒤 범위부터 요청한다.
-    List<SearchPathBoardPoint> found =
-        searchPathMapper.findBoardPoints(
+    // when: 뒤 경로 구간(4..5), 앞 경로 구간(0..1), 무한 시각 경로 구간(2..3), 끝 좌표가 없는 경로 구간(5..6) 순서로 요청한다.
+    List<SearchPathBoardSegmentTime> found =
+        searchPathMapper.findBoardSegmentTimes(
             SearchPathBoardPointRanges.from(
                 List.of(
+                    SearchPathSegment.builder().searchPathId(PATH_ID).startIndex(4).endIndex(5).build(),
+                    SearchPathSegment.builder().searchPathId(PATH_ID).startIndex(0).endIndex(1).build(),
+                    SearchPathSegment.builder().searchPathId(PATH_ID).startIndex(2).endIndex(3).build(),
                     SearchPathSegment.builder()
                         .searchPathId(PATH_ID)
-                        .startIndex(4)
-                        .endIndex(5)
-                        .build(),
-                    SearchPathSegment.builder()
-                        .searchPathId(PATH_ID)
-                        .startIndex(0)
-                        .endIndex(1)
+                        .startIndex(5)
+                        .endIndex(6)
                         .build())));
 
-    // then: 범위 순서(1부터)와 범위 안 순번대로 읽고, 저장한 좌표와 시각을 그대로 돌려준다.
-    assertThat(found)
-        .extracting(SearchPathBoardPoint::getRangeOrder, SearchPathBoardPoint::getPointOrder)
-        .containsExactly(tuple(1, 4), tuple(1, 5), tuple(2, 0), tuple(2, 1));
-    assertThat(found.get(1).getLon()).isEqualTo(-0.000001);
-    assertThat(found.get(1).getLat()).isEqualTo(-35.1);
-    assertThat(found.get(1).getClientTs())
+    // then: 요청마다 한 행씩 받는다. 시각은 저장한 값이다. 무한 시각은 OffsetDateTime.MAX와 MIN이다. 없는 경계의 시각은 null이다.
+    assertThat(found).hasSize(4);
+    assertThat(found.get(0).getStartedAt().toInstant())
+        .isEqualTo(Instant.parse("2026-04-28T00:00:20Z"));
+    assertThat(found.get(0).getEndedAt().toInstant())
         .isEqualTo(Instant.parse("+294276-12-31T23:59:59.999999Z"));
-    assertThat(found.get(2).getClientTs()).isEqualTo(Instant.parse("1969-12-31T23:59:59.999999Z"));
+    assertThat(found.get(1).getStartedAt().toInstant())
+        .isEqualTo(Instant.parse("1969-12-31T23:59:59.999999Z"));
+    assertThat(found.get(1).getEndedAt().toInstant())
+        .isEqualTo(Instant.parse("2026-04-28T00:00:05Z"));
+    assertThat(found.get(2).getStartedAt()).isEqualTo(OffsetDateTime.MAX);
+    assertThat(found.get(2).getEndedAt()).isEqualTo(OffsetDateTime.MIN);
+    assertThat(found.get(3).getStartedAt().toInstant())
+        .isEqualTo(Instant.parse("+294276-12-31T23:59:59.999999Z"));
+    assertThat(found.get(3).getEndedAt()).isNull();
+    assertThat(found.get(3).hasBothTimes()).isFalse();
   }
 
   @Test
-  @DisplayName("상황판 좌표 범위가 5,000개를 넘어도 한 번에 빠짐없이 범위 순서대로 읽는다")
-  void board_points_read_more_than_five_thousand_ranges_at_once() {
-    // given: 한 경로에 좌표 0..10001을 저장하고 짝수 순번만 하나씩 떨어진 범위 5,001개로 만든다.
-    insertPath(null);
-    jdbcTemplate.update(
-        """
-        INSERT INTO search_path_gps_point(search_path_id,point_order,point_id,client_ts,lon,lat,speed_mps,created_at)
-        SELECT ?,n,'many-'||n,'2026-04-28T00:00:00Z'::timestamptz + n*interval '1 second',
-          126.9,35.1,1,now()
-        FROM generate_series(0,10001) n
-        """,
-        PATH_ID);
-    List<SearchPathSegment> ranges =
-        IntStream.range(0, 5001)
-            .mapToObj(
-                i ->
-                    SearchPathSegment.builder()
-                        .searchPathId(PATH_ID)
-                        .startIndex(i * 2)
-                        .endIndex(i * 2)
-                        .build())
-            .toList();
-
-    // when: 범위 5,001개를 한 번에 요청한다.
-    List<SearchPathBoardPoint> found =
-        searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(ranges));
-
-    // then: 범위마다 좌표 하나씩, 요청 순서대로 받는다.
-    assertThat(found).hasSize(5001);
-    assertThat(found)
-        .allSatisfy(
-            point -> assertThat(point.getPointOrder()).isEqualTo((point.getRangeOrder() - 1) * 2));
-    assertThat(found)
-        .extracting(SearchPathBoardPoint::getRangeOrder)
-        .containsExactlyElementsOf(IntStream.rangeClosed(1, 5001).boxed().toList());
-  }
-
-  @Test
-  @DisplayName("상황판 좌표 묶음은 요청한 범위마다 한 행으로 순번 순서의 배열과 기준 밖 시각 여부를 돌려준다")
+  @DisplayName("상황판 좌표 배열 SQL로 읽으면 요청한 범위마다 순번 순서의 좌표 배열이 한 행씩 나온다")
   void board_point_runs_return_one_row_per_requested_range_with_ordered_arrays() {
     // given: 한 경로에 좌표 0..5를 저장하고 처음 좌표는 1970년 이전, 끝 좌표는 저장 상한 시각으로 바꾼다.
     insertPath(null);
@@ -882,19 +853,16 @@ class SearchPathMapperTest extends PostGisIntegrationTestSupport {
                         .build())));
 
     // then: 좌표가 있는 범위만 요청 순서대로 한 행씩 받고, 배열은 저장 값을 순번 순서로 담는다.
+    // 측정 시각은 좌표 배열 SQL에서 읽지 않으므로 결과에 영향이 없다.
     assertThat(found)
         .extracting(
             SearchPathBoardPointRun::getRangeOrder,
             SearchPathBoardPointRun::getStartPointOrder,
-            SearchPathBoardPointRun::getPointCount,
-            SearchPathBoardPointRun::isHasOutOfRangeClientTs)
-        .containsExactly(tuple(1, 4, 2, true), tuple(2, 0, 2, false), tuple(4, 5, 1, true));
+            SearchPathBoardPointRun::getPointCount)
+        .containsExactly(tuple(1, 4, 2), tuple(2, 0, 2), tuple(4, 5, 1));
     assertThat(found.get(0).getLons()).containsExactly(126.9004, -0.000001);
     assertThat(found.get(0).getLats()).containsExactly(35.1, -35.1);
-    assertThat(found.get(0).getClientTs(0)).isEqualTo(Instant.parse("2026-04-28T00:00:20Z"));
     assertThat(found.get(1).getLons()).containsExactly(126.9, 126.9001);
-    assertThat(found.get(1).getClientTs(0)).isEqualTo(Instant.parse("1969-12-31T23:59:59.999999Z"));
-    assertThat(found.get(1).getClientTs(1)).isEqualTo(Instant.parse("2026-04-28T00:00:05Z"));
     assertThat(found.get(1).hasAllPointsThrough(1)).isTrue();
     assertThat(found.get(2).hasAllPointsThrough(6)).isFalse();
   }
