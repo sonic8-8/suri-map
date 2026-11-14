@@ -8,10 +8,10 @@ import com.surimap.api.service.path.response.SearchPathPageServiceResponse.Segme
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.SuriMapAuthentication;
-import com.surimap.domain.path.SearchPathBoardPoint;
 import com.surimap.domain.path.SearchPathBoardPointRanges;
 import com.surimap.domain.path.SearchPathBoardPointRun;
 import com.surimap.domain.path.SearchPathBoardSegmentQuery;
+import com.surimap.domain.path.SearchPathBoardSegmentTime;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathMapper;
 import com.surimap.domain.path.SearchPathSegment;
@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -415,11 +416,14 @@ public class SearchPathBoardService {
       UUID pathId = ranges.get(run.getRangeOrder() - 1).getSearchPathId();
       runsByPath.computeIfAbsent(pathId, id -> new ArrayList<>()).add(run);
     }
+    Iterator<SearchPathBoardSegmentTime> times = readSegmentTimes(pending).iterator();
     List<Path> result = new ArrayList<>();
     for (PendingPath entry : pending) {
       List<SearchPathBoardPointRun> runs = runsByPath.getOrDefault(entry.path.getId(), List.of());
-      List<Segment> segments =
-          entry.segments.stream().map(segment -> readSegment(segment, runs)).toList();
+      List<Segment> segments = new ArrayList<>();
+      for (SearchPathSegment segment : entry.segments) {
+        segments.add(readSegment(segment, runs, times.next()));
+      }
       PagePlan plan = entry.plan;
       result.add(
           createPathResponse(
@@ -475,9 +479,7 @@ public class SearchPathBoardService {
       return List.of();
     }
     List<SearchPathBoardPointRun> runs =
-        new ArrayList<>(
-            searchPathMapper.findBoardPointRuns(SearchPathBoardPointRanges.from(ranges)));
-    replaceOutOfRangeRuns(ranges, runs);
+        searchPathMapper.findBoardPointRuns(SearchPathBoardPointRanges.from(ranges));
     // 좌표가 없는 범위는 행이 없다. 범위마다 좌표가 빠짐없어야 구간 좌표를 채울 수 있다.
     if (runs.size() != ranges.size()) {
       throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
@@ -490,37 +492,27 @@ public class SearchPathBoardService {
     return runs;
   }
 
-  private void replaceOutOfRangeRuns(
-      List<SearchPathSegment> ranges, List<SearchPathBoardPointRun> runs) {
-    // 시각 배열은 294247-01-01 이상 시각과 무한 시각을 담지 못한다. 그런 범위만 좌표마다 다시 읽는다.
-    List<Integer> positions = new ArrayList<>();
-    for (int i = 0; i < runs.size(); i++) {
-      if (runs.get(i).isHasOutOfRangeClientTs()) {
-        positions.add(i);
-      }
+  private List<SearchPathBoardSegmentTime> readSegmentTimes(List<PendingPath> pending) {
+    // 응답의 경로 구간 시각은 경계 GPS 좌표의 측정 시각이다. 경로 구간 행에 저장된 시각은 쓰지 않는다.
+    List<SearchPathSegment> segments =
+        pending.stream().flatMap(entry -> entry.segments.stream()).toList();
+    if (segments.isEmpty()) {
+      return List.of();
     }
-    if (positions.isEmpty()) {
-      return;
+    List<SearchPathBoardSegmentTime> times =
+        searchPathMapper.findBoardSegmentTimes(SearchPathBoardPointRanges.from(segments));
+    // 두 시각이 모두 NULL인 행은 목록에 null로 담긴다.
+    if (times.size() != segments.size()
+        || times.stream().anyMatch(time -> time == null || !time.hasBothTimes())) {
+      throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
     }
-    List<SearchPathSegment> rereadRanges =
-        positions.stream().map(i -> ranges.get(runs.get(i).getRangeOrder() - 1)).toList();
-    Map<Integer, List<SearchPathBoardPoint>> pointsByRange = new HashMap<>();
-    for (SearchPathBoardPoint point :
-        searchPathMapper.findBoardPoints(SearchPathBoardPointRanges.from(rereadRanges))) {
-      pointsByRange.computeIfAbsent(point.getRangeOrder(), order -> new ArrayList<>()).add(point);
-    }
-    for (int k = 0; k < positions.size(); k++) {
-      SearchPathBoardPointRun run = runs.get(positions.get(k));
-      runs.set(
-          positions.get(k),
-          SearchPathBoardPointRun.fromPoints(
-              run.getRangeOrder(),
-              run.getStartPointOrder(),
-              pointsByRange.getOrDefault(k + 1, List.of())));
-    }
+    return times;
   }
 
-  private Segment readSegment(SearchPathSegment segment, List<SearchPathBoardPointRun> pathRuns) {
+  private Segment readSegment(
+      SearchPathSegment segment,
+      List<SearchPathBoardPointRun> pathRuns,
+      SearchPathBoardSegmentTime time) {
     SearchPathBoardPointRun run = findRun(pathRuns, segment.getStartIndex());
     if (run == null || !run.contains(segment.getStartIndex(), segment.getEndIndex())) {
       throw new BusinessException(ErrorCode.SEARCH_PATH_QUERY_NOT_READY);
@@ -537,8 +529,8 @@ public class SearchPathBoardService {
         .movementType(segment.getMovementType())
         .coordinates(
             IntStream.rangeClosed(first, last).mapToObj(i -> List.of(lons[i], lats[i])).toList())
-        .startedAt(run.getClientTs(first))
-        .endedAt(run.getClientTs(last))
+        .startedAt(time.getStartedAt().toInstant())
+        .endedAt(time.getEndedAt().toInstant())
         .build();
   }
 
