@@ -498,7 +498,7 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("이력·변경분 페이지는 구간과 좌표 결과를 기본 100행 단위로 나눠 받지 않는다")
+  @DisplayName("경로 이력과 경로 변경분 페이지는 경로 구간 결과를 10000행 단위로 받고 좌표 배열 결과는 나눠 받지 않는다")
   void board_segments_and_points_are_not_fetched_in_default_row_batches() {
     // given: 이력과 변경분 조회 모두 구간·좌표 SQL을 실행하는 경로를 둔다.
     seedPath();
@@ -527,9 +527,9 @@ class SearchPathBoardServiceTest extends PostGisIntegrationTestSupport {
     assertThat(changed.getPaths())
         .singleElement()
         .satisfies(path -> assertThat(path.getSegments()).hasSize(1));
-    // then: 두 SQL은 100행마다 DB와 다시 왕복하지 않도록 10000행 단위로 받는다.
+    // then: 경로 구간 SQL은 10000행 단위로 받는다. 좌표 배열 SQL은 행 수 제한 없이 한 번에 받는다.
     assertThat(fetchSizes.get("findBoardSegments")).hasSize(2).containsOnly(10000);
-    assertThat(fetchSizes.get("findBoardPointRuns")).hasSize(2).containsOnly(10000);
+    assertThat(fetchSizes.get("findBoardPointRuns")).hasSize(2).containsOnly(0);
   }
 
   @Test

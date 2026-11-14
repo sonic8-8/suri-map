@@ -431,7 +431,10 @@
 
     <!-- 범위마다 한 행으로 묶어 좌표마다 행을 만들지 않는다. 배열은 순번 오름차순이고 범위 안 좌표가 모두 있으면 길이가 범위 길이와 같다. -->
     <!-- 좌표가 없는 범위는 행이 없다. 시각 계산과 294247-01-01 기준은 findBoardPoints와 같다. 기준 밖 시각이 있으면 표시만 하고 그 범위는 findBoardPoints로 다시 읽는다. -->
-    <select id="findBoardPointRuns" resultMap="searchPathBoardPointRunMap" fetchSize="10000">
+    <!-- 이 SQL은 fetch size 0으로 결과를 한 번에 받는다. 트랜잭션 안에서 fetch size가 0보다 크면 병렬 작업자가 쓰이지 않기 때문이다.
+         한 번에 받아도 되는 이유는 응답에 담기로 정한 경로 구간의 좌표만 읽기 때문이다. 결과 행 수는 이어지는 순번 범위의 수다.
+         배열에 담기는 좌표 수는 응답의 좌표 한도를 넘지 않는다. -->
+    <select id="findBoardPointRuns" resultMap="searchPathBoardPointRunMap" fetchSize="0">
         SELECT r.range_order::integer AS range_order, r.start_order AS start_point_order,
                count(*)::integer AS point_count,
                array_agg(g.lon::float8 ORDER BY g.point_order) AS lons,
