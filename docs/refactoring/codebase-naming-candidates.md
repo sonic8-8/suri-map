@@ -63,6 +63,11 @@
 | [IncidentHandoverSupportAssignmentScenarioTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentScenarioTest.java) | `ScenarioTest`를 별도 분류로 쓰지 않기로 한 기준에 맞춰 검증 대상별 분리·통합과 이름을 정한다. 실제 DB·FCM 호출 검사와 SSE 직접 호출·고정 자료 조립·probe 행 검사를 구분한다. |
 | [MarkerPhotoPurgeHook](../../backend/src/main/java/com/surimap/api/service/photo/MarkerPhotoPurgeHook.java)·[MarkerPhotoPurgeHookAdapter](../../backend/src/main/java/com/surimap/api/service/photo/MarkerPhotoPurgeHookAdapter.java) | 패키지 이동은 끝났지만 실제 삭제 구현·빈 등록은 별도 확인 대상이다. 이름 변경만으로 연결 누락을 해결한 것으로 보지 않는다. |
 | [남은 마커 테스트·fixture](../../backend/src/test/java/com/surimap/marker/) | 운영 `com/surimap/marker` 디렉터리는 제거했지만 테스트 디렉터리까지 정리한 것은 아니다. 각 검증의 대상·중복·대역 사용을 확인한다. |
+| [MarkerCreateRuntimeGuardIntegrationTest](../../backend/src/test/java/com/surimap/marker/MarkerCreateRuntimeGuardIntegrationTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `Integration` 분류 접미사가 붙었다. 운영 `marker` 패키지를 없앤 뒤 남은 테스트 위치다. |
+| [MarkerWriteAccessData](../../backend/src/main/java/com/surimap/domain/marker/MarkerWriteAccessData.java), [MarkerMutationLegacyRequestBody](../../backend/src/main/java/com/surimap/domain/marker/MarkerMutationLegacyRequestBody.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 도메인 패키지에 요청 본문 형식이 있다. `LegacyRequestBody`는 저장된 옛 요청 해시와 비교하는 데 쓰이므로 해시 입력은 바꾸지 않는다. 위치와 이름만 검토한다. |
+| [EventHubIncidentEventPublisher](../../backend/src/main/java/com/surimap/incident/event/EventHubIncidentEventPublisher.java), [EventHubOperationalPeriodEventPublisher](../../backend/src/main/java/com/surimap/operationalperiod/event/EventHubOperationalPeriodEventPublisher.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 공용 발행자 이름을 `EventPublisher`로 바꾼 뒤에도 옛 `EventHub` 접두사가 남았다. 운영 구현은 각각 하나뿐이다. `Blocking*` 대체 구현은 이 클래스가 `@Component`라서 운영에서 등록되지 않는다. 발행자 정리 때 `{Domain}EventPublisher` 규칙에 맞춘다. |
+| [EventPublisherPort](../../backend/src/main/java/com/surimap/operationalperiod/event/EventPublisherPort.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 수색 차수 전용 포트인데 공용 `EventPublisher`와 구분되지 않는 일반 이름이다. 운영 구현과 테스트 대역이 있지만, 바꿔 끼우는 대상이 공용 `EventPublisher`와 같다. 조사 문서에는 두 seam이 겹친다고 적었다. 공용 `EventPublisher`와 합치지 않기로 정할 때만 이름을 정한다. |
+| [FcmDispatcherPort](../../backend/src/main/java/com/surimap/client/fcm/FcmDispatcherPort.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `Port` 접미사와 주석의 옛 명세 번호(S4, S5)가 남았다. 운영 구현 `FirebaseFcmDispatcher`와 대역 `MockFcmDispatcher`가 있으므로 interface는 남긴다. 이름과 주석만 정리한다. |
 
 [Spring 명명 조사](../research/spring-sse-class-naming.md)는 프레임워크 클래스의 역할 비교다. 이후 Aside로 [국내 기업의 공개 코드](../research/korean-company-sse-naming.md)를 확인했다. 이 자료의 후보는 회사 전체 관행이나 변경 승인이 아니며, 최신 결정은 위 항목별 상태를 따른다.
 
@@ -130,6 +135,9 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | [IncidentFlowHarnessMockContractTest](../../backend/src/test/java/com/surimap/incident/IncidentFlowHarnessMockContractTest.java) | 공용 JSON 로딩과 인증·OP1·이벤트 대역 간 호출을 검사함. 실제 가져오기·DB 검증과 구분해 필요한 검사·이름을 결정 |
 | [Sc03PackageTileHarnessRunner](../../backend/src/test/java/com/surimap/offlinepackage/Sc03PackageTileHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
 | [PurgeOrchestrationHarnessRunner](../../backend/src/test/java/com/surimap/retention/purge/harness/PurgeOrchestrationHarnessRunner.java) | 실제 실행 역할에 맞는 테스트 지원 코드 이름 |
+| [InMemoryFcmTokenFixtureStoreTest](../../backend/src/test/java/com/surimap/policephone/InMemoryFcmTokenFixtureStoreTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 이름의 대상인 `InMemoryFcmTokenFixtureStore` 클래스가 운영 코드와 테스트 코드 어디에도 없다. 실제 검증 대상을 확인해 `<검증 대상>Test`로 정리한다. |
+| [IdempotentWriteServiceBehaviorTest](../../backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `IdempotentWriteServiceTest`와 검증 대상이 겹친다. 운영에서 쓰이지 않는 `@IdempotentWrite`를 붙인 곳은 이 테스트뿐이다. 애너테이션을 남길지 정할 때 통합 여부를 함께 정한다. |
+| [SyncClockContractTest](../../backend/src/test/java/com/surimap/sync/clock/SyncClockContractTest.java), [OfflinePackageInstallationQueryContractTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationQueryContractTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `Contract` 분류 대신 실제 검증 대상을 드러낼 후보다. |
 
 ## Backend — 시나리오 번호 파일
 
@@ -172,6 +180,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [S8IdempotencyFixtures](../../backend/src/test/java/com/surimap/operationalperiod/fixture/S8IdempotencyFixtures.java) | Spec 번호 대신 차수 전환의 중복 요청·충돌 입력이라는 역할을 드러낼 필요가 있음 |
 | [OperationalPeriodFixtureExactnessTest](../../backend/src/test/java/com/surimap/operationalperiod/fixturetest/OperationalPeriodFixtureExactnessTest.java) | 고정값 대조와 실제 차수 전환 검증을 구분. 옛 상태·URL을 고정한 검사의 필요성을 함께 확인 |
 | [IncidentHandoverSupportAssignmentContractTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentContractTest.java) | `Contract` 분류 대신 인계·지원 배정의 실제 검증 대상을 드러낼 필요가 있음 |
+| [resources/mapper/op/OperationalPeriodMapper.xml](../../backend/src/main/resources/mapper/op/OperationalPeriodMapper.xml) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. XML 폴더 이름 `op`가 Java 패키지 이름 `operationalperiod`와 다르다. Mapper scan 경로와 함께 확인한다. |
 
 ## 사건 가져오기·배정·종료
 
@@ -188,6 +197,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [IncidentImportApiContractTest](../../backend/src/test/java/com/surimap/incident/IncidentImportApiContractTest.java) | 가져오기 Controller·Service·DB 검증을 구분해 명명 |
 | [Mock112WebhookIncidentCloseIntegrationTest](../../backend/src/test/java/com/surimap/incident/Mock112WebhookIncidentCloseIntegrationTest.java) | 웹훅 종료 처리의 실제 검증 대상·외부 대역 범위를 드러내도록 명명 |
 | [IncidentAssignmentAccessGuard](../../backend/src/main/java/com/surimap/incident/service/IncidentAssignmentAccessGuard.java) | 계정에 활성 배정이 하나라도 있는지만 검사함. 선택한 사건의 접근 권한까지 확인하는 이름으로 오해되지 않도록 책임부터 확인 |
+| [IncidentAssignmentView](../../backend/src/main/java/com/surimap/incident/service/IncidentAssignmentView.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 이름은 배정 조회 화면 값처럼 보인다. 실제로는 마커 알림 수신자를 조회하는 데 쓰인다. 쓰는 곳은 `MarkerNotificationService`뿐이다. |
+| [IncidentCloseService](../../backend/src/main/java/com/surimap/incident/service/IncidentCloseService.java)의 `insertImportIdempotencyRecord` 호출 | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 사건을 종료할 때 가져오기 이름의 메서드로 공용 `idempotency_record`에 기록된다. Mapper 메서드 이름이 실제 대상 테이블과 쓰임을 드러내도록 검토한다. |
 
 ## 인증·파기·수색 구역·경로·상황판
 
@@ -230,12 +241,18 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [SearchPathServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathServiceTest.java)의 영문 `DisplayName` | 2026-10-02 조회 일관성 진단 중 확인. 2026-10-06 클래스 표시명은 제거했다. 남은 영문 메서드 표시명은 기존 검증을 유지하며 조건·기대 결과를 한글로 표현할 후보다. |
 | [SseSequenceMigrationTest](../../backend/src/test/java/com/surimap/database/SseSequenceMigrationTest.java) | 2026-10-06 전체 회귀 검사에서 확인. 프로젝트 SSE 이름을 풀어 쓰는 합의와 맞지 않는 `Sse` 접두사다. 실제 검증 대상인 순번·저장 순서 migration을 드러내는 이름으로 정리한다. 이번에는 검증 대상 migration의 버전만 고정하고 이름은 유지했다. |
 | [SearchPathQueryPerformanceServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathQueryPerformanceServiceTest.java) | 2026-10-02 조회 시간 초과 수정 중 확인. 실제 대상은 `SearchPathService`이며 이름에 해당하는 별도 서비스는 없다. 기존 Service 테스트로의 통합·성능 태그 유지와 클래스 영문 표시명 제거를 검토한다. 이번에는 이름·실행 범위를 바꾸지 않았다. |
-| [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것 |
+| [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것. 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 클래스 이름도 확인했다. 이름은 저장 서비스지만 heartbeat 기록, FCM 토큰 저장, 배정 검사까지 맡는다. 맡은 일을 나눌지 정한 뒤 클래스 이름을 맞춘다. |
 | [GeometryPolicy.s2HarnessDefault](../../backend/src/main/java/com/surimap/maparea/geometry/policy/GeometryPolicy.java) | 운영 검증 설정에서도 쓰는 값에 Spec 번호·시험용 기본값 이름이 남음. 적용 범위 확인 |
 | [DefaultIncidentBoardSourceRowCollector](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `geometryHash`·`latestEventId` 생성 | 좌표 해시·실제 이벤트 조회로 오해할 수 있으나 ID·상태·버전으로 값을 만듦. 공개 필드 호환성과 실제 추적 요구를 함께 검토 |
 | [IncidentBoardController](../../backend/src/main/java/com/surimap/board/IncidentBoardController.java)의 `sinceVersion`·[BoardAssembler](../../backend/src/main/java/com/surimap/board/BoardAssembler.java)의 `boardResponseVersion` | 2026-10-02 확인: `sinceVersion`은 수집기로 전달되지만 조회 필터로 사용되지 않는다. 응답 버전은 서로 다른 원본 행 버전의 최댓값이므로 사건 전체의 변경 순번이 아니다. 증분 조회 기준처럼 사용하는 것을 피하고, 갱신 설계 때 역할·공개 필드 호환성을 함께 검토한다. 이번에는 후보만 등록했다. |
 | [boardMapFeatures.ts](../../frontend/src/shared/model/boardMapFeatures.ts)의 `createMovementCurrentPositionFeature`·`currentPosition` | 2026-10-02 확인: 받은 경로 중 계정별로 선택한 항목의 끝점이며 실제 현재 위치나 미수신 구간까지 포함한 최신 위치를 보장하지 않는다. 부분 로딩 설계에서 마지막 기록 지점·측정 시각과의 관계를 확인하고 이름을 정한다. 연결된 `geometryType`·source/layer·계측 소비자를 대조하기 전에는 변경하지 않는다. 이번에는 후보만 등록했다. |
 | [OfflinePackageRepositoryReadOnlyQueryTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageRepositoryReadOnlyQueryTest.java) | 읽기 전용 조회뿐 아니라 manifest의 타일 계산·담당 구역 필터도 검증한다. 실제 검증 대상에 맞춘 이름·통합과 영문 DisplayName을 검토한다. 커넥션 대기 회귀는 실제 DB를 쓰는 `OfflinePackageServiceTest`로 구분했으며 기존 테스트 이름은 바꾸지 않았다. |
+| [IncidentClosedPurgeHandler](../../backend/src/main/java/com/surimap/retention/purge/IncidentClosedPurgeHandler.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 이름은 종료 이벤트를 처리하는 Handler다. 그러나 `DomainEventConsumer`를 구현하지 않아서 운영에서는 이 클래스로 이벤트가 전달되지 않는다. 파기 연결 방식을 정한 뒤 이름을 맞춘다. 이름만 바꿔 연결 누락을 해결한 것으로 보지 않는다. |
+| [PackageBadgeBoardAssembler](../../backend/src/main/java/com/surimap/board/PackageBadgeBoardAssembler.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 응답을 조립하지 않고 상황판 원본 행만 만든다. 안에 `"S7"`, `"evt-s7-package-status-001"`, 고정 해시가 박혀 있다. 행 생성 역할이 드러나는 이름과 고정값 제거를 함께 검토한다. |
+| [BoardDTO](../../backend/src/main/java/com/surimap/board/BoardDTO.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `DTO`만으로는 HTTP 응답인지 조립 중간 값인지 드러나지 않는다. 상황판 패키지를 옮길 때 실제 역할에 맞춘다. |
+| [PathExceptionHandler](../../backend/src/main/java/com/surimap/app/controller/path/PathExceptionHandler.java), [SearchPathApiException](../../backend/src/main/java/com/surimap/domain/path/SearchPathApiException.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 앱 쪽 처리기 이름이 웹 쪽 `SearchPathExceptionHandler`와 대칭이 아니다. 도메인 패키지의 예외 이름에 `Api`가 붙었다. 두 처리기를 `GlobalExceptionHandler`로 합칠지 정할 때 함께 정리한다. |
+| [common/auth/SuriMapAuthentication](../../backend/src/main/java/com/surimap/common/auth/SuriMapAuthentication.java), [global/auth/SuriMapAuthentication](../../backend/src/main/java/com/surimap/global/auth/SuriMapAuthentication.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 같은 이름의 class와 record가 두 패키지에 있다. 그래서 둘을 이어 주는 Resolver에서 패키지 전체 이름을 쓴다. 하나로 합칠지 정한 뒤 이름을 정리한다. |
+| [OfflinePackageRepository](../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageRepository.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `@Repository`인데 service 패키지에 있다. 실제로는 원천 조회 6개로 manifest를 조립한다. 설치 상태 저장도 맡는다. 고정 테스트 자료를 넣는 분기도 있다. 역할을 나눈 뒤 이름을 정한다. |
 
 ## 지도·AI 연동·GPS 수집
 
@@ -248,6 +265,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [SearchPathGpsBatchRecorder.FLUSH_INTERVAL_MS](../../android/app/src/main/java/com/surimap/feature/search/data/SearchPathGpsBatchRecorder.kt) | 고정 HTTP 전송 주기가 아니라 모인 좌표의 측정 시간 범위를 검사하는 값이다. 시간 범위 조건이 드러나도록 검토 |
 | [TileManifestFixtureExactnessTest](../../backend/src/test/java/com/surimap/offlinepackage/TileManifestFixtureExactnessTest.java) | 고정 시험 데이터의 값·참조를 검사한다. 실제 타일 준비·서빙 검증과 구분하고 필요한 검사·이름을 함께 정리 |
 | [OfflinePackageManifestSourceIntegrationTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestSourceIntegrationTest.java) | `Integration` 분류 대신 검증 대상에 맞춰 정리할 후보다. 사건·차수·구역·마커 조회와 이벤트가 대역인 구성을 실제 전체 연동 시험과 구분 |
+| [LocationRecorder.kt](../../android/app/src/main/java/com/surimap/core/location/LocationRecorder.kt) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 파일 이름과 같은 `interface LocationRecorder`는 구현도 호출도 없다. 실제로 쓰이는 것은 같은 파일의 `LocationUpdates`와 `AndroidLocationUpdates`다. [Android 규칙](../../android/AGENTS.md)에는 GPS 수집 주기를 확인할 파일로 이 파일이 적혀 있다. 이름을 바꾸면 규칙도 함께 고친다. |
 
 ## 이벤트 전송 처리 클래스
 
@@ -292,6 +310,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [errorCode()](../../frontend/src/shared/api/client.ts) | `resolveApiErrorCode` — 응답 본문 또는 HTTP 상태로 오류 코드 결정 |
 | [incidentBoardQueryKeyParams() / emptyCursor()](../../frontend/src/features/board/api/incidentBoardApi.ts) | `buildIncidentBoardQueryKeyParams` / `createEmptyBoardSourceCursor` |
 | [geometryUtils.ts](../../frontend/src/features/areaEdit/presentation/utils/geometryUtils.ts)·[AreaEditMapCanvas.tsx](../../frontend/src/features/areaEdit/presentation/components/AreaEditMapCanvas.tsx)의 signedArea() / isBetween() | 각각 삼각형 부호 면적의 2배 계산·좌표 범위 검사에 맞춰 명명 |
+| [searchPathApi.ts의 `createManualPath`](../../frontend/src/features/path/api/searchPathApi.ts) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 꺼져 있는 개발용 경로 편집기에서만 호출된다. 이 함수로 WEB 채널에서 앱 전용 쓰기가 호출되는데, 이름에는 이 사실이 드러나지 않는다. 남길지부터 정한다. |
 
 ## Android
 
@@ -304,6 +323,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [HarnessStatusMapper](../../android/app/src/main/java/com/surimap/core/sync/OutboxStateMachine.kt) | 상태 변환 역할·실사용 여부 확인 후 결정 |
 | [MarkerPhotoPayloadReader / read()](../../android/app/src/main/java/com/surimap/feature/marker/data/MarkerPhotoPayloadReader.kt) | 읽기뿐 아니라 이미지 변환·압축을 하는 역할이 드러나도록 명명 |
 | [OutboxHarnessIntegrationTest](../../android/app/src/test/java/com/surimap/core/sync/OutboxHarnessIntegrationTest.kt) | 공용 catalog와 Outbox 대역 흐름을 확인한다. `Harness`·`Integration` 대신 실제 검증 대상을 확인해 `<대상>Test`로 정리 |
+| [NetworkOutboxSender.kt](../../android/app/src/main/java/com/surimap/core/network/NetworkOutboxSender.kt) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 파일 이름과 안의 클래스 이름 `HttpOutboxSender`가 다르다. |
+| [MarkerPhotoRouteContractTest](../../android/app/src/test/java/com/surimap/feature/marker/MarkerPhotoRouteContractTest.kt), [IncidentAssignmentNotificationContractTest](../../android/app/src/test/java/com/surimap/core/fcm/IncidentAssignmentNotificationContractTest.kt) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. Android의 `Contract` 접미사 테스트다. 하위 조사에 따르면 뒤의 파일에는 소스 문자열을 검사하는 테스트가 있다. 실제 동작 검증과 구분해 이름과 필요성을 정한다. |
 
 ## mock-112
 
