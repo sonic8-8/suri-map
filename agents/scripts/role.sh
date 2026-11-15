@@ -16,6 +16,8 @@ usage:
                                             Codex 역할을 <dir>에서 띄운다
   role.sh restart-codex <agent> <dir> -- <codex args>
                                             Codex 역할을 끝내고 <dir>에서 다시 띄운다
+  role.sh next-verify <agent> <prev dir> <archive dir> <note file> [input...] -- -m <model> <codex args>
+                                            이전 검수 회차를 <archive dir>에 보관하고 새 회차 폴더에서 검수자를 다시 띄운다
 EOF
   exit 2
 }
@@ -137,6 +139,37 @@ restart_codex() {
   start_codex "$name" "$pane" "$dir" "$@"
 }
 
+# 검수 회차마다 직접 조합하던 순서(보관, 새 폴더, inputs 복사, 이전 결과 넘기기, 배정 덧붙이기, 다시 띄우기, 모델 확인)를 고정한다.
+# <note file>은 이번 회차에 바뀐 것을 적은 Markdown이고 assignment.md 끝에 붙는다. [input...]은 inputs/에 같은 이름으로 복사돼 이전 회차의 파일을 바꾼다.
+next_verify() {
+  local name=$1 prev=${2%/} archive=$3 note=$4 next model
+  shift 4
+  local files=()
+  while [ $# -gt 0 ] && [ "$1" != -- ]; do files+=("$1"); shift; done
+  [ "${1:-}" = -- ] && shift
+  model=$(printf '%s\n' "$@" | grep -A1 -x -- -m | tail -1 || true)
+  # 모델 확인을 빠뜨린 채 성공하지 않도록 -m을 필수로 받는다.
+  [ -n "$model" ] && [ "$model" != -m ] || { echo "no_model: <codex args>에 -m <모델>을 넣는다" >&2; return 1; }
+  [ -f "$prev/result.md" ] || { echo "no_result: $prev/result.md" >&2; return 1; }
+  [ -f "$note" ] || { echo "no_note: $note" >&2; return 1; }
+  mkdir -p "$archive"
+  cp "$prev/result.md" "$archive/"
+  [ -d "$prev/evidence" ] && cp -r "$prev/evidence" "$archive/"
+  next=$(mktemp -d "${ROLE_VERIFY_ROOT:-/tmp}/suri-verify-XXXX")
+  mkdir -p "$next/inputs"
+  [ -d "$prev/inputs" ] && cp -r "$prev/inputs/." "$next/inputs/"
+  [ ${#files[@]} -eq 0 ] || cp "${files[@]}" "$next/inputs/"
+  cp "$prev/result.md" "$next/inputs/previous-result.md"
+  { cat "$prev/assignment.md"; echo; cat "$note"; } > "$next/assignment.md"
+  echo "next_dir: $next"
+  restart_codex "$name" "$next" "$@"
+  # 화면의 모델 표시는 대소문자만 다르다(gpt-6.1-sol, GPT-6.1-Sol).
+  if ! herdr agent read "$name" --source visible 2>/dev/null | grep -qiF -- "$model"; then
+    echo "model_not_shown: $model" >&2
+    return 1
+  fi
+}
+
 case ${1:-} in
   send) [ $# -eq 3 ] || usage; send "$2" "$3" ;;
   wait) [ $# -ge 2 ] || usage; wait_settled "$2" "${3:-30}" ;;
@@ -145,5 +178,6 @@ case ${1:-} in
   start-reviewer) [ $# -eq 5 ] || usage; shift; start_reviewer "$@" ;;
   start-codex) [ $# -ge 4 ] || usage; shift; start_codex "$@" ;;
   restart-codex) [ $# -ge 3 ] || usage; shift; restart_codex "$@" ;;
+  next-verify) [ $# -ge 5 ] || usage; shift; next_verify "$@" ;;
   *) usage ;;
 esac

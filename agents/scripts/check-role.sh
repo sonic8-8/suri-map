@@ -74,4 +74,32 @@ grep -qx 'pane run w1:p5 cd /w' "$work/log" && grep -q "Edit(//run/1/\\*\\*)\$" 
 case_ "start-reviewer refuses a relative run folder" 'idle' 0 '' 1 '' start-reviewer r w1:p5 /w run/1
 case_ "start-reviewer refuses a relative worktree" 'idle' 0 '' 1 '' start-reviewer r w1:p5 w /run/1
 grep -q 'agent start' "$work/log" && { echo "FAIL start-reviewer started with a relative run folder"; failed=1; }
+# next-verify는 출력에 새 폴더 이름이 들어가므로 case_ 대신 종료 코드, 폴더 내용과 호출 기록을 직접 본다.
+prev="$work/prev" vroot="$work/vtmp"
+mkdir -p "$prev/inputs" "$prev/evidence" "$vroot"
+echo A >"$prev/assignment.md"; echo R >"$prev/result.md"; echo E >"$prev/evidence/e.txt"
+echo old >"$prev/inputs/m.txt"; echo keep >"$prev/inputs/k.txt"; mkdir -p "$work/new"; echo new >"$work/new/m.txt"
+printf '## 2회차\n' >"$work/note.md"
+next_verify() { # name, statuses, screen, expected exit, extra env...
+  local name=$1 statuses=$2 screen=$3 want_exit=$4
+  shift 4
+  printf '%b\n' "$statuses" >"$work/statuses"; printf '%s' "$screen" >"$work/screen"; : >"$work/log"
+  rm -rf "$vroot"/* "$work/archive"
+  out=$(env "$@" ROLE_VERIFY_ROOT="$vroot" timeout 10 "$here/role.sh" next-verify a "$prev" "$work/archive" "$work/note.md" "$work/new/m.txt" -- -m gpt-6.1-sol 2>"$work/err")
+  code=$?
+  dir=$(printf '%s\n' "$out" | sed -n 's/^next_dir: //p')
+  if [ "$code" = "$want_exit" ] && [ -n "$dir" ]; then echo "PASS $name"; else echo "FAIL $name: exit=$code out=$out"; failed=1; fi
+}
+next_verify "next-verify archives the round, copies inputs and starts Codex in a new folder" 'working\ngone' 'GPT-6.1-Sol xhigh' 0
+[ "$(cat "$dir/inputs/m.txt" "$dir/inputs/k.txt" "$dir/inputs/previous-result.md")" = "$(printf 'new\nkeep\nR')" ] &&
+  [ "$(cat "$dir/assignment.md")" = "$(printf 'A\n\n## 2회차')" ] && [ -f "$work/archive/result.md" ] && [ -f "$work/archive/evidence/e.txt" ] &&
+  grep -qx "pane run w1:p9 cd $dir" "$work/log" || { echo "FAIL next-verify folder contents"; cat "$work/log"; failed=1; }
+next_verify "next-verify fails when the screen does not show the model" 'working\ngone' 'gpt-5 high' 1
+grep -q 'model_not_shown: gpt-6.1-sol' "$work/err" || { echo "FAIL next-verify did not report the missing model"; failed=1; }
+next_verify "next-verify stops before the model check when Codex does not exit" 'working' '' 1 ROLE_EXIT_CHECKS=1
+grep -q 'still_running' "$work/err" && ! grep -q 'agent read\|agent start' "$work/log" || { echo "FAIL next-verify went on after still_running"; cat "$work/log"; failed=1; }
+: >"$work/log"; rm -rf "$vroot"/*
+ROLE_VERIFY_ROOT="$vroot" timeout 10 "$here/role.sh" next-verify a "$prev" "$work/archive2" "$work/note.md" -- -s x >/dev/null 2>"$work/err"
+[ $? = 1 ] && grep -q no_model "$work/err" && [ -z "$(ls "$vroot")" ] && [ ! -e "$work/archive2" ] && [ ! -s "$work/log" ] &&
+  echo "PASS next-verify refuses to run without -m" || { echo "FAIL next-verify ran without -m"; failed=1; }
 exit $failed

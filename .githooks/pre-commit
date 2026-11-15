@@ -32,4 +32,12 @@ if [ -n "$links" ]; then
   failed=1
 fi
 
+# develop에 병합하면 바로 실서버에 배포되므로, 기능 정의 문서의 미배포 표시는 병합하는 순간 틀린 말이 된다.
+deploy=$(printf '%s\n' "$added" | grep -E '^docs/features/[^:]*\.md:[0-9]+: ' | grep -E '미배포|배포 전\)')
+if [ -n "$deploy" ]; then
+  echo "기능 정의 문서에는 미배포나 배포 전 대신 날짜와 검증 범위를 써 주세요." >&2
+  echo "$deploy" >&2
+  failed=1
+fi
+
 exit $failed

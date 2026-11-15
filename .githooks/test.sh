@@ -135,6 +135,18 @@ reset
 expect_pre block "문서에 상대 경로 .scratch 링크 추가" docs/issues/a.md "[기록](../../.scratch/a/result.md)"
 
 reset
+expect_pre block "기능 정의 문서에 미배포 표시" docs/features/a.md "- **수정 (2026-11-15, 미배포)**: 내용"
+
+reset
+expect_pre block "기능 정의 문서에 배포 전 표시" docs/features/a.md "- **수정 (2026-11-15, 배포 전)**: 내용"
+
+reset
+expect_pre pass "기능 정의 문서에 실서버 적용 날짜" docs/features/a.md "- **수정 (2026-11-15 실서버 적용)**: 내용"
+
+reset
+expect_pre pass "문제 해결 기록의 미배포 표시" docs/problem-solving-records/a.md "- 비차단 쓰기(2026-09-29, 미배포)"
+
+reset
 expect_pre pass "문서에 .scratch 경로만 언급" agents/a.md "티켓은 \`.scratch/<도메인>/issues/\`에 둔다."
 
 reset
