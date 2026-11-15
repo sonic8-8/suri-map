@@ -13,8 +13,10 @@ description: 작업자와 다른 모델로 결과를 티켓 Issue의 Acceptance 
 
 ## 규칙
 
-- 저장소를 바꾸지 않는다. 결과는 검수 회차 폴더의 `result.md`에, 명령 출력은 그 폴더의 `evidence/`에만 쓴다. 재현에 쓰는 코드와 임시 파일도 이 폴더 안에만 만든다.
-- git은 읽기 명령(`diff`, `grep`, `show`, `log`, `ls-files`, `status`)만 `--no-optional-locks`를 붙여 쓴다.
+- 저장소를 바꾸지 않는다. 결과는 검수 회차 폴더의 `result.md`에, 명령 출력은 그 폴더의 `evidence/`에만 쓴다. 재현에 쓰는 코드와 임시 파일도 이 폴더 안에만 만든다. Gradle이 `~/.gradle`에 쓰는 캐시는 예외다.
+- git은 읽기 명령(`diff`, `grep`, `show`, `log`, `ls-files`, `status`, `archive`)만 `--no-optional-locks`를 붙여 쓴다.
+- Backend 테스트는 `mkdir -p <회차 폴더>/source`로 폴더를 만들고 저장소를 `git --no-optional-locks -C <저장소> archive <커밋> | tar -x -C <회차 폴더>/source`로 푼 소스의 `backend`에서 실행한다. daemon 경로는 회차 폴더로 옮긴다(`./gradlew --no-daemon -Dorg.gradle.daemon.registry.base=<회차 폴더>/gradle-daemon test ...`). `~/.gradle/daemon`에 다른 사용자 소유의 파일이 있으면 기본 실행이 시작되지 않기 때문이다.
+- 네트워크는 `./gradlew`의 의존성 다운로드와 Testcontainers에만 쓴다. Docker 명령은 조회(`docker version`, `docker ps`)만 직접 실행한다. 실서버 접속과 pane 조작(`herdr`)은 하지 않는다. 그런 근거가 필요하면 오케스트레이터에게 출력 원본을 요청한다.
 - 같은 종류의 문제는 판정 대상 전체에서 남은 곳을 모두 한 번에 적는다.
 - 판정은 결과물, 기준 문서, 직접 실행한 근거로 한다. 직접 얻지 못한 근거는 오케스트레이터가 넘긴 출력 원본으로 대신하고, 그 이유를 판정에 적는다.
 - 배포 번호, 날짜, 커밋처럼 이력을 적은 문장은 그 식별자(커밋 번호, Jenkins 빌드 번호, migration 버전)로 저장소를 `git grep`해 다르게 적힌 기록을 찾는다. 넘겨받은 근거와 다른 기록이 있으면 지적한다.

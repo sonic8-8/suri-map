@@ -32,14 +32,14 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 - **spec과 티켓:** TODO 항목 하나를 `/mattpocock-skills:to-spec`으로 spec Issue 하나로 만들고, `/mattpocock-skills:to-tickets`로 그 sub-issue인 티켓 Issue로 나눈다. 두 스킬은 모델이 부를 수 없으므로 사용자에게 차례로 불러 달라고 한다. Issue 형식과 `gh` 명령은 각 스킬과 [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)를 따른다. 티켓의 판정 기준은 Issue 본문의 `## Acceptance criteria`다. TODO 완료 조건은 TODO 항목에만 두고 Issue에 옮겨 적지 않는다. Issue 본문에는 `TODO.md`와 `.scratch/` 링크를 넣지 않는다.
 - **Issue 올리기:** spec 본문, 티켓 목록과 본문, blocker를 한 번에 보여 주고 승인받은 뒤 올린다. 티켓에는 `ready-for-agent` 라벨을 붙인다.
 - **배정 대상:** spec의 열린 sub-issue 가운데 이번 런에서 아직 검수를 통과하지 않았고, `ready-for-agent` 라벨이 있고, blocker가 모두 닫힌 티켓이다. 여럿이면 sub-issue 순서의 첫 티켓을 배정한다.
-- **Issue 사본:** 배정할 때 `gh issue view <번호> --json number,title,body,labels` 출력을 실행 기록 폴더의 `inputs/issue-<번호>.json`에 저장하고, 역할에게는 이 경로를 넘긴다. 런 중에 Issue를 고치면 다시 저장한다. Codex 검수자는 sandbox에서 네트워크를 쓰지 못한다.
+- **Issue 사본:** 배정할 때 `gh issue view <번호> --json number,title,body,labels` 출력을 실행 기록 폴더의 `inputs/issue-<번호>.json`에 저장하고, 역할에게는 이 경로를 넘긴다. 런 중에 Issue를 고치면 다시 저장한다.
 - **실행 기록:** `.scratch/<도메인>/runs/<YYYYMMDD>-<n>/`에 spec과 티켓 Issue 번호, 배정, 결과, 결정과 이유, 맡기지 않은 선택 제안을 남긴다. 비밀값은 남기지 않는다.
 - **작업 공간:** 실행을 요청받으면 develop에서 `feature/<spec 번호>-<설명>` 브랜치와 worktree를 만든다. 이 브랜치의 생성과 그 안의 커밋은 실행 요청 범위에 든다. 푸시, PR, develop 반영(PR 병합)은 아래 흐름에서 그때마다 승인받는다.
 - **역할 띄우기:** `herdr` 스킬대로 pane에 띄운다. 작업자와 검수자는 서로 다른 모델 종류(Claude, Codex)다. 같은 종류만 쓸 수 있으면 사용자에게 묻는다.
   - Claude 역할: `--append-system-prompt-file agents/<역할>.md`로 역할 파일을 덧붙이고, `--permission-mode dontAsk`와 `--allowedTools`, `--disallowedTools`로 권한을 준다. 권한은 공유 설정 파일이 아니라 시작 인자로 준다. 금지 규칙은 막을 명령의 앞부분으로 쓴다(예: `Bash(git push *)`). `Bash(*aside*)`처럼 앞뒤에 `*`를 붙이면 그 글자가 들어간 파일 이름(`check-aside-evaluator.cjs`)을 쓰는 명령까지 막힌다.
   - 작업자: 배정된 worktree에서 띄우고 실행 기록 폴더를 `--add-dir`로 더한다. 결과 파일과 답 파일은 실행 기록 폴더에 두고 쓸 수 있는 경로에 넣는다. 티켓에 필요한 명령(파일 복사, 의존성 설치, 테스트와 자기 점검 실행, 티켓에 필요하면 실서버의 읽기 조회)은 허용한다. `git commit`, `git push`와 실서버에 쓰는 실행처럼 [사용자에게 묻기](#사용자에게-묻기)에 있는 행동은 막는다.
   - 리뷰어: `agents/scripts/role.sh start-reviewer <이름> <pane> <worktree> <실행 기록 폴더>`로 띄운다. 리뷰할 worktree에서 읽기 도구, 스킬과 git 조회 명령만 허용된다. 쓰기는 실행 기록 폴더 안에서만 허용된다. 허용 규칙을 바꿀 때는 이 명령을 고친다.
-  - Codex 검수자: 검수 회차 폴더를 `/tmp` 아래에 새로 만들어(`mktemp -d /tmp/suri-verify-XXXX`) 배정을 `assignment.md`로 쓰고, `role.sh start-codex <이름> <pane> <회차 폴더> -- <codex 인자>`로 그 안에서 `workspace-write` sandbox로 띄운다. 다음 회차는 `role.sh next-verify <이름> <이전 회차 폴더> <실행 기록 폴더>/verify/<이전 회차> <회차 메모> [바뀐 입력...] -- -m <모델> <codex 인자>`로 띄운다. `-m`이 없으면 아무것도 바뀌지 않고 `no_model`로 끝난다. 이전 회차의 `result.md`와 `evidence/`는 보관 폴더에 복사된다. 새 회차 폴더에는 이전 회차의 `inputs/`와 이전 결과(`inputs/previous-result.md`)가 복사된다. 배정 끝에는 회차 메모가 붙는다. 검수자가 다시 뜨면 화면의 모델 표시까지 확인된다. 다시 띄우기가 `still_running`으로 실패하면 모델 표시는 확인되지 않는다. `still_running`이 나오면 pane에 아무것도 입력하지 않는다. `herdr agent get <이름>`의 결과가 `agent_not_found`가 될 때까지 기다린 뒤, 안내에 출력된 `start-codex` 명령을 실행한다. 이 sandbox는 그 폴더 밖의 쓰기를 거절하므로, 검수자가 만드는 재현 코드와 임시 파일은 실행 기록 폴더에 남지 않는다. Issue 사본처럼 넘길 파일은 그 폴더의 `inputs/`에 복사한다. 검수가 끝나면 `result.md`와 `evidence/`를 실행 기록 폴더의 `verify/<회차>/`로 복사한다. 띄우거나 `/new`를 연 뒤 화면의 모델 표시가 배정한 모델인지 확인하고 지시를 보낸다.
+  - Codex 검수자: 검수 회차 폴더를 `/tmp` 아래에 새로 만들어(`mktemp -d /tmp/suri-verify-XXXX`) 배정을 `assignment.md`로 쓰고, `role.sh start-codex <이름> <pane> <회차 폴더> -- <codex 인자>`로 그 안에서 `workspace-write` sandbox로 띄운다. codex 인자에는 `-c sandbox_workspace_write.network_access=true`와 `-c 'sandbox_workspace_write.writable_roots=["<홈>/.gradle"]'`를 넣는다. 네트워크를 끄면 Docker 소켓도 막혀 PostGIS 테스트를 실행할 수 없다. Gradle은 `~/.gradle`에 쓰므로 이 폴더에 쓰기를 연다. 네트워크를 열면 Herdr 소켓과 외부 접속도 함께 열린다. 검수자가 지킬 사용 범위와 Backend 테스트 실행 방법은 [검수자](verifier.md) 규칙에 있다. 다음 회차는 `role.sh next-verify <이름> <이전 회차 폴더> <실행 기록 폴더>/verify/<이전 회차> <회차 메모> [바뀐 입력...] -- -m <모델> <codex 인자>`로 띄운다. `-m`이 없으면 아무것도 바뀌지 않고 `no_model`로 끝난다. 이전 회차의 `result.md`와 `evidence/`는 보관 폴더에 복사된다. 새 회차 폴더에는 이전 회차의 `inputs/`와 이전 결과(`inputs/previous-result.md`)가 복사된다. 배정 끝에는 회차 메모가 붙는다. 검수자가 다시 뜨면 화면의 모델 표시까지 확인된다. 다시 띄우기가 `still_running`으로 실패하면 모델 표시는 확인되지 않는다. `still_running`이 나오면 pane에 아무것도 입력하지 않는다. `herdr agent get <이름>`의 결과가 `agent_not_found`가 될 때까지 기다린 뒤, 안내에 출력된 `start-codex` 명령을 실행한다. 이 sandbox는 그 폴더, `/tmp`, `~/.gradle` 밖의 쓰기를 거절하므로, 검수자가 만드는 재현 코드와 임시 파일은 실행 기록 폴더에 남지 않는다. Issue 사본처럼 넘길 파일은 그 폴더의 `inputs/`에 복사한다. 검수가 끝나면 `result.md`와 `evidence/`를 실행 기록 폴더의 `verify/<회차>/`로 복사한다. 띄우거나 `/new`를 연 뒤 화면의 모델 표시가 배정한 모델인지 확인하고 지시를 보낸다.
   - 시작 인자 기록: 역할을 띄울 때 `herdr agent start`에 준 인자 전체를 실행 기록에 남긴다. `role.sh`로 띄웠으면 출력된 `started in` 줄을 그대로 남긴다.
   - 세션이 끊긴 뒤 다시 띄우기: Herdr는 역할 pane을 `claude --resume <session id>`만으로 다시 열어 역할 파일과 권한 인자를 빼먹는다. 다시 열린 pane은 `/proc/<pid>/cmdline`으로 인자를 확인하고, 빠졌으면 `/exit`로 끝낸 뒤 기록한 시작 인자에 `--resume <session id>`를 붙여 다시 띄운다.
 
@@ -62,7 +62,7 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 - 리뷰어와 검수자에게는 결과물, 검증 출력, 이전 지적과 답 파일만 넘긴다. 작업자의 보고 서술과 다른 역할의 판정은 넘기지 않는다.
 - 같은 종류의 required_change가 이번 런의 앞 티켓 두 개 이상에서 나오면, 다음 배정부터 그 종류를 자기 점검 항목으로 넣는다.
 - 리뷰어와 검수자는 회차마다 새 대화를 연다. 작업자는 같은 티켓의 수정을 같은 대화에서 이어 간다.
-- 검수자가 sandbox 안에서 얻지 못하는 근거(예: Herdr 소켓)는 오케스트레이터가 읽기 전용 명령으로 얻은 출력 원본을 넘긴다. 해석은 넘기지 않는다.
+- 검수자가 sandbox 안에서 얻지 못하는 근거(예: 실서버 조회 결과)는 오케스트레이터가 읽기 전용 명령으로 얻은 출력 원본을 넘긴다. 해석은 넘기지 않는다.
 
 ## 멈추고 보고하기
 
