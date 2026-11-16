@@ -17,6 +17,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.context.TestPropertySource;
@@ -38,6 +40,9 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
   private static final String APP_A_PHONE = "50000000-0000-0000-0000-000000004701";
   private static final String APP_A_PEER_PHONE = "50000000-0000-0000-0000-000000004702";
   private static final String APP_B_PHONE = "50000000-0000-0000-0000-000000004703";
+  private static final String UNREGISTERED_PHONE = "50000000-0000-0000-0000-000000004704";
+  private static final String DISABLED_PHONE = "50000000-0000-0000-0000-000000004705";
+  private static final String UNKNOWN_PHONE = "50000000-0000-0000-0000-000000004799";
   private static final String READY_HASH = "1".repeat(64);
   private static final String PURGED_HASH = "0".repeat(64);
   private static final Instant BASE_TS = Instant.parse("2026-11-16T00:00:00Z");
@@ -57,6 +62,9 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
     insertAssignmentAndPhone(INCIDENT_A, APP_A, APP_A_PHONE, "4701");
     insertAssignmentAndPhone(INCIDENT_A, APP_A_PEER, APP_A_PEER_PHONE, "4702");
     insertAssignmentAndPhone(INCIDENT_B, APP_B, APP_B_PHONE, "4703");
+    // 앱 계정 A에 연결된 업무폰이지만 등록되지 않았거나 비활성이다.
+    insertPolicePhone(UNREGISTERED_PHONE, APP_A, "phone-4704", "ACTIVE", false);
+    insertPolicePhone(DISABLED_PHONE, APP_A, "phone-4705", "DISABLED", true);
     // 사건 A만 오프라인 패키지가 준비돼 있다.
     insertManifest(MANIFEST_A, INCIDENT_A, READY_HASH);
   }
@@ -68,7 +76,7 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
     // given: 사건 B도 오프라인 패키지가 준비돼 있다.
     insertManifest(MANIFEST_B, INCIDENT_B, READY_HASH);
 
-    // when & then: 배정되지 않은 사건 B의 manifest를 자기 업무폰 ID로 요청한다.
+    // when & then: 배정되지 않은 사건 B의 manifest를 자기 계정에 연결된 업무폰 ID로 요청한다.
     mockMvc
         .perform(manifestRequest(INCIDENT_B).param("policePhoneId", APP_A_PHONE))
         .andExpect(status().isForbidden())
@@ -96,22 +104,44 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PHONE)
-  @DisplayName("배정된 앱 계정이 같은 사건에 배정된 다른 계정의 업무폰 ID를 보내면 police_phone_not_assigned로 거절된다")
-  void other_account_police_phone_is_denied() throws Exception {
-    // when & then: 자기 사건 A를 다른 계정의 업무폰 ID로 요청한다.
+  @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PEER_PHONE)
+  @DisplayName("업무폰을 넘겨받은 앱 계정이 그 업무폰 ID로 준비된 자기 사건을 요청하면 manifest를 받는다")
+  void assigned_app_account_with_handed_over_police_phone_receives_manifest() throws Exception {
+    // given: 업무폰 APP_A_PEER_PHONE의 police_phone.account_id는 APP_A_PEER다.
+    // when & then: 같은 사건에 배정된 앱 계정 A가 그 업무폰을 넘겨받아 자기 사건 A를 요청한다.
     mockMvc
         .perform(manifestRequest(INCIDENT_A).param("policePhoneId", APP_A_PEER_PHONE))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.manifestId", is(MANIFEST_A)))
+        .andExpect(jsonPath("$.incidentId", is(INCIDENT_A.toString())))
+        .andExpect(jsonPath("$.policePhoneContext.policePhoneId", is(APP_A_PEER_PHONE)))
+        .andExpect(jsonPath("$.missingPerson.displayName").exists());
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @CsvSource({
+    "등록되지 않은 업무폰, " + UNREGISTERED_PHONE,
+    "비활성 업무폰, " + DISABLED_PHONE,
+    "없는 업무폰 ID, " + UNKNOWN_PHONE,
+    "UUID 형식이 아닌 업무폰 코드, dev-precinct-phone-01"
+  })
+  @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PHONE)
+  @DisplayName("등록된 활성 업무폰이 아니면 manifest 요청은 police_phone_not_registered로 거절된다")
+  void unregistered_or_disabled_or_unknown_police_phone_is_denied(
+      String description, String policePhoneId) throws Exception {
+    // when & then: 사건 A에 배정된 앱 계정 A가 그 업무폰 ID로 자기 사건 A를 요청한다.
+    mockMvc
+        .perform(manifestRequest(INCIDENT_A).param("policePhoneId", policePhoneId))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_assigned")))
+        .andExpect(jsonPath("$.error", is("police_phone_not_registered")))
         .andExpect(jsonPath("$.missingPerson").doesNotExist());
   }
 
   @Test
   @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PHONE)
-  @DisplayName("배정된 앱 계정이 자기 업무폰 ID로 준비된 자기 사건을 요청하면 manifest를 받는다")
-  void assigned_app_account_with_own_police_phone_receives_manifest() throws Exception {
-    // when & then: 자기 사건 A를 자기 업무폰 ID로 요청한다.
+  @DisplayName("배정된 앱 계정이 자기 계정에 연결된 업무폰 ID로 준비된 자기 사건을 요청하면 manifest를 받는다")
+  void assigned_app_account_with_linked_police_phone_receives_manifest() throws Exception {
+    // when & then: 자기 사건 A를 자기 계정에 연결된 업무폰 ID로 요청한다.
     mockMvc
         .perform(manifestRequest(INCIDENT_A).param("policePhoneId", APP_A_PHONE))
         .andExpect(status().isOk())
@@ -208,10 +238,12 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
         INCIDENT_A.toString(),
         INCIDENT_B.toString());
     jdbcTemplate.update(
-        "DELETE FROM police_phone WHERE id IN (?::uuid, ?::uuid, ?::uuid)",
+        "DELETE FROM police_phone WHERE id IN (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid)",
         APP_A_PHONE,
         APP_A_PEER_PHONE,
-        APP_B_PHONE);
+        APP_B_PHONE,
+        UNREGISTERED_PHONE,
+        DISABLED_PHONE);
     jdbcTemplate.update(
         "DELETE FROM account WHERE id IN (?::uuid, ?::uuid, ?::uuid, ?::uuid)",
         APP_A,
@@ -256,7 +288,7 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
         Timestamp.from(BASE_TS));
   }
 
-  // 계정을 사건에 배정하고, 그 계정의 업무폰을 한 대 넣는다.
+  // 계정을 사건에 배정하고, police_phone.account_id가 그 계정인 등록된 업무폰을 한 대 넣는다.
   private void insertAssignmentAndPhone(
       UUID incidentId, String accountId, String policePhoneId, String suffix) {
     jdbcTemplate.update(
@@ -272,17 +304,24 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
+    insertPolicePhone(policePhoneId, accountId, "phone-" + suffix, "ACTIVE", true);
+  }
+
+  private void insertPolicePhone(
+      String policePhoneId, String accountId, String phoneCode, String status, boolean registered) {
     jdbcTemplate.update(
         """
         INSERT INTO police_phone (
           id, phone_code, display_name, account_id, status, registered,
           created_at, updated_at, version
         )
-        VALUES (?::uuid, ?, 'Offline package access phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1)
+        VALUES (?::uuid, ?, 'Offline package access phone', ?::uuid, ?, ?, ?, ?, 1)
         """,
         policePhoneId,
-        "phone-" + suffix,
+        phoneCode,
         accountId,
+        status,
+        registered,
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
   }

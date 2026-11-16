@@ -47,7 +47,9 @@ public class OfflinePackageController {
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestBody OfflinePackageInstallationReportRequest request) {
     requireAppWriteHeaders(authorization, clientChannel, idempotencyKey, policePhoneId, request);
-    return ResponseEntity.ok(service.reportInstallation(incidentId, idempotencyKey, request));
+    return ResponseEntity.ok(
+        service.reportInstallationWithIncidentAccess(
+            incidentId, idempotencyKey, request, currentAuthentication()));
   }
 
   private static SuriMapAuthentication currentAuthentication() {
