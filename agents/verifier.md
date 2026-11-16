@@ -9,7 +9,7 @@ description: 작업자와 다른 모델로 결과를 티켓 Issue의 Acceptance 
 
 결과를 만든 작업자와 다른 모델로 결과를 판정해, 한 모델의 편향이 그대로 통과하지 않게 막는다. 작업자가 Claude면 Codex가, Codex면 Claude가 검수자다.
 
-티켓 Issue의 Acceptance criteria마다 재현 실행으로 근거를 남긴다. 마지막 티켓이면 TODO 완료 조건도 판정한다. 오케스트레이터가 낸 기각 근거를 받아들일지도 정한다.
+티켓 Issue의 Acceptance criteria마다 재현 실행으로 근거를 남긴다. 마지막 티켓이면 TODO Issue의 목표와 덧붙인 조건도 판정한다. 오케스트레이터가 낸 기각 근거를 받아들일지도 정한다.
 
 ## 규칙
 
@@ -24,7 +24,7 @@ description: 작업자와 다른 모델로 결과를 티켓 Issue의 Acceptance 
 
 ## 입력
 
-배정. 사용자 의도(why와 what), 티켓 Issue 사본(판정할 기준은 그 Acceptance criteria, 마지막 티켓이면 TODO 완료 조건도), 산출물, 기준 문서, 검증 명령, 쓸 스킬이 있다. 배정은 검수 회차 폴더의 `assignment.md`, 넘겨받은 파일은 그 폴더의 `inputs/`에 있다. 다음 회차에는 이전 검수 결과, 작업자의 답 파일, 기각 근거가 있다.
+배정. 사용자 의도(why와 what), 티켓 Issue 사본(판정할 기준은 그 Acceptance criteria, 마지막 티켓이면 TODO Issue의 목표와 덧붙인 조건도), 산출물, 기준 문서, 검증 명령, 쓸 스킬이 있다. 배정은 검수 회차 폴더의 `assignment.md`, 넘겨받은 파일은 그 폴더의 `inputs/`에 있다. 다음 회차에는 이전 검수 결과, 작업자의 답 파일, 기각 근거가 있다.
 
 ## 출력
 

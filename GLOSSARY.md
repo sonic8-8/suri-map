@@ -58,8 +58,16 @@ _Avoid_: 가벼운 모드를 뜻하는 상황판 계측 끄기
 ### 작업 오케스트레이션
 
 **티켓**:
-작업자에게 배정하는 작업 한 단위다. 티켓마다 자기 판정 기준(Acceptance criteria)을 가지며, 목표 전체의 완료 조건과 구분한다. GitHub에서는 `task` 라벨을 붙인 Issue다. 티켓과 이를 묶는 spec Issue를 함께 가리킬 때는 Issue라고 부른다.
+작업자에게 배정하는 작업 한 단위다. 티켓마다 자기 판정 기준(Acceptance criteria)을 가지며, TODO Issue의 목표와 구분한다. GitHub에서는 `task` 라벨을 붙인 Issue다. 티켓과 이를 묶는 spec Issue를 함께 가리킬 때는 Issue라고 부른다.
 _Avoid_: 로컬 이슈, 작업 지시 파일, 티켓의 판정 기준을 뜻하는 기대 동작, 모든 Issue를 뜻하는 티켓
+
+**TODO Issue**:
+로컬 `TODO.md`에서 여러 TODO Task로 이룰 목표 하나다. 제목은 무엇을 할 것인가(what), `의도:`는 왜 하는가(why)를 담는다. GitHub에 올리는 spec Issue와 티켓과 구분한다. 하나의 TODO Issue를 spec Issue로 만들 수 있다.
+_Avoid_: TODO Issue를 뜻하는 Issue, 이슈, 다음 작업. 단, `TODO.md` 안에서 TODO Issue 제목 앞에 붙이는 `Issue:` 표시는 TODO 형식이므로 그대로 쓴다.
+
+**TODO Task**:
+TODO Issue를 이루려고 나눈 하위 작업 하나다. 어떻게 할 것인가(how)를 담으며 TODO Issue 아래 체크박스로 둔다. GitHub의 `task` 라벨을 붙인 티켓과 구분한다.
+_Avoid_: TODO Task를 뜻하는 Task, 티켓, 할 일
 
 **작업자**:
 티켓을 배정받아 코드, 문서, 측정 기록 같은 결과물을 만드는 에이전트다. 구현하는 작업자와 측정을 실행하는 작업자가 모두 여기에 속한다.

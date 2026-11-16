@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: TODO 항목을 spec Issue와 티켓 Issue로 나눠 작업자, 리뷰어, 검수자에게 배정하고 사용자 최종 확인까지 진행한다.
+description: TODO Issue를 spec Issue와 티켓 Issue로 나눠 작업자, 리뷰어, 검수자에게 배정하고 사용자 최종 확인까지 진행한다.
 ---
 
 # 오케스트레이터
@@ -33,7 +33,7 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 
 ## 준비
 
-- **spec과 티켓:** TODO 항목 하나를 `/mattpocock-skills:to-spec`으로 spec Issue 하나로 만들고, `/mattpocock-skills:to-tickets`로 그 sub-issue인 티켓 Issue로 나눈다. 두 스킬은 모델이 부를 수 없으므로 사용자에게 차례로 불러 달라고 한다. Issue 형식과 `gh` 명령은 각 스킬과 [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)를 따른다. 티켓의 판정 기준은 Issue 본문의 `## Acceptance criteria`다. TODO 완료 조건은 TODO 항목에만 두고 Issue에 옮겨 적지 않는다. Issue 본문에는 `TODO.md`와 `.scratch/` 링크를 넣지 않는다.
+- **spec과 티켓:** TODO Issue 하나를 `/mattpocock-skills:to-spec`으로 spec Issue 하나로 만들고, `/mattpocock-skills:to-tickets`로 그 sub-issue인 티켓 Issue로 나눈다. 두 스킬은 모델이 부를 수 없으므로 사용자에게 차례로 불러 달라고 한다. Issue 형식과 `gh` 명령은 각 스킬과 [`docs/agents/issue-tracker.md`](../docs/agents/issue-tracker.md)를 따른다. 티켓의 판정 기준은 Issue 본문의 `## Acceptance criteria`다. TODO의 의도와 덧붙인 조건은 TODO에만 두고 GitHub Issue에 옮겨 적지 않는다. Issue 본문에는 `TODO.md`와 `.scratch/` 링크를 넣지 않는다.
 - **Issue 올리기:** spec 본문, 티켓 목록과 본문, blocker를 한 번에 보여 주고 승인받은 뒤 올린다. 티켓에는 `ready-for-agent` 라벨을 붙인다.
 - **배정 대상:** spec의 열린 sub-issue 가운데 이번 런에서 아직 검수를 통과하지 않았고, `ready-for-agent` 라벨이 있고, blocker가 모두 닫힌 티켓이다. 여럿이면 sub-issue 순서의 첫 티켓을 배정한다.
 - **Issue 사본:** 배정할 때 `gh issue view <번호> --json number,title,body,labels` 출력을 실행 기록 폴더의 `inputs/issue-<번호>.json`에 저장하고, 역할에게는 이 경로를 넘긴다. 런 중에 Issue를 고치면 다시 저장한다.
@@ -52,14 +52,14 @@ Claude 메인 세션이 맡는다. 배정, 전달, 커밋, 사용자와의 결�
 1. 작업자에게 티켓을 배정한다. 배정에는 사용자 의도(why와 what), Issue 사본, worktree, 쓸 수 있는 경로, 쓸 스킬, 검증 명령, 결과 파일 경로를 적는다. 지적을 맡길 때는 답 파일 경로를, 자기 점검 항목이 있으면 그 항목을 함께 적는다.
 2. 작업자 결과를 받으면 바뀐 파일이 쓸 수 있는 경로 안에 있는지 `git status`로 보고 커밋한다. 경로 밖 변경이 있으면 커밋하지 않고 사용자에게 묻는다.
 3. 리뷰어에게 티켓 시작 커밋부터의 변경을 리뷰하도록 배정한다. 필수 수정은 작업자에게 맡기고 2로 돌아간다. 선택 제안은 맡기지 않고 실행 기록에 후속 항목으로 남긴다.
-4. 리뷰를 통과하면 검수자에게 Acceptance criteria의 판정을 배정한다. 마지막 티켓이면 TODO 완료 조건도 판정한다. 검수 지적은 받아들여 작업자에게 맡기거나(2부터 다시), 기각 근거를 써서 검수자에게 다시 배정한다. 검수자가 기각을 받아들이지 않으면 사용자에게 묻는다.
+4. 리뷰를 통과하면 검수자에게 Acceptance criteria의 판정을 배정한다. 마지막 티켓이면 TODO Issue의 목표와 덧붙인 조건도 판정한다. 검수 지적은 받아들여 작업자에게 맡기거나(2부터 다시), 기각 근거를 써서 검수자에게 다시 배정한다. 검수자가 기각을 받아들이지 않으면 사용자에게 묻는다.
 5. 검수를 통과하면 실행 기록에 통과를 적고 티켓을 완료로 표시한다.
    - 댓글 초안을 쓴다. 체크박스로 남지 않는 것(커밋, 검수에서 찾아 고친 것, 사용자 결정, 실행하지 않은 검증)만 담고, `TODO.md`와 `.scratch/` 링크는 넣지 않는다.
    - `python3 agents/scripts/close-ticket.py <번호> <댓글 파일>`의 출력(본문 diff와 댓글)을 보여 주고 한 번 승인받는다.
    - 승인받으면 feature 브랜치를 푸시해 댓글의 커밋 번호를 GitHub에서 열 수 있게 하고, 같은 명령에 `--apply`를 붙여 실행한다. 이 명령이 AC 체크박스를 체크하고 댓글을 쓰고 티켓을 닫는다. 닫힌 sub-issue가 spec의 완료 수에 들어가고, 이 티켓에 막혀 있던 티켓의 blocker가 풀린다.
    - PR 본문의 `Closes`로 닫히는 티켓은 댓글을 쓰지 않는다. PR 본문에 커밋, 검증, 미확인 사항이 이미 있고 Issue에서 PR로 바로 갈 수 있기 때문이다. 병합 뒤 검증까지 마치면 `python3 agents/scripts/close-ticket.py <번호> --checks-only`의 본문 diff를 보여 주고 승인받아, 같은 명령에 `--apply`를 붙여 AC 체크박스만 체크한다.
-6. 마지막 티켓을 통과하면 TODO 완료 조건마다 검수 근거를 모아 사용자에게 최종 확인을 받는다. 사용자가 새 문제를 찾으면 작업자에게 맡겨 2부터 다시 거친다. 확인을 받은 그 자리에서 TODO를 고친다. 완료 조건을 모두 충족한 항목은 `[x]`로 바꿔 `완료`로 옮긴다. 일부만 충족했으면 원래 항목은 `[ ]`로 두고, 끝난 단계를 검증한 범위를 밝힌 완료 항목으로 남긴다.
-7. TODO 확인을 받으면 남길 요구를 `docs/features/`에 반영하고, `/mattpocock-skills:pr`로 쓴 PR 제목과 본문을 보여 주고 승인받아 develop으로 PR을 연다. 본문에 `Closes #<spec 번호>`를 쓴다. PR의 병합 가능 여부를 확인하고 병합해도 되는지 묻는다. 승인받으면 `gh pr merge <번호> --merge`로 합치고 spec Issue가 닫혔는지 확인한다. 이어서 TODO의 참고에 적은 브랜치 이름을 PR 번호와 병합 커밋으로 바꾼다. 병합하지 않고 PR을 닫으면 이 런에서 닫은 티켓을 다시 연다.
+6. 마지막 티켓을 통과하면 TODO Issue의 목표와 덧붙인 조건마다 검수 근거를 모아 사용자에게 최종 확인을 받는다. 사용자가 새 문제를 찾으면 작업자에게 맡겨 2부터 다시 거친다. 확인을 받은 그 자리에서 TODO를 고친다. 결과를 확인한 TODO Task와 목표 달성을 확인한 TODO Issue는 `[x]`로 바꾼다. 일부만 확인했으면 TODO Issue는 `[ ]`로 두고, 확인한 TODO Task만 확인한 범위와 함께 체크한다.
+7. TODO 확인을 받으면 남길 요구를 `docs/features/`에 반영하고, `/mattpocock-skills:pr`로 쓴 PR 제목과 본문을 보여 주고 승인받아 develop으로 PR을 연다. 본문에 `Closes #<spec 번호>`를 쓴다. PR의 병합 가능 여부를 확인하고 병합해도 되는지 묻는다. 승인받으면 `gh pr merge <번호> --merge`로 합치고 spec Issue가 닫혔는지 확인한다. 이어서 해당 TODO Task 아래에 적은 브랜치 이름을 PR 번호와 병합 커밋으로 바꾼다. 병합하지 않고 PR을 닫으면 이 런에서 닫은 티켓을 다시 연다.
 
 - 커밋 메시지, PR과 Issue의 제목과 본문, Issue 댓글은 오케스트레이터가 쓴다. 푸시하거나 PR을 열거나 Issue에 올리기 전에 리뷰어에게 리뷰를, 검수자에게 검수를 받고, 두 역할이 모두 pass할 때까지 고쳐 다시 받는다. 리뷰어는 `AGENTS.md`의 Git 규칙과 글쓰기 규칙을, 검수자는 문장에 적은 사실과 수치가 커밋과 검증 근거에 맞는지를 본다. 간단한 일과 리뷰만 받는 작은 일도 같다.
 - 글을 리뷰에 보내기 전에, 새로 쓰거나 고친 줄을 루트 `AGENTS.md` 공통 원칙의 글쓰기 규칙으로 한 줄씩 다시 읽고 고친다. 지적을 고치려고 새로 쓴 문장에서 새 위반이 자주 나온다. 작업자나 조사 에이전트에게 글을 맡길 때도 배정에 같은 점검을 적는다.
