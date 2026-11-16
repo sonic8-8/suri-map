@@ -5,6 +5,8 @@ import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
@@ -50,6 +52,24 @@ public class PolicePhonePersistenceService
   public void checkAssigned(UUID policePhoneId) {
     registeredPhone(policePhoneId);
     activeAssignment(policePhoneId);
+  }
+
+  // 요청에 적힌 업무폰이 토큰 계정의 업무폰이 아니면 police_phone_not_assigned로 거절된다. 없는 업무폰과 UUID가 아닌 값도 같다.
+  @Transactional(readOnly = true)
+  public void requireAccountPolicePhone(String policePhoneId, String accountId) {
+    boolean owned;
+    try {
+      owned =
+          mapper
+              .findActiveById(UUID.fromString(policePhoneId))
+              .map(phone -> phone.accountId().toString().equals(accountId))
+              .orElse(false);
+    } catch (IllegalArgumentException exception) {
+      owned = false;
+    }
+    if (!owned) {
+      throw new BusinessException(ErrorCode.POLICE_PHONE_NOT_ASSIGNED);
+    }
   }
 
   @Transactional

@@ -11,9 +11,6 @@ import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceRespon
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
-import com.surimap.common.auth.AccountType;
-import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
@@ -29,7 +26,7 @@ import com.surimap.domain.path.validation.GpsPointValidator;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.SearchPathEventPublisher;
-import com.surimap.incident.repository.IncidentReadMapper;
+import com.surimap.incident.service.IncidentAccessService;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -64,19 +61,19 @@ public class SearchPathService {
   private final SearchPathEventPublisher eventPublisher;
   private final GpsPointValidator gpsPointValidator;
   private final IdempotentResponseCache idempotentResponseCache;
-  private final IncidentReadMapper incidentReadMapper;
+  private final IncidentAccessService incidentAccessService;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
       SearchPathEventPublisher eventPublisher,
       GpsPointValidator gpsPointValidator,
       IdempotentResponseCache idempotentResponseCache,
-      IncidentReadMapper incidentReadMapper) {
+      IncidentAccessService incidentAccessService) {
     this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
     this.gpsPointValidator = gpsPointValidator;
     this.idempotentResponseCache = idempotentResponseCache;
-    this.incidentReadMapper = incidentReadMapper;
+    this.incidentAccessService = incidentAccessService;
   }
 
   // 기존 fetch-size 설정으로 JDBC 결과를 나눠 받도록 읽기 동안 트랜잭션을 유지한다.
@@ -109,7 +106,8 @@ public class SearchPathService {
   @Transactional(readOnly = true)
   public SearchPathQueryServiceResponse queryWithIncidentAccess(
       SearchPathQueryServiceRequest request) {
-    requireIncidentAccess(request.getIncidentId(), request.getAuthentication());
+    incidentAccessService.requireIncidentAccess(
+        request.getIncidentId(), request.getAuthentication());
     return query(request);
   }
 
@@ -155,7 +153,7 @@ public class SearchPathService {
             .findPathById(segment.getSearchPathId())
             .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT))
             .getIncidentId();
-    if (!requireIncidentAccess(incidentId, request.getAuthentication())) {
+    if (!incidentAccessService.requireIncidentAccess(incidentId, request.getAuthentication())) {
       throw new BusinessException(ErrorCode.INCIDENT_CLOSED);
     }
     return correctSegment(request);
@@ -597,41 +595,6 @@ public class SearchPathService {
         response.getStatus().name(),
         response.getVersion(),
         response.getVersion());
-  }
-
-  // 사건 권한의 범위는 사건 조회와 같다. 사건 권한은 배정으로 정해지므로 종료된 사건에도 같은 기준이 적용된다.
-  // 사건 권한이 있을 때 반환값은 사건이 열려 있는지(OPEN)다. 쓰기 요청에서 이 값이 거짓이면 incident_closed로 거절된다.
-  private boolean requireIncidentAccess(UUID incidentId, SuriMapAuthentication authentication) {
-    boolean webCommand =
-        authentication.getChannel() == Channel.WEB
-            && authentication.getAccountType() == AccountType.COMMAND;
-    boolean open;
-    boolean closed;
-    if (webCommand) {
-      String organizationType = authentication.getOrganizationType().name();
-      open =
-          incidentReadMapper
-              .findActiveDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
-              .isPresent();
-      closed =
-          !open
-              && incidentReadMapper
-                  .findTerminalDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
-                  .isPresent();
-    } else {
-      UUID accountId = UUID.fromString(authentication.getAccountId());
-      open =
-          incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId).isPresent();
-      closed =
-          !open
-              && incidentReadMapper
-                  .findTerminalDetailByIncidentIdAndAccountId(incidentId, accountId)
-                  .isPresent();
-    }
-    if (!open && !closed) {
-      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
-    }
-    return open;
   }
 
   private List<List<Double>> toGeometry(List<GpsPoint> points) {

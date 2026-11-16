@@ -25,6 +25,10 @@
 ## 접근 권한과 사건 종료 후 정리
 
 - **기존 요구**: 배정된 계정과 등록·배정된 업무폰만 사건 패키지에 접근하고, 종료 사건의 개인정보·재다운로드 주소는 노출하지 않는다. [Controller](../../backend/src/main/java/com/surimap/offlinepackage/controller/OfflinePackageController.java)의 일부 헤더 검사만으로 이 요구가 충족됐다고 판단하지 않고 공용 인증·권한 처리와 함께 확인한다.
+- **manifest의 사건 권한 확인과 업무폰 확인 (2026-11-16)**: 요청한 사건에 사건 권한이 있는 계정만 `GET /api/incidents/{incidentId}/offline-package/manifest`로 manifest를 받는다. 사건 권한의 기준은 수색 경로 조회와 같다([수색 경로 기능 정의 문서](./search-path.md) 참고). 사건 권한이 없으면 403 `incident_access_denied`로 거절된다. 요청에 `policePhoneId`를 보내면 그 업무폰이 토큰 계정의 업무폰이어야 한다. 아니면 403 `police_phone_not_assigned`로 거절된다.
+  - `policePhoneId`를 보내지 않으면 고정 업무폰으로 manifest가 조립되는 동작은 바꾸지 않았다. 웹 오프라인 패키지 상태 화면의 요청이 이 경우다. 지휘 계정은 그 사건에 개인 배정이 없어도 조직 범위 안의 사건이면 웹으로 manifest를 받는다.
+  - 거절 조건은 사건 권한, 업무폰, 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 작업자는 사건 권한이 없는 계정이 응답 차이로 패키지의 준비나 파기 상태를 알 수 없게 하려고 이 순서로 정했다.
+  - 작업자는 [manifest API 테스트](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestApiTest.java)에서 MockMvc와 테스트용 PostGIS로 HTTP 요청을 보내 확인했다. 실서버에서는 확인하지 않았다. 설치 보고의 사건 권한 확인과 업무폰 확인은 아직 없다.
 - [서버 파기 처리](../../backend/src/main/java/com/surimap/offlinepackage/purge/OfflinePackagePurgeService.java)는 사건의 manifest 내용과 설치 상태를 지운 상태로 표시한다. 이것은 Android의 Room 자료·다운로드 파일·진행 중인 작업 정리와 별개다. [단말 타일 캐시](../../android/app/src/main/java/com/surimap/core/map/MapLibreTileHttp.kt)는 사건별이 아니라 스타일·좌표별 파일을 사용하므로 공용 지도 캐시와 사건 개인정보의 파기 범위를 구분한다.
 - ACK 전 자료 보존과 사건 종료 시 개인정보 파기가 충돌하는 조건은 [오프라인 저장·재전송의 종료 처리](./offline-sync.md#사건-종료-후-남은-기록)와 함께 정한다. 서버 파기 시험만으로 단말의 오프라인 재진입 차단까지 검증됐다고 판단하지 않는다.
 

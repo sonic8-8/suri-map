@@ -3,6 +3,7 @@ package com.surimap.offlinepackage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,10 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.global.event.CapturingEventPublisher;
+import com.surimap.incident.repository.IncidentReadMapper;
+import com.surimap.incident.repository.IncidentReadRows.DetailRow;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
+import com.surimap.support.auth.WithMockAccount;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +34,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** L6-T06A RED tests for S7 offline_package_installation API and event publication. */
@@ -37,20 +44,34 @@ import org.springframework.test.web.servlet.MockMvc;
 @DisplayName("L6-T06A offline_package_installation API/event RED")
 class OfflinePackageInstallationApiRedTest {
 
+  // H2 테스트 seed에서 업무폰 dev-precinct-phone-01을 가진 계정이다.
+  private static final String PHONE_ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
+
   @Autowired private MockMvc mockMvc;
 
   @Autowired private CapturingEventPublisher eventHub;
 
   @Autowired private OfflinePackageInstallationQuery installationQuery;
 
+  // H2 테스트 DB에는 incident 테이블이 없다. 그래서 작업자는 manifest 요청의 사건 권한 확인에 쓰이는 사건 조회만 대역으로 바꿨다.
+  // 사건 권한 확인은 OfflinePackageManifestApiTest에서 테스트용 PostGIS로 검증된다.
+  @MockitoBean private IncidentReadMapper incidentReadMapper;
+
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @BeforeEach
   void resetEventHub() {
     eventHub.reset();
+    when(incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(
+            UUID.fromString(OfflinePackageManifestFixtures.INCIDENT_ID),
+            UUID.fromString(PHONE_ACCOUNT_ID)))
+        .thenReturn(Optional.of(new DetailRow()));
   }
 
   @Test
+  @WithMockAccount(
+      accountId = PHONE_ACCOUNT_ID,
+      policePhoneId = OfflinePackageManifestFixtures.POLICE_PHONE_ID)
   @DisplayName("manifest tileItems expose checksums aligned with local tile fixture blobs")
   void manifest_tile_items_expose_checksums_aligned_with_local_tile_fixture_blobs()
       throws Exception {
@@ -87,6 +108,9 @@ class OfflinePackageInstallationApiRedTest {
   }
 
   @Test
+  @WithMockAccount(
+      accountId = PHONE_ACCOUNT_ID,
+      policePhoneId = OfflinePackageManifestFixtures.POLICE_PHONE_ID)
   @DisplayName("PARTIAL status report updates manifest package item states")
   void partial_status_report_updates_manifest_package_item_states() throws Exception {
     mockMvc

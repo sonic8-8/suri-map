@@ -478,13 +478,16 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 #### GET `/api/incidents/{incidentId}/offline-package/manifest`
 
-- Consumer: APP, S3-2
+- Consumer: APP, WEB, S3-2. WEB은 오프라인 패키지 상태 화면이다. WEB은 `policePhoneId` 없이 요청한다.
 - Headers: `Authorization`
-- Guard: `public-session`, `incident-read`; APP package fetch additionally requires PolicePhone registered/assigned
+- Guard: `public-session`, 요청한 `incidentId`의 사건 권한 확인, `policePhoneId`를 보냈을 때 토큰 계정의 업무폰인지 확인
 - Idempotency-Key: no
 - Query: optional `policePhoneId`, `knownManifestRevision`
 - Response: `200 {manifestId, incidentId, manifestVersion, expiresAt, packageHash, incident, missingPerson, operationalPeriods, assignedAreas, initialMarkers, overallSearchArea, tileItems, packageItems}`
-- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `package_manifest_not_ready`, `overall_search_area_required`, `tile_unavailable`
+- Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 manifest를 받는다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없거나 `incidentId`가 UUID가 아니면 403 `incident_access_denied`다.
+- PolicePhone: `policePhoneId`를 보내면 그 업무폰이 토큰 계정의 업무폰이어야 한다. 다른 계정의 업무폰, 없는 업무폰, UUID가 아닌 값은 403 `police_phone_not_assigned`다. `policePhoneId`를 보내지 않으면 지금처럼 고정 업무폰으로 manifest가 조립된다.
+- Check order: 거절 조건은 사건 권한(403 `incident_access_denied`), 업무폰(403 `police_phone_not_assigned`), 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 사건 권한이 없으면 패키지가 준비되지 않았거나 파기된 사건도 `incident_access_denied`로 거절된다.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `package_manifest_not_ready`, `package_purged`, `overall_search_area_required`, `tile_unavailable`
 - Note: 오프라인 패키지는 전체 수색구역과 타일 기준 범위가 준비된 뒤 생성된다. 수색구역 미지정 상태의 manifest 요청은 `409 {error: "package_manifest_not_ready"}` 또는 기존 호환 오류 `overall_search_area_required`로 응답할 수 있으며, APP은 이를 사건 진입 실패가 아닌 패키지 대기 상태로 표시한다.
 
 #### POST `/api/incidents/{incidentId}/offline-package/installations`

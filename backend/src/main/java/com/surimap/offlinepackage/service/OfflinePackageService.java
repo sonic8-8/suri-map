@@ -1,12 +1,17 @@
 package com.surimap.offlinepackage.service;
 
+import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.EventPublishRequest;
 import com.surimap.global.event.EventPublisher;
+import com.surimap.incident.service.IncidentAccessService;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
+import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -32,14 +37,33 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   private final OfflinePackageRepository repository;
   private final EventPublisher eventHub;
   private final IdempotentResponseCache idempotentResponseCache;
+  private final IncidentAccessService incidentAccessService;
+  private final PolicePhonePersistenceService policePhoneService;
 
   public OfflinePackageService(
       OfflinePackageRepository repository,
       ObjectProvider<EventPublisher> eventHub,
-      IdempotentResponseCache idempotentResponseCache) {
+      IdempotentResponseCache idempotentResponseCache,
+      IncidentAccessService incidentAccessService,
+      PolicePhonePersistenceService policePhoneService) {
     this.repository = repository;
     this.eventHub = eventHub.getIfAvailable(() -> request -> {});
     this.idempotentResponseCache = idempotentResponseCache;
+    this.incidentAccessService = incidentAccessService;
+    this.policePhoneService = policePhoneService;
+  }
+
+  // 사건 권한이 없는 계정이 응답 차이로 패키지 준비나 파기 상태를 알 수 없도록,
+  // 사건 권한 확인과 업무폰 확인을 준비 전(409)과 파기(410) 확인보다 앞에 두었다.
+  @Transactional
+  public OfflinePackageManifestResponse manifestWithIncidentAccess(
+      String incidentId, String policePhoneId, SuriMapAuthentication authentication) {
+    incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
+    // 업무폰 ID가 없으면 지금처럼 고정 업무폰으로 조립된다. 웹 오프라인 패키지 상태 화면의 요청이 이 경우다.
+    if (policePhoneId != null) {
+      policePhoneService.requireAccountPolicePhone(policePhoneId, authentication.getAccountId());
+    }
+    return manifest(incidentId, policePhoneId);
   }
 
   @Transactional
@@ -105,6 +129,15 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         .staleReadyAndPartialForOverallAreaChange(
             incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash)
         .forEach(status -> eventHub.publish(publishRequest(status, serverNow().toInstant())));
+  }
+
+  // 사건 ID는 UUID다. UUID가 아닌 값에는 사건 권한이 있을 수 없으므로 incident_access_denied로 거절된다.
+  private static UUID parseIncidentId(String incidentId) {
+    try {
+      return UUID.fromString(incidentId);
+    } catch (IllegalArgumentException exception) {
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
+    }
   }
 
   private static EventPublishRequest publishRequest(
