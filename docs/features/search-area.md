@@ -15,6 +15,10 @@
 - **현재 차이**: API Service는 [기본 Validator](../../backend/src/main/java/com/surimap/maparea/geometry/validation/GeometryValidator.java)를 호출하지만 반환된 정규화 좌표를 저장에 사용하지 않는다. 면적·상위 포함·자식 겹침을 검사하는 [GeometryValidationService](../../backend/src/main/java/com/surimap/maparea/geometry/validation/GeometryValidationService.java)도 이 API의 호출 경로에 없다. 실제 HTTP 입력부터 DB 제약까지 재현해 확인해야 한다.
 - **범위값의 차이**: 원문 fixture bbox는 서울 일대지만 [현재 기본 정책](../../backend/src/main/java/com/surimap/maparea/geometry/policy/GeometryPolicy.java)의 `s2HarnessDefault()`는 광주 일대 좌표를 사용한다. 400㎡·소수 6자리·시험 bbox를 실제 모든 사건에 적용할 정책으로 자동 채택하지 않는다.
 - 사건별 권한·종료 차단·현재 차수 검증도 각 write에서 확인한다. 공용 권한 검사의 한계는 [인증 기록](./authentication.md#권한-검사와-실패-순서)에 있다. 현재 API의 상태 변경은 허용 문자열을 확인하지만 기존 상태에서의 전이표를 검사하지 않는다.
+- **경계 알림 생성의 사건 권한 확인 누락 (2026-11-17 확인)**: `POST /api/search-area-boundary-alerts` 요청에서는 요청 계정의 구역 담당 배정(`search_area_assignment`)만 확인된다. 사건 참여 배정(`incident_assignment`)은 확인되지 않는다. 그래서 사건 참여 배정이 회수돼도 구역 담당 배정이 남은 계정은 경계 알림을 저장할 수 있다. 요구는 그 사건에 사건 권한이 있는 계정만 경계 알림을 보내는 것이다. 이 요구는 아직 구현되지 않았다. 사건 권한의 뜻은 [수색 경로 기능 정의 문서](search-path.md#경로의-주체와-생명주기)를 따른다. 근거는 [spec #44 댓글](https://github.com/sonic8-8/suri-map/issues/44#issuecomment-6931471546)이다.
+  - 검수자는 테스트용 PostGIS에서 새 요청을 재현했다. 검수자는 모의 인증 계정으로 MockMvc 요청을 보냈다. 보안 필터는 끈 상태였다. JWT 인증 필터에 사건 참여 배정 확인이 없다는 점은 코드로만 확인했다.
+  - 재현에 쓴 회수된 배정은 검수자가 테스트 DB에서 만들었다. 운영 코드에는 사건 참여 배정을 회수하는 흐름이 없다. 자세한 내용은 같은 수색 경로 기능 정의 문서에 적었다.
+  - 같은 계정이 같은 업무폰에서 같은 본문을 같은 `Idempotency-Key`로 다시 보내고 그 키의 완료된 응답이 저장돼 있으면, 구역 담당 배정도 다시 확인하지 않은 채 저장된 응답이 돌아간다. 이 동작은 코드로만 확인했다. 업무폰만 바꿔 다시 보내면 409 `idempotency_mismatch`로 거절되는 것을 검수자가 테스트용 PostGIS에서 재현했다. 요구는 저장된 응답을 돌려주기 전에도 사건 권한을 다시 확인하는 것이다. 이 요구는 아직 구현되지 않았다.
 
 ## 분할·담당 변경·중복 요청
 
