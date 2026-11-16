@@ -11,6 +11,7 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
+import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathApiException;
 import com.surimap.global.error.BusinessException;
@@ -72,20 +73,23 @@ public class SearchPathController {
   }
 
   @PatchMapping("/api/search-path-segments/{searchPathSegmentId}")
+  @RequireChannel(Channel.WEB)
+  @RequireRole
   public ResponseEntity<SearchPathSegmentCorrectionResponse> correctSegment(
       @PathVariable String searchPathSegmentId,
-      @RequestHeader(value = "X-Account-Id", required = false) String accountIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody SearchPathSegmentCorrectionRequest request) {
     requireIdempotencyKey(idempotencyKey);
     if (request == null || request.getMovementType() == null) {
       throw new SearchPathApiException("write_conflict");
     }
-    UUID accountId = parseAccountId(accountIdHeader);
+    SuriMapAuthentication authentication = currentAuthentication();
+    UUID accountId = parseAccountId(authentication.getAccountId());
     return ResponseEntity.ok(
         SearchPathSegmentCorrectionResponse.from(
-            searchPathService.correctSegment(
-                request.toServiceRequest(searchPathSegmentId, accountId, idempotencyKey))));
+            searchPathService.correctSegmentWithIncidentAccess(
+                request.toServiceRequest(
+                    searchPathSegmentId, accountId, authentication, idempotencyKey))));
   }
 
   private UUID parsePolicePhoneId(String header) {
@@ -107,12 +111,12 @@ public class SearchPathController {
     throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
   }
 
-  private UUID parseAccountId(String accountIdHeader) {
-    if (accountIdHeader == null || accountIdHeader.isBlank()) {
+  private UUID parseAccountId(String accountId) {
+    if (accountId == null || accountId.isBlank()) {
       throw new SearchPathApiException("incident_access_denied");
     }
     try {
-      return UUID.fromString(accountIdHeader);
+      return UUID.fromString(accountId);
     } catch (IllegalArgumentException exception) {
       throw new SearchPathApiException("incident_access_denied");
     }

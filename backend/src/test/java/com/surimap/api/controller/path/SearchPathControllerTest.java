@@ -20,7 +20,9 @@ import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
+import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.Role;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
@@ -217,12 +219,17 @@ class SearchPathControllerTest {
   }
 
   @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000001",
+      accountType = AccountType.COMMAND,
+      channel = Channel.WEB,
+      roles = Role.FIELD_COMMANDER)
   @DisplayName("PATCH /api/search-path-segments/{id} returns manual correction response")
   void correctSegmentContract() throws Exception {
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
-    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
-    when(searchPathService.correctSegment(any(SearchPathSegmentCorrectionServiceRequest.class)))
+    when(searchPathService.correctSegmentWithIncidentAccess(
+            any(SearchPathSegmentCorrectionServiceRequest.class)))
         .thenReturn(
             SearchPathSegmentCorrectionServiceResponse.builder()
                 .id("seg-001")
@@ -237,7 +244,6 @@ class SearchPathControllerTest {
     mockMvc
         .perform(
             patch("/api/search-path-segments/{id}", "seg-001")
-                .header("X-Account-Id", accountId.toString())
                 .header("Idempotency-Key", "idem-path-segment-correction")
                 .contentType("application/json")
                 .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
@@ -251,26 +257,29 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.version", is(2)));
 
     verify(searchPathService)
-        .correctSegment(
+        .correctSegmentWithIncidentAccess(
             argThat(
                 request ->
                     "seg-001".equals(request.getSearchPathSegmentId())
                         && request.getMovementType() == MovementType.FOOT
                         && "manual correction".equals(request.getReason())
                         && accountId.equals(request.getCorrectedByAccountId())
+                        && accountId.toString().equals(request.getAuthentication().getAccountId())
                         && "idem-path-segment-correction".equals(request.getIdempotencyKey())));
   }
 
   @Test
+  @WithMockAccount(
+      accountId = "30000000-0000-0000-0000-000000000001",
+      accountType = AccountType.COMMAND,
+      channel = Channel.WEB,
+      roles = Role.FIELD_COMMANDER)
   @DisplayName(
       "PATCH /api/search-path-segments/{id} missing Idempotency-Key returns write_conflict")
   void correctSegmentRequiresIdempotencyKey() throws Exception {
-    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
-
     mockMvc
         .perform(
             patch("/api/search-path-segments/{id}", "seg-001")
-                .header("X-Account-Id", accountId.toString())
                 .contentType("application/json")
                 .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
         .andExpect(status().isConflict())

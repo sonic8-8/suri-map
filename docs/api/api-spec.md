@@ -325,12 +325,15 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`
 
-- Consumer: WEB
+- Consumer: WEB. 운영 화면에는 아직 연결되지 않았다. Frontend에는 호출 함수만 있다.
 - Headers: `Authorization`, `Idempotency-Key`
-- Guard: `web-command`, `incident-read`, `write-common`
+- Guard: `@RequireChannel(WEB)`, `@RequireRole`, 대상 경로 구간이 속한 사건의 사건 권한 확인, 사건 종료 확인
 - Idempotency-Key: yes
 - Request: `movementType`, optional `reason`
 - Response: `200 {id, movementType, movementTypeSource, opId, correctedByAccountId, correctedAt, version}`
+- Incident access: 대상 경로 구간이 속한 사건에 사건 권한이 있는 웹 지휘 계정만 보정할 수 있다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없으면 403 `incident_access_denied`다. 종료된 사건의 경로 구간 보정은 409 `incident_closed`다.
+- Check order: 거절 조건은 채널(403 `channel_not_allowed`), 역할(403 `role_denied`), 사건 권한(403 `incident_access_denied`), 사건 종료(409 `incident_closed`) 순서로 확인된다. 사건 권한이 없으면서 사건도 종료된 경우에는 `incident_access_denied`로 거절된다. 이 확인은 같은 `Idempotency-Key`의 저장된 응답이 재사용되기 전에 실행된다. 그래서 저장된 응답이 있어도 사건 권한이 없는 요청은 거절된다.
+- Corrected by: `correctedByAccountId`에는 로그인 토큰의 계정이 저장된다. 요청 헤더 `X-Account-Id`는 더 쓰이지 않는다.
 - Errors: `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 ### 4.5 Situation Board / Event

@@ -8,8 +8,14 @@
 - [앱 서비스](../../backend/src/main/java/com/surimap/app/service/path/AppSearchPathService.java)는 시작 시 현재 차수·진행 중인 근무를 확인한다. 일시 중지·재개는 같은 경로에서 처리하고 종료 후 다시 시작하면 새 경로를 만든다. 서로 다른 경로 사이에 이동 선을 임의로 만들지 않는다.
 - **수정 전 버전 중복·역행 재현 (2026-10-03)**: 실제 서비스·MyBatis·테스트용 PostGIS에서 일시정지가 버전 1을 읽은 뒤 좌표 저장을 커밋하고 상태 변경을 이어갔다. 좌표 1묶음 저장 후에는 `1 → 2 → 2`, 2묶음 저장 후에는 `1 → 2 → 3 → 2`가 됐다. 좌표·상태·멱등성 완료 기록·이벤트는 모두 저장됐다. 상태 변경이 잠금 없이 읽은 버전+1을 예상 버전 검사 없이 덮어쓰는 것이 원인이었다. 좌표 저장 후 일시정지를 시작한 대조는 정상적으로 3까지 증가했다. 최종 4조건 중 정상 대조 1개 통과·경합 조건 3개 실패였으며, 운영 발생·화면 누락을 확인한 결과는 아니다.
 - **동시 쓰기 수정과 로컬 검증 (2026-10-03 로컬 검증, 2026-10-07 실서버 적용)**: 일시정지, 재개, 종료의 공통 흐름이 기존 `findPathMetadataForUpdate()`를 사용하도록 바꿨다. 좌표 추가 및 보정과 같은 경로 행을 잠그고 최신 버전과 상태를 읽어 전환하므로 과거 값으로 덮어쓰지 않는다. [Service 테스트](../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)의 회귀 검사는 수정 전 기대 버전 4, 실제 2로 실패한 뒤 수정 후 통과했다. 좌표 1/2묶음 및 구간 보정과의 경합, 대기 후 재개, 종료 후 일시정지 거부, 기록 중이 아닌 경로의 좌표 거부를 포함한 신규 11개 검사를 추가했다. Backend 전체 1,377개 통과, 실패/오류/건너뜀 0이며 기본 성능 태그는 제외했다. API, 이벤트 형식, SQL, schema는 유지한다. 같은 경로의 잠금 대기 비용과 실제 서버, HTTP, 화면, 부하는 별도 검증 대상이다.
-- **추가 확인**: [좌표, 조회, 보정 Controller](../../backend/src/main/java/com/surimap/api/controller/path/SearchPathController.java)의 경로 구간 보정에는 사건 권한 확인과 웹 채널 제한 애노테이션이 없다. 보정한 계정에는 요청 헤더 `X-Account-Id`의 값이 저장된다. 앱 시작 시 확인만으로 모든 경로 API의 사건 권한과 사건 종료 확인이 충족됐다고 판단하지 않는다.
+- **추가 확인**: 앱 시작 시 확인만으로 모든 경로 API의 사건 권한과 사건 종료 확인이 충족됐다고 판단하지 않는다.
 - **수색 경로 조회의 사건 권한 확인 (2026-11-16)**: 요청한 사건에 사건 권한이 있는 계정만 `GET /api/search-paths`로 수색 경로를 받는다. 웹 지휘 계정은 같은 조직 유형의 계정이 배정된 사건에, 그 밖의 계정은 자기가 배정된 사건에 사건 권한이 있다. 회수된 배정은 사건 권한에 들어가지 않는다. 사건 권한이 없으면 403 `incident_access_denied`로 거절된다. 조회가 성공할 때마다 `SEARCH_PATH_READ` 목적의 위치 조회 기록이 한 행 남는다. 기록 저장이 실패하면 수색 경로 응답은 나가지 않는다. 같은 사건과 수색 차수의 수색 경로 전체가 응답에 들어가는 동작은 바꾸지 않았다. 작업자는 [수색 경로 조회 API 테스트](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathQueryApiTest.java)에서 MockMvc와 테스트용 PostGIS로 HTTP 요청을 보내 확인했다. 실서버에서는 확인하지 않았다.
+- **경로 구간 보정의 사건 권한 확인 (2026-11-16)**: [좌표, 조회, 보정 Controller](../../backend/src/main/java/com/surimap/api/controller/path/SearchPathController.java)의 `PATCH /api/search-path-segments/{searchPathSegmentId}`로 경로 구간을 보정할 수 있는 계정은, 대상 경로 구간이 속한 사건에 사건 권한이 있는 웹 지휘 계정뿐이다. 사건 권한의 기준은 위 수색 경로 조회와 같다. 거절되는 경우는 아래와 같다.
+  - APP 채널의 요청은 403 `channel_not_allowed`로 거절된다.
+  - 웹 MEMBER 계정의 요청은 403 `role_denied`로 거절된다.
+  - 사건 권한이 없는 웹 지휘 계정의 요청은 403 `incident_access_denied`로 거절된다.
+  - 종료된 사건의 경로 구간 보정은 409 `incident_closed`로 거절된다. 사건 권한이 없으면서 사건도 종료된 경우에는 `incident_access_denied`로 거절된다. 작업자는 사건 권한이 없는 계정이 사건의 종료 여부를 알 수 없게 하려고 이 순서로 정했다.
+- 사건 권한과 사건 종료 확인은 같은 `Idempotency-Key`의 저장된 응답이 재사용되기 전에 실행된다. 그래서 저장된 응답이 있어도 사건 권한이 없는 요청은 거절된다. 보정한 계정은 요청 헤더 `X-Account-Id`가 아니라 로그인 토큰의 계정으로 저장된다. 이 API에는 운영 소비자가 없어서 `X-Account-Id` 헤더가 더 쓰이지 않아도 호환성 영향이 없다. 작업자는 [경로 구간 보정 API 테스트](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathSegmentCorrectionApiTest.java)에서 MockMvc와 테스트용 PostGIS로 HTTP 요청을 보내 확인했다. 실서버에서는 확인하지 않았다.
 
 ## 좌표 저장과 도형 조립
 

@@ -144,6 +144,23 @@ public class SearchPathService {
     return SearchPathQueryServiceResponse.builder().paths(rows).build();
   }
 
+  // 같은 Idempotency-Key의 저장된 응답이 있어도 거절되도록, 사건 권한과 사건 종료 확인을 replayOrRun보다 앞에 두었다.
+  // 사건 권한이 없는 계정이 사건의 종료 여부를 알 수 없도록, 사건 권한 확인을 사건 종료 확인보다 앞에 두었다.
+  @Transactional
+  public SearchPathSegmentCorrectionServiceResponse correctSegmentWithIncidentAccess(
+      SearchPathSegmentCorrectionServiceRequest request) {
+    SearchPathSegment segment = findSegment(parseSegmentId(request.getSearchPathSegmentId()));
+    UUID incidentId =
+        searchPathMapper
+            .findPathById(segment.getSearchPathId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT))
+            .getIncidentId();
+    if (!requireIncidentAccess(incidentId, request.getAuthentication())) {
+      throw new BusinessException(ErrorCode.INCIDENT_CLOSED);
+    }
+    return correctSegment(request);
+  }
+
   @Transactional
   public SearchPathSegmentCorrectionServiceResponse correctSegment(
       SearchPathSegmentCorrectionServiceRequest request) {
@@ -583,31 +600,38 @@ public class SearchPathService {
   }
 
   // 사건 권한의 범위는 사건 조회와 같다. 사건 권한은 배정으로 정해지므로 종료된 사건에도 같은 기준이 적용된다.
-  private void requireIncidentAccess(UUID incidentId, SuriMapAuthentication authentication) {
+  // 사건 권한이 있을 때 반환값은 사건이 열려 있는지(OPEN)다. 쓰기 요청에서 이 값이 거짓이면 incident_closed로 거절된다.
+  private boolean requireIncidentAccess(UUID incidentId, SuriMapAuthentication authentication) {
     boolean webCommand =
         authentication.getChannel() == Channel.WEB
             && authentication.getAccountType() == AccountType.COMMAND;
-    boolean allowed;
+    boolean open;
+    boolean closed;
     if (webCommand) {
       String organizationType = authentication.getOrganizationType().name();
-      allowed =
+      open =
           incidentReadMapper
-                  .findActiveDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
-                  .isPresent()
-              || incidentReadMapper
+              .findActiveDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
+              .isPresent();
+      closed =
+          !open
+              && incidentReadMapper
                   .findTerminalDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
                   .isPresent();
     } else {
       UUID accountId = UUID.fromString(authentication.getAccountId());
-      allowed =
-          incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId).isPresent()
-              || incidentReadMapper
+      open =
+          incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId).isPresent();
+      closed =
+          !open
+              && incidentReadMapper
                   .findTerminalDetailByIncidentIdAndAccountId(incidentId, accountId)
                   .isPresent();
     }
-    if (!allowed) {
+    if (!open && !closed) {
       throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
     }
+    return open;
   }
 
   private List<List<Double>> toGeometry(List<GpsPoint> points) {
@@ -673,6 +697,20 @@ public class SearchPathService {
         .build();
   }
 
+  private UUID parseSegmentId(String segmentId) {
+    try {
+      return UUID.fromString(segmentId);
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      throw new SearchPathApiException("write_conflict");
+    }
+  }
+
+  private SearchPathSegment findSegment(UUID segmentId) {
+    return searchPathMapper
+        .findSegmentById(segmentId)
+        .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+  }
+
   private SearchPathSegmentCorrectionServiceResponse correctSegmentOnce(
       SearchPathSegmentCorrectionServiceRequest request) {
     UUID segmentId = parseSegmentId(request.getSearchPathSegmentId());
@@ -702,20 +740,6 @@ public class SearchPathService {
 
     eventPublisher.publishSegmentUpdated(owner, corrected);
     return SearchPathSegmentCorrectionServiceResponse.from(corrected, owner.getOpId());
-  }
-
-  private UUID parseSegmentId(String segmentId) {
-    try {
-      return UUID.fromString(segmentId);
-    } catch (IllegalArgumentException | NullPointerException exception) {
-      throw new SearchPathApiException("write_conflict");
-    }
-  }
-
-  private SearchPathSegment findSegment(UUID segmentId) {
-    return searchPathMapper
-        .findSegmentById(segmentId)
-        .orElseThrow(() -> new SearchPathApiException("write_conflict"));
   }
 
   private ResponseMetadata metadataForSegmentCorrection(
