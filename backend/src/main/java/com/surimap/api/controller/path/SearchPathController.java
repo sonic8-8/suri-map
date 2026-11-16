@@ -13,6 +13,9 @@ import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathApiException;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
+import com.surimap.retention.purge.RecordLocationAccess;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,17 +55,19 @@ public class SearchPathController {
   }
 
   @GetMapping("/api/search-paths")
+  @RecordLocationAccess(accessPurpose = "SEARCH_PATH_READ")
   public ResponseEntity<SearchPathQueryResponse> query(
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
       @RequestParam(required = false) UUID accountId) {
     return ResponseEntity.ok(
         SearchPathQueryResponse.from(
-            searchPathService.query(
+            searchPathService.queryWithIncidentAccess(
                 SearchPathQueryServiceRequest.builder()
                     .incidentId(incidentId)
                     .opId(opId)
                     .accountId(accountId)
+                    .authentication(currentAuthentication())
                     .build())));
   }
 
@@ -92,6 +97,14 @@ public class SearchPathController {
     } catch (IllegalArgumentException exception) {
       throw new SearchPathApiException("police_phone_required");
     }
+  }
+
+  private SuriMapAuthentication currentAuthentication() {
+    if (SecurityContextHolder.getContext().getAuthentication()
+        instanceof SuriMapAuthentication authentication) {
+      return authentication;
+    }
+    throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
   }
 
   private UUID parseAccountId(String accountIdHeader) {

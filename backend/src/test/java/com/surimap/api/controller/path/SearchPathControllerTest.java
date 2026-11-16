@@ -280,6 +280,7 @@ class SearchPathControllerTest {
   }
 
   @Test
+  @WithMockAccount(accountId = "30000000-0000-0000-0000-000000000001")
   @DisplayName("GET /api/search-paths returns filtered paths")
   void getContract() throws Exception {
     UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
@@ -288,7 +289,7 @@ class SearchPathControllerTest {
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
     Instant startedAt = Instant.parse("2026-05-18T04:53:12.331Z");
-    when(searchPathService.query(any(SearchPathQueryServiceRequest.class)))
+    when(searchPathService.queryWithIncidentAccess(any(SearchPathQueryServiceRequest.class)))
         .thenReturn(
             SearchPathQueryServiceResponse.builder()
                 .paths(
@@ -324,11 +325,12 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][1]", is(35.162)));
 
     verify(searchPathService)
-        .query(
+        .queryWithIncidentAccess(
             argThat(
                 request ->
                     incidentId.equals(request.getIncidentId())
                         && opId.equals(request.getOpId())
-                        && request.getAccountId() == null));
+                        && request.getAccountId() == null
+                        && accountId.toString().equals(request.getAuthentication().getAccountId())));
   }
 }

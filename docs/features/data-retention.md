@@ -20,7 +20,7 @@
 ## 위치 조회 감사와 운영 로그
 
 - **기존 요구**: 위치 조회의 계정·사건·채널·목적·시각을 서버에서 기록하고, 기록에 실패하면 위치 응답도 내보내지 않는다. 감사 기록을 사건 좌표와 함께 삭제하지 않으며 로그에 실종자 개인정보·좌표 배열을 넣지 않는다.
-- [접근기록 AOP](../../backend/src/main/java/com/surimap/retention/purge/RecordLocationAccessAspect.java)는 대상 메서드가 반환한 뒤 인증 정보로 기록하고, 기록 실패를 전파한다. 적용된 진입점은 현재 상황판·웹 마커 조회·앱 지도 revision 조회이며, 모든 위치 조회를 자동으로 포괄하지는 않는다. 직접 Service 호출·실패 응답·실제 반환 전 차단을 각각 확인한다.
+- [접근기록 AOP](../../backend/src/main/java/com/surimap/retention/purge/RecordLocationAccessAspect.java)는 대상 메서드가 반환한 뒤 인증 정보로 기록하고, 기록 실패를 전파한다. 적용된 진입점은 현재 상황판, 웹 마커 조회, 앱 지도 revision 조회, 수색 경로 조회이며, 모든 위치 조회를 자동으로 포괄하지는 않는다. 직접 Service 호출, 실패 응답, 실제 반환 전 차단을 각각 확인한다. APP 요청의 `X-PolicePhone-Id`가 UUID 형식이 아니면 위치 조회 기록의 `police_phone_id`는 빈 값으로 저장된다. 계정 ID가 UUID 형식이 아니면 기록이 실패하고 응답도 나가지 않는다. (2026-11-16, Issue #45)
 - [기록 Service](../../backend/src/main/java/com/surimap/retention/purge/LocationAccessRecorder.java)는 6개월 뒤의 보관 기한을 계산한다. 이는 현재 코드와 옛 제안의 값이지 법적 적정성을 검증한 결과가 아니다. 보관·열람 권한·점검·삭제 정책은 운영 전에 별도로 정한다.
 - **운영 로그 미연결**: 현재 등록된 [NoopOperationalLogSink](../../backend/src/main/java/com/surimap/retention/purge/NoopOperationalLogSink.java)는 입력을 버린다. `append()` 호출이나 파기 상태 DB가 있다는 이유로 운영 로그도 보존된다고 판단하지 않는다. 실제 저장소와 실패 기록·대기 시간·재시도 계측이 필요하다.
 

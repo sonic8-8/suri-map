@@ -314,11 +314,13 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 - Consumer: APP, WEB, S3-2, S8
 - Headers: `Authorization`
-- Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
+- Guard: `public-session`, 요청한 `incidentId`의 사건 권한 확인, `@RecordLocationAccess(accessPurpose = "SEARCH_PATH_READ")`
 - Idempotency-Key: no
 - Query: `incidentId`, `opId`, `accountId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
 - Response: `200 {paths[{id, incidentId, opId, dutyShiftId, accountId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
-- Note: `search_path.accountId`가 경로 기록 주체다. `X-PolicePhone-Id`는 APP write 요청이 등록된 업무폰 설정을 사용했는지 Controller에서 확인하는 데만 쓰고, 수색 경로와 생명주기 이력에는 저장하지 않는다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
+- Note: `search_path.accountId`가 경로 기록 주체다. `X-PolicePhone-Id`는 수색 경로와 생명주기 이력에 저장하지 않는다. APP write 요청에서는 등록된 업무폰 설정을 썼는지 Controller에서 확인하는 데 쓰고, 이 조회에서는 위치 조회 기록의 `police_phone_id`로 남긴다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
+- Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 수색 경로를 받는다. WEB 채널의 지휘 계정은 같은 조직 유형의 계정이 배정된 사건에, 그 밖의 계정은 자기가 배정된 사건에 사건 권한이 있다. 회수된 배정은 사건 권한에 들어가지 않는다. 사건 권한이 없으면 403 `incident_access_denied`다.
+- Location access record: 조회가 성공할 때마다 `location_data_access_audit`에 `SEARCH_PATH_READ` 목적의 행이 하나 남는다. 기록 저장이 실패하면 수색 경로 응답은 나가지 않는다. APP 요청의 `X-PolicePhone-Id`가 UUID 형식이 아니어도 위치 조회 기록은 `police_phone_id`가 빈 채로 저장된다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`

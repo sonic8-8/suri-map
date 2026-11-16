@@ -11,6 +11,9 @@ import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceRespon
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentCorrectionServiceResponse;
 import com.surimap.api.service.path.response.SearchPathSegmentServiceResponse;
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.GpsPoint;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
@@ -23,7 +26,10 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.validation.GpsPointValidationResult;
 import com.surimap.domain.path.validation.GpsPointValidationResult.GpsPointExclusionReason;
 import com.surimap.domain.path.validation.GpsPointValidator;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.SearchPathEventPublisher;
+import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -58,16 +64,19 @@ public class SearchPathService {
   private final SearchPathEventPublisher eventPublisher;
   private final GpsPointValidator gpsPointValidator;
   private final IdempotentResponseCache idempotentResponseCache;
+  private final IncidentReadMapper incidentReadMapper;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
       SearchPathEventPublisher eventPublisher,
       GpsPointValidator gpsPointValidator,
-      IdempotentResponseCache idempotentResponseCache) {
+      IdempotentResponseCache idempotentResponseCache,
+      IncidentReadMapper incidentReadMapper) {
     this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
     this.gpsPointValidator = gpsPointValidator;
     this.idempotentResponseCache = idempotentResponseCache;
+    this.incidentReadMapper = incidentReadMapper;
   }
 
   // 기존 fetch-size 설정으로 JDBC 결과를 나눠 받도록 읽기 동안 트랜잭션을 유지한다.
@@ -95,6 +104,13 @@ public class SearchPathService {
         SearchPathPointsAppendServiceResponse.class,
         () -> appendPointsOnce(request),
         this::metadataForPointsAppend);
+  }
+
+  @Transactional(readOnly = true)
+  public SearchPathQueryServiceResponse queryWithIncidentAccess(
+      SearchPathQueryServiceRequest request) {
+    requireIncidentAccess(request.getIncidentId(), request.getAuthentication());
+    return query(request);
   }
 
   @Transactional(readOnly = true)
@@ -564,6 +580,34 @@ public class SearchPathService {
         response.getStatus().name(),
         response.getVersion(),
         response.getVersion());
+  }
+
+  // 사건 권한의 범위는 사건 조회와 같다. 사건 권한은 배정으로 정해지므로 종료된 사건에도 같은 기준이 적용된다.
+  private void requireIncidentAccess(UUID incidentId, SuriMapAuthentication authentication) {
+    boolean webCommand =
+        authentication.getChannel() == Channel.WEB
+            && authentication.getAccountType() == AccountType.COMMAND;
+    boolean allowed;
+    if (webCommand) {
+      String organizationType = authentication.getOrganizationType().name();
+      allowed =
+          incidentReadMapper
+                  .findActiveDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
+                  .isPresent()
+              || incidentReadMapper
+                  .findTerminalDetailByIncidentIdAndOrganizationType(incidentId, organizationType)
+                  .isPresent();
+    } else {
+      UUID accountId = UUID.fromString(authentication.getAccountId());
+      allowed =
+          incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId).isPresent()
+              || incidentReadMapper
+                  .findTerminalDetailByIncidentIdAndAccountId(incidentId, accountId)
+                  .isPresent();
+    }
+    if (!allowed) {
+      throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
+    }
   }
 
   private List<List<Double>> toGeometry(List<GpsPoint> points) {
