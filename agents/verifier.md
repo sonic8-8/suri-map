@@ -24,7 +24,7 @@ description: 작업자와 다른 모델로 결과를 티켓 Issue의 Acceptance 
 
 ## 입력
 
-배정. 티켓 Issue 사본(판정할 기준은 그 Acceptance criteria, 마지막 티켓이면 TODO 완료 조건도), 산출물, 기준 문서, 검증 명령, 쓸 스킬이 있다. 배정은 검수 회차 폴더의 `assignment.md`, 넘겨받은 파일은 그 폴더의 `inputs/`에 있다. 다음 회차에는 이전 검수 결과, 작업자의 답 파일, 기각 근거가 있다.
+배정. 사용자 의도(why와 what), 티켓 Issue 사본(판정할 기준은 그 Acceptance criteria, 마지막 티켓이면 TODO 완료 조건도), 산출물, 기준 문서, 검증 명령, 쓸 스킬이 있다. 배정은 검수 회차 폴더의 `assignment.md`, 넘겨받은 파일은 그 폴더의 `inputs/`에 있다. 다음 회차에는 이전 검수 결과, 작업자의 답 파일, 기각 근거가 있다.
 
 ## 출력
 
