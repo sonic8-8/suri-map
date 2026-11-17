@@ -23,7 +23,10 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.validation.GpsPointValidationResult;
 import com.surimap.domain.path.validation.GpsPointValidationResult.GpsPointExclusionReason;
 import com.surimap.domain.path.validation.GpsPointValidator;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.SearchPathEventPublisher;
+import com.surimap.incident.service.IncidentAccessService;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -58,16 +61,19 @@ public class SearchPathService {
   private final SearchPathEventPublisher eventPublisher;
   private final GpsPointValidator gpsPointValidator;
   private final IdempotentResponseCache idempotentResponseCache;
+  private final IncidentAccessService incidentAccessService;
 
   public SearchPathService(
       SearchPathMapper searchPathMapper,
       SearchPathEventPublisher eventPublisher,
       GpsPointValidator gpsPointValidator,
-      IdempotentResponseCache idempotentResponseCache) {
+      IdempotentResponseCache idempotentResponseCache,
+      IncidentAccessService incidentAccessService) {
     this.searchPathMapper = searchPathMapper;
     this.eventPublisher = eventPublisher;
     this.gpsPointValidator = gpsPointValidator;
     this.idempotentResponseCache = idempotentResponseCache;
+    this.incidentAccessService = incidentAccessService;
   }
 
   // 기존 fetch-size 설정으로 JDBC 결과를 나눠 받도록 읽기 동안 트랜잭션을 유지한다.
@@ -95,6 +101,14 @@ public class SearchPathService {
         SearchPathPointsAppendServiceResponse.class,
         () -> appendPointsOnce(request),
         this::metadataForPointsAppend);
+  }
+
+  @Transactional(readOnly = true)
+  public SearchPathQueryServiceResponse queryWithIncidentAccess(
+      SearchPathQueryServiceRequest request) {
+    incidentAccessService.requireIncidentAccess(
+        request.getIncidentId(), request.getAuthentication());
+    return query(request);
   }
 
   @Transactional(readOnly = true)
@@ -126,6 +140,23 @@ public class SearchPathService {
                         .build())
             .toList();
     return SearchPathQueryServiceResponse.builder().paths(rows).build();
+  }
+
+  // 같은 Idempotency-Key의 저장된 응답이 있어도 거절되도록, 사건 권한과 사건 종료 확인을 replayOrRun보다 앞에 두었다.
+  // 사건 권한이 없는 계정이 사건의 종료 여부를 알 수 없도록, 사건 권한 확인을 사건 종료 확인보다 앞에 두었다.
+  @Transactional
+  public SearchPathSegmentCorrectionServiceResponse correctSegmentWithIncidentAccess(
+      SearchPathSegmentCorrectionServiceRequest request) {
+    SearchPathSegment segment = findSegment(parseSegmentId(request.getSearchPathSegmentId()));
+    UUID incidentId =
+        searchPathMapper
+            .findPathById(segment.getSearchPathId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.WRITE_CONFLICT))
+            .getIncidentId();
+    if (!incidentAccessService.requireIncidentAccess(incidentId, request.getAuthentication())) {
+      throw new BusinessException(ErrorCode.INCIDENT_CLOSED);
+    }
+    return correctSegment(request);
   }
 
   @Transactional
@@ -629,6 +660,20 @@ public class SearchPathService {
         .build();
   }
 
+  private UUID parseSegmentId(String segmentId) {
+    try {
+      return UUID.fromString(segmentId);
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      throw new SearchPathApiException("write_conflict");
+    }
+  }
+
+  private SearchPathSegment findSegment(UUID segmentId) {
+    return searchPathMapper
+        .findSegmentById(segmentId)
+        .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+  }
+
   private SearchPathSegmentCorrectionServiceResponse correctSegmentOnce(
       SearchPathSegmentCorrectionServiceRequest request) {
     UUID segmentId = parseSegmentId(request.getSearchPathSegmentId());
@@ -658,20 +703,6 @@ public class SearchPathService {
 
     eventPublisher.publishSegmentUpdated(owner, corrected);
     return SearchPathSegmentCorrectionServiceResponse.from(corrected, owner.getOpId());
-  }
-
-  private UUID parseSegmentId(String segmentId) {
-    try {
-      return UUID.fromString(segmentId);
-    } catch (IllegalArgumentException | NullPointerException exception) {
-      throw new SearchPathApiException("write_conflict");
-    }
-  }
-
-  private SearchPathSegment findSegment(UUID segmentId) {
-    return searchPathMapper
-        .findSegmentById(segmentId)
-        .orElseThrow(() -> new SearchPathApiException("write_conflict"));
   }
 
   private ResponseMetadata metadataForSegmentCorrection(

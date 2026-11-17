@@ -1,6 +1,7 @@
 package com.surimap.api.controller.path.request;
 
 import com.surimap.api.service.path.request.SearchPathSegmentCorrectionServiceRequest;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.MovementType;
 import java.util.UUID;
 import lombok.Builder;
@@ -21,12 +22,16 @@ public class SearchPathSegmentCorrectionRequest {
   }
 
   public SearchPathSegmentCorrectionServiceRequest toServiceRequest(
-      String searchPathSegmentId, UUID correctedByAccountId, String idempotencyKey) {
+      String searchPathSegmentId,
+      UUID correctedByAccountId,
+      SuriMapAuthentication authentication,
+      String idempotencyKey) {
     return SearchPathSegmentCorrectionServiceRequest.builder()
         .searchPathSegmentId(searchPathSegmentId)
         .movementType(movementType)
         .reason(reason)
         .correctedByAccountId(correctedByAccountId)
+        .authentication(authentication)
         .idempotencyKey(idempotencyKey)
         .build();
   }

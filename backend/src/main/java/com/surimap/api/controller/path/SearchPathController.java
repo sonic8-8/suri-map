@@ -11,8 +11,12 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
+import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathApiException;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
+import com.surimap.retention.purge.RecordLocationAccess;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,35 +56,40 @@ public class SearchPathController {
   }
 
   @GetMapping("/api/search-paths")
+  @RecordLocationAccess(accessPurpose = "SEARCH_PATH_READ")
   public ResponseEntity<SearchPathQueryResponse> query(
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
       @RequestParam(required = false) UUID accountId) {
     return ResponseEntity.ok(
         SearchPathQueryResponse.from(
-            searchPathService.query(
+            searchPathService.queryWithIncidentAccess(
                 SearchPathQueryServiceRequest.builder()
                     .incidentId(incidentId)
                     .opId(opId)
                     .accountId(accountId)
+                    .authentication(currentAuthentication())
                     .build())));
   }
 
   @PatchMapping("/api/search-path-segments/{searchPathSegmentId}")
+  @RequireChannel(Channel.WEB)
+  @RequireRole
   public ResponseEntity<SearchPathSegmentCorrectionResponse> correctSegment(
       @PathVariable String searchPathSegmentId,
-      @RequestHeader(value = "X-Account-Id", required = false) String accountIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody SearchPathSegmentCorrectionRequest request) {
     requireIdempotencyKey(idempotencyKey);
     if (request == null || request.getMovementType() == null) {
       throw new SearchPathApiException("write_conflict");
     }
-    UUID accountId = parseAccountId(accountIdHeader);
+    SuriMapAuthentication authentication = currentAuthentication();
+    UUID accountId = parseAccountId(authentication.getAccountId());
     return ResponseEntity.ok(
         SearchPathSegmentCorrectionResponse.from(
-            searchPathService.correctSegment(
-                request.toServiceRequest(searchPathSegmentId, accountId, idempotencyKey))));
+            searchPathService.correctSegmentWithIncidentAccess(
+                request.toServiceRequest(
+                    searchPathSegmentId, accountId, authentication, idempotencyKey))));
   }
 
   private UUID parsePolicePhoneId(String header) {
@@ -94,12 +103,20 @@ public class SearchPathController {
     }
   }
 
-  private UUID parseAccountId(String accountIdHeader) {
-    if (accountIdHeader == null || accountIdHeader.isBlank()) {
+  private SuriMapAuthentication currentAuthentication() {
+    if (SecurityContextHolder.getContext().getAuthentication()
+        instanceof SuriMapAuthentication authentication) {
+      return authentication;
+    }
+    throw new BusinessException(ErrorCode.CHANNEL_NOT_ALLOWED);
+  }
+
+  private UUID parseAccountId(String accountId) {
+    if (accountId == null || accountId.isBlank()) {
       throw new SearchPathApiException("incident_access_denied");
     }
     try {
-      return UUID.fromString(accountIdHeader);
+      return UUID.fromString(accountId);
     } catch (IllegalArgumentException exception) {
       throw new SearchPathApiException("incident_access_denied");
     }

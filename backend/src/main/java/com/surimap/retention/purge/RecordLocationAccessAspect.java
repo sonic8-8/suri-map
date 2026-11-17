@@ -36,7 +36,7 @@ public class RecordLocationAccessAspect {
     recorder.record(
         parseUuid(auth.getAccountId(), "accountId"),
         incidentId,
-        parseNullableUuid(auth.getPolicePhoneId(), "policePhoneId"),
+        policePhoneIdOrNull(auth.getPolicePhoneId()),
         auth.getChannel().name(),
         recordLocationAccess.accessPurpose(),
         clock.instant());
@@ -62,11 +62,16 @@ public class RecordLocationAccessAspect {
         "@RecordLocationAccess: parameter 'incidentId' not found in method signature");
   }
 
-  private UUID parseNullableUuid(String value, String fieldName) {
+  // 업무폰 값은 토큰에 묶이지 않은 요청 헤더 값이다. 이 값이 UUID가 아니면 위치 조회 기록의 업무폰은 비어 있다.
+  private UUID policePhoneIdOrNull(String value) {
     if (value == null) {
       return null;
     }
-    return parseUuid(value, fieldName);
+    try {
+      return UUID.fromString(value);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
   }
 
   private UUID parseUuid(String value, String fieldName) {

@@ -1,5 +1,8 @@
 package com.surimap.offlinepackage.controller;
 
+import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.global.error.BusinessException;
+import com.surimap.global.error.ErrorCode;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
@@ -7,6 +10,7 @@ import com.surimap.offlinepackage.exception.OfflinePackageApiException;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +34,8 @@ public class OfflinePackageController {
   public ResponseEntity<OfflinePackageManifestResponse> manifest(
       @PathVariable String incidentId,
       @RequestParam(value = "policePhoneId", required = false) String policePhoneId) {
-    return ResponseEntity.ok(service.manifest(incidentId, policePhoneId));
+    return ResponseEntity.ok(
+        service.manifestWithIncidentAccess(incidentId, policePhoneId, currentAuthentication()));
   }
 
   @PostMapping("/installations")
@@ -42,7 +47,17 @@ public class OfflinePackageController {
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestBody OfflinePackageInstallationReportRequest request) {
     requireAppWriteHeaders(authorization, clientChannel, idempotencyKey, policePhoneId, request);
-    return ResponseEntity.ok(service.reportInstallation(incidentId, idempotencyKey, request));
+    return ResponseEntity.ok(
+        service.reportInstallationWithIncidentAccess(
+            incidentId, idempotencyKey, request, currentAuthentication()));
+  }
+
+  private static SuriMapAuthentication currentAuthentication() {
+    if (SecurityContextHolder.getContext().getAuthentication()
+        instanceof SuriMapAuthentication authentication) {
+      return authentication;
+    }
+    throw new BusinessException(ErrorCode.INCIDENT_ACCESS_DENIED);
   }
 
   private static void requireAppWriteHeaders(
