@@ -20,6 +20,7 @@
 | [ADR-0030 · 외부 사건·배정을 가져와 수색 지원](0030-external-incident-source.md) | 2026-04-27 |
 | [ADR-0033 · Persistence를 MyBatis로 통일](0033-mybatis-persistence.md) | 2026-04-30 |
 | [ADR-0036 · 오프라인에서 UUID를 먼저 발급](0036-offline-uuid-identifiers.md) | 2026-04-27 |
+| [ADR-0037 업무폰 인증을 인프라 계층에서 담당](0037-police-phone-authentication-at-infrastructure.md) | 2026-11-17 |
 
 ## 요약으로 남긴 이력
 
