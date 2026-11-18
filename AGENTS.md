@@ -122,7 +122,7 @@
 ## Git / Issue / PR
 
 - Jira 발급·브랜치 생성·커밋·푸시·PR/MR 생성은 사용자 요청 범위에서만 수행한다. 일반 작업에 Jira나 Lane task를 필수로 요구하지 않는다.
-- 기능 작업은 git flow의 feature 브랜치로 관리한다. 문서나 에이전트 지침처럼 작은 변경은 develop에 직접 커밋해도 된다. develop에서 `feature/<Issue 번호>-<영문 kebab-case 설명>`을 만들고, 티켓으로 나눈 작업은 spec Issue 번호를 쓴다. Issue 없이 리뷰만 받는 작은 일([오케스트레이터 절차](agents/orchestrator.md#리뷰만-받는-작은-일))은 `feature/<영문 kebab-case 설명>`을 쓴다. `main`과 release, hotfix 브랜치는 아직 정하지 않았다.
+- 브랜치는 git flow로 관리한다. `main`에는 배포한 버전을 둔다. `develop`에는 다음 배포에 들어갈 변경을 모은다. 기능 작업은 develop에서 `feature/<Issue 번호>-<영문 kebab-case 설명>`을 만든다. 티켓으로 나눈 작업은 spec Issue 번호를 쓴다. Issue 없이 리뷰만 받는 작은 일([오케스트레이터 절차](agents/orchestrator.md#리뷰만-받는-작은-일))은 `feature/<영문 kebab-case 설명>`을 쓴다. 문서나 에이전트 지침처럼 작은 변경은 develop에 직접 커밋해도 된다. 배포를 준비할 때는 develop에서 `release/<버전>`을 만들어 main과 develop에 병합한다. 운영 결함은 main에서 `hotfix/<버전>`을 만들어 고치고 main과 develop에 병합한다.
 - feature 브랜치는 develop으로 PR을 열어 합친다. 병합은 사용자 승인을 받은 뒤 `gh pr merge <번호> --merge`(merge commit)로 한다. squash와 rebase는 Issue 댓글과 기록에 적은 커밋 번호를 develop에서 지우므로 쓰지 않는다.
 - develop에 푸시하거나 PR을 병합하면 Jenkins 빌드로 바로 실서버에 배포된다. 데이터를 바꾸는 migration이 든 변경은 병합하기 전에 쓰기 중단, 백업, 검증, 복구 범위를 사용자와 합의한다([Jenkins CI 실행 안내](infra/ci/README.md#자동-배포와-기동-확인)).
 - 커밋 형식은 `[Area] type[(scope)]: 한글 요약`이다. 직접 영향받는 runtime/infra area가 없으면 area를 생략한다. 관련 Issue를 연결할 때만 실제 Issue 번호(예: `#23`)를 덧붙인다.
