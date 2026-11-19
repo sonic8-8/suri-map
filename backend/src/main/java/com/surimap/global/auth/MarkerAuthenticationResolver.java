@@ -75,14 +75,8 @@ public class MarkerAuthenticationResolver {
   }
 
   private UUID parsePolicePhoneId(String policePhoneId) {
-    if (policePhoneId == null || policePhoneId.isBlank()) {
-      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
-    }
-    try {
-      return UUID.fromString(policePhoneId);
-    } catch (IllegalArgumentException exception) {
-      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
-    }
+    return PolicePhoneIdFormat.parse(policePhoneId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED));
   }
 
   private void requireMatchingPolicePhone(

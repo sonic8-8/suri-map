@@ -1,6 +1,7 @@
 package com.surimap.offlinepackage.service;
 
 import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.global.auth.PolicePhoneIdFormat;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.EventPublishRequest;
@@ -11,7 +12,6 @@ import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
-import com.surimap.policephone.PolicePhonePersistenceService;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -38,19 +38,16 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   private final EventPublisher eventHub;
   private final IdempotentResponseCache idempotentResponseCache;
   private final IncidentAccessService incidentAccessService;
-  private final PolicePhonePersistenceService policePhoneService;
 
   public OfflinePackageService(
       OfflinePackageRepository repository,
       ObjectProvider<EventPublisher> eventHub,
       IdempotentResponseCache idempotentResponseCache,
-      IncidentAccessService incidentAccessService,
-      PolicePhonePersistenceService policePhoneService) {
+      IncidentAccessService incidentAccessService) {
     this.repository = repository;
     this.eventHub = eventHub.getIfAvailable(() -> request -> {});
     this.idempotentResponseCache = idempotentResponseCache;
     this.incidentAccessService = incidentAccessService;
-    this.policePhoneService = policePhoneService;
   }
 
   // 사건 권한이 없는 계정이 응답 차이로 패키지 준비나 파기 상태를 알 수 없도록,
@@ -61,7 +58,7 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
     // 업무폰 ID가 없으면 지금처럼 고정 업무폰으로 조립된다. 웹 오프라인 패키지 상태 화면의 요청이 이 경우다.
     if (policePhoneId != null) {
-      requireRegisteredPolicePhone(policePhoneId);
+      requireUuidPolicePhoneId(policePhoneId);
     }
     return manifest(incidentId, policePhoneId);
   }
@@ -71,15 +68,15 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     return repository.manifest(incidentId, policePhoneId);
   }
 
-  // 사건 권한이 없는 계정이나 등록되지 않은 업무폰을 보낸 계정이 같은 Idempotency-Key의 저장된 응답을 받지 못하도록,
-  // 작업자는 사건 권한 확인과 업무폰 확인을 저장된 응답을 꺼내기 전에 두었다. 두 확인은 manifest 불일치(409)와 파기(409) 확인보다도 앞이다.
+  // 사건 권한이 없는 계정이 같은 Idempotency-Key의 저장된 응답을 받지 못하도록,
+  // 작업자는 사건 권한 확인과 업무폰 ID 형식 확인을 저장된 응답을 꺼내기 전에 두었다. 두 확인은 manifest 불일치(409)와 파기(409) 확인보다도 앞이다.
   public OfflinePackageInstallationResponse reportInstallationWithIncidentAccess(
       String incidentId,
       String idempotencyKey,
       OfflinePackageInstallationReportRequest request,
       SuriMapAuthentication authentication) {
     incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
-    requireRegisteredPolicePhone(request.policePhoneId());
+    requireUuidPolicePhoneId(request.policePhoneId());
     return reportInstallation(incidentId, idempotencyKey, request);
   }
 
@@ -152,16 +149,10 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     }
   }
 
-  // 업무폰 하나를 여러 계정이 돌려쓰므로, 작업자는 다른 APP 쓰기 API와 같이 등록된 활성 업무폰인지만 확인하게 했다.
-  // UUID가 아닌 업무폰 코드는 등록된 업무폰일 수 없으므로 같은 police_phone_not_registered로 거절된다.
-  private void requireRegisteredPolicePhone(String policePhoneId) {
-    UUID id;
-    try {
-      id = UUID.fromString(policePhoneId);
-    } catch (IllegalArgumentException exception) {
-      throw new BusinessException(ErrorCode.POLICE_PHONE_NOT_REGISTERED);
-    }
-    policePhoneService.checkRegistered(id);
+  // 업무폰 인증은 MDM 같은 인프라 계층이 맡는다(ADR-0037). 작업자는 다른 APP 쓰기 API와 같이 UUID 형식만 확인하게 했다.
+  private static void requireUuidPolicePhoneId(String policePhoneId) {
+    PolicePhoneIdFormat.parse(policePhoneId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED));
   }
 
   private static EventPublishRequest publishRequest(

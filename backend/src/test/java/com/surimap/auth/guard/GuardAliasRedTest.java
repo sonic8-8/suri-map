@@ -12,7 +12,6 @@ import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneAssigned;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.Role;
 import com.surimap.config.SecurityConfig;
@@ -230,8 +229,7 @@ class GuardAliasRedTest {
   }
 
   // ---------------------------------------------------------------------------
-  // app-police-phone: @RequireChannel(APP) + @RequirePolicePhone
-  //                   + @RequirePolicePhoneRegistered + @RequirePolicePhoneAssigned
+  // app-police-phone: @RequireChannel(APP) + @RequirePolicePhone + @RequirePolicePhoneAssigned
   // ---------------------------------------------------------------------------
 
   @Test
@@ -289,36 +287,25 @@ class GuardAliasRedTest {
         .andExpect(jsonPath("$.error").value("police_phone_required"));
   }
 
-  /**
-   * PolicePhone present in session but not registered. Currently FAILS (RED)
-   * — @RequirePolicePhoneRegistered has no enforcement.
-   */
+  /** 업무폰 등록 여부는 확인하지 않는다(ADR-0037). 등록 기록이 없는 UUID도 통과한다. */
   @Test
   @WithMockAccount(
       channel = Channel.APP,
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       policePhoneId = "00000000-0000-0000-0000-000000000201")
-  void appPolicePhone_unregisteredPolicePhone_isRejectedWithPolicePhoneNotRegistered()
-      throws Exception {
+  void appPolicePhone_unregisteredPolicePhone_succeeds() throws Exception {
     mockMvc
         .perform(
             post("/api/guard-harness/app-police-phone")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("X-PolicePhone-Id", "00000000-0000-0000-0000-000000000201")
                 .content("{}"))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_registered"));
-
-    assertThat(controller.getWriteCount())
-        .as(
-            "domain row must NOT be created when police_phone_not_registered guard rejects the"
-                + " request")
-        .isEqualTo(0);
+        .andExpect(status().isOk());
   }
 
   /**
-   * PolicePhone registered but not assigned to any active incident. Currently FAILS (RED)
+   * PolicePhone not assigned to any active incident. Currently FAILS (RED)
    * — @RequirePolicePhoneAssigned has no enforcement.
    */
   @Test
@@ -347,8 +334,7 @@ class GuardAliasRedTest {
 
   // ---------------------------------------------------------------------------
   // field-or-web-write: @RequireChannel(APP,WEB)
-  //   APP path additionally requires @RequirePolicePhone + @RequirePolicePhoneRegistered
-  //                                  + @RequirePolicePhoneAssigned
+  //   APP path additionally requires @RequirePolicePhone + @RequirePolicePhoneAssigned
   //   WEB path requires no police phone guards
   // ---------------------------------------------------------------------------
 
@@ -578,13 +564,12 @@ class GuardAliasRedTest {
     }
 
     /**
-     * app-police-phone: APP channel + policePhone present, registered, and assigned. (S1-2.json
+     * app-police-phone: APP channel + policePhone present and assigned. (S1-2.json
      * api_guard_aliases)
      */
     @PostMapping("/api/guard-harness/app-police-phone")
     @RequireChannel({Channel.APP})
     @RequirePolicePhone
-    @RequirePolicePhoneRegistered
     @RequirePolicePhoneAssigned
     ResponseEntity<Void> appPolicePhone() {
       writeCounter.incrementAndGet();
@@ -598,7 +583,6 @@ class GuardAliasRedTest {
     @PostMapping("/api/guard-harness/field-or-web-write")
     @RequireChannel({Channel.APP, Channel.WEB})
     @RequirePolicePhone
-    @RequirePolicePhoneRegistered
     @RequirePolicePhoneAssigned
     ResponseEntity<Void> fieldOrWebWrite() {
       writeCounter.incrementAndGet();

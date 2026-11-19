@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -25,7 +24,6 @@ import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
 import com.surimap.global.auth.SuriMapAuthentication;
@@ -210,30 +208,6 @@ class PhotoControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.*", hasSize(1)))
         .andExpect(jsonPath("$.error", is("invalid_photo_content_type")));
-
-    verifyNoInteractions(photoService);
-  }
-
-  @Test
-  @DisplayName("미등록 업무폰이 사진 업로드 주소를 요청하면, 서비스 호출 전에 거부한다")
-  void createUploadUrl_unregisteredPolicePhone_rejectsBeforeService() throws Exception {
-    // given: 업무폰 등록 검사에서 미등록 오류를 반환한다.
-    doThrow(new PolicePhoneNotRegisteredException())
-        .when(policePhoneValidationPort)
-        .checkRegistered(POLICE_PHONE_ID);
-
-    // when & then: HTTP 오류를 응답하고 사진 서비스는 호출하지 않는다.
-    mockMvc
-        .perform(
-            post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .header("Authorization", AUTHORIZATION)
-                .header("X-Client-Channel", "APP")
-                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
-                .header("Idempotency-Key", "idem-photo-upload-url-unregistered")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"contentType\":\"image/jpeg\",\"sizeBytes\":1048576}"))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
 
     verifyNoInteractions(photoService);
   }

@@ -5,9 +5,7 @@ import com.surimap.common.auth.guard.GuardInterceptor;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.IncidentAccessDeniedException;
 import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
-import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
-import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -48,16 +46,8 @@ public class GuardConfig implements WebMvcConfigurer {
   }
 
   private static PolicePhoneValidationPort denyPolicePhoneValidation() {
-    return new PolicePhoneValidationPort() {
-      @Override
-      public void checkRegistered(UUID policePhoneId) {
-        throw new PolicePhoneNotRegisteredException();
-      }
-
-      @Override
-      public void checkAssigned(UUID policePhoneId) {
-        throw new PolicePhoneNotAssignedException();
-      }
+    return policePhoneId -> {
+      throw new PolicePhoneNotAssignedException();
     };
   }
 }

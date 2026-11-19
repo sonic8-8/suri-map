@@ -9,7 +9,6 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -35,7 +34,6 @@ public class AppDutyShiftController {
   @PostMapping("/api/duty-shifts")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   @RequireIncidentAccess
   public ResponseEntity<DutyShiftResponse> start(
       @RequestHeader("X-PolicePhone-Id") UUID policePhoneId,
@@ -48,7 +46,6 @@ public class AppDutyShiftController {
   @PatchMapping("/api/duty-shifts/{dutyShiftId}")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   @RequireIncidentAccess
   public ResponseEntity<DutyShiftEndResponse> end(
       @PathVariable UUID dutyShiftId,

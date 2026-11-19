@@ -10,7 +10,6 @@ import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.SearchPathApiException;
@@ -41,7 +40,6 @@ public class SearchPathController {
   @PostMapping("/api/search-paths/batch")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<SearchPathPointsAppendResponse> appendPoints(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,

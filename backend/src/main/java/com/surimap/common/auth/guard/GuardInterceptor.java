@@ -4,14 +4,13 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireDevice;
 import com.surimap.common.auth.RequireDeviceAssigned;
-import com.surimap.common.auth.RequireDeviceRegistered;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneAssigned;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.global.auth.PolicePhoneIdFormat;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
@@ -29,8 +28,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *   <li>{@link RequireChannel} — channel must be in the allowed set
  *   <li>{@link RequireRole} — account must have a non-MEMBER role
  *   <li>{@link RequireIncidentAccess} — account must be assigned to the active incident
- *   <li>{@link RequirePolicePhone} — policePhoneId must be present in session (APP only)
- *   <li>{@link RequirePolicePhoneRegistered} — police phone must be registered (APP only)
+ *   <li>{@link RequirePolicePhone} — policePhoneId must be a UUID present in session (APP only)
  *   <li>{@link RequirePolicePhoneAssigned} — police phone must be assigned to incident (APP only)
  * </ul>
  *
@@ -59,10 +57,8 @@ public class GuardInterceptor implements HandlerInterceptor {
     var requireRole = method.getMethodAnnotation(RequireRole.class);
     var requireIncidentAccess = method.getMethodAnnotation(RequireIncidentAccess.class);
     var requirePolicePhone = method.getMethodAnnotation(RequirePolicePhone.class);
-    var requireRegistered = method.getMethodAnnotation(RequirePolicePhoneRegistered.class);
     var requireAssigned = method.getMethodAnnotation(RequirePolicePhoneAssigned.class);
     var requireDevice = method.getMethodAnnotation(RequireDevice.class);
-    var requireDeviceRegistered = method.getMethodAnnotation(RequireDeviceRegistered.class);
     var requireDeviceAssigned = method.getMethodAnnotation(RequireDeviceAssigned.class);
 
     boolean hasAnyGuard =
@@ -70,10 +66,8 @@ public class GuardInterceptor implements HandlerInterceptor {
             || requireRole != null
             || requireIncidentAccess != null
             || requirePolicePhone != null
-            || requireRegistered != null
             || requireAssigned != null
             || requireDevice != null
-            || requireDeviceRegistered != null
             || requireDeviceAssigned != null;
 
     if (!hasAnyGuard) {
@@ -99,19 +93,10 @@ public class GuardInterceptor implements HandlerInterceptor {
 
     // 4. Police-phone guards — skip entirely for WEB channel
     if (auth.getChannel() != Channel.WEB) {
+      // 업무폰 인증은 MDM 같은 인프라 계층이 맡는다(ADR-0037). 여기서는 헤더가 있고 UUID 형식인지만 확인한다.
       if (requirePolicePhone != null || requireDevice != null) {
         enforcePolicePhonePresent(auth, requireDevice != null);
-      }
-
-      if (requireRegistered != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth, false));
-      }
-      if (requireDeviceRegistered != null && auth.getPolicePhoneId() != null) {
-        try {
-          policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth, true));
-        } catch (PolicePhoneNotRegisteredException ex) {
-          throw new DeviceNotRegisteredException();
-        }
+        parsePolicePhoneId(auth, requireDevice != null);
       }
 
       if (requireAssigned != null && auth.getPolicePhoneId() != null) {
@@ -169,13 +154,8 @@ public class GuardInterceptor implements HandlerInterceptor {
   }
 
   private UUID parsePolicePhoneId(SuriMapAuthentication auth, boolean deviceAlias) {
-    try {
-      return UUID.fromString(auth.getPolicePhoneId());
-    } catch (IllegalArgumentException e) {
-      if (deviceAlias) {
-        throw new DeviceRequiredException();
-      }
-      throw new PolicePhoneRequiredException();
-    }
+    return PolicePhoneIdFormat.parse(auth.getPolicePhoneId())
+        .orElseThrow(
+            () -> deviceAlias ? new DeviceRequiredException() : new PolicePhoneRequiredException());
   }
 }

@@ -112,7 +112,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: no
 - Request: `appInstanceId`, `token`
 - Response: `200 {id, status, version}`
-- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`
+- Errors: `police_phone_required`, `channel_not_allowed`
 
 #### POST `/api/police-phones/{policePhoneId}/heartbeat`
 
@@ -269,7 +269,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, accountId, version, status}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: 전체 수색구역과 담당 구역은 초동 경로 시작의 선행조건이 아니다. 수색 중 GPS 좌표가 전체 수색구역 또는 담당 TEAM 구역 밖으로 표시되어도 좌표 자체가 유효한 EPSG:4326 Point이면 경로 기록을 막지 않는다. GPS 경로 품질 검증은 좌표 누락, 수집 순서 확인 실패, 정확도 저하, 비정상 속도/점프처럼 샘플 자체의 신뢰도만 다루며, 구역 안팎 여부를 품질 실패로 보지 않는다. 담당 구역 밖 표시는 별도 `search-area-boundary-alerts` 운영 참고 이벤트로 다룬다.
 
 #### PATCH `/api/search-paths/{searchPathId}`
@@ -280,7 +280,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: yes
 - Request: `action` (`PAUSE`, `RESUME`, `END`), `clientTs`, optional `clockOffsetMs`
 - Response: `200 {id, version, status}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: `PAUSE`는 `RECORDING -> PAUSED`, `RESUME`은 `PAUSED -> RECORDING`, `END`는 `RECORDING|PAUSED -> ENDED` 전이만 허용한다. 모든 전이는 `search_path_lifecycle_event`에 `STARTED`/`PAUSED`/`RESUMED`/`ENDED` 감사 이력으로 남긴다.
 
 #### POST `/api/search-paths/batch`
@@ -295,7 +295,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 {id, dutyShiftId, opId, accountId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], segments, version, status}`
 - Response scope: `excludedPoints`와 `segments`는 이번 요청에서 제외되거나 생성된 항목만 포함한다. 누적된 전체 경로 도형, 구간과 제외 좌표는 `GET /api/search-paths`로 조회한다.
 - `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`, `out_of_order`
-- Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `clientTs`는 원본 시각으로 보존하며 이 값이 뒤로 갔다는 이유만으로 batch 전체를 거부하지 않는다. `elapsedRealtimeNanos`가 있으면 이 값으로 수집 순서를 확인하고, 앞선 좌표보다 작거나 같은 좌표만 `out_of_order`로 제외한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수나 pointId 중복처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.
 
 #### POST `/api/search-area-boundary-alerts`
@@ -306,7 +306,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `searchAreaId`, `alertType` (`OUTSIDE_ASSIGNED_AREA`, `REENTERED_ASSIGNED_AREA`), `location {type:"Point", coordinates:[lon,lat]}`, `clientTs`, optional `pathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, searchAreaId, policePhoneId, alertType, version, status}`
-- Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - FCM: successful `OUTSIDE_ASSIGNED_AREA` write emits advisory data payload `type=SEARCH_AREA_BOUNDARY_EXITED`, `incidentId`, `opId`, `searchAreaId`, `policePhoneId`, `status`, `version`, `eventId`. Payload must not include missing-person PII.
 - Note: 이 API는 Android 로컬 경계 확인 안내를 서버 운영 참고/FCM 흐름에 반영하는 경로다. 앱의 즉시 진동/안내는 서버 응답을 기다리지 않는다. 좌표 자체의 유효성 검증과 assigned TEAM search_area 경계 확인 안내는 별도 정책이며, 이를 자동 위반 판단이나 다음 수색 구역 추천으로 사용하지 않는다.
 
@@ -318,7 +318,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: no
 - Query: `incidentId`, `opId`, `accountId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
 - Response: `200 {paths[{id, incidentId, opId, dutyShiftId, accountId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
-- Note: `search_path.accountId`가 경로 기록 주체다. `X-PolicePhone-Id`는 수색 경로와 생명주기 이력에 저장하지 않는다. APP write 요청에서는 등록된 업무폰 설정을 썼는지 Controller에서 확인하는 데 쓰고, 이 조회에서는 위치 조회 기록의 `police_phone_id`로 남긴다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
+- Note: `search_path.accountId`가 경로 기록 주체다. `X-PolicePhone-Id`는 수색 경로와 생명주기 이력에 저장하지 않는다. APP write 요청에서는 헤더가 있고 UUID 형식인지만 확인한다. 이 조회에서는 위치 조회 기록의 `police_phone_id`로 남긴다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
 - Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 수색 경로를 받는다. WEB 채널의 지휘 계정은 같은 조직 유형의 계정이 배정된 사건에, 그 밖의 계정은 자기가 배정된 사건에 사건 권한이 있다. 회수된 배정은 사건 권한에 들어가지 않는다. 사건 권한이 없으면 403 `incident_access_denied`다.
 - Location access record: 조회가 성공할 때마다 `location_data_access_audit`에 `SEARCH_PATH_READ` 목적의 행이 하나 남는다. 기록 저장이 실패하면 수색 경로 응답은 나가지 않는다. APP 요청의 `X-PolicePhone-Id`가 UUID 형식이 아니어도 위치 조회 기록은 `police_phone_id`가 빈 채로 저장된다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
@@ -392,7 +392,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
+- Guard: `@RequireChannel(APP)`, `X-PolicePhone-Id` UUID, incident access by `accountId`, current OP, idempotent write
 - Idempotency-Key: yes
 - Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
@@ -436,7 +436,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, registered PolicePhone, incident access by `accountId`, current OP, idempotent write
+- Guard: `@RequireChannel(APP)`, `X-PolicePhone-Id` UUID, incident access by `accountId`, current OP, idempotent write
 - Idempotency-Key: yes
 - Request: `markerId`, `incidentId`, `opId`, `contentType`, `sizeBytes`, optional `checksumSha256`
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
@@ -460,48 +460,48 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered
+- Guard: `@RequireChannel(APP)`, `X-PolicePhone-Id` UUID
 - Idempotency-Key: no
 - Request: `incidentId`, `clientTs`
 - Response: `200 {clientTs, serverTs, clockOffsetMs, clockSyncedAt, maxAllowedSkewMs}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `clock_skew_exceeded`
+- Errors: `channel_not_allowed`, `police_phone_required`, `clock_skew_exceeded`
 
 #### POST `/api/sync/outbox/requeue`
 
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered
+- Guard: `@RequireChannel(APP)`, `X-PolicePhone-Id` UUID
 - Idempotency-Key: no. S6 local operation uses `operationId` instead.
 - Request: `operationId`, `incidentId`, `reason`, `clientTs`, `clockOffsetMs`, `clockSyncedAt`, optional `attemptCount`
 - Response: `202 {operationId, accepted, serverTs}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `incident_closed`
+- Errors: `channel_not_allowed`, `police_phone_required`, `incident_closed`
 
 #### GET `/api/incidents/{incidentId}/offline-package/manifest`
 
 - Consumer: APP, WEB, S3-2. WEB은 오프라인 패키지 상태 화면이다. WEB은 `policePhoneId` 없이 요청한다.
 - Headers: `Authorization`
-- Guard: `public-session`, 요청한 `incidentId`의 사건 권한 확인, `policePhoneId`를 보냈을 때 등록된 활성 업무폰인지 확인
+- Guard: `public-session`, 요청한 `incidentId`의 사건 권한 확인, `policePhoneId`를 보냈을 때 UUID 형식인지 확인
 - Idempotency-Key: no
 - Query: optional `policePhoneId`, `knownManifestRevision`
 - Response: `200 {manifestId, incidentId, manifestVersion, expiresAt, packageHash, incident, missingPerson, operationalPeriods, assignedAreas, initialMarkers, overallSearchArea, tileItems, packageItems}`
 - Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 manifest를 받는다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없거나 `incidentId`가 UUID가 아니면 403 `incident_access_denied`다.
-- PolicePhone: `policePhoneId`를 보내면 그 업무폰이 등록된 활성 업무폰이어야 한다. 다른 APP 쓰기 API의 `@RequirePolicePhoneRegistered`와 같은 확인이다. 업무폰을 여러 계정이 돌려쓰므로 `police_phone.account_id`와 토큰 계정은 비교하지 않는다. 등록되지 않았거나 비활성인 업무폰, 없는 업무폰, UUID가 아닌 값은 403 `police_phone_not_registered`다. `policePhoneId`를 보내지 않으면 지금처럼 고정 업무폰으로 manifest가 조립된다.
-- Check order: 거절 조건은 사건 권한(403 `incident_access_denied`), 업무폰(403 `police_phone_not_registered`), 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 사건 권한이 없으면 패키지가 준비되지 않았거나 파기된 사건도 `incident_access_denied`로 거절된다.
-- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `package_manifest_not_ready`, `package_purged`, `overall_search_area_required`, `tile_unavailable`
+- PolicePhone: 업무폰 인증은 MDM 같은 인프라 계층이 맡으므로(ADR-0037) 서버는 업무폰의 등록 여부를 확인하지 않는다. `policePhoneId`를 보내면 UUID 형식인지만 확인한다. UUID가 아닌 값은 400 `police_phone_required`다. 업무폰을 여러 계정이 돌려쓰므로 `police_phone.account_id`와 토큰 계정은 비교하지 않는다. `policePhoneId`를 보내지 않으면 지금처럼 고정 업무폰으로 manifest가 조립된다.
+- Check order: 거절 조건은 사건 권한(403 `incident_access_denied`), 업무폰 ID 형식(400 `police_phone_required`), 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 사건 권한이 없으면 패키지가 준비되지 않았거나 파기된 사건도 `incident_access_denied`로 거절된다.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_assigned`, `package_manifest_not_ready`, `package_purged`, `overall_search_area_required`, `tile_unavailable`
 - Note: 오프라인 패키지는 전체 수색구역과 타일 기준 범위가 준비된 뒤 생성된다. 수색구역 미지정 상태의 manifest 요청은 `409 {error: "package_manifest_not_ready"}` 또는 기존 호환 오류 `overall_search_area_required`로 응답할 수 있으며, APP은 이를 사건 진입 실패가 아닌 패키지 대기 상태로 표시한다.
 
 #### POST `/api/incidents/{incidentId}/offline-package/installations`
 
 - Consumer: APP
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
-- Guard: 헤더 확인(`Authorization`, APP 채널, `Idempotency-Key`, 헤더와 본문의 업무폰 일치), 요청한 `incidentId`의 사건 권한 확인, 본문의 `policePhoneId`가 등록된 활성 업무폰인지 확인
+- Guard: 헤더 확인(`Authorization`, APP 채널, `Idempotency-Key`, 헤더와 본문의 업무폰 일치), 요청한 `incidentId`의 사건 권한 확인, 본문의 `policePhoneId`가 UUID 형식인지 확인
 - Idempotency-Key: yes
 - Request: `policePhoneId`, `manifestId`, `manifestVersion`, `status`, `totalItems`, `completedItems`, `failedItems`, `version`, `clientTs`, optional `readyForOfflineUse`, `failedItemKeys`, `lastError`, `sequence`, `clockOffsetMs`
 - Response: `200 {id, status, version, manifestVersion, readyForOfflineUse, serverTs}`
 - Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 설치 상태가 저장된다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없거나 `incidentId`가 UUID가 아니면 403 `incident_access_denied`다.
-- PolicePhone: 본문의 `policePhoneId`는 등록된 활성 업무폰이어야 한다. 확인 기준은 manifest와 같다. 등록되지 않았거나 비활성인 업무폰, 없는 업무폰, UUID가 아닌 값은 403 `police_phone_not_registered`다. 헤더와 본문의 업무폰이 다르면 지금처럼 헤더 확인에서 403 `police_phone_not_assigned`다.
-- Check order: 거절 조건은 헤더 확인, 사건 권한(403 `incident_access_denied`), 업무폰(403 `police_phone_not_registered`), 같은 `Idempotency-Key`의 저장된 응답, manifest 불일치(409 `write_conflict`), 파기(409 `incident_closed`) 순서로 확인된다. 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰을 확인한 뒤에만 저장된 응답이 돌아간다. 거절된 요청에서는 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
-- Errors: `tile_unavailable`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- PolicePhone: 본문의 `policePhoneId`는 UUID 형식이어야 한다. 확인 기준은 manifest와 같다. UUID가 아닌 값은 400 `police_phone_required`다. 등록 기록이 없는 업무폰 ID도 그대로 설치 상태에 저장된다. 헤더와 본문의 업무폰이 다르면 지금처럼 헤더 확인에서 403 `police_phone_not_assigned`다.
+- Check order: 거절 조건은 헤더 확인, 사건 권한(403 `incident_access_denied`), 업무폰 ID 형식(400 `police_phone_required`), 같은 `Idempotency-Key`의 저장된 응답, manifest 불일치(409 `write_conflict`), 파기(409 `incident_closed`) 순서로 확인된다. 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰 ID 형식을 확인한 뒤에만 저장된 응답이 돌아간다. 거절된 요청에서는 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
+- Errors: `tile_unavailable`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 ### 4.8 Operational Period / Duty Shift / Handover
 
@@ -581,7 +581,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `memoTargetType`, `content`, `clientTs`, optional `memoTargetId`
 - Response: `201 {id, opId, version, memoTargetType, memoTargetId}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Errors: `channel_not_allowed`, `police_phone_required`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 #### GET `/api/handover-memos`
 

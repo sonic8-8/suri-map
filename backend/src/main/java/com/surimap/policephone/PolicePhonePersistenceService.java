@@ -41,14 +41,7 @@ public class PolicePhonePersistenceService
 
   @Override
   @Transactional(readOnly = true)
-  public void checkRegistered(UUID policePhoneId) {
-    registeredPhone(policePhoneId);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
   public void checkAssigned(UUID policePhoneId) {
-    registeredPhone(policePhoneId);
     activeAssignment(policePhoneId);
   }
 
@@ -78,7 +71,6 @@ public class PolicePhonePersistenceService
   @Transactional
   public FcmTokenRow registerFcmToken(
       UUID policePhoneId, String accountId, String appInstanceId, String token) {
-    registeredPhone(policePhoneId);
     UUID actorAccountId = parseAccountId(accountId);
 
     Instant now = clock.instant();

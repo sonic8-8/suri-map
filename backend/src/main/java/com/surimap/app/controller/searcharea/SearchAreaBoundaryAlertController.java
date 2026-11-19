@@ -7,7 +7,6 @@ import com.surimap.app.service.searcharea.SearchAreaBoundaryAlertException;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -32,7 +31,6 @@ public class SearchAreaBoundaryAlertController {
   @PostMapping
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<SearchAreaBoundaryAlertResponse> create(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,

@@ -21,9 +21,7 @@ public final class MockAuthPolicePhoneContract implements AuthPolicePhoneContrac
     if (fixture.context().policePhoneId() == null) {
       return AuthPolicePhoneHarnessFixtures.GuardOutcome.denied("police_phone_required");
     }
-    if (!fixture.policePhone().registered()) {
-      return AuthPolicePhoneHarnessFixtures.GuardOutcome.denied("police_phone_not_registered");
-    }
+    // 업무폰 등록 여부는 확인하지 않는다(ADR-0037).
     if (!fixture.policePhone().assigned()) {
       return AuthPolicePhoneHarnessFixtures.GuardOutcome.denied("police_phone_not_assigned");
     }

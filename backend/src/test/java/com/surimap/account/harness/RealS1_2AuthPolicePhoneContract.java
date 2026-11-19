@@ -3,7 +3,6 @@ package com.surimap.account.harness;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneAssigned;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.GuardException;
@@ -97,7 +96,6 @@ public final class RealS1_2AuthPolicePhoneContract implements AuthPolicePhoneCon
 
     @RequireChannel(com.surimap.common.auth.Channel.APP)
     @RequirePolicePhone
-    @RequirePolicePhoneRegistered
     @RequirePolicePhoneAssigned
     void appPolicePhone() {}
 

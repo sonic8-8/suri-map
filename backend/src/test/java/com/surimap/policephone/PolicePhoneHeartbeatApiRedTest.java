@@ -34,21 +34,6 @@ class PolicePhoneHeartbeatApiRedTest {
   }
 
   @Test
-  @DisplayName("heartbeat source declares app-police-phone guard chain for registered phone behavior")
-  void heartbeat_source_declares_app_police_phone_guard_chain() throws Exception {
-    List<Path> candidates = findHeartbeatSourceFiles();
-
-    assertThat(candidates)
-        .as("heartbeat controller/service source must exist in src/main/java")
-        .isNotEmpty();
-
-    String source = Files.readString(candidates.get(0));
-    assertThat(source)
-        .contains("@RequirePolicePhone")
-        .contains("@RequirePolicePhoneRegistered");
-  }
-
-  @Test
   @DisplayName("heartbeat source declares canonical response fields and ONLINE status")
   void heartbeat_source_declares_canonical_response_fields() throws Exception {
     List<Path> candidates = findHeartbeatSourceFiles();

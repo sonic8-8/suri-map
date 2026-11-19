@@ -190,37 +190,6 @@ class SearchPathControllerTest {
   @Test
   @WithMockAccount(
       accountId = "30000000-0000-0000-0000-000000000001",
-      policePhoneId = "00000000-0000-0000-0000-000000000201")
-  @DisplayName(
-      "POST /api/search-paths/batch unregistered PolicePhone returns police_phone_not_registered")
-  void appendBatchUnregisteredPolicePhoneRejected() throws Exception {
-    UUID policePhoneId = UUID.fromString("00000000-0000-0000-0000-000000000201");
-    mockMvc
-        .perform(
-            post("/api/search-paths/batch")
-                .header("X-PolicePhone-Id", policePhoneId)
-                .header("Idempotency-Key", "idem-unregistered-path-batch")
-                .contentType("application/json")
-                .content(
-                    """
-                    {
-                      "incidentId":"10000000-0000-0000-0000-000000000001",
-                      "opId":"70000000-0000-0000-0000-000000000001",
-                      "pathId":"81000000-0000-0000-0000-000000000001",
-                      "points":[
-                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"}
-                      ]
-                    }
-                    """))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
-
-    verifyNoInteractions(searchPathService);
-  }
-
-  @Test
-  @WithMockAccount(
-      accountId = "30000000-0000-0000-0000-000000000001",
       accountType = AccountType.COMMAND,
       channel = Channel.WEB,
       roles = Role.FIELD_COMMANDER)

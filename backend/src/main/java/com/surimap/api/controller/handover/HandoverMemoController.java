@@ -8,7 +8,6 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -34,7 +33,6 @@ public class HandoverMemoController {
   @PostMapping("/api/handover-memos")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   @RequireIncidentAccess
   public ResponseEntity<HandoverMemoResponse> create(
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,

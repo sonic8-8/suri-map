@@ -5,7 +5,6 @@ import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.IncidentAccessDeniedException;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
-import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
 import java.util.UUID;
@@ -48,9 +47,8 @@ public class GuardPortTestStubs {
    * <p>Rules (by last 12 bits of the UUID least-significant bits):
    *
    * <ul>
-   *   <li>0x100–0x1FF → registered and assigned (pass)
-   *   <li>0x200–0x2FF → NOT registered → {@code police_phone_not_registered}
-   *   <li>0x300–0x3FF → registered but NOT assigned → {@code police_phone_not_assigned}
+   *   <li>0x300–0x3FF → NOT assigned → {@code police_phone_not_assigned}
+   *   <li>Otherwise → pass
    * </ul>
    */
   @Bean
@@ -80,14 +78,6 @@ public class GuardPortTestStubs {
   }
 
   static final class StubPolicePhoneValidationPort implements PolicePhoneValidationPort {
-
-    @Override
-    public void checkRegistered(UUID policePhoneId) {
-      int bucket = lastTwelveHexBits(policePhoneId);
-      if (bucket >= 0x200 && bucket < 0x300) {
-        throw new PolicePhoneNotRegisteredException();
-      }
-    }
 
     @Override
     public void checkAssigned(UUID policePhoneId) {

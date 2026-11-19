@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.context.TestPropertySource;
@@ -122,18 +123,30 @@ class OfflinePackageManifestApiTest extends PostGisIntegrationTestSupport {
   @CsvSource({
     "등록되지 않은 업무폰, " + UNREGISTERED_PHONE,
     "비활성 업무폰, " + DISABLED_PHONE,
-    "없는 업무폰 ID, " + UNKNOWN_PHONE,
-    "UUID 형식이 아닌 업무폰 코드, dev-precinct-phone-01"
+    "없는 업무폰 ID, " + UNKNOWN_PHONE
   })
   @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PHONE)
-  @DisplayName("등록된 활성 업무폰이 아니면 manifest 요청은 police_phone_not_registered로 거절된다")
-  void unregistered_or_disabled_or_unknown_police_phone_is_denied(
+  @DisplayName("업무폰의 등록 상태와 관계없이 배정된 앱 계정은 자기 사건 manifest를 받는다")
+  void unregistered_or_disabled_or_unknown_police_phone_receives_manifest(
       String description, String policePhoneId) throws Exception {
     // when & then: 사건 A에 배정된 앱 계정 A가 그 업무폰 ID로 자기 사건 A를 요청한다.
     mockMvc
         .perform(manifestRequest(INCIDENT_A).param("policePhoneId", policePhoneId))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_registered")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.manifestId", is(MANIFEST_A)))
+        .andExpect(jsonPath("$.missingPerson.displayName").exists());
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = {"dev-precinct-phone-01", "1-1-1-1-1"})
+  @WithMockAccount(accountId = APP_A, policePhoneId = APP_A_PHONE)
+  @DisplayName("36자 UUID 형식이 아닌 업무폰 ID로 manifest를 요청하면 police_phone_required로 거절된다")
+  void police_phone_code_is_denied(String policePhoneId) throws Exception {
+    // when & then: 사건 A에 배정된 앱 계정 A가 형식이 틀린 업무폰 ID로 자기 사건 A를 요청한다.
+    mockMvc
+        .perform(manifestRequest(INCIDENT_A).param("policePhoneId", policePhoneId))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error", is("police_phone_required")))
         .andExpect(jsonPath("$.missingPerson").doesNotExist());
   }
 

@@ -11,7 +11,6 @@ import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import jakarta.validation.Valid;
@@ -41,7 +40,6 @@ public class PhotoController {
   @PostMapping("/{markerId}/photos/upload-url")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoUploadUrlResponse> createUploadUrl(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -61,7 +59,6 @@ public class PhotoController {
   @PostMapping("/photos/upload-url")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoUploadUrlResponse> createUploadUrlBeforeMarkerCreation(
       @RequestHeader(value = "Authorization", required = false) String authorization,
       @RequestHeader(value = "X-Client-Channel", required = false) String channel,
@@ -80,7 +77,6 @@ public class PhotoController {
   @PostMapping("/{markerId}/photos/{photoId}/attach")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<PhotoAttachResponse> attach(
       @PathVariable UUID markerId,
       @PathVariable UUID photoId,

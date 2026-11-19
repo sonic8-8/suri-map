@@ -10,7 +10,6 @@ import com.surimap.app.service.path.response.SearchPathStatusUpdateServiceRespon
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import java.util.UUID;
@@ -38,7 +37,6 @@ public class AppSearchPathController {
   @PostMapping
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<SearchPathStartResponse> start(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -54,7 +52,6 @@ public class AppSearchPathController {
   @PatchMapping("/{searchPathId}")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<SearchPathStatusUpdateResponse> updateStatus(
       @PathVariable UUID searchPathId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,

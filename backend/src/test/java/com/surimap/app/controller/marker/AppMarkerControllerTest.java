@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -28,7 +27,6 @@ import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
 import com.surimap.global.auth.MarkerAuthenticationResolver;
@@ -381,39 +379,6 @@ class AppMarkerControllerTest {
         // then: 입력 오류를 Controller에서 거부하며 기존 오류 상태와 본문을 유지한다.
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("write_conflict")));
-    verifyNoInteractions(appMarkerService);
-  }
-
-  @Test
-  @DisplayName("미등록 업무폰에서 마커 생성을 요청하면, 서비스를 호출하지 않고 거부한다")
-  void createMarker_unregisteredPolicePhone_rejectsBeforeCallingService() throws Exception {
-    // given: 요청한 업무폰이 등록되지 않았다.
-    doThrow(new PolicePhoneNotRegisteredException())
-        .when(policePhoneValidationPort)
-        .checkRegistered(POLICE_PHONE_ID);
-
-    // when: 마커 생성 API를 호출한다.
-    mockMvc
-        .perform(
-            post("/api/markers")
-                .header("Authorization", AUTHORIZATION)
-                .header("X-Client-Channel", "APP")
-                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
-                .header("Idempotency-Key", "idem-marker-create-unregistered")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{\"incidentId\":\""
-                        + INCIDENT_ID
-                        + "\",\"opId\":\""
-                        + OP_ID
-                        + "\",\"type\":\"CLUE\","
-                        + "\"location\":{\"type\":\"Point\","
-                        + "\"coordinates\":[126.913400,35.163100]},"
-                        + "\"clientTs\":\"2026-04-28T00:05:00Z\"}"))
-        // then: HTTP 403 오류를 반환하고 생성 서비스를 호출하지 않는다.
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
-
     verifyNoInteractions(appMarkerService);
   }
 

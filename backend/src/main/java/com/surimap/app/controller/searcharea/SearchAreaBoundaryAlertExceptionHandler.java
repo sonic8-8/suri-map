@@ -19,8 +19,7 @@ public class SearchAreaBoundaryAlertExceptionHandler {
   private HttpStatus statusOf(String code) {
     return switch (code) {
       case "police_phone_required", "invalid_geometry" -> HttpStatus.BAD_REQUEST;
-      case "police_phone_not_registered",
-          "police_phone_not_assigned",
+      case "police_phone_not_assigned",
           "incident_access_denied",
           "team_not_assigned",
           "channel_not_allowed" -> HttpStatus.FORBIDDEN;

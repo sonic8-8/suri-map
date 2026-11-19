@@ -10,7 +10,6 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.global.auth.MarkerAuthenticationResolver;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.error.BusinessException;
@@ -60,7 +59,6 @@ public class MarkerController {
   @PatchMapping(value = "/{markerId}", headers = "X-Client-Channel!=APP")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<MarkerMutationResponse> update(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -83,7 +81,6 @@ public class MarkerController {
   @DeleteMapping(value = "/{markerId}", headers = "X-Client-Channel!=APP")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<MarkerMutationResponse> delete(
       @PathVariable UUID markerId,
       @RequestHeader(value = "Authorization", required = false) String authorization,

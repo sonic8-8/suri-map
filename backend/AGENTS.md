@@ -183,7 +183,7 @@ domain write에서 지켜야 할 순서다. 각 호출부가 실제로 지키는
 
 - Channel은 `X-Client-Channel` 기준으로 `APP`, `WEB`, `INTERNAL`을 구분한다.
 - 권한 검사는 `config/SecurityConfig`와 해당 Controller·Service의 실제 검증 경로를 확인한다. 문서에 적힌 검사만으로 보호되고 있다고 판단하지 않는다.
-- `@RequireIncidentAccess`, `@RequireRole`, `@RequireChannel`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned`, `@RequireOpenIncident`, `@RequireCurrentOp`, `@IdempotentWrite`의 책임을 섞지 않는다.
+- `@RequireIncidentAccess`, `@RequireRole`, `@RequireChannel`, `@RequirePolicePhone`, `@RequirePolicePhoneAssigned`, `@RequireOpenIncident`, `@RequireCurrentOp`, `@IdempotentWrite`의 책임을 섞지 않는다.
 - 앱 전용 write를 웹에서 허용하지 않는다. 웹 전용 command를 앱에서 허용하지 않는다.
 - 위치 데이터 조회 API는 `@RecordLocationAccess` 적용 여부를 확인한다.
 - 경로 기록 주체는 개인 `accountId`다. `PolicePhone`은 앱 단말 인증, 배정 guard, 전송 컨텍스트로만 함께 남긴다.

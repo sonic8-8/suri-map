@@ -1,6 +1,7 @@
 package com.surimap.app.controller.photo;
 
 import com.surimap.app.service.photo.PhotoRequestContext;
+import com.surimap.global.auth.PolicePhoneIdFormat;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
 import com.surimap.global.error.BusinessException;
@@ -52,14 +53,8 @@ public class PhotoRequestContextResolver {
   }
 
   private UUID parsePolicePhoneId(String policePhoneId) {
-    if (policePhoneId == null || policePhoneId.isBlank()) {
-      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
-    }
-    try {
-      return UUID.fromString(policePhoneId);
-    } catch (IllegalArgumentException exception) {
-      throw new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED);
-    }
+    return PolicePhoneIdFormat.parse(policePhoneId)
+        .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED));
   }
 
   private void requireMatchingPolicePhone(

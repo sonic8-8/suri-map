@@ -55,19 +55,9 @@ public class InMemoryPolicePhoneFixtureStore
   }
 
   @Override
-  public void checkRegistered(UUID policePhoneId) {
-    if (!fixtures.containsKey(policePhoneId)) {
-      throw new PolicePhoneNotRegisteredException();
-    }
-  }
-
-  @Override
   public void checkAssigned(UUID policePhoneId) {
     FixtureState fixture = fixtures.get(policePhoneId);
-    if (fixture == null) {
-      throw new PolicePhoneNotRegisteredException();
-    }
-    if (!fixture.assigned()) {
+    if (fixture == null || !fixture.assigned()) {
       throw new PolicePhoneNotAssignedException();
     }
   }

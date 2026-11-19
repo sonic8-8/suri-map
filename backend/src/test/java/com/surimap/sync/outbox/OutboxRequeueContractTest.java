@@ -175,7 +175,7 @@ class OutboxRequeueContractTest {
 
   @Test
   @WithMockAccount(policePhoneId = OutboxRetryDiagnosticsFixtures.UNREGISTERED_AUTH_POLICE_PHONE_ID)
-  void appRequeueRequestWithUnregisteredPolicePhoneIsRejected() throws Exception {
+  void appRequeueRequestWithUnregisteredPolicePhoneIsAccepted() throws Exception {
     mockMvc
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
@@ -184,8 +184,8 @@ class OutboxRequeueContractTest {
                     OutboxRetryDiagnosticsFixtures.UNREGISTERED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
+        .andExpect(status().isAccepted())
+        .andExpect(jsonPath("$.accepted", is(true)));
   }
 
   @Test

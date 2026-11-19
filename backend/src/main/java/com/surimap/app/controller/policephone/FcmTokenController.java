@@ -5,7 +5,6 @@ import com.surimap.app.controller.policephone.response.FcmTokenResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
 import com.surimap.common.auth.guard.PolicePhoneRequiredException;
@@ -31,7 +30,6 @@ public class FcmTokenController {
   @PostMapping("/api/fcm/tokens")
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
-  @RequirePolicePhoneRegistered
   public ResponseEntity<FcmTokenResponse> register(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @Valid @RequestBody FcmTokenRequest request) {
