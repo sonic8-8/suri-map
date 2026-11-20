@@ -68,7 +68,7 @@ describe('createMovementPathMapper', () => {
 
     // when: 배정 색상과 업무폰 최신성을 바꾼다.
     const coloredTree = { ...tree, colorToken: 'AREA_ROSE_01' as const };
-    const nextBoard = { ...board([first]), slots: { path: [first], police_phone_freshness: [
+    const nextBoard = { ...board([first]), slots: { path: [first], connection_status: [
       { accountId: 'account-a', status: 'LOST', lastHeartbeatAt: '2026-10-07T00:00:00Z' },
     ] } };
     const changed = mapPaths(nextBoard, OP_ID, coloredTree, []);

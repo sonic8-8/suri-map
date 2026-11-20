@@ -54,7 +54,7 @@ class BoardDtoAssemblyModelRedTest {
     boolean terminalBoard = hasTerminalIncidentRow(ownerRows);
     for (OwnerResponseRow ownerRow : ownerRows) {
       assertThat(board.boardResponseVersion()).isGreaterThanOrEqualTo(ownerRow.version());
-      if (isHiddenClosedFreshnessRow(terminalBoard, ownerRow)) {
+      if (isHiddenClosedConnectionStatusRow(terminalBoard, ownerRow)) {
         continue;
       }
       BoardSlotRow slotRow = board.slotRow(ownerRow.slot(), ownerRow.sourceResponseId());
@@ -70,8 +70,8 @@ class BoardDtoAssemblyModelRedTest {
   }
 
   @Test
-  @DisplayName("hides police_phone_freshness rows when incident terminal is closed")
-  void hides_police_phone_freshness_rows_when_incident_terminal_is_closed() {
+  @DisplayName("hides connection_status rows when incident terminal is closed")
+  void hides_connection_status_rows_when_incident_terminal_is_closed() {
     BoardDTO board =
         new BoardAssembler()
             .assemble(
@@ -85,11 +85,11 @@ class BoardDtoAssemblyModelRedTest {
                     GEOMETRY_HASH,
                     ownerRows().stream().map(BoardDtoAssemblyModelRedTest::sourceRow).toList()));
 
-    assertThat(board.slots().get("police_phone_freshness")).isEqualTo(List.of());
-    assertThat(board.slotSources().get("police_phone_freshness")).isEmpty();
-    assertThat(board.sourceVersions().get("police_phone_freshness")).isEmpty();
-    assertThat(board.sourceHashes().get("police_phone_freshness")).isEmpty();
-    assertThatThrownBy(() -> board.slotRow("police_phone_freshness", "dev-precinct-car-01"))
+    assertThat(board.slots().get("connection_status")).isEqualTo(List.of());
+    assertThat(board.slotSources().get("connection_status")).isEmpty();
+    assertThat(board.sourceVersions().get("connection_status")).isEmpty();
+    assertThat(board.sourceHashes().get("connection_status")).isEmpty();
+    assertThatThrownBy(() -> board.slotRow("connection_status", "acct-precinct-car"))
         .isInstanceOf(NoSuchElementException.class);
   }
 
@@ -135,7 +135,7 @@ class BoardDtoAssemblyModelRedTest {
     OwnerResponseRow invalidTerminalRow = terminalRow.withPayload(invalidPayload);
     OwnerResponseRow freshnessRow =
         ownerRows().stream()
-            .filter(row -> row.slot().equals("police_phone_freshness"))
+            .filter(row -> row.slot().equals("connection_status"))
             .findFirst()
             .orElseThrow();
 
@@ -288,10 +288,8 @@ class BoardDtoAssemblyModelRedTest {
       case "overall_search_area" -> new String[] {"geometry", "geometryHash"};
       case "area" -> new String[] {"opId", "geometry", "geometryHash"};
       case "path" -> new String[] {"opId", "accountId", "geometry", "geometryHash"};
-      case "police_phone_freshness" ->
-          new String[] {
-            "policePhoneId", "freshness", "lastHeartbeatAt", "lastSyncAt", "elapsedSeconds"
-          };
+      case "connection_status" ->
+          new String[] {"accountId", "freshness", "lastHeartbeatAt", "lastSyncAt"};
       case "marker" -> new String[] {"opId", "geometry", "geometryHash"};
       case "marker_notification" -> new String[] {"markerId"};
       case "package_badge" -> new String[] {"policePhoneId", "policePhoneCode", "policePhoneName"};
@@ -430,9 +428,9 @@ class BoardDtoAssemblyModelRedTest {
                         .contains(String.valueOf(row.payload().get("terminalStatus"))));
   }
 
-  private static boolean isHiddenClosedFreshnessRow(
+  private static boolean isHiddenClosedConnectionStatusRow(
       boolean terminalBoard, OwnerResponseRow ownerRow) {
-    return terminalBoard && ownerRow.slot().equals("police_phone_freshness");
+    return terminalBoard && ownerRow.slot().equals("connection_status");
   }
 
   private static List<OwnerResponseRow> ownerRows() {
@@ -468,10 +466,10 @@ class BoardDtoAssemblyModelRedTest {
             "evt-s3-path-appended-001",
             "hash-s3-path-mixed-current"),
         row(
-            "police_phone_freshness",
+            "connection_status",
             "S1-2",
-            "dev-precinct-car-01",
-            "board-PolicePhone-freshness-dev-precinct-car-01",
+            "acct-precinct-car",
+            "board-connection-status-acct-precinct-car",
             "ONLINE",
             4,
             504,
@@ -613,12 +611,11 @@ class BoardDtoAssemblyModelRedTest {
         payload.put("geometryHash", "hash-geometry-" + sourceResponseId);
         payload.put("geometry", Map.of("type", "LineString"));
       }
-      case "police_phone_freshness" -> {
-        payload.put("policePhoneId", sourceResponseId);
+      case "connection_status" -> {
+        payload.put("accountId", sourceResponseId);
         payload.put("freshness", "normal");
         payload.put("lastHeartbeatAt", "2026-04-28T10:29:30+09:00");
         payload.put("lastSyncAt", "2026-04-28T10:29:35+09:00");
-        payload.put("elapsedSeconds", 30);
       }
       case "marker" -> {
         payload.put("opId", ACTIVE_OP_ID);

@@ -20,7 +20,7 @@ public final class BoardAssembler {
     for (BoardSourceRow row : request.sourceRows()) {
       BoardSlotRegistry.requireKnown(row.slot());
       boardResponseVersion = Math.max(boardResponseVersion, row.version());
-      if (isHiddenClosedFreshnessRow(terminalBoard, row)) {
+      if (isHiddenClosedConnectionStatusRow(terminalBoard, row)) {
         continue;
       }
 
@@ -77,8 +77,9 @@ public final class BoardAssembler {
     return rows.stream().anyMatch(BoardSlotRow::isTerminalIncidentRow);
   }
 
-  private static boolean isHiddenClosedFreshnessRow(boolean terminalBoard, BoardSourceRow row) {
-    return terminalBoard && row.slot().equals("police_phone_freshness");
+  private static boolean isHiddenClosedConnectionStatusRow(
+      boolean terminalBoard, BoardSourceRow row) {
+    return terminalBoard && row.slot().equals("connection_status");
   }
 
   private static Map<String, Object> responseSlots(Map<String, List<BoardSlotRow>> slotRows) {

@@ -68,26 +68,26 @@ public final class BoardAssemblyLagObservationFixtures {
         ACTIVE_OP_ID,
         List.of("op-precinct-001-op1", ACTIVE_OP_ID),
         "hash-board-geometry-current",
-        List.of(terminalIncidentRow(), stalePolicePhoneFreshnessRow()));
+        List.of(terminalIncidentRow(), staleConnectionStatusRow()));
   }
 
-  public static BoardRefetchSignal policePhoneFreshnessSignal() {
+  public static BoardRefetchSignal connectionStatusSignal() {
     return new BoardRefetchSignal(
         "evt-s1-2-heartbeat-closed-001",
         INCIDENT_ID,
-        "POLICE_PHONE_HEARTBEAT_UPDATED",
+        "ACCOUNT_HEARTBEAT_UPDATED",
         SERVER_TS,
         901,
-        "police_phone_freshness",
+        "connection_status",
         "S1-2",
-        "dev-precinct-car-01",
+        "acct-precinct-car",
         "LOST",
         11,
         901,
-        "hash-s1-2-phone-closed",
+        "hash-s1-2-account-closed",
         Map.of(
-            "policePhoneId",
-            "dev-precinct-car-01",
+            "accountId",
+            "acct-precinct-car",
             "freshnessStatus",
             "LOST",
             "lastHeartbeatAt",
@@ -133,20 +133,20 @@ public final class BoardAssemblyLagObservationFixtures {
             "queued"));
   }
 
-  private static BoardSourceRow stalePolicePhoneFreshnessRow() {
+  private static BoardSourceRow staleConnectionStatusRow() {
     return new BoardSourceRow(
-        "police_phone_freshness",
+        "connection_status",
         "S1-2",
-        "dev-precinct-car-01",
-        "board-PolicePhone-freshness-dev-precinct-car-01",
+        "acct-precinct-car",
+        "board-connection-status-acct-precinct-car",
         "STALE",
         10,
         900,
         "evt-s1-2-heartbeat-before-close-001",
-        "hash-s1-2-phone-before-close",
+        "hash-s1-2-account-before-close",
         Map.of(
-            "policePhoneId",
-            "dev-precinct-car-01",
+            "accountId",
+            "acct-precinct-car",
             "freshnessStatus",
             "STALE",
             "lastHeartbeatAt",

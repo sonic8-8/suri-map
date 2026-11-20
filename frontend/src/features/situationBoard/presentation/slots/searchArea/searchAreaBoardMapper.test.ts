@@ -87,32 +87,6 @@ describe('searchAreaBoardMapper', () => {
     expect(tree.children?.[0]?.colorToken).toBe('AREA_ROSE_01');
   });
 
-  test('assigned account policePhoneId is resolved from freshness rows', () => {
-    const board = createBoard({
-      area: [
-        {
-          id: 'team-001',
-          opId: 'op-001',
-          areaLevel: 'TEAM',
-          name: 'TEAM',
-          version: 1,
-          geometry: polygonGeometry(),
-          assignedAccounts: [{ accountId: 'account-001', displayName: 'Team A' }],
-        },
-      ],
-      police_phone_freshness: [
-        {
-          accountId: 'account-001',
-          policePhoneId: 'phone-001',
-          status: 'ONLINE',
-        },
-      ],
-    });
-
-    expect(toSearchAreaRows(board)[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-001');
-    expect(toAssignmentsByAreaId(board).get('team-001')?.[0]?.policePhoneId).toBe('phone-001');
-  });
-
   test('assigned account policePhoneId falls back to path and marker rows', () => {
     const board = createBoard({
       area: [
@@ -133,6 +107,7 @@ describe('searchAreaBoardMapper', () => {
 
     expect(rows[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-path');
     expect(rows[1]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-marker');
+    expect(toAssignmentsByAreaId(board).get('team-001')?.[0]?.policePhoneId).toBe('phone-from-path');
   });
 });
 

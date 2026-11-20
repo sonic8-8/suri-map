@@ -7,7 +7,7 @@ export type BoardSlotName =
   | 'overall_search_area'
   | 'area'
   | 'path'
-  | 'police_phone_freshness'
+  | 'connection_status'
   | 'marker'
   | 'marker_notification'
   | 'package_badge'
@@ -36,7 +36,7 @@ const boardSlotRegistry: readonly BoardSlotName[] = [
   'overall_search_area',
   'area',
   'path',
-  'police_phone_freshness',
+  'connection_status',
   'marker',
   'marker_notification',
   'package_badge',

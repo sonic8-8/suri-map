@@ -24,10 +24,10 @@ const DEFAULT_SELECTED_SEARCH_AREA_LEGEND_FILTERS: SearchAreaLegendFilterId[] = 
   'completed_team_area',
 ];
 const DEFAULT_SELECTED_POLICE_PHONE_LEGEND_FILTERS: PolicePhoneLegendFilterId[] = [
-  'active_phone',
-  'phone_online',
-  'phone_stale',
-  'phone_lost',
+  'active_account',
+  'account_online',
+  'account_stale',
+  'account_lost',
 ];
 
 export function useBoardLayerFilters({

@@ -106,9 +106,9 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | offlinepackage | [Sc03PackageTileHarnessRedTest](../../backend/src/test/java/com/surimap/offlinepackage/Sc03PackageTileHarnessRedTest.java) |
 | operationalperiod | [OpTransitionRedTest](../../backend/src/test/java/com/surimap/operationalperiod/OpTransitionRedTest.java) |
 | policephone | [FcmTokenQueryRedTest](../../backend/src/test/java/com/surimap/policephone/FcmTokenQueryRedTest.java) |
-| policephone | [PolicePhoneFreshnessQueryRedTest](../../backend/src/test/java/com/surimap/policephone/PolicePhoneFreshnessQueryRedTest.java) |
-| policephone | [PolicePhoneHeartbeatApiRedTest](../../backend/src/test/java/com/surimap/policephone/PolicePhoneHeartbeatApiRedTest.java) |
-| policephone | [PolicePhoneHeartbeatPublishRequestRedTest](../../backend/src/test/java/com/surimap/policephone/PolicePhoneHeartbeatPublishRequestRedTest.java) |
+| policephone | `PolicePhoneFreshnessQueryRedTest`: 2026-11-20 #52에서 지웠다. 통신 상태 조회는 [SyncHeartbeatApiTest](../../backend/src/test/java/com/surimap/app/controller/sync/SyncHeartbeatApiTest.java)에서 확인한다. |
+| policephone | `PolicePhoneHeartbeatApiRedTest`: 2026-11-20 #52에서 지웠다. heartbeat API는 [SyncHeartbeatApiTest](../../backend/src/test/java/com/surimap/app/controller/sync/SyncHeartbeatApiTest.java)에서 확인한다. |
+| policephone | `PolicePhoneHeartbeatPublishRequestRedTest`: 2026-11-20 #52에서 지웠다. heartbeat 이벤트는 [SyncHeartbeatApiTest](../../backend/src/test/java/com/surimap/app/controller/sync/SyncHeartbeatApiTest.java)에서 확인한다. |
 | retention/purge | [PurgeCoordinatorRedTest](../../backend/src/test/java/com/surimap/retention/purge/PurgeCoordinatorRedTest.java) |
 | retention/purge | [PurgeOrchestrationHarnessRunnerRedTest](../../backend/src/test/java/com/surimap/retention/purge/PurgeOrchestrationHarnessRunnerRedTest.java) |
 | searcharea | [SearchAreaApiServicePersistenceRedTest](../../backend/src/test/java/com/surimap/searcharea/SearchAreaApiServicePersistenceRedTest.java) |
@@ -215,7 +215,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | 인증 | [AuthPolicePhoneHarnessFixtures](../../backend/src/test/java/com/surimap/account/harness/AuthPolicePhoneHarnessFixtures.java) — `Harness` 대신 인증·업무폰 테스트 데이터라는 역할 검토 |
 | 인증 | [RealS1_2AuthPolicePhoneContract](../../backend/src/test/java/com/surimap/account/harness/RealS1_2AuthPolicePhoneContract.java) — `Real`·Spec 번호·`Contract` 대신 실제 서비스 연결 범위 확인 |
 | 업무폰 | [PolicePhonePersistenceIntegrationTest](../../backend/src/test/java/com/surimap/policephone/PolicePhonePersistenceIntegrationTest.java) — Service·Mapper 중 검증 책임 확인 |
-| 업무폰 | [PolicePhoneHeartbeatIntegrationTest](../../backend/src/test/java/com/surimap/policephone/PolicePhoneHeartbeatIntegrationTest.java) — heartbeat 저장·이벤트 검증 범위 확인 |
+| 업무폰 | `PolicePhoneHeartbeatIntegrationTest`: 2026-11-20 #52에서 지웠다. heartbeat 저장과 이벤트는 [SyncHeartbeatApiTest](../../backend/src/test/java/com/surimap/app/controller/sync/SyncHeartbeatApiTest.java)에서 확인한다. |
 | Android 인증 | [AuthBootstrapContractTest](../../android/app/src/test/java/com/surimap/feature/bootstrap/AuthBootstrapContractTest.kt) — 인증 초기화의 검증 동작 기준으로 명명 |
 | Android 업무폰 | [PolicePhoneNavigationContractTest](../../android/app/src/test/java/com/surimap/ui/navigation/PolicePhoneNavigationContractTest.kt) — 기존 대표 패턴의 실제 경로 등록. 탐색·복귀 동작의 검증 대상 확인 |
 | 데이터 파기 | [InMemoryS1_3PurgeOrchestrationContract](../../backend/src/test/java/com/surimap/retention/purge/harness/InMemoryS1_3PurgeOrchestrationContract.java) — Spec 번호·`Contract` 대신 대역 역할 확인 |

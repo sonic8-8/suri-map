@@ -71,8 +71,8 @@ class Sc07Sc09OfflineReplayHarnessRedTest {
     assertThat(booleanValue(marker, "converged")).isTrue();
 
     Object freshness = call(evidence, "policePhoneFreshnessSlot");
-    assertThat(value(freshness, "slot")).isEqualTo("police_phone_freshness");
-    assertThat(value(freshness, "id")).isEqualTo("dev-precinct-phone-01");
+    assertThat(value(freshness, "slot")).isEqualTo("connection_status");
+    assertThat(value(freshness, "id")).isEqualTo("acct-precinct-team");
     assertThat(value(freshness, "status")).isEqualTo("NORMAL");
     assertThat(value(freshness, "expectedVersion")).isEqualTo("4");
     assertThat(value(freshness, "boardRowVersion")).isEqualTo("4");
@@ -135,13 +135,13 @@ class Sc07Sc09OfflineReplayHarnessRedTest {
             "POST /markers",
             "GET /incidents/{incidentId}/police-phone-freshness");
     assertThat(listValue(evidence, "slots"))
-        .containsExactly("path", "marker", "police_phone_freshness");
+        .containsExactly("path", "marker", "connection_status");
     assertThat(booleanValue(evidence, "externalNetworkCalled")).isFalse();
     assertThat(booleanValue(evidence, "committedCacheMissingRecovered")).isTrue();
     assertThat(value(evidence, "recoveredEntityId")).isEqualTo("path-precinct-mixed-001");
     assertThat(listValue(evidence, "recoveredEntityIds"))
         .containsExactly(
-            "path-precinct-mixed-001", "mk-precinct-clue-001", "dev-precinct-phone-01");
+            "path-precinct-mixed-001", "mk-precinct-clue-001", "acct-precinct-team");
     assertThat(value(evidence, "recoveryPortCalls")).isEqualTo("2");
     assertThat(booleanValue(evidence, "pathRecovered")).isTrue();
     assertThat(booleanValue(evidence, "markerRecovered")).isTrue();

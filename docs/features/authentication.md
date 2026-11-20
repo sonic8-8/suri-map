@@ -35,8 +35,8 @@
 ## 통신 최신성과 알림 토큰
 
 - 기존 요구는 낮거나 같은 heartbeat 순번으로 최신 상태를 되돌리지 않는 것, 마지막 서버 수신 시각으로 `ONLINE`·`STALE`·`LOST`를 계산하는 것, 앱의 `OFFLINE`·`RECOVERING`을 서버 저장 상태와 구분하는 것이다. 종료 사건의 상황판에는 남은 위치·최신성 표시를 숨겨야 한다.
-- [업무폰 Service](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java)는 서버 수신 시각을 저장하고 조회 때 60초·5분 기준을 적용한다. 이는 현재 구현·옛 요구의 값이며, 부하 시험이나 현장 허용 지연의 합의값은 아니다. 여러 사건 배정과 동시 heartbeat의 순번·이벤트 일치는 별도로 확인한다.
-- **트랜잭션 확인 대상**: [heartbeat Service](../../backend/src/main/java/com/surimap/app/service/policephone/AppPolicePhoneHeartbeatService.java)는 저장 Service 호출이 끝난 뒤 이벤트를 발행한다. 저장과 발행이 항상 같은 트랜잭션이라는 기존 요구를 메서드 이름만으로 보장할 수 없다.
+- **계정 기준 통신 상태 (2026-11-20 #52, Backend API 테스트로 확인)**: heartbeat는 업무폰이 아니라 계정마다 하나씩 [heartbeat Service](../../backend/src/main/java/com/surimap/app/service/sync/AppSyncHeartbeatService.java)에서 저장된다. 저장하는 시각은 서버가 받은 시각이다. heartbeat 순번은 없앴다. 마지막 heartbeat 시각은 더 늦은 값만 남으므로, 늦게 도착한 요청이 최신 상태를 되돌리지 않는다. 조회할 때 60초와 5분 기준으로 [통신 상태](../../backend/src/main/java/com/surimap/domain/connectionstatus/ConnectionStatus.java)가 정해진다. 이 기준은 현재 구현과 옛 요구의 값이다. 부하 시험이나 현장 허용 지연으로 합의한 값은 아니다. 여러 사건에 배정된 계정의 heartbeat는 진행 중 사건마다 이벤트가 하나씩 남는다.
+- **트랜잭션**: 기록 저장과 이벤트 저장(`event_dispatch_job`)은 `AppSyncHeartbeatService.heartbeat`의 한 트랜잭션 안에서 일어난다. 이벤트 저장이 실패할 때 기록도 롤백되는지는 따로 테스트하지 않았다.
 - **암호화 미충족**: 업무폰 Service의 `encryptToken()`은 `"cipher:" + token`을 반환한다. `token_ciphertext`라는 컬럼명과 달리 실제 암호화가 아니다. 원문의 암호화 저장·로그/API 비노출 요구를 보존하며, 키 관리와 전송 측 복호화를 함께 검토해야 한다.
 - 토큰 재등록은 이전 활성 토큰을 폐기하고 새 행을 저장한다. 로그아웃 폐기 메서드는 있으나 운영 코드의 호출 연결은 이번 검색에서 찾지 못했다. 실제 로그아웃·동시 등록·FCM 수신과 실패 복구는 별도 검증 대상이다.
 

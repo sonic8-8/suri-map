@@ -57,18 +57,18 @@ class BoardApiSseConvergenceHarnessRedTest {
       } else {
         assertThat(report.hiddenReason(expected))
             .as("hidden visible row reason for %s/%s", expected.slot(), expected.sourceResponseId())
-            .contains("closed_incident_hides_police_phone_freshness");
+            .contains("closed_incident_hides_connection_status");
         assertThat(board.slotSources().get(expected.slot()))
-            .as("closed incident visible BoardDTO keeps police_phone_freshness private")
+            .as("closed incident visible BoardDTO keeps connection_status private")
             .isEmpty();
         assertThat(board.slots().get(expected.slot()))
-            .as("closed incident response slots do not leak police_phone_freshness")
+            .as("closed incident response slots do not leak connection_status")
             .isEqualTo(List.of());
         assertThat(board.sourceVersions().get(expected.slot()))
-            .as("closed incident sourceVersions do not leak police_phone_freshness")
+            .as("closed incident sourceVersions do not leak connection_status")
             .isEmpty();
         assertThat(board.sourceHashes().get(expected.slot()))
-            .as("closed incident sourceHashes do not leak police_phone_freshness")
+            .as("closed incident sourceHashes do not leak connection_status")
             .isEmpty();
         assertThatThrownBy(() -> board.slotRow(expected.slot(), expected.sourceResponseId()))
             .isInstanceOf(NoSuchElementException.class);

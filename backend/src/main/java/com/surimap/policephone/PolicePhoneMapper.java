@@ -18,17 +18,6 @@ public interface PolicePhoneMapper {
   Optional<PolicePhoneAssignmentRow> findActiveAssignmentByPolicePhone(
       @Param("policePhoneId") UUID policePhoneId);
 
-  Optional<UUID> findActiveIncidentIdByAccount(@Param("accountId") UUID accountId);
-
-  List<PolicePhoneFreshnessStateRow> findFreshnessByIncident(@Param("incidentId") UUID incidentId);
-
-  int updateHeartbeatIfNewer(
-      @Param("policePhoneId") UUID policePhoneId,
-      @Param("eventId") UUID eventId,
-      @Param("sequence") long sequence,
-      @Param("receivedAt") Instant receivedAt,
-      @Param("lastSyncAt") Instant lastSyncAt);
-
   Optional<Long> findActiveTokenVersion(
       @Param("policePhoneId") UUID policePhoneId, @Param("appInstanceId") String appInstanceId);
 

@@ -82,7 +82,7 @@ const legendFilterTargets: Record<string, LegendFilterTarget> = {
   'legend-swatch area-completed': { type: 'searchArea', filterId: 'completed_team_area' },
   'legend-swatch route-vehicle': { type: 'layer', layerId: 'vehicle_path' },
   'legend-swatch route-walk': { type: 'layer', layerId: 'foot_path' },
-  'legend-swatch device-active': { type: 'policePhone', filterId: 'active_phone' },
+  'legend-swatch device-active': { type: 'policePhone', filterId: 'active_account' },
   'legend-swatch marker-clue': { type: 'marker', markerType: 'CLUE' },
   'legend-swatch marker-found': { type: 'marker', markerType: 'PERSON_FOUND' },
   'legend-swatch marker-field': { type: 'marker', markerType: 'FIELD_CONDITION' },

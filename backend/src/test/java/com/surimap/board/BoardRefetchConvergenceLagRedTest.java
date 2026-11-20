@@ -89,12 +89,12 @@ class BoardRefetchConvergenceLagRedTest {
         new BoardRefetchGuard()
             .apply(
                 BoardAssemblyLagObservationFixtures.terminalBoardRequest(),
-                List.of(BoardAssemblyLagObservationFixtures.policePhoneFreshnessSignal()));
+                List.of(BoardAssemblyLagObservationFixtures.connectionStatusSignal()));
 
     BoardRefetchConvergenceProbe probe = result.convergenceProbe();
 
     assertThat(probe.eventId()).isEqualTo("evt-s1-2-heartbeat-closed-001");
-    assertThat(probe.slot()).isEqualTo("police_phone_freshness");
+    assertThat(probe.slot()).isEqualTo("connection_status");
     assertThat(probe.boardRowVersion()).isEqualTo(-1);
     assertThat(probe.boardRowSequence()).isEqualTo(-1);
     assertThat(probe.converged()).isFalse();

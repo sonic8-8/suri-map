@@ -10,7 +10,7 @@ public final class BoardSlotRegistry {
           "overall_search_area",
           "area",
           "path",
-          "police_phone_freshness",
+          "connection_status",
           "marker",
           "marker_notification",
           "package_badge",

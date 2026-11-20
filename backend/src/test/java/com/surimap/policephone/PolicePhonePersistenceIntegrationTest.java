@@ -1,10 +1,7 @@
 package com.surimap.policephone;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -80,87 +77,6 @@ class PolicePhonePersistenceIntegrationTest {
   @WithMockAccount(
       organizationType = OrganizationType.POLICE_SUBSTATION,
       policePhoneId = "00000000-0000-0000-0000-000000000101")
-  @DisplayName("heartbeat persists sequence, timestamps, version and publishes one event")
-  void heartbeatPersistsSequenceTimestampsVersionAndPublishesEvent() throws Exception {
-    mockMvc
-        .perform(
-            post(
-                    "/api/police-phones/{policePhoneId}/heartbeat",
-                    PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-                .contentType("application/json")
-                .content(
-                    """
-                    {
-                      "clientTs": "2026-05-08T09:00:00+09:00",
-                      "sequence": 3,
-                      "lastSyncAt": "2026-05-08T08:59:30+09:00",
-                      "batteryPercent": 88
-                    }
-                    """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("ONLINE"))
-        .andExpect(jsonPath("$.version").value(2))
-        .andExpect(jsonPath("$.sequence").value(3))
-        .andExpect(
-            jsonPath("$.policePhoneId")
-                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()));
-
-    var row =
-        jdbcTemplate.queryForMap(
-            """
-            SELECT heartbeat_sequence, version, last_heartbeat_event_id, last_heartbeat_at, last_sync_at
-            FROM police_phone
-            WHERE id = ?
-            """,
-            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
-    assertThat(row.get("HEARTBEAT_SEQUENCE")).isEqualTo(3L);
-    assertThat(row.get("VERSION")).isEqualTo(2L);
-    assertThat(row.get("LAST_HEARTBEAT_EVENT_ID")).isNotNull();
-    assertThat(row.get("LAST_HEARTBEAT_AT")).isNotNull();
-    assertThat(row.get("LAST_SYNC_AT")).isNotNull();
-
-    verify(eventHub)
-        .publish(
-            argThat(
-                request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())
-                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.getIncidentId())
-                        && PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.equals(
-                            request.getSourceEntityId())
-                        && request.getPayload().get("sequence").equals(3L)
-                        && request.getPayload().get("version").equals(2L)));
-  }
-
-  @Test
-  @WithMockAccount(
-      organizationType = OrganizationType.POLICE_SUBSTATION,
-      policePhoneId = "00000000-0000-0000-0000-000000000101")
-  @DisplayName("stale heartbeat sequence keeps the accepted DB state and does not publish")
-  void staleHeartbeatSequenceKeepsAcceptedDbStateAndDoesNotPublish() throws Exception {
-    heartbeat(5);
-    heartbeat(4)
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.sequence").value(5))
-        .andExpect(jsonPath("$.version").value(2));
-
-    var row =
-        jdbcTemplate.queryForMap(
-            "SELECT heartbeat_sequence, version FROM police_phone WHERE id = ?",
-            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
-    assertThat(row.get("HEARTBEAT_SEQUENCE")).isEqualTo(5L);
-    assertThat(row.get("VERSION")).isEqualTo(2L);
-    verify(eventHub, times(1))
-        .publish(
-            argThat(
-                request ->
-                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.getType())));
-  }
-
-  @Test
-  @WithMockAccount(
-      organizationType = OrganizationType.POLICE_SUBSTATION,
-      policePhoneId = "00000000-0000-0000-0000-000000000101")
   @DisplayName("FCM registration rotates the active DB row per app instance")
   void fcmRegistrationRotatesActiveDbRowPerAppInstance() throws Exception {
     registerFcm("app-instance-db", "fcm-token-db-1")
@@ -204,25 +120,6 @@ class PolicePhonePersistenceIntegrationTest {
               assertThat(row.tokenHash()).isNotBlank();
               assertThat(row.version()).isEqualTo(2L);
             });
-  }
-
-  private org.springframework.test.web.servlet.ResultActions heartbeat(long sequence)
-      throws Exception {
-    return mockMvc.perform(
-        post(
-                "/api/police-phones/{policePhoneId}/heartbeat",
-                PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-            .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-            .contentType("application/json")
-            .content(
-                """
-                {
-                  "clientTs": "2026-05-08T09:00:00+09:00",
-                  "sequence": %d,
-                  "lastSyncAt": "2026-05-08T08:59:30+09:00"
-                }
-                """
-                    .formatted(sequence)));
   }
 
   private org.springframework.test.web.servlet.ResultActions registerFcm(

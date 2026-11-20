@@ -353,7 +353,6 @@ function createPolicePhoneIdsByAccountId(board: SituationBoardResponseDto) {
   const policePhoneIdsByAccountId = new Map<string, string>();
 
   for (const row of [
-    ...readSlotRows(board, 'police_phone_freshness'),
     ...readSlotRows(board, 'path'),
     ...readSlotRows(board, 'marker'),
   ]) {

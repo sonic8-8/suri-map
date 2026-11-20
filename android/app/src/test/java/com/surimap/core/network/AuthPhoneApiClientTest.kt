@@ -48,7 +48,7 @@ class AuthPhoneApiClientTest {
     }
 
     @Test
-    fun heartbeatUsesPolicePhonePathAndHeadersWithoutIdempotencyKey() = runBlocking {
+    fun heartbeatUsesSyncPathAndPolicePhoneHeaderWithoutSequence() = runBlocking {
         val callFactory = CapturingCallFactory(response = response(200))
         val client = AuthPhoneApiClient(
             apiClient = SuriMapApiClient(
@@ -62,24 +62,19 @@ class AuthPhoneApiClientTest {
             PolicePhoneHeartbeatNetworkRequest(
                 policePhoneId = "00000000-0000-0000-0000-000000000101",
                 clientTs = "2026-05-08T09:00:00+09:00",
-                sequence = 7,
-                lastSyncAt = "2026-05-08T08:59:30+09:00",
-                batteryPercent = 88
+                lastSyncAt = "2026-05-08T08:59:30+09:00"
             )
         )
 
         val request = callFactory.lastRequest!!
         assertEquals("POST", request.method)
-        assertEquals(
-            "https://suri-map.example.com/api/police-phones/00000000-0000-0000-0000-000000000101/heartbeat",
-            request.url.toString()
-        )
+        assertEquals("https://suri-map.example.com/api/sync/heartbeat", request.url.toString())
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
         assertEquals("00000000-0000-0000-0000-000000000101", request.header("X-PolicePhone-Id"))
         assertNull(request.header("Idempotency-Key"))
         assertEquals(
-            """{"clientTs":"2026-05-08T09:00:00+09:00","sequence":7,"lastSyncAt":"2026-05-08T08:59:30+09:00","batteryPercent":88}""",
+            """{"clientTs":"2026-05-08T09:00:00+09:00","lastSyncAt":"2026-05-08T08:59:30+09:00"}""",
             readRequestBody(request)
         )
     }

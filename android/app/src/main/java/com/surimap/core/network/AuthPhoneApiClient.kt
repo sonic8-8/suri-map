@@ -1,6 +1,5 @@
 package com.surimap.core.network
 
-import com.surimap.core.sync.jsonNumber
 import com.surimap.core.sync.jsonObject
 import com.surimap.core.sync.jsonString
 
@@ -13,9 +12,7 @@ data class RegisterFcmTokenNetworkRequest(
 data class PolicePhoneHeartbeatNetworkRequest(
     val policePhoneId: String,
     val clientTs: String,
-    val sequence: Long,
-    val lastSyncAt: String? = null,
-    val batteryPercent: Int? = null
+    val lastSyncAt: String? = null
 )
 
 class AuthPhoneApiClient(
@@ -41,12 +38,10 @@ class AuthPhoneApiClient(
         return apiClient.execute(
             SuriMapApiRequest(
                 method = "POST",
-                path = "/api/police-phones/${request.policePhoneId}/heartbeat",
+                path = "/api/sync/heartbeat",
                 body = jsonObject(
                     "clientTs" to jsonString(request.clientTs),
-                    "sequence" to jsonNumber(request.sequence),
-                    "lastSyncAt" to request.lastSyncAt?.let(::jsonString),
-                    "batteryPercent" to request.batteryPercent?.let(::jsonNumber)
+                    "lastSyncAt" to request.lastSyncAt?.let(::jsonString)
                 ),
                 accessToken = accessTokenProvider.accessToken(),
                 policePhoneId = request.policePhoneId

@@ -31,7 +31,7 @@ export function createMovementPathMapper() {
     // 페이지마다 새로 만든 구역 객체도 값이 같으면 재사용한다. 경로·좌표 전체를 직렬화하지 않는다.
     const context = JSON.stringify([
       board.incidentId, board.activeOpId, activeOperationalPeriodId, board.serverTs,
-      board.slots.police_phone_freshness, searchAreaTree, searchAreaDrafts,
+      board.slots.connection_status, searchAreaTree, searchAreaDrafts,
     ]);
     if (context !== previousContext || rows.length === 0) {
       mappedRows = new WeakMap();

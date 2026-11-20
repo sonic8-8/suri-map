@@ -151,7 +151,7 @@ function createFreshnessStatusByAccountId(board: BoardResponseLike) {
     { status: BoardPolicePhoneFreshnessStatus; lastHeartbeatAt: number }
   >();
 
-  readBoardSlotRows(board, 'police_phone_freshness').forEach((row) => {
+  readBoardSlotRows(board, 'connection_status').forEach((row) => {
     const accountId = readAccountId(row);
     const freshnessStatus = readPolicePhoneFreshnessStatus(row);
     if (!accountId || !freshnessStatus) return;

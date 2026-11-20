@@ -50,7 +50,7 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
 
   private static final String FRESHNESS_ENDPOINT =
       "GET /incidents/{incidentId}/police-phone-freshness";
-  private static final String FRESHNESS_ID = "dev-precinct-phone-01";
+  private static final String FRESHNESS_ID = "acct-precinct-team";
   private static final long FRESHNESS_VERSION = 4L;
   private static final long FRESHNESS_SEQUENCE = 704L;
   private static final String FRESHNESS_EVENT_ID = "evt-s1-2-heartbeat-recovered-001";
@@ -106,7 +106,7 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
         recovery,
         slotEvidence(board.slotRow("path", PATH_ID), PATH_VERSION),
         slotEvidence(board.slotRow("marker", MARKER_ID), MARKER_VERSION),
-        slotEvidence(board.slotRow("police_phone_freshness", FRESHNESS_ID), FRESHNESS_VERSION),
+        slotEvidence(board.slotRow("connection_status", FRESHNESS_ID), FRESHNESS_VERSION),
         boardEvidence(boardResult));
   }
 
@@ -186,7 +186,7 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
             "mock-marker-owner-endpoint",
             "mock-police-phone-freshness-owner-endpoint"),
         List.of(PATH_ENDPOINT, MARKER_ENDPOINT, FRESHNESS_ENDPOINT),
-        List.of("path", "marker", "police_phone_freshness"),
+        List.of("path", "marker", "connection_status"),
         false,
         pathReplay.replayRecovered()
             && markerReplay.replayRecovered()
@@ -205,7 +205,7 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
             && converged(convergence.board(), "marker", MARKER_ID, MARKER_VERSION, MARKER_SEQUENCE)
             && converged(
                 convergence.board(),
-                "police_phone_freshness",
+                "connection_status",
                 FRESHNESS_ID,
                 FRESHNESS_VERSION,
                 FRESHNESS_SEQUENCE));
@@ -225,7 +225,7 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
     return switch (row.id()) {
       case PATH_ID -> "path";
       case MARKER_ID -> "marker";
-      case FRESHNESS_ID -> "police_phone_freshness";
+      case FRESHNESS_ID -> "connection_status";
       default -> throw new IllegalArgumentException("unknown slot row id: " + row.id());
     };
   }
@@ -238,12 +238,12 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
     return new BoardRefetchEvidence(
         status(bySlot, "path"),
         status(bySlot, "marker"),
-        status(bySlot, "police_phone_freshness"),
+        status(bySlot, "connection_status"),
         converged(result.board(), "path", PATH_ID, PATH_VERSION, PATH_SEQUENCE),
         converged(result.board(), "marker", MARKER_ID, MARKER_VERSION, MARKER_SEQUENCE),
         converged(
             result.board(),
-            "police_phone_freshness",
+            "connection_status",
             FRESHNESS_ID,
             FRESHNESS_VERSION,
             FRESHNESS_SEQUENCE));
@@ -340,14 +340,14 @@ public class Sc07Sc09OfflineReplayHarnessRunner {
   private static BoardRefetchSignal policePhoneFreshnessSignal(PolicePhoneFreshnessFixture fixture) {
     return signal(
         fixture.eventId(),
-        "POLICE_PHONE_HEARTBEAT_UPDATED",
-        "police_phone_freshness",
+        "ACCOUNT_HEARTBEAT_UPDATED",
+        "connection_status",
         "S1-2",
         fixture.id(),
         fixture.status(),
         fixture.version(),
         fixture.sequence(),
-        "S1-2:police_phone_freshness:" + fixture.id() + ":v" + fixture.version(),
+        "S1-2:connection_status:" + fixture.id() + ":v" + fixture.version(),
         Map.of(
             "id", fixture.id(),
             "status", fixture.status(),

@@ -114,15 +114,16 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 {id, status, version}`
 - Errors: `police_phone_required`, `channel_not_allowed`
 
-#### POST `/api/police-phones/{policePhoneId}/heartbeat`
+#### POST `/api/sync/heartbeat`
 
 - Consumer: APP
 - Headers: `Authorization`, `X-Client-Channel`, `X-PolicePhone-Id`
-- Guard: `app-police-phone`
+- Guard: `@RequireChannel(APP)`, `@RequirePolicePhone`(UUID 형식만 검사한다)
 - Idempotency-Key: no
-- Request: `clientTs`, `sequence`, optional `lastSyncAt`, `batteryPercent`
-- Response: `200 {id, status, version, policePhoneId, sequence, lastHeartbeatAt, lastSyncAt}`
-- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`, `team_not_assigned`
+- Request: `clientTs`, optional `lastSyncAt`
+- Response: `200 {status, version, accountId, lastHeartbeatAt, lastSyncAt}`
+- Errors: `police_phone_required`, `channel_not_allowed`
+- Note: 계정은 access token에서, 업무폰 ID는 `X-PolicePhone-Id`에서 읽는다. 기록은 계정마다 하나다. `lastHeartbeatAt`은 서버가 받은 시각이다. `lastSyncAt`은 더 늦은 값만 남는다. DB에 없는 업무폰 ID로 보낸 heartbeat와 사건에 배정되지 않은 계정의 heartbeat도 성공한다. 계정이 배정된 진행 중 사건마다 `ACCOUNT_HEARTBEAT_UPDATED`가 하나씩 남는다(2026-11-20 #52, Backend API 테스트로 확인). 이 이벤트의 payload에는 `id`(계정 ID), `status`(`ONLINE`), `version`, `accountId`, `lastHeartbeatAt`, `lastSyncAt`이 있다. 옛 경로 `POST /api/police-phones/{policePhoneId}/heartbeat`는 없앴다.
 
 ### 4.2 Incident
 

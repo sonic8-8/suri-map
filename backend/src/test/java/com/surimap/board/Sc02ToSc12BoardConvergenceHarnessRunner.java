@@ -48,7 +48,7 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
         sourceCoverage(sourceRows),
         sourceCoverage(sourceRows),
         sourceCoverage(sourceRows),
-        hiddenClosedIncidentFreshnessRows(sourceRows));
+        hiddenClosedIncidentConnectionStatusRows(sourceRows));
   }
 
   List<ScenarioProbe> sourceConvergenceMatrix() {
@@ -94,13 +94,13 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
     return freeze(coverage);
   }
 
-  private static Map<SourceRowKey, String> hiddenClosedIncidentFreshnessRows(
+  private static Map<SourceRowKey, String> hiddenClosedIncidentConnectionStatusRows(
       List<BoardSourceRow> sourceRows) {
     boolean terminalBoard = sourceRows.stream().anyMatch(BoardSlotRow::isTerminalIncidentRow);
     Map<SourceRowKey, String> hiddenRows = new LinkedHashMap<>();
     for (BoardSourceRow row : sourceRows) {
-      if (terminalBoard && row.slot().equals("police_phone_freshness")) {
-        hiddenRows.put(SourceRowKey.from(row), "closed_incident_hides_police_phone_freshness");
+      if (terminalBoard && row.slot().equals("connection_status")) {
+        hiddenRows.put(SourceRowKey.from(row), "closed_incident_hides_connection_status");
       }
     }
     return Collections.unmodifiableMap(hiddenRows);

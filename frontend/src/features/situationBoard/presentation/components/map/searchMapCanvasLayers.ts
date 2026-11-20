@@ -441,17 +441,17 @@ export function filterMovementPathsByPolicePhoneLegendFilters(
   return {
     type: 'FeatureCollection',
     features: movementPaths.features.filter((feature) => {
-      if (feature.properties.isActiveOp === 'true' && !selectedFilterIdSet.has('active_phone')) {
+      if (feature.properties.isActiveOp === 'true' && !selectedFilterIdSet.has('active_account')) {
         return false;
       }
 
       switch (feature.properties.freshnessStatus) {
         case 'ONLINE':
-          return selectedFilterIdSet.has('phone_online');
+          return selectedFilterIdSet.has('account_online');
         case 'STALE':
-          return selectedFilterIdSet.has('phone_stale');
+          return selectedFilterIdSet.has('account_stale');
         case 'LOST':
-          return selectedFilterIdSet.has('phone_lost');
+          return selectedFilterIdSet.has('account_lost');
         default:
           return true;
       }

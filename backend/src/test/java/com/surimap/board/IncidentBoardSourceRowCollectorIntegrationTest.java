@@ -48,9 +48,8 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.policephone.PolicePhoneFreshnessStatus;
-import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
-import com.surimap.policephone.query.PolicePhoneFreshnessRow;
+import com.surimap.domain.connectionstatus.ConnectionStatusQuery;
+import com.surimap.domain.connectionstatus.ConnectionStatusRow;
 import com.surimap.retention.purge.IncidentDataPurgeRun;
 import com.surimap.retention.purge.IncidentDataPurgeStatus;
 import com.surimap.retention.purge.IncidentDataPurgeStore;
@@ -114,7 +113,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             markerService,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -135,7 +134,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "overall_search_area",
                     "area",
                     "path",
-                    "police_phone_freshness",
+                    "connection_status",
                     "marker",
                     "marker_notification",
                     "package_badge",
@@ -157,7 +156,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "overall_search_area",
             "area",
             "path",
-            "police_phone_freshness",
+            "connection_status",
             "marker",
             "marker_notification",
             "package_badge",
@@ -177,7 +176,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .containsKey("geometry")
         .containsKey("startedAt")
         .containsKey("endedAt");
-    assertThat(row(snapshot, "police_phone_freshness").sourceSpec()).isEqualTo("S1-2");
+    assertThat(row(snapshot, "connection_status").sourceSpec()).isEqualTo("S1-2");
     assertThat(row(snapshot, "marker").sourceSpec()).isEqualTo("S5");
     BoardSourceRow notification = row(snapshot, "marker_notification");
     assertThat(notification.sourceSpec()).isEqualTo("S5");
@@ -277,7 +276,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -320,7 +319,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -353,7 +352,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             markerService,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -381,7 +380,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -408,7 +407,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -434,7 +433,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             markerService,
             new FakePackageQuery(),
             new MultiOpOperationalPeriodQuery(),
@@ -478,7 +477,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(null),
             provider(null),
-            provider(new FakePolicePhoneFreshnessQuery()),
+            provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -494,7 +493,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new BoardSourceRowContext(
                 INCIDENT_ID,
                 List.of(OP_ID),
-                List.of("incident_terminal", "police_phone_freshness"),
+                List.of("incident_terminal", "connection_status"),
                 null));
 
     BoardDTO board =
@@ -519,7 +518,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .containsEntry("localPurgeState", "completed");
     assertThat(terminal.keySet())
         .doesNotContain("missingPerson", "missing_person", "latestLocation", "packageReloadUrl");
-    assertThat(board.slots().get("police_phone_freshness")).isEqualTo(List.of());
+    assertThat(board.slots().get("connection_status")).isEqualTo(List.of());
     assertThat(board.slotSources().get("incident_terminal")).singleElement();
   }
 
@@ -932,23 +931,19 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
   }
 
-  private static final class FakePolicePhoneFreshnessQuery implements PolicePhoneFreshnessQuery {
+  private static final class FakeConnectionStatusQuery implements ConnectionStatusQuery {
     @Override
-    public List<PolicePhoneFreshnessRow> byIncident(UUID incidentId) {
+    public List<ConnectionStatusRow> byIncident(UUID incidentId) {
       return List.of(
-          new PolicePhoneFreshnessRow(
-              PHONE_ID,
-              ACCOUNT_ID.toString(),
-              com.surimap.common.auth.AccountType.TEAM,
-              com.surimap.common.auth.OrganizationType.POLICE_SUBSTATION,
-              incidentId,
-              null,
-              UUID.fromString("61000000-0000-0000-0000-000000000001"),
-              STARTED_AT,
-              STARTED_AT,
-              11L,
-              111L,
-              PolicePhoneFreshnessStatus.ONLINE));
+          new ConnectionStatusRow(
+                  ACCOUNT_ID,
+                  com.surimap.common.auth.AccountType.TEAM,
+                  com.surimap.common.auth.OrganizationType.POLICE_SUBSTATION,
+                  incidentId,
+                  STARTED_AT,
+                  STARTED_AT,
+                  11L)
+              .withStatusAt(STARTED_AT));
     }
   }
 

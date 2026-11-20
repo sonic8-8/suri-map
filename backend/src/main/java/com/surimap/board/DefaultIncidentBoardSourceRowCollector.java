@@ -9,6 +9,9 @@ import com.surimap.api.service.path.response.SearchPathExcludedPointServiceRespo
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.domain.connectionstatus.ConnectionStatus;
+import com.surimap.domain.connectionstatus.ConnectionStatusQuery;
+import com.surimap.domain.connectionstatus.ConnectionStatusRow;
 import com.surimap.domain.marker.MarkerNotificationMapper;
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.dutyshift.DutyShiftMapper;
@@ -29,9 +32,6 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.policephone.PolicePhoneFreshnessStatus;
-import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
-import com.surimap.policephone.query.PolicePhoneFreshnessRow;
 import com.surimap.retention.purge.IncidentDataPurgeRun;
 import com.surimap.retention.purge.IncidentDataPurgeStatus;
 import com.surimap.retention.purge.IncidentDataPurgeStore;
@@ -41,8 +41,6 @@ import com.surimap.summary.SearchHistorySummaryRow;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -65,7 +63,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final ObjectProvider<SearchAreaQuery> searchAreaQuery;
   private final ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery;
   private final ObjectProvider<SearchPathService> searchPathService;
-  private final ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery;
+  private final ObjectProvider<ConnectionStatusQuery> connectionStatusQuery;
   private final MarkerService markerService;
   private final PackageBadgeBoardAssembler packageBadgeBoardAssembler;
   private final OperationalPeriodQuery operationalPeriodQuery;
@@ -80,7 +78,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
-      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
@@ -89,7 +87,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this(
         searchAreaQuery,
         searchPathService,
-        policePhoneFreshnessQuery,
+        connectionStatusQuery,
         markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
@@ -105,7 +103,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
-      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
@@ -118,7 +116,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this(
         searchAreaQuery,
         searchPathService,
-        policePhoneFreshnessQuery,
+        connectionStatusQuery,
         markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
@@ -135,7 +133,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
-      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
@@ -149,7 +147,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this(
         searchAreaQuery,
         searchPathService,
-        policePhoneFreshnessQuery,
+        connectionStatusQuery,
         markerService,
         offlinePackageInstallationQuery,
         operationalPeriodQuery,
@@ -167,7 +165,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
-      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
@@ -182,7 +180,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.searchAreaQuery = searchAreaQuery;
     this.searchAreaAssignmentQuery = searchAreaAssignmentQuery;
     this.searchPathService = searchPathService;
-    this.policePhoneFreshnessQuery = policePhoneFreshnessQuery;
+    this.connectionStatusQuery = connectionStatusQuery;
     this.markerService = Objects.requireNonNull(markerService, "markerService must not be null");
     this.packageBadgeBoardAssembler =
         new PackageBadgeBoardAssembler(
@@ -218,7 +216,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Optional<BoardSourceRow> terminalRow = incidentTerminalRow(context.incidentId());
     collectSearchAreaRows(context, selectedOpIds, rows);
     collectPathRows(context, selectedOpIds, rows);
-    collectPolicePhoneFreshnessRows(context, rows, terminalRow.isPresent());
+    collectConnectionStatusRows(context, rows, terminalRow.isPresent());
     collectMarkerRows(context, markerOpIds(context, activeOpId, selectedOpIds), rows);
     collectMarkerNotificationRows(context, rows);
     collectPackageRows(context, rows);
@@ -325,16 +323,18 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
                 .forEach(rows::add));
   }
 
-  private void collectPolicePhoneFreshnessRows(
+  private void collectConnectionStatusRows(
       BoardSourceRowContext context, List<BoardSourceRow> rows, boolean terminalIncident) {
-    if (!context.includes("police_phone_freshness") || terminalIncident) {
+    if (!context.includes("connection_status") || terminalIncident) {
       return;
     }
-    PolicePhoneFreshnessQuery query = policePhoneFreshnessQuery.getIfAvailable();
+    ConnectionStatusQuery query = connectionStatusQuery.getIfAvailable();
     if (query == null) {
       return;
     }
-    query.byIncident(context.incidentId()).stream().map(this::freshnessRow).forEach(rows::add);
+    query.byIncident(context.incidentId()).stream()
+        .map(this::connectionStatusRow)
+        .forEach(rows::add);
   }
 
   private void collectPackageRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
@@ -936,36 +936,29 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
-  private BoardSourceRow freshnessRow(PolicePhoneFreshnessRow row) {
-    String status = row.derivedFreshness().name();
+  // 행의 키는 계정 ID다. sequence 칸에는 다른 상황판 행처럼 version을 넣는다(heartbeat 순번은 없앴다).
+  private BoardSourceRow connectionStatusRow(ConnectionStatusRow row) {
+    String status = row.status().name();
+    String accountId = row.accountId().toString();
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("policePhoneId", row.policePhoneId().toString());
-    payload.put("accountId", row.accountId());
+    payload.put("accountId", accountId);
     payload.put("accountType", row.accountType().name());
     payload.put("organizationType", row.organizationType().name());
     payload.put("incidentId", row.incidentId().toString());
-    putUuid(payload, "opId", row.opId());
-    payload.put("freshness", frontendFreshness(row.derivedFreshness()));
+    payload.put("freshness", frontendFreshness(row.status()));
     payload.put("freshnessStatus", status);
     payload.put("lastHeartbeatAt", row.lastHeartbeatAt());
     payload.put("lastSyncAt", row.lastSyncAt());
-    if (row.lastHeartbeatAt() != null) {
-      payload.put(
-          "elapsedSeconds", Duration.between(row.lastHeartbeatAt(), Instant.now()).toSeconds());
-    }
     return sourceRow(
-        "police_phone_freshness",
+        "connection_status",
         "S1-2",
-        row.policePhoneId().toString(),
-        "board-PolicePhone-freshness-" + row.policePhoneId(),
+        accountId,
+        "board-connection-status-" + accountId,
         status,
         row.version(),
-        row.heartbeatSequence(),
-        row.latestEventId() == null
-            ? eventId(
-                "S1-2", "police-phone-freshness", row.policePhoneId().toString(), row.version())
-            : row.latestEventId().toString(),
-        sourceHash("police_phone_freshness", row.policePhoneId().toString(), row.version(), status),
+        row.version(),
+        eventId("S1-2", "connection-status", accountId, row.version()),
+        sourceHash("connection_status", accountId, row.version(), status),
         payload);
   }
 
@@ -1089,7 +1082,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     return hash(slot + "|" + id + "|" + status + "|" + version);
   }
 
-  private static String frontendFreshness(PolicePhoneFreshnessStatus status) {
+  private static String frontendFreshness(ConnectionStatus status) {
     return switch (status) {
       case ONLINE -> "normal";
       case STALE -> "stale";

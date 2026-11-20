@@ -13,7 +13,7 @@ const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
   'area',
   'path',
   'marker',
-  'police_phone_freshness',
+  'connection_status',
   'op_toggle',
   'op_history',
   'handover_memo',

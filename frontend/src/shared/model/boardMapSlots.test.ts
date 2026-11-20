@@ -93,11 +93,10 @@ describe('createBoardMovementPaths', () => {
     expect(paths.map((path) => path.opId)).toEqual([OP_ID, OP_ID]);
   });
 
-  test('accountId가 없는 경로는 업무폰 최신성 행으로 보완하지 않고 제외한다', () => {
+  test('accountId가 없는 경로는 통신 상태 행으로 보완하지 않고 제외한다', () => {
     const board = createBoardWithPathSegments();
-    board.slots.police_phone_freshness = [
+    board.slots.connection_status = [
       {
-        policePhoneId: POLICE_PHONE_ID,
         accountId: ACCOUNT_ID,
       },
     ];
@@ -109,18 +108,18 @@ describe('createBoardMovementPaths', () => {
     expect(paths).toEqual([]);
   });
 
-  test('경로 계정에서 가장 최근 heartbeat를 보낸 업무폰의 최신성을 찾는다', () => {
+  test('경로 계정의 통신 상태 행에서 상태를 읽는다', () => {
     const board = createBoardWithPathSegments();
-    board.slots.police_phone_freshness = [
+    board.slots.connection_status = [
       {
-        policePhoneId: POLICE_PHONE_ID,
+        id: ACCOUNT_ID,
         accountId: ACCOUNT_ID,
         freshnessStatus: 'STALE',
         lastHeartbeatAt: '2026-05-16T09:00:00+09:00',
       },
       {
-        policePhoneId: OTHER_POLICE_PHONE_ID,
-        accountId: ACCOUNT_ID,
+        id: 'other-account',
+        accountId: 'other-account',
         freshnessStatus: 'ONLINE',
         lastHeartbeatAt: '2026-05-16T09:00:20+09:00',
       },
@@ -128,7 +127,7 @@ describe('createBoardMovementPaths', () => {
 
     const paths = createBoardMovementPaths(board);
 
-    expect(paths.map((path) => path.freshnessStatus)).toEqual(['ONLINE', 'ONLINE']);
+    expect(paths.map((path) => path.freshnessStatus)).toEqual(['STALE', 'STALE']);
   });
 
   test('connects adjacent rendered segments across batch boundaries', () => {
@@ -213,8 +212,6 @@ function createBoardWithPathSegments(): BoardResponseLike {
 
 const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
 const OP_ID = '88888888-8888-8888-8888-888888880001';
-const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
-const OTHER_POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000002';
 const ACCOUNT_ID = '10000000-0000-0000-0000-000000000001';
 const PATH_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const SEGMENT_VEHICLE_ID = '33333333-3333-3333-3333-333333330001';

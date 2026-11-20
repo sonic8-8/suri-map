@@ -148,8 +148,8 @@ class NetworkPolicePhoneBootstrapServerCheck(
                 apiClient.execute(
                     SuriMapApiRequest(
                         method = "POST",
-                        path = "/api/police-phones/$policePhoneId/heartbeat",
-                        body = """{"clientTs":"${clock.instant()}","sequence":1}""",
+                        path = "/api/sync/heartbeat",
+                        body = """{"clientTs":"${clock.instant()}"}""",
                         accessToken = accessToken,
                         policePhoneId = policePhoneId
                     )

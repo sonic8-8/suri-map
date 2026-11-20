@@ -530,15 +530,49 @@ class AuthBootstrapContractTest {
             outcome
         )
         assertEquals("POST", request.method)
-        assertEquals(
-            "https://suri-map.internal/api/police-phones/$POLICE_PHONE_ID/heartbeat",
-            request.url.toString()
-        )
+        assertEquals("https://suri-map.internal/api/sync/heartbeat", request.url.toString())
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
         assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
         assertNull(request.header("X-Device-Id"))
-        assertEquals("""{"clientTs":"2026-05-11T07:00:00Z","sequence":1}""", readRequestBody(request))
+        assertEquals("""{"clientTs":"2026-05-11T07:00:00Z"}""", readRequestBody(request))
+    }
+
+    @Test
+    fun networkServerCheckIsReadyWhenServerAcceptsFirstTimePhoneWithoutAssignment() = runBlocking {
+        // given: 처음 보는 업무폰과 배정이 없는 계정의 heartbeat에도 200 응답이 온다.
+        val callFactory =
+            CapturingCallFactory(
+                response = response(200, """{"status":"ONLINE","version":1,"accountId":"$ACCOUNT_ID"}""")
+            )
+        val serverCheck =
+            NetworkPolicePhoneBootstrapServerCheck(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.internal",
+                    callFactory = callFactory
+                ),
+                accessTokenProvider = AccessTokenProvider { "token-1" },
+                clock = Clock.fixed(Instant.parse("2026-11-20T00:00:00Z"), ZoneOffset.UTC)
+            )
+
+        // when: 앱 시작 확인을 한다.
+        val outcome =
+            serverCheck.verify(
+                ManagedPolicePhoneConfig(
+                    policePhoneId = FIRST_TIME_POLICE_PHONE_ID,
+                    apiBaseUrl = "https://suri-map.internal"
+                )
+            )
+
+        // then: 단말 확인 필요 안내 없이 다음 단계로 넘어간다.
+        assertEquals(
+            AuthBootstrapOutcome.Ready(
+                policePhoneId = FIRST_TIME_POLICE_PHONE_ID,
+                accessToken = "token-1"
+            ),
+            outcome
+        )
     }
 
     @Test
@@ -686,6 +720,8 @@ class AuthBootstrapContractTest {
 
     private companion object {
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-car-01")
+        const val FIRST_TIME_POLICE_PHONE_ID = "62000000-0000-4000-8000-000000005299"
+        const val ACCOUNT_ID = "11111111-1111-1111-1111-111111110002"
     }
 
     private class CapturingCallFactory(

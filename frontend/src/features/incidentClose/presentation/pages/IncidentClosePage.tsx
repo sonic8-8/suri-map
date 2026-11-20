@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { ActionButton, StatusBadge, SuriMapLogo } from '../../../../shared';
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
-import { readPolicePhoneId, readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
+import { readSlotRows, readString } from '../../../../shared/model/boardSlotRows';
 import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import { useCloseIncidentMutation, type CloseIncidentResponse } from '../../../incident/api/incidentCommandApi';
 import { useIncidentDetailQuery, type IncidentDetailResponse } from '../../../incident/api/incidentReadApi';
@@ -10,6 +10,7 @@ import {
   useOperationalPeriodListQuery,
   type OperationalPeriodListResponse,
 } from '../../../operationalPeriod/api/operationalPeriodApi';
+import { formatFieldStaffCount } from '../../model/fieldStaffCount';
 import styles from './IncidentClosePage.module.css';
 
 type IncidentClosePageProps = {
@@ -34,7 +35,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
   const operationalPeriodQuery = useOperationalPeriodListQuery(incidentId);
   const boardQuery = useIncidentBoardQuery({
     incidentId,
-    includeSlots: ['marker', 'police_phone_freshness', 'op_toggle', 'op_history'],
+    includeSlots: ['marker', 'connection_status', 'op_toggle', 'op_history'],
   });
   const closeIncidentMutation = useCloseIncidentMutation();
 
@@ -53,7 +54,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
   const board = boardQuery.data ?? null;
   const markerSummary = useMemo(() => createMarkerSummary(board), [board]);
   const markerSummaryText = formatMarkerSummary(markerSummary);
-  const policePhoneCount = useMemo(() => countPolicePhones(board), [board]);
+  const fieldStaffCountLabel = formatFieldStaffCount(board, isClosed);
   const currentOperationalPeriodLabel = formatCurrentOperationalPeriod(operationalPeriodQuery.data);
   const openedAtLabel = activeDetail ? formatNullableDate(activeDetail.openedAt) : '-';
   const missingPerson = activeDetail?.missingPerson ?? null;
@@ -131,8 +132,8 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
               <strong>{currentOperationalPeriodLabel}</strong>
             </div>
             <div>
-              <span>폴리폰</span>
-              <strong>{formatCount(policePhoneCount, '대')}</strong>
+              <span>현장 인원</span>
+              <strong>{fieldStaffCountLabel}</strong>
             </div>
             <div>
               <span>마커</span>
@@ -185,8 +186,8 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
                   <dd>-</dd>
                 </div>
                 <div>
-                  <dt>폴리폰 메타</dt>
-                  <dd>{formatCount(policePhoneCount, '대')}</dd>
+                  <dt>현장 인원</dt>
+                  <dd>{fieldStaffCountLabel}</dd>
                 </div>
                 <div>
                   <dt>마커 메타</dt>
@@ -231,8 +232,8 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
                   <dd>{currentOperationalPeriodLabel}</dd>
                 </div>
                 <div>
-                  <dt>폴리폰</dt>
-                  <dd>{formatCount(policePhoneCount, '대')}</dd>
+                  <dt>현장 인원</dt>
+                  <dd>{fieldStaffCountLabel}</dd>
                 </div>
                 <div className={styles.wideSummaryItem}>
                   <dt>마커</dt>
@@ -366,20 +367,6 @@ function createMarkerSummary(board: IncidentBoardResponse | null): MarkerSummary
 function formatMarkerSummary(summary: MarkerSummary | null) {
   if (!summary) return '-';
   return `${summary.total}개 (단서 ${summary.clue}, 발견 ${summary.found}, 지형 ${summary.field}, 지원 ${summary.support}, 메모 ${summary.note})`;
-}
-
-function countPolicePhones(board: IncidentBoardResponse | null) {
-  if (!board) return null;
-
-  const rows = readSlotRows(board, 'police_phone_freshness');
-  if (rows.length === 0) return 0;
-
-  const ids = new Set<string>();
-  rows.forEach((row) => {
-    const id = readPolicePhoneId(row) ?? readString(row, 'id');
-    if (id) ids.add(id);
-  });
-  return ids.size > 0 ? ids.size : rows.length;
 }
 
 function readClosedAt(detail: CloseIncidentResponse | Extract<IncidentDetailResponse, { status: 'CLOSED' }> | null) {

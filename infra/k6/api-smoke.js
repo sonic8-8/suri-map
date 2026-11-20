@@ -59,8 +59,8 @@ export function web_api() {
 
 export function app_api() {
   const heartbeatRes = http.post(
-    `${BASE_URL}/api/police-phones/${POLICE_PHONE_ID}/heartbeat`,
-    JSON.stringify({ clientTs: new Date().toISOString(), sequence: __VU * 1000 + __ITER }),
+    `${BASE_URL}/api/sync/heartbeat`,
+    JSON.stringify({ clientTs: new Date().toISOString() }),
     {
       headers: {
         'Content-Type': 'application/json',

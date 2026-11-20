@@ -17,7 +17,7 @@ export type OperationalPeriod = {
 export type MarkerTypeId = 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE';
 export type SupportRequestTypeId = 'DRONE' | 'POLICE_DOG' | 'OTHER';
 export type SearchAreaLegendFilterId = 'overall_area' | 'unit_area' | 'team_area' | 'completed_team_area';
-export type PolicePhoneLegendFilterId = 'active_phone' | 'phone_online' | 'phone_stale' | 'phone_lost';
+export type PolicePhoneLegendFilterId = 'active_account' | 'account_online' | 'account_stale' | 'account_lost';
 
 export type MarkerFilterOption = {
   markerType: MarkerTypeId;
@@ -139,7 +139,7 @@ const legendItems: LegendItem[] = [
   { label: '부대 구역', className: 'legend-swatch area-unit' },
   { label: '팀 구역', className: 'legend-swatch area-team' },
   { label: '팀 구역 완료', className: 'legend-swatch area-completed' },
-  { label: '운용중 폴리폰', className: 'legend-swatch device-active' },
+  { label: '운용중 인원', className: 'legend-swatch device-active' },
   { label: '통신 정상', className: 'legend-swatch device-normal' },
   { label: '통신 지연', className: 'legend-swatch device-stale' },
   { label: '통신 끊김', className: 'legend-swatch device-lost' },

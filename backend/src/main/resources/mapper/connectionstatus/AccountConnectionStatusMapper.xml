@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.surimap.domain.connectionstatus.AccountConnectionStatusMapper">
+
+    <resultMap id="AccountConnectionStatusMap" type="com.surimap.domain.connectionstatus.AccountConnectionStatus">
+        <id property="accountId" column="account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="lastHeartbeatAt" column="last_heartbeat_at" javaType="java.time.Instant"/>
+        <result property="lastSyncAt" column="last_sync_at" javaType="java.time.Instant"/>
+        <result property="lastPolicePhoneId" column="last_police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="ConnectionStatusRowMap" type="com.surimap.domain.connectionstatus.ConnectionStatusRow">
+        <constructor>
+            <arg column="account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="account_type" javaType="com.surimap.common.auth.AccountType"/>
+            <arg column="organization_type" javaType="com.surimap.common.auth.OrganizationType"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="last_heartbeat_at" javaType="java.time.Instant"/>
+            <arg column="last_sync_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <!-- 마지막 heartbeat 시각은 서버가 받은 시각이다. 마지막 동기화 시각은 더 늦은 값만 남긴다(GREATEST는 NULL을 무시한다). -->
+    <insert id="upsertHeartbeat">
+        INSERT INTO account_connection_status (
+            account_id,
+            last_heartbeat_at,
+            last_sync_at,
+            last_police_phone_id,
+            version,
+            updated_at
+        ) VALUES (
+            #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{receivedAt},
+            #{lastSyncAt},
+            #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            1,
+            #{receivedAt}
+        )
+        ON CONFLICT (account_id) DO UPDATE SET
+            last_heartbeat_at = GREATEST(account_connection_status.last_heartbeat_at, EXCLUDED.last_heartbeat_at),
+            last_sync_at = GREATEST(account_connection_status.last_sync_at, EXCLUDED.last_sync_at),
+            last_police_phone_id = EXCLUDED.last_police_phone_id,
+            version = account_connection_status.version + 1,
+            updated_at = EXCLUDED.updated_at
+    </insert>
+
+    <select id="findByAccountId" resultMap="AccountConnectionStatusMap">
+        SELECT account_id, last_heartbeat_at, last_sync_at, last_police_phone_id, version
+        FROM account_connection_status
+        WHERE account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findOpenIncidentIdsByAccount" resultType="java.util.UUID">
+        SELECT DISTINCT ia.incident_id
+        FROM incident_assignment ia
+        JOIN incident i
+            ON i.id = ia.incident_id
+           AND i.status = 'OPEN'
+        WHERE ia.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY ia.incident_id ASC
+    </select>
+
+    <!-- 현장 계정은 계정 종류로 정한다. 사건 역할은 따지지 않고 지휘 계정(COMMAND)만 뺀다. -->
+    <select id="findFieldAccountsByIncident" resultMap="ConnectionStatusRowMap">
+        SELECT DISTINCT
+            a.id AS account_id,
+            a.account_type,
+            a.organization_type,
+            ia.incident_id,
+            cs.last_heartbeat_at,
+            cs.last_sync_at,
+            COALESCE(cs.version, 0) AS version
+        FROM incident_assignment ia
+        JOIN account a
+            ON a.id = ia.account_id
+           AND a.status = 'ACTIVE'
+           AND a.account_type IN ('TEAM', 'PATROL_CAR')
+        LEFT JOIN account_connection_status cs
+            ON cs.account_id = a.id
+        WHERE ia.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY a.id ASC
+    </select>
+</mapper>
