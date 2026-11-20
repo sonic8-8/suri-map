@@ -2,7 +2,11 @@ package com.surimap
 
 import android.app.Application
 import androidx.work.WorkManager
+import com.surimap.core.auth.loadFreshOidcAccessToken
 import com.surimap.core.database.SuriMapDatabaseProvider
+import com.surimap.core.network.AuthPhoneApiClient
+import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.sync.AccountHeartbeatScheduler
 import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.sync.ClockSyncState
@@ -19,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import okhttp3.OkHttpClient
 
 class SuriMapApplication : Application() {
     val clockSyncState = ClockSyncState()
@@ -26,6 +31,22 @@ class SuriMapApplication : Application() {
     private val searchPathLocationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _searchPathLocationFixes = MutableSharedFlow<GpsLocationFix>(extraBufferCapacity = 1)
     val searchPathLocationFixes = _searchPathLocationFixes.asSharedFlow()
+
+    private val accountHeartbeatScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val accountHeartbeatHttpClient by lazy { OkHttpClient() }
+
+    val accountHeartbeatScheduler by lazy {
+        AccountHeartbeatScheduler(
+            scope = accountHeartbeatScope,
+            accessToken = { loadFreshOidcAccessToken(this) },
+            send = { apiBaseUrl, request, accessToken ->
+                AuthPhoneApiClient(
+                    apiClient = SuriMapApiClient(baseUrl = apiBaseUrl, callFactory = accountHeartbeatHttpClient),
+                    accessTokenProvider = { accessToken }
+                ).heartbeat(request)
+            }
+        )
+    }
 
     @Volatile
     private var searchRecordingApiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL
@@ -82,6 +103,7 @@ class SuriMapApplication : Application() {
 
     override fun onTerminate() {
         searchPathLocationScope.cancel()
+        accountHeartbeatScope.cancel()
         super.onTerminate()
     }
 }

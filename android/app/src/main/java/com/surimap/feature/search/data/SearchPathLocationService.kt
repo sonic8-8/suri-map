@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat
 import com.surimap.MainActivity
 import com.surimap.R
 import com.surimap.SuriMapApplication
+import com.surimap.core.sync.AccountHeartbeatHolder
+import com.surimap.core.sync.AccountHeartbeatTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,6 +50,13 @@ class SearchPathLocationService : Service() {
             recordingNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
         )
+        // 화면이 사라져도 수색 경로를 기록하는 동안에는 heartbeat를 보낸다.
+        command.context.policePhoneId?.let { policePhoneId ->
+            application.accountHeartbeatScheduler.hold(
+                AccountHeartbeatHolder.SearchPathLocationService,
+                AccountHeartbeatTarget(policePhoneId = policePhoneId, apiBaseUrl = command.apiBaseUrl)
+            )
+        }
         serviceScope.launch {
             application.startSearchPathLocationRecording(command.context, command.searchPathId)
         }
@@ -57,6 +66,7 @@ class SearchPathLocationService : Service() {
     override fun onDestroy() {
         val application = application as? SuriMapApplication
         if (application != null) {
+            application.accountHeartbeatScheduler.release(AccountHeartbeatHolder.SearchPathLocationService)
             serviceScope.launch { application.stopSearchPathLocationRecording() }
         }
         serviceScope.cancel()

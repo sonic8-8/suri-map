@@ -126,6 +126,9 @@ import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
+import com.surimap.core.sync.AccountHeartbeatHolder
+import com.surimap.core.sync.AccountHeartbeatScheduler
+import com.surimap.core.sync.AccountHeartbeatTarget
 import com.surimap.core.sync.ClockSyncState
 import com.surimap.core.sync.LocalWarningMonitor
 import com.surimap.core.sync.LocalWarningSignals
@@ -633,6 +636,10 @@ fun SuriMapApp() {
             }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
+            AccountHeartbeatEffect(
+                scheduler = application.accountHeartbeatScheduler,
+                policePhoneContext = incidentSessionState.policePhoneContext
+            )
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = PoliBgBase,
@@ -1298,6 +1305,25 @@ private fun FcmRegistrationEffect(policePhoneContext: PolicePhoneContext?) {
             stateStore = stateStore,
             registerToken = authClient::registerFcmToken
         ).registerCurrentToken(readyContext.policePhoneId)
+    }
+}
+
+@Composable
+private fun AccountHeartbeatEffect(
+    scheduler: AccountHeartbeatScheduler,
+    policePhoneContext: PolicePhoneContext?
+) {
+    // Activity가 새로 만들어지면 옛 화면의 release가 새 화면의 hold보다 늦게 올 수 있어서, 화면마다 따로 잡는다.
+    val holder = remember { AccountHeartbeatHolder() }
+    val signedIn = !policePhoneContext?.accessToken.isNullOrBlank()
+    val target =
+        policePhoneContext?.let { AccountHeartbeatTarget(policePhoneId = it.policePhoneId, apiBaseUrl = it.apiBaseUrl) }
+    LaunchedEffect(scheduler, signedIn) {
+        scheduler.setSignedIn(signedIn)
+    }
+    DisposableEffect(scheduler, holder, target) {
+        target?.let { scheduler.hold(holder, it) }
+        onDispose { scheduler.release(holder) }
     }
 }
 
