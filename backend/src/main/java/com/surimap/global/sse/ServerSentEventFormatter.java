@@ -17,8 +17,10 @@ public final class ServerSentEventFormatter {
   }
 
   public static String format(ServerSentEventMessage message) {
-    return "id:%s%nevent:%s%ndata:%s%n%n"
-        .formatted(message.getId(), message.getEvent(), toJson(message.getData()));
+    String event =
+        "event:%s%ndata:%s%n%n".formatted(message.getEvent(), toJson(message.getData()));
+    // id 줄이 없으면 브라우저의 마지막 이벤트 ID가 바뀌지 않는다.
+    return message.isSequenced() ? "id:%s%n".formatted(message.getId()) + event : event;
   }
 
   private static String toJson(Object data) {

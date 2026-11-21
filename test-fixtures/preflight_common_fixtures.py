@@ -692,7 +692,16 @@ def check_event_cross_references(common: dict):
         confirmed["eventFanout"]["fanoutFailureInjection"]["eventId"],
     ]
 
-    refs.extend(row["latestEventId"] for row in confirmed["boardAssembly"]["slotRows"])
+    # 통신 상태 행은 저장된 이벤트에서 만들지 않는다(#54). heartbeat 이벤트는 저장하지 않으므로 행이 가리키면 안 된다.
+    heartbeat = confirmed["eventRegistry"]["accountHeartbeat"]
+    ensure(heartbeat.get("stored") is False, "accountHeartbeat must be marked stored=false")
+    slot_rows = confirmed["boardAssembly"]["slotRows"]
+    connection_row = next(row for row in slot_rows if row["slot"] == "connection_status")
+    ensure(
+        connection_row["latestEventId"] != heartbeat["eventId"],
+        "board connection_status must not reference the unstored heartbeat eventId",
+    )
+    refs.extend(row["latestEventId"] for row in slot_rows if row["slot"] != "connection_status")
     for ref in refs:
         ensure(ref in event_ids, f"referenced eventId is missing from eventRegistry: {ref}")
 

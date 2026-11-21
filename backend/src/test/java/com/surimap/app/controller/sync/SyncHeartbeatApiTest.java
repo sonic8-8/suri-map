@@ -12,22 +12,25 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.global.sse.ServerSentEventConnectionRegistry;
+import com.surimap.global.sse.ServerSentEventMessage;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,7 +66,7 @@ class SyncHeartbeatApiTest extends PostGisIntegrationTestSupport {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private MutableClock clock;
-  @Autowired private ObjectMapper objectMapper;
+  @Autowired private ServerSentEventConnectionRegistry connectionRegistry;
 
   @BeforeEach
   void seed() {
@@ -128,15 +131,21 @@ class SyncHeartbeatApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("사건에 배정되지 않은 계정의 heartbeat는 성공하고 기록되며 이벤트는 발행되지 않는다")
+  @DisplayName("사건에 배정되지 않은 계정의 heartbeat는 성공하고 기록되며 어느 상황판에도 이벤트를 보내지 않는다")
   void unassigned_account_heartbeat_succeeds_without_event() throws Exception {
-    // when & then: 배정이 없는 계정으로 heartbeat를 보낸다.
-    heartbeat(UNASSIGNED_ACCOUNT, PHONE_P, null)
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.accountId", is(UNASSIGNED_ACCOUNT)));
+    // given: 진행 중인 사건 A에 상황판이 연결돼 있다.
+    List<ServerSentEventMessage> received = new CopyOnWriteArrayList<>();
+    try (var registration =
+        connectionRegistry.registerForIncident(UUID.fromString(INCIDENT_A), received::add)) {
+      // when & then: 배정이 없는 계정으로 heartbeat를 보낸다.
+      heartbeat(UNASSIGNED_ACCOUNT, PHONE_P, null)
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.accountId", is(UNASSIGNED_ACCOUNT)));
+    }
 
-    // then: 통신 상태 기록은 남고 heartbeat 이벤트는 저장되지 않는다.
+    // then: 통신 상태 기록은 남는다. heartbeat 이벤트는 보내지도 저장되지도 않는다.
     assertThat(connectionStatusCount()).isEqualTo(1);
+    assertThat(received).isEmpty();
     assertThat(heartbeatEvents()).isEmpty();
   }
 
@@ -213,35 +222,53 @@ class SyncHeartbeatApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("두 진행 중 사건에 배정된 계정의 heartbeat는 사건마다 계정 heartbeat 이벤트를 하나씩 남기고 종료된 사건에는 남기지 않는다")
-  void heartbeat_stages_one_event_per_open_assigned_incident() throws Exception {
-    // when: 사건 A, B와 종료된 사건에 배정된 계정이 heartbeat를 보낸다.
-    heartbeat(MULTI_INCIDENT_ACCOUNT, PHONE_P, "2026-11-20T08:59:30+09:00")
-        .andExpect(status().isOk());
-
-    // then: 진행 중인 두 사건에만 이벤트가 하나씩 저장된다.
-    List<Map<String, Object>> events = heartbeatEvents();
-    assertThat(events)
-        .extracting(event -> event.get("incident_id"))
-        .containsExactlyInAnyOrder(INCIDENT_A, INCIDENT_B);
-    assertThat(events)
-        .extracting(event -> event.get("event_id"))
-        .doesNotHaveDuplicates();
-    for (Map<String, Object> event : events) {
-      assertThat(event)
-          .containsEntry("source_entity_type", "account_heartbeat")
-          .containsEntry("source_entity_id", MULTI_INCIDENT_ACCOUNT);
-      JsonNode payload = objectMapper.readTree(event.get("payload").toString());
-      assertThat(payload.path("id").asText()).isEqualTo(MULTI_INCIDENT_ACCOUNT);
-      assertThat(payload.path("status").asText()).isEqualTo("ONLINE");
-      assertThat(payload.path("version").asLong()).isEqualTo(1L);
-      assertThat(payload.path("accountId").asText()).isEqualTo(MULTI_INCIDENT_ACCOUNT);
-      assertThat(Instant.parse(payload.path("lastHeartbeatAt").asText())).isEqualTo(BASE_TS);
-      assertThat(Instant.parse(payload.path("lastSyncAt").asText()))
-          .isEqualTo(Instant.parse("2026-11-19T23:59:30Z"));
-      assertThat(payload.has("policePhoneId")).isFalse();
-      assertThat(payload.has("sequence")).isFalse();
+  @DisplayName("두 진행 중 사건에 배정된 계정의 heartbeat는 두 사건의 상황판에 이벤트를 하나씩 보내고 종료된 사건에는 보내지 않으며 이벤트 발송 작업으로 저장하지 않는다")
+  void heartbeat_sends_one_event_to_each_open_assigned_incident_board() throws Exception {
+    // given: 사건 A, B와 종료된 사건에 상황판이 하나씩 연결돼 있다.
+    Map<String, List<ServerSentEventMessage>> received = new HashMap<>();
+    List<AutoCloseable> registrations = new ArrayList<>();
+    for (String incidentId : List.of(INCIDENT_A, INCIDENT_B, INCIDENT_CLOSED)) {
+      List<ServerSentEventMessage> messages = new CopyOnWriteArrayList<>();
+      received.put(incidentId, messages);
+      registrations.add(
+          connectionRegistry.registerForIncident(UUID.fromString(incidentId), messages::add));
     }
+    try {
+      // when: 세 사건에 배정된 계정이 heartbeat를 보낸다.
+      heartbeat(MULTI_INCIDENT_ACCOUNT, PHONE_P, "2026-11-20T08:59:30+09:00")
+          .andExpect(status().isOk());
+    } finally {
+      for (AutoCloseable registration : registrations) {
+        registration.close();
+      }
+    }
+
+    // then: 진행 중인 두 사건의 상황판만 이벤트를 하나씩 받는다. 사건마다 이벤트 ID가 다르다.
+    assertThat(received.get(INCIDENT_A)).hasSize(1);
+    assertThat(received.get(INCIDENT_B)).hasSize(1);
+    assertThat(received.get(INCIDENT_CLOSED)).isEmpty();
+    assertThat(received.get(INCIDENT_A).get(0).getData().getEventId())
+        .isNotEqualTo(received.get(INCIDENT_B).get(0).getData().getEventId());
+    for (String incidentId : List.of(INCIDENT_A, INCIDENT_B)) {
+      ServerSentEventMessage message = received.get(incidentId).get(0);
+      assertThat(message.isSequenced()).isFalse();
+      assertThat(message.getEvent()).isEqualTo("ACCOUNT_HEARTBEAT_UPDATED");
+      assertThat(message.getData().getIncidentId()).isEqualTo(UUID.fromString(incidentId));
+      assertThat(message.getData().getSourceEntityType()).isEqualTo("account_heartbeat");
+      assertThat(message.getData().getSourceEntityId())
+          .isEqualTo(UUID.fromString(MULTI_INCIDENT_ACCOUNT));
+      Map<String, Object> payload = message.getData().getPayload();
+      assertThat(payload)
+          .containsEntry("id", MULTI_INCIDENT_ACCOUNT)
+          .containsEntry("status", "ONLINE")
+          .containsEntry("version", 1L)
+          .containsEntry("accountId", MULTI_INCIDENT_ACCOUNT)
+          .containsEntry("lastHeartbeatAt", BASE_TS.toString())
+          .containsEntry("lastSyncAt", "2026-11-19T23:59:30Z")
+          .doesNotContainKeys("policePhoneId", "sequence");
+    }
+    // then: 이벤트 발송 작업으로는 저장되지 않는다.
+    assertThat(heartbeatEvents()).isEmpty();
   }
 
   @Test

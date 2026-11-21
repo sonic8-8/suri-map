@@ -123,7 +123,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Request: `clientTs`, optional `lastSyncAt`
 - Response: `200 {status, version, accountId, lastHeartbeatAt, lastSyncAt}`
 - Errors: `police_phone_required`, `channel_not_allowed`
-- Note: 계정은 access token에서, 업무폰 ID는 `X-PolicePhone-Id`에서 읽는다. 기록은 계정마다 하나다. `lastHeartbeatAt`은 서버가 받은 시각이다. `lastSyncAt`은 더 늦은 값만 남는다. DB에 없는 업무폰 ID로 보낸 heartbeat와 사건에 배정되지 않은 계정의 heartbeat도 성공한다. 계정이 배정된 진행 중 사건마다 `ACCOUNT_HEARTBEAT_UPDATED`가 하나씩 남는다(2026-11-20 #52, Backend API 테스트로 확인). 이 이벤트의 payload에는 `id`(계정 ID), `status`(`ONLINE`), `version`, `accountId`, `lastHeartbeatAt`, `lastSyncAt`이 있다. 옛 경로 `POST /api/police-phones/{policePhoneId}/heartbeat`는 없앴다.
+- Note: 계정은 access token에서, 업무폰 ID는 `X-PolicePhone-Id`에서 읽는다. 기록은 계정마다 하나다. `lastHeartbeatAt`은 서버가 받은 시각이다. `lastSyncAt`은 더 늦은 값만 남는다. DB에 없는 업무폰 ID로 보낸 heartbeat와 사건에 배정되지 않은 계정의 heartbeat도 성공한다. heartbeat를 받을 때마다 그 계정이 배정된 진행 중 사건마다 `ACCOUNT_HEARTBEAT_UPDATED`를 하나씩, 지금 그 사건에 연결된 상황판으로 바로 보낸다. 이 이벤트는 `event_dispatch_job`에 저장하지 않는다. SSE에서는 `id:` 줄 없이 보낸다(2026-11-20 #54, Backend API 테스트로 확인). 이 이벤트의 payload에는 `id`(계정 ID), `status`(`ONLINE`), `version`, `accountId`, `lastHeartbeatAt`, `lastSyncAt`이 있다. 옛 경로 `POST /api/police-phones/{policePhoneId}/heartbeat`는 없앴다.
 
 ### 4.2 Incident
 
@@ -362,6 +362,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 text/event-stream`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `gone_refetch_required`
 - 시작 위치: `Last-Event-ID`가 없으면 과거 이벤트는 전송되지 않는다. 연결을 등록하기 전의 마지막 확정 순번이 시작 위치로 정해진다. 그 다음 순번부터 빈틈없이 전송된다. 시작 위치 이하의 순번은 재시도돼도 전송되지 않는다. 시작 위치 다음 이력에 빈틈이 있으면 `409 gone_refetch_required`로 거절된다. 종료된 사건에는 확정된 종료 알림이 전송된다. 파기가 완료된 사건에 연결하면 `409 gone_refetch_required`로 거절된다. `Last-Event-ID`가 있으면 그 순번 다음부터 빈틈없이 전송된다. 그 순번 이하는 재시도돼도 전송되지 않는다. `0`은 "0번까지 반영했다"는 순번이므로 1번부터 전송된다. 이어 받을 이력에 빈틈이 있거나 순번이 잘못됐으면 `409 gone_refetch_required`로 거절된다.
+- 저장하지 않는 이벤트(2026-11-20 #54, Backend 실제 SSE 연결 테스트로 확인): `ACCOUNT_HEARTBEAT_UPDATED`와 `CONNECTION_STATUS_SNAPSHOT`은 `id:` 줄 없이 전송된다. 두 이벤트는 마지막 순번을 바꾸지 않는다. 재연결 때 다시 전송되지도 않는다. 진행 중인 사건에 연결되면 `CONNECTION_STATUS_SNAPSHOT`이 맨 먼저 전송된다. 저장된 이벤트의 재전송은 그 뒤에 시작된다. payload는 `{serverTime, accounts: [{accountId, lastHeartbeatAt, lastSyncAt}]}`이다. 종료되거나 파기된 사건의 연결과 `409` 응답에는 이 이벤트가 없다. 저장된 이벤트를 다시 보내는 중에 생긴 heartbeat 이벤트는 그 연결에 전송되지 않는다.
 - Note: Android product client는 EventSource를 만들지 않고 FCM data message와 REST/Outbox 복구 경로를 사용한다.
 
 #### GET `/api/incidents/events`

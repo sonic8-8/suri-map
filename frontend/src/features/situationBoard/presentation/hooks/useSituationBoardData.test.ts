@@ -540,6 +540,169 @@ test.each(['INCIDENT_CLOSED', 'INCIDENT_PURGED'])(
   },
 );
 
+describe('통신 상태 SSE와 화면 시간 계산', () => {
+  // 서버 시각은 브라우저 시각보다 10분 빠르다.
+  const BROWSER_NOW = '2026-11-20T00:00:00Z';
+  const SERVER_NOW = '2026-11-20T00:10:00Z';
+  const NO_ID = '';
+
+  function connectionRow(accountId: string, lastHeartbeatAt: string | null) {
+    return {
+      id: accountId,
+      accountId,
+      status: 'ONLINE',
+      freshnessStatus: 'ONLINE',
+      freshness: 'normal',
+      version: 1,
+      sequence: 1,
+      lastHeartbeatAt,
+      lastSyncAt: null,
+    };
+  }
+
+  function renderConnectionBoard(rows: ReturnType<typeof connectionRow>[], firstClosed?: Promise<void>) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(BROWSER_NOW));
+    queryClient.setQueryData(
+      incidentBoardQueryKeys.detail({ incidentId: 'incident-001', includeSlots: boardSlotsWithoutPaths }),
+      { ...boardResponse({ connection_status: rows }), serverTs: SERVER_NOW, lastSseSequence: 901 },
+    );
+    const openStream = vi.mocked(openIncidentBoardEventStream);
+    openStream.mockImplementation(() => ({ closed: new Promise<void>(() => {}), close: vi.fn() }));
+    if (firstClosed) openStream.mockReturnValueOnce({ closed: firstClosed, close: vi.fn() });
+    const hook = renderBoardHook(() => useSituationBoardData('incident-001', []));
+    return { ...hook, openStream, connection: () => openStream.mock.calls.at(-1)![0] };
+  }
+
+  function rowOf(board: SituationBoardResponseDto | null, accountId: string) {
+    const rows = (board?.slots.connection_status ?? []) as Array<Record<string, unknown>>;
+    return rows.find((row) => row.accountId === accountId);
+  }
+
+  function heartbeatEvent(accountId: string, lastHeartbeatAt: string): BoardEventEnvelope {
+    return {
+      eventId: `heartbeat-${accountId}-${lastHeartbeatAt}`,
+      incidentId: 'incident-001',
+      type: 'ACCOUNT_HEARTBEAT_UPDATED',
+      payloadFormatVersion: 1,
+      sourceEntityType: 'account_heartbeat',
+      sourceEntityId: accountId,
+      occurredAt: lastHeartbeatAt,
+      payload: { id: accountId, status: 'ONLINE', version: 2, accountId, lastHeartbeatAt, lastSyncAt: lastHeartbeatAt },
+    };
+  }
+
+  function snapshotEvent(eventId: string, serverTime: string, accounts: Array<{ accountId: string; lastHeartbeatAt: string | null }>): BoardEventEnvelope {
+    return {
+      eventId,
+      incidentId: 'incident-001',
+      type: 'CONNECTION_STATUS_SNAPSHOT',
+      payloadFormatVersion: 1,
+      sourceEntityType: 'incident',
+      sourceEntityId: 'incident-001',
+      occurredAt: serverTime,
+      payload: { serverTime, accounts: accounts.map((account) => ({ ...account, lastSyncAt: null })) },
+    };
+  }
+
+  test('ACCOUNT_HEARTBEAT_UPDATED를 받으면 다시 조회하지 않고 그 계정의 행만 바뀐다. 다른 이벤트는 다시 조회한다', () => {
+    // given: 끊김으로 보이는 계정 A와 정상인 계정 B가 있다.
+    const { result, connection } = renderConnectionBoard([
+      connectionRow('account-a', '2026-11-20T00:00:00Z'),
+      connectionRow('account-b', '2026-11-20T00:09:50Z'),
+    ]);
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('LOST');
+    const rowB = rowOf(result.current.apiBoard, 'account-b');
+
+    // when: 계정 A의 heartbeat 이벤트를 받는다.
+    act(() => connection().onEvent(heartbeatEvent('account-a', SERVER_NOW), { lastEventId: NO_ID, eventType: 'ACCOUNT_HEARTBEAT_UPDATED' }));
+
+    // then: 다시 조회하지 않는다. 계정 A의 행만 정상으로 바뀐다.
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(fetchBoard).not.toHaveBeenCalled();
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ freshnessStatus: 'ONLINE', lastHeartbeatAt: SERVER_NOW });
+    expect(rowOf(result.current.apiBoard, 'account-b')).toBe(rowB);
+
+    // when & then: 다른 이벤트는 지금처럼 다시 조회한다.
+    act(() => connection().onEvent(boardEvent(), { lastEventId: '902', eventType: 'PERSON_FOUND' }));
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  test('새 이벤트 없이 시간이 지나면 60초 뒤 지연, 5분 뒤 끊김으로 바뀐다. 브라우저 시계가 서버와 달라도 서버 시각으로 계산된다', async () => {
+    // given: 서버 시각 기준 10초 전에 heartbeat를 받은 계정이다. 브라우저 시계는 서버보다 10분 느리다.
+    const { result } = renderConnectionBoard([connectionRow('account-a', '2026-11-20T00:09:50Z')]);
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('ONLINE');
+
+    // when & then: 49초 뒤에는 정상이고, 50초 뒤(heartbeat에서 60초)에는 지연이다.
+    await act(async () => { await vi.advanceTimersByTimeAsync(49_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('ONLINE');
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ freshnessStatus: 'STALE', freshness: 'stale' });
+
+    // when & then: heartbeat에서 5분이 지나면 끊김이다.
+    await act(async () => { await vi.advanceTimersByTimeAsync(239_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('STALE');
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ freshnessStatus: 'LOST', freshness: 'lost' });
+  });
+
+  test('상황판 응답보다 이른 heartbeat 시각을 받아도 행이 돌아가지 않는다. 이른 서버 시각을 받아도 시계 보정값은 줄지 않는다', async () => {
+    // given: 서버 시각 기준 10초 전에 heartbeat를 받은 계정이다.
+    const { result, connection } = renderConnectionBoard([connectionRow('account-a', '2026-11-20T00:09:50Z')]);
+
+    // when: 상황판 응답보다 9분 이른 heartbeat 시각을 담은 이벤트를 받는다.
+    act(() => connection().onEvent(heartbeatEvent('account-a', '2026-11-20T00:00:50Z'), { lastEventId: NO_ID, eventType: 'ACCOUNT_HEARTBEAT_UPDATED' }));
+
+    // then: 행의 마지막 heartbeat 시각은 그대로다.
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ lastHeartbeatAt: '2026-11-20T00:09:50Z', freshnessStatus: 'ONLINE' });
+
+    // then: 보정값이 이른 서버 시각으로 줄었다면 지연 전환이 9분 늦어진다. 그대로면 50초 뒤에 지연이다.
+    await act(async () => { await vi.advanceTimersByTimeAsync(50_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('STALE');
+  });
+
+  test('CONNECTION_STATUS_SNAPSHOT을 받으면 끊김이던 행이 payload 값으로 바뀐다. 다시 연결할 때 받은 snapshot도 반영된다', async () => {
+    // given: 끊김으로 보이는 계정이 있다. 첫 연결은 곧 끊긴다.
+    const { result, openStream, connection } = renderConnectionBoard([connectionRow('account-a', null)], Promise.resolve());
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('LOST');
+
+    // when: 연결 직후 snapshot을 받는다.
+    act(() => connection().onEvent(snapshotEvent('snapshot-1', SERVER_NOW, [{ accountId: 'account-a', lastHeartbeatAt: '2026-11-20T00:09:40Z' }]), { lastEventId: NO_ID, eventType: 'CONNECTION_STATUS_SNAPSHOT' }));
+
+    // then: 다시 조회하지 않고 payload 값으로 정상이 된다.
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ lastHeartbeatAt: '2026-11-20T00:09:40Z', freshnessStatus: 'ONLINE' });
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+
+    // when: 5분 동안 끊겼다가 다시 연결해 같은 이벤트 ID의 snapshot을 받는다.
+    await act(async () => { await vi.advanceTimersByTimeAsync(300_000); });
+    expect(rowOf(result.current.apiBoard, 'account-a')?.freshnessStatus).toBe('LOST');
+    act(() => connection().onEvent(snapshotEvent('snapshot-1', '2026-11-20T00:15:00Z', [{ accountId: 'account-a', lastHeartbeatAt: '2026-11-20T00:14:50Z' }]), { lastEventId: NO_ID, eventType: 'CONNECTION_STATUS_SNAPSHOT' }));
+
+    // then: 다시 연결할 때 받은 snapshot도 버려지지 않는다.
+    expect(openStream).toHaveBeenCalledTimes(2);
+    expect(rowOf(result.current.apiBoard, 'account-a')).toMatchObject({ lastHeartbeatAt: '2026-11-20T00:14:50Z', freshnessStatus: 'ONLINE' });
+  });
+
+  test('통신 상태 두 이벤트를 받아도 마지막 순번과 재연결 때 보내는 Last-Event-ID가 바뀌지 않는다', async () => {
+    // given: 순번 901까지 반영한 상황판이다. 첫 연결은 이벤트를 받은 뒤 끊긴다.
+    let closeFirst: () => void = () => {};
+    const firstClosed = new Promise<void>((resolve) => { closeFirst = resolve; });
+    const { openStream, connection } = renderConnectionBoard([connectionRow('account-a', null)], firstClosed);
+    expect(openStream.mock.calls[0][0].lastEventId).toBe('901');
+
+    // when: 두 이벤트를 id 줄 없이 받은 뒤 연결이 끊긴다.
+    act(() => {
+      connection().onEvent(snapshotEvent('snapshot-1', SERVER_NOW, []), { lastEventId: NO_ID, eventType: 'CONNECTION_STATUS_SNAPSHOT' });
+      connection().onEvent(heartbeatEvent('account-a', SERVER_NOW), { lastEventId: NO_ID, eventType: 'ACCOUNT_HEARTBEAT_UPDATED' });
+    });
+    closeFirst();
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
+
+    // then: 다시 연결할 때도 순번 901부터 이어 받는다.
+    expect(openStream.mock.calls.at(-1)![0].lastEventId).toBe('901');
+  });
+});
+
 function boardEvent(): BoardEventEnvelope {
   return {
     eventId: '40000000-0000-4000-8000-000000000811',

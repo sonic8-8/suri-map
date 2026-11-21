@@ -1,6 +1,8 @@
 package com.surimap.global.sse;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -20,6 +22,10 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
   private final ServerSentEventStream response;
   private final boolean incidentStream;
   private final NavigableMap<Long, PendingEvent> pendingEvents = new TreeMap<>();
+  // 순번 없는 이벤트는 받은 순서대로 보낸다. 마지막 순번과 순번 대기열은 바꾸지 않는다.
+  private final Deque<PendingEvent> unsequencedEvents = new ArrayDeque<>();
+  // 사건 연결은 저장된 이벤트의 재전송이 끝난 뒤에만 순번 없는 실시간 이벤트를 받는다.
+  private boolean unsequencedAccepted;
   private int pendingBytes;
   private PendingEvent writingEvent;
   private boolean terminalReceived;
@@ -64,16 +70,27 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
       } else if (incidentStream && terminalReceived) {
         return;
       }
-      long sequence = incidentStream ? Long.parseLong(message.getId()) : ++nextAccountEvent;
+      boolean unsequenced = incidentStream && !message.isSequenced();
+      if (unsequenced && !unsequencedAccepted) {
+        // 재전송 중에 온 순번 없는 이벤트는 버린다. 그 상태는 다음 heartbeat 이벤트로 채워진다.
+        return;
+      }
+      long sequence =
+          unsequenced ? 0L : incidentStream ? Long.parseLong(message.getId()) : ++nextAccountEvent;
       if (incidentStream
+          && !unsequenced
           && (sequence <= lastSentSequence
               || pendingEvents.containsKey(sequence)
-              || (writingEvent != null && writingEvent.sequence == sequence))) {
+              || (writingEvent != null
+                  && writingEvent.sequenced
+                  && writingEvent.sequence == sequence))) {
         return;
       }
       byte[] serialized = serialize(message);
       int pendingCount =
-          pendingEvents.size() + (writingEvent != null && !writingEvent.history ? 1 : 0);
+          pendingEvents.size()
+              + unsequencedEvents.size()
+              + (writingEvent != null && !writingEvent.history ? 1 : 0);
       if (pendingCount >= MAX_PENDING_EVENT_COUNT
           || serialized.length > MAX_PENDING_BYTES - pendingBytes) {
         log.warn(
@@ -84,8 +101,14 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
         discardPendingEvents();
         overflow = true;
       } else {
-        pendingEvents.put(
-            sequence, new PendingEvent(sequence, serialized, validateBeforeSend, terminal, false));
+        var pending =
+            new PendingEvent(
+                sequence, serialized, validateBeforeSend, terminal, false, !unsequenced);
+        if (unsequenced) {
+          unsequencedEvents.addLast(pending);
+        } else {
+          pendingEvents.put(sequence, pending);
+        }
         pendingBytes += serialized.length;
       }
     }
@@ -108,6 +131,15 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
       boolean sendConnected,
       Supplier<ServerSentEventMessage> history,
       Consumer<String> validateHistory) {
+    start(sendConnected, null, history, validateHistory);
+  }
+
+  /** firstMessage는 순번 없는 이벤트로, 저장된 이벤트의 재전송보다 먼저 보낸다. */
+  public void start(
+      boolean sendConnected,
+      ServerSentEventMessage firstMessage,
+      Supplier<ServerSentEventMessage> history,
+      Consumer<String> validateHistory) {
     synchronized (pendingEvents) {
       if (response.isClosed()) {
         return;
@@ -116,6 +148,13 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
       if (!terminalReceived) {
         nextHistoryMessage = history;
         validateHistoryEvent = validateHistory;
+        unsequencedAccepted = history == null;
+        if (firstMessage != null) {
+          byte[] serialized = serialize(firstMessage);
+          unsequencedEvents.addFirst(
+              new PendingEvent(0L, serialized, () -> {}, false, false, false));
+          pendingBytes += serialized.length;
+        }
       }
     }
     response.continueTransmission(this::sendAvailableEvents);
@@ -124,6 +163,7 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
   public void clear() {
     synchronized (pendingEvents) {
       pendingEvents.clear();
+      unsequencedEvents.clear();
       pendingBytes = 0;
       writingEvent = null;
       nextHistoryMessage = null;
@@ -144,6 +184,7 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
 
   private void discardPendingEvents() {
     pendingEvents.clear();
+    unsequencedEvents.clear();
     // 쓰기 중인 실시간 이벤트는 완료될 때까지 기존 대기 한도에 포함한다.
     pendingBytes =
         writingEvent != null && !writingEvent.history ? writingEvent.serialized.length : 0;
@@ -208,6 +249,10 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
       if (writingEvent != null) {
         return writingEvent;
       }
+      if (!unsequencedEvents.isEmpty()) {
+        writingEvent = unsequencedEvents.pollFirst();
+        return writingEvent;
+      }
       history = nextHistoryMessage;
       validate = validateHistoryEvent;
     }
@@ -233,11 +278,13 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
                   serialize(message),
                   () -> validate.accept(eventType),
                   isTerminal(message),
+                  true,
                   true);
           return writingEvent;
         }
         nextHistoryMessage = null;
         validateHistoryEvent = null;
+        unsequencedAccepted = true;
       }
     }
     synchronized (pendingEvents) {
@@ -262,7 +309,7 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
         pendingBytes -= pending.serialized.length;
       }
       writingEvent = null;
-      if (sent && incidentStream) {
+      if (sent && incidentStream && pending.sequenced) {
         lastSentSequence = pending.sequence;
         var sentEvents = pendingEvents.headMap(lastSentSequence, true);
         for (PendingEvent duplicate : sentEvents.values()) {
@@ -280,5 +327,6 @@ public final class ServerSentEventConnection implements LiveServerSentEventSende
     private final Runnable validateBeforeSend;
     private final boolean terminal;
     private final boolean history;
+    private final boolean sequenced;
   }
 }

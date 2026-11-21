@@ -171,6 +171,8 @@ domain write에서 지켜야 할 순서다. 각 호출부가 실제로 지키는
 8. `ServerSentEventJobWorker`가 SSE 전송 작업 처리
 9. idempotency response cache
 
+- 통신 상태 이벤트 `ACCOUNT_HEARTBEAT_UPDATED`와 `CONNECTION_STATUS_SNAPSHOT`은 위 6, 8단계 대신 `ServerSentEventMessage.unsequenced`로 만들어 연결된 상황판에 바로 보낸다. 두 이벤트는 `event_dispatch_job`에 저장하지 않는다. 중복 확인 목록과 재전송 불가(`gone_refetch_required`) 처리의 대상도 아니다. 보내는 시점과 Backend 서버 한 대 전제는 `../docs/features/event-delivery.md`에서 확인한다.
+
 - Public JSON API는 `/api` prefix를 사용한다.
 - Tileserver는 Spring Boot JSON API가 아니므로 `/tiles`를 사용한다.
 - SSE endpoint는 `text/event-stream` 계약을 따르며 `SseEmitter` 또는 스트림 전용 응답을 쓸 수 있다.

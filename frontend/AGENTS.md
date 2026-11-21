@@ -88,6 +88,7 @@ src/
 - 상황판 데이터 갱신을 위한 재조회와 SSE 이벤트를 이용한 알림 표시를 구분한다. 상황판 재조회가 놓친 알림까지 복구한다고 가정하지 않는다.
 - 별도 board read-model DB나 클라이언트 단독 truth를 만들지 않는다.
 - `eventId`로 중복 적용을 막고, replay가 불가능하면 board API를 재조회한다.
+- 통신 상태 이벤트 `ACCOUNT_HEARTBEAT_UPDATED`와 `CONNECTION_STATUS_SNAPSHOT`은 다시 조회하지 않고 `connection_status` 행만 바꾼다(`src/features/board/model/connectionStatusSlot.ts`). 두 이벤트는 `event_dispatch_job`에 저장되지 않는다. 그래서 다시 전송되지 않는다. 재전송 불가 처리의 대상도 아니다. payload에 행 값이 그대로 담기므로, 늦은 값만 남기면 같은 이벤트가 다시 와도 행이 바뀌지 않는다. 그래서 중복 확인 목록에 넣지 않는다. SSE에서는 `id:` 줄 없이 온다. 그래서 마지막 순번은 바뀌지 않는다.
 - WebSocket을 추가하지 않는다.
 
 ## UI / Style

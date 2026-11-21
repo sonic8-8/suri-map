@@ -9,6 +9,11 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.app.service.sync.AppSyncHeartbeatService;
+import com.surimap.app.service.sync.request.SyncHeartbeatServiceRequest;
+import com.surimap.domain.connectionstatus.ConnectionStatusSnapshotEventPublisher;
 import com.surimap.global.event.EventPublisher;
 import com.surimap.global.sse.ServerSentEventConnectionRegistry;
 import com.surimap.global.sse.ServerSentEventFormatter;
@@ -28,12 +33,14 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,9 +48,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.request.async.DeferredResult;
 
 class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
 
@@ -57,6 +66,10 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
   @Autowired private ServerSentEventConnectionRegistry connectionRegistry;
   @Autowired private EventPublisher eventPublisher;
   @Autowired private PlatformTransactionManager txManager;
+  @Autowired private AppSyncHeartbeatService heartbeatService;
+  @Autowired private ObjectMapper objectMapper;
+  @Autowired private ObjectProvider<ConnectionStatusSnapshotEventPublisher> snapshotEventPublisher;
+  private final List<UUID> assignedAccountIds = new ArrayList<>();
 
   @BeforeEach
   void prepare_test_incident() {
@@ -76,6 +89,12 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
     connectionRegistry.closeIncidentConnections(incidentId);
     jdbcTemplate.update("DELETE FROM event_dispatch_job WHERE incident_id = ?", incidentId);
     jdbcTemplate.update("DELETE FROM incident_data_purge WHERE incident_id = ?", incidentId);
+    jdbcTemplate.update("DELETE FROM incident_assignment WHERE incident_id = ?", incidentId);
+    for (UUID accountId : assignedAccountIds) {
+      jdbcTemplate.update("DELETE FROM account_connection_status WHERE account_id = ?", accountId);
+      jdbcTemplate.update("DELETE FROM account WHERE id = ?", accountId);
+    }
+    assignedAccountIds.clear();
     jdbcTemplate.update("DELETE FROM incident WHERE id = ?", incidentId);
   }
 
@@ -164,7 +183,8 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
         new ServerSentEventSubscriptionService(
             new ServerSentEventHistoryService(jobsWithEventDuringStart),
             jobService,
-            connectionRegistry);
+            connectionRegistry,
+            snapshotEventPublisher);
 
     // when: 마지막 수신 순번 없이 연결한다.
     var frames = openIncidentStream(subscriptions, null);
@@ -202,10 +222,11 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  @DisplayName("종료된 사건에 순번 없이 연결하면 종료 알림만 받는다. 파기가 완료된 사건이면 연결이 거절된다")
+  @DisplayName("종료된 사건에 순번 없이 연결하면 종료 알림만 받고 통신 상태 snapshot은 받지 않는다. 파기가 완료된 사건이면 연결이 거절된다")
   void fresh_connection_to_closed_incident_receives_close_event_unless_purged(boolean purged)
       throws Exception {
-    // given: 경로 이벤트 뒤에 종료 알림이 확정된 종료 사건이다.
+    // given: 경로 이벤트 뒤에 종료 알림이 확정된 종료 사건이다. 현장 계정이 배정돼 있다.
+    assignFieldAccount();
     save_event(1, "PATH_APPENDED");
     save_event(2, "INCIDENT_CLOSED");
     jdbcTemplate.update("UPDATE incident SET status = 'CLOSED' WHERE id = ?", incidentId);
@@ -220,8 +241,124 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
     } else {
       var frames = openIncidentStream(subscriptionService, null);
       assertThat(sentIds(frames)).containsExactly("2");
-      assertThat(frames).anyMatch(frame -> frame.contains("event:INCIDENT_CLOSED"));
+      assertThat(eventFrames(frames)).extracting(this::eventType).containsExactly("INCIDENT_CLOSED");
     }
+  }
+
+  @Test
+  @DisplayName("저장된 이벤트 N, heartbeat, N+1 순서로 보내면 저장된 두 이벤트가 모두 도착하고 heartbeat에는 id 줄이 없으며 재연결 위치는 N+1이다")
+  void unsequenced_heartbeat_between_stored_events_keeps_sequence() throws Exception {
+    // given: 사건에 배정된 현장 계정이 있고 순번 1이 확정돼 있다.
+    UUID accountId = assignFieldAccount();
+    save_event(1, "PATH_APPENDED");
+    var frames = openIncidentStream(subscriptionService, null);
+
+    // when: 저장된 이벤트 2, heartbeat, 저장된 이벤트 3 순서로 보낸다.
+    publishAndDispatch("PATH_APPENDED");
+    heartbeat(accountId);
+    publishAndDispatch("PATH_APPENDED");
+
+    // then: 저장된 두 이벤트가 모두 도착한다. heartbeat는 id 줄 없이 그 사이에 도착한다.
+    assertThat(sentIds(frames)).containsExactly("2", "3");
+    assertThat(eventFrames(frames))
+        .extracting(this::eventType)
+        .containsExactly(
+            "CONNECTION_STATUS_SNAPSHOT",
+            "PATH_APPENDED",
+            "ACCOUNT_HEARTBEAT_UPDATED",
+            "PATH_APPENDED");
+    assertThat(frameOf(frames, "ACCOUNT_HEARTBEAT_UPDATED")).doesNotContain("id:");
+    assertThat(sentIds(frames).get(sentIds(frames).size() - 1)).isEqualTo("3");
+
+    // when: 순번 1까지 받았던 상황판이 다시 연결한다.
+    var reconnected = openIncidentStream(subscriptionService, "1");
+
+    // then: 저장된 두 이벤트만 다시 받는다. heartbeat는 다시 보내지 않는다.
+    assertThat(sentIds(reconnected)).containsExactly("2", "3");
+    assertThat(eventFrames(reconnected))
+        .extracting(this::eventType)
+        .doesNotContain("ACCOUNT_HEARTBEAT_UPDATED");
+    assertThat(heartbeatJobCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("저장된 이벤트를 다시 보내는 중에 heartbeat가 오면 버린다. 저장된 이벤트의 순번은 그대로 이어진다")
+  void heartbeat_during_history_replay_is_dropped() throws Exception {
+    // given: 순번 1, 2가 확정돼 있다. 순번 1을 다시 보내는 중에 heartbeat가 온다.
+    UUID accountId = assignFieldAccount();
+    save_event(1, "PATH_APPENDED");
+    save_event(2, "PATH_APPENDED");
+    var heartbeatSent = new AtomicBoolean();
+
+    // when: 순번 0으로 연결한다. 재전송이 끝난 뒤 저장된 이벤트 3이 온다.
+    var frames =
+        openIncidentStream(
+            subscriptionService,
+            "0",
+            frame -> {
+              if (frame.contains("id:1\n") && heartbeatSent.compareAndSet(false, true)) {
+                heartbeat(accountId);
+              }
+            });
+    publishAndDispatch("PATH_APPENDED");
+
+    // then: 저장된 이벤트는 빠짐없이 순서대로 도착한다. 재전송 중에 온 heartbeat는 버려진다.
+    assertThat(heartbeatSent).isTrue();
+    assertThat(sentIds(frames)).containsExactly("1", "2", "3");
+    assertThat(eventFrames(frames))
+        .extracting(this::eventType)
+        .doesNotContain("ACCOUNT_HEARTBEAT_UPDATED");
+  }
+
+  @Test
+  @DisplayName("진행 중인 사건 SSE에 연결하면 통신 상태 snapshot이 저장된 이벤트의 재전송보다 먼저 도착한다")
+  void connection_status_snapshot_arrives_before_history_replay() throws Exception {
+    // given: heartbeat를 보낸 현장 계정과 보내지 않은 현장 계정이 배정돼 있다. 순번 1, 2가 확정돼 있다.
+    UUID online = assignFieldAccount();
+    UUID neverConnected = assignFieldAccount();
+    heartbeat(online);
+    save_event(1, "PATH_APPENDED");
+    save_event(2, "PATH_APPENDED");
+
+    // when: 순번 0으로 연결한다. 그 뒤 다시 연결한다.
+    var frames = openIncidentStream(subscriptionService, "0");
+    var reconnected = openIncidentStream(subscriptionService, "2");
+
+    // then: snapshot이 id 줄 없이 맨 먼저 도착한다. 재전송은 그 뒤에 이어진다.
+    assertThat(eventFrames(frames))
+        .extracting(this::eventType)
+        .containsExactly("CONNECTION_STATUS_SNAPSHOT", "PATH_APPENDED", "PATH_APPENDED");
+    String snapshot = frameOf(frames, "CONNECTION_STATUS_SNAPSHOT");
+    assertThat(snapshot).doesNotContain("id:");
+    var payload = data(snapshot).path("payload");
+    assertThat(payload.path("serverTime").isTextual()).isTrue();
+    assertThat(payload.path("accounts").findValuesAsText("accountId"))
+        .containsExactlyInAnyOrder(online.toString(), neverConnected.toString());
+    for (var account : payload.path("accounts")) {
+      boolean sent = account.path("accountId").asText().equals(online.toString());
+      assertThat(account.path("lastHeartbeatAt").isTextual()).isEqualTo(sent);
+      assertThat(account.has("lastSyncAt")).isTrue();
+    }
+
+    // then: 다시 연결해도 snapshot을 새 이벤트 ID로 받는다.
+    assertThat(eventFrames(reconnected))
+        .extracting(this::eventType)
+        .containsExactly("CONNECTION_STATUS_SNAPSHOT");
+    assertThat(data(frameOf(reconnected, "CONNECTION_STATUS_SNAPSHOT")).path("eventId").asText())
+        .isNotEqualTo(data(snapshot).path("eventId").asText());
+  }
+
+  @Test
+  @DisplayName("계정 SSE에는 통신 상태 snapshot을 보내지 않는다")
+  void account_stream_does_not_receive_connection_status_snapshot() throws Exception {
+    // given: 사건에 배정된 현장 계정이 있다.
+    UUID accountId = assignFieldAccount();
+
+    // when: 그 계정으로 계정 SSE에 연결한다.
+    var frames = openStream(subscriptionService.openAccountStream(accountId), frame -> {});
+
+    // then: 연결 알림만 있고 snapshot은 없다.
+    assertThat(eventFrames(frames)).isEmpty();
   }
 
   @Test
@@ -471,9 +608,95 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
     }
   }
 
-  /** 실제 구독 흐름으로 연결을 연다. Servlet 응답만 대역으로 둔다. 전송 요청은 그 자리에서 실행된다. */
+  /** 사건에 현장 계정(TEAM)을 하나 만들어 배정한다. */
+  private UUID assignFieldAccount() {
+    UUID accountId = UUID.randomUUID();
+    jdbcTemplate.update(
+        """
+        INSERT INTO account (
+          id, login_id, password_hash, display_name, account_type, organization_type, status,
+          created_at, updated_at
+        )
+        VALUES (?, ?, '{noop}fixture', 'sse field account', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE',
+                now(), now())
+        """,
+        accountId,
+        "acct-sse-" + accountId);
+    jdbcTemplate.update(
+        """
+        INSERT INTO incident_assignment (
+          id, incident_id, account_id, incident_role, assigned_at, created_at, updated_at
+        )
+        VALUES (?, ?, ?, 'MEMBER', now(), now(), now())
+        """,
+        UUID.randomUUID(),
+        incidentId,
+        accountId);
+    assignedAccountIds.add(accountId);
+    return accountId;
+  }
+
+  private void heartbeat(UUID accountId) {
+    heartbeatService.heartbeat(
+        SyncHeartbeatServiceRequest.builder()
+            .accountId(accountId)
+            .policePhoneId(UUID.randomUUID())
+            .build());
+  }
+
+  private Integer heartbeatJobCount() {
+    return jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM event_dispatch_job WHERE event_type = 'ACCOUNT_HEARTBEAT_UPDATED'",
+        Integer.class);
+  }
+
+  /** 연결 알림과 SSE 주석을 뺀 이벤트 프레임이다. */
+  private List<String> eventFrames(List<String> frames) {
+    return frames.stream().filter(frame -> frame.contains("event:")).toList();
+  }
+
+  private String eventType(String frame) {
+    return Arrays.stream(frame.split("\n"))
+        .filter(line -> line.startsWith("event:"))
+        .map(line -> line.substring("event:".length()))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  private String frameOf(List<String> frames, String type) {
+    return eventFrames(frames).stream()
+        .filter(frame -> eventType(frame).equals(type))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  private JsonNode data(String frame) throws Exception {
+    String json =
+        Arrays.stream(frame.split("\n"))
+            .filter(line -> line.startsWith("data:"))
+            .map(line -> line.substring("data:".length()))
+            .findFirst()
+            .orElseThrow();
+    return objectMapper.readTree(json);
+  }
+
   private List<String> openIncidentStream(
       ServerSentEventSubscriptionService subscriptions, String lastEventId) throws Exception {
+    return openIncidentStream(subscriptions, lastEventId, frame -> {});
+  }
+
+  /** 실제 구독 흐름으로 연결을 연다. Servlet 응답만 대역으로 둔다. 전송 요청은 그 자리에서 실행된다. */
+  private List<String> openIncidentStream(
+      ServerSentEventSubscriptionService subscriptions,
+      String lastEventId,
+      Consumer<String> afterWrite)
+      throws Exception {
+    return openStream(subscriptions.openIncidentStream(incidentId, lastEventId), afterWrite);
+  }
+
+  /** 프레임을 쓸 때마다 afterWrite를 부른다. 전송 도중에 다른 이벤트가 오는 상황을 만들 때 쓴다. */
+  private List<String> openStream(DeferredResult<Void> opened, Consumer<String> afterWrite)
+      throws Exception {
     // worker 스레드에서도 프레임이 기록된다.
     List<String> frames = new CopyOnWriteArrayList<>();
     AsyncContext context = mock(AsyncContext.class);
@@ -491,12 +714,14 @@ class ServerSentEventHistoryServiceTest extends PostGisIntegrationTestSupport {
         .start(any(Runnable.class));
     doAnswer(
             call -> {
-              frames.add(new String((byte[]) call.getArgument(0), StandardCharsets.UTF_8));
+              String frame = new String((byte[]) call.getArgument(0), StandardCharsets.UTF_8);
+              frames.add(frame);
+              afterWrite.accept(frame);
               return null;
             })
         .when(output)
         .write(any(byte[].class));
-    var stream = (ServerSentEventStream) subscriptions.openIncidentStream(incidentId, lastEventId);
+    var stream = (ServerSentEventStream) opened;
     stream.start(context, mock(ScheduledExecutorService.class));
     return frames;
   }

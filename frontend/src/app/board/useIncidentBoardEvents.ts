@@ -1,14 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiHttpError, getStoredAccessToken } from '../../shared/api/client';
 import { incidentBoardQueryKeys, type IncidentBoardResponse } from '../../features/board/api/incidentBoardApi';
-import { openIncidentBoardEventStream } from '../../features/board/api/incidentBoardEventStream';
+import { openIncidentBoardEventStream, type BoardEventEnvelope } from '../../features/board/api/incidentBoardEventStream';
+import { isConnectionStatusEvent } from '../../features/board/model/connectionStatusSlot';
 import { refreshSearchPathPages, restrictSearchPathPages } from '../../features/path/api/searchPathPagesApi';
 import { recordBoardMeasurement } from '../../features/board/model/boardMeasurement';
 import { refreshSituationBoards } from './refreshSituationBoards';
 
-export function useIncidentBoardEvents(incidentId: string, enabled: boolean) {
+export function useIncidentBoardEvents(
+  incidentId: string,
+  enabled: boolean,
+  onConnectionStatusEvent?: (event: BoardEventEnvelope) => void,
+) {
   const queryClient = useQueryClient();
+  // 콜백이 render마다 바뀌어도 SSE를 다시 연결하지 않는다.
+  const onConnectionStatusEventRef = useRef(onConnectionStatusEvent);
+  useEffect(() => {
+    onConnectionStatusEventRef.current = onConnectionStatusEvent;
+  });
   // SSE: 도메인 이벤트 수신 시 board 재조회
   useEffect(() => {
     if (!incidentId || !enabled) return;
@@ -44,6 +54,13 @@ export function useIncidentBoardEvents(incidentId: string, enabled: boolean) {
             sourceVersion: typeof event.payload?.version === 'number' ? event.payload.version : null,
             duplicate: receivedEventIds.has(event.eventId),
           });
+          // 통신 상태 두 이벤트의 payload로 connection_status 행을 바꿀 수 있다. 그래서 다시 조회하지 않는다.
+          // payload에 행 값이 그대로 담겨 늦은 값만 남기면 된다. 그래서 중복 확인 목록에 넣지 않는다.
+          // id 줄 없이 온다. 그래서 마지막 순번은 바뀌지 않는다.
+          if (isConnectionStatusEvent(meta.eventType)) {
+            onConnectionStatusEventRef.current?.(event);
+            return;
+          }
           if (receivedEventIds.has(event.eventId)) {
             if (meta.lastEventId) lastReceivedSseEventId = meta.lastEventId;
             return;

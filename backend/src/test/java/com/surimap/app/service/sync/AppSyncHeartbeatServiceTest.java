@@ -1,14 +1,12 @@
 package com.surimap.app.service.sync;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import com.surimap.app.service.sync.request.SyncHeartbeatServiceRequest;
 import com.surimap.global.sse.ServerSentEventConnectionRegistry;
 import com.surimap.global.sse.ServerSentEventMessage;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import java.sql.Timestamp;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -18,14 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
-// 저장된 이벤트가 접속 중인 상황판까지 가는지 보려고 실제 전송 worker를 켠다.
-@TestPropertySource(
-    properties = {
-      "surimap.eventhub.dispatch.enabled=true",
-      "surimap.eventhub.dispatch.polling-enabled=false"
-    })
 class AppSyncHeartbeatServiceTest extends PostGisIntegrationTestSupport {
 
   private static final UUID INCIDENT = UUID.fromString("10000000-0000-0000-0000-000000005211");
@@ -86,36 +77,33 @@ class AppSyncHeartbeatServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("계정 heartbeat 이벤트는 전송 worker를 거쳐 접속 중인 상황판에 전달된다")
-  void heartbeat_event_reaches_connected_board_and_dispatch_completes() throws Exception {
+  @DisplayName("계정 heartbeat 이벤트는 이벤트 발송 작업 없이 순번 없는 이벤트로 접속 중인 상황판에 바로 전달된다")
+  void heartbeat_event_reaches_connected_board_without_dispatch_job() throws Exception {
     List<ServerSentEventMessage> frames = new CopyOnWriteArrayList<>();
     try (var registration = connectionRegistry.registerForIncident(INCIDENT, frames::add)) {
       // when: 사건에 배정된 계정이 heartbeat를 보낸다.
       heartbeatService.heartbeat(
           SyncHeartbeatServiceRequest.builder().accountId(ACCOUNT).policePhoneId(PHONE).build());
-
-      // then: 전송 작업은 완료 상태가 된다. 상황판 연결에는 이벤트가 하나 도착한다.
-      await()
-          .atMost(Duration.ofSeconds(10))
-          .untilAsserted(() -> assertThat(dispatchStatus()).isIn("COMPLETED", "FAILED"));
-      assertThat(dispatchStatus()).isEqualTo("COMPLETED");
-      assertThat(frames).hasSize(1);
-      ServerSentEventMessage frame = frames.get(0);
-      assertThat(frame.getEvent()).isEqualTo("ACCOUNT_HEARTBEAT_UPDATED");
-      Map<String, Object> payload = frame.getData().getPayload();
-      assertThat(payload)
-          .containsEntry("id", ACCOUNT.toString())
-          .containsEntry("accountId", ACCOUNT.toString())
-          .containsEntry("status", "ONLINE")
-          .containsKey("version")
-          .doesNotContainKeys("policePhoneId", "sequence");
     }
+
+    // then: 상황판 연결에는 순번 없는 이벤트가 하나 도착한다. 이벤트 발송 작업은 남지 않는다.
+    assertThat(frames).hasSize(1);
+    ServerSentEventMessage frame = frames.get(0);
+    assertThat(frame.getEvent()).isEqualTo("ACCOUNT_HEARTBEAT_UPDATED");
+    assertThat(frame.isSequenced()).isFalse();
+    Map<String, Object> payload = frame.getData().getPayload();
+    assertThat(payload)
+        .containsEntry("id", ACCOUNT.toString())
+        .containsEntry("accountId", ACCOUNT.toString())
+        .containsEntry("status", "ONLINE")
+        .containsKey("version")
+        .doesNotContainKeys("policePhoneId", "sequence");
+    assertThat(dispatchJobCount()).isZero();
   }
 
-  private String dispatchStatus() {
+  private Integer dispatchJobCount() {
     return jdbcTemplate.queryForObject(
-        "SELECT dispatch_status FROM event_dispatch_job "
-            + "WHERE event_type = 'ACCOUNT_HEARTBEAT_UPDATED'",
-        String.class);
+        "SELECT COUNT(*) FROM event_dispatch_job WHERE event_type = 'ACCOUNT_HEARTBEAT_UPDATED'",
+        Integer.class);
   }
 }

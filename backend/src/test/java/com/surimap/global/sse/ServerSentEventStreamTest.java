@@ -588,7 +588,13 @@ class ServerSentEventStreamTest {
     ServerSentEventSubscriptionService sseStreamService(
         ServerSentEventConnectionRegistry registry, ServerSentEventHistoryService replay) {
       return new ServerSentEventSubscriptionService(
-          replay, mock(ServerSentEventJobService.class), registry);
+          replay,
+          mock(ServerSentEventJobService.class),
+          registry,
+          new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+              .getBeanProvider(
+                  com.surimap.domain.connectionstatus.ConnectionStatusSnapshotEventPublisher
+                      .class));
     }
   }
 

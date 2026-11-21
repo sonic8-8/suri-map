@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
@@ -30,6 +30,15 @@ import {
   toSearchAreaRows,
 } from '../slots/searchArea/searchAreaBoardMapper';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../../../board/model/incidentTerminalSlot';
+import type { BoardEventEnvelope } from '../../../board/api/incidentBoardEventStream';
+import {
+  applyConnectionStatus,
+  mergeConnectionStatusTimes,
+  nextClockOffsetMs,
+  nextConnectionStatusChangeAtMs,
+  readConnectionStatusEvent,
+  type ConnectionStatusTimes,
+} from '../../../board/model/connectionStatusSlot';
 
 type SituationBoardDataState = {
   board: SituationBoardFallbackData;
@@ -90,7 +99,53 @@ export function useSituationBoardData(
     void refreshSituationBoards(queryClient);
   }, [refreshVersion, queryClient]);
 
-  useIncidentBoardEvents(incidentId, hasApiBoard && shouldSubscribeEvents);
+  // 통신 상태는 SSE로 받은 시각과 서버 시각으로 화면에서 계산한다. 사건이 바뀌면 이전 사건의 값을 쓰지 않는다.
+  const [connectionStore, setConnectionStore] = useState(() => emptyConnectionState(incidentId));
+  const connectionState = connectionStore.incidentId === incidentId ? connectionStore : emptyConnectionState(incidentId);
+  const [statusClockTick, setStatusClockTick] = useState(0);
+  const responseServerTs = currentApiBoard?.serverTs ?? null;
+  const responseReceivedAt = boardQuery.dataUpdatedAt;
+  useEffect(() => {
+    setConnectionStore((previous) => {
+      const base = previous.incidentId === incidentId ? previous : emptyConnectionState(incidentId);
+      const clockOffsetMs = nextClockOffsetMs(base.clockOffsetMs, responseServerTs, responseReceivedAt);
+      return clockOffsetMs === base.clockOffsetMs ? base : { ...base, clockOffsetMs };
+    });
+  }, [incidentId, responseServerTs, responseReceivedAt]);
+  const handleConnectionStatusEvent = useCallback(
+    (event: BoardEventEnvelope) => {
+      const update = readConnectionStatusEvent(event);
+      if (!update) return;
+      const receivedAtMs = Date.now();
+      setConnectionStore((previous) => {
+        const base = previous.incidentId === incidentId ? previous : emptyConnectionState(incidentId);
+        return {
+          incidentId,
+          times: mergeConnectionStatusTimes(base.times, update.accounts),
+          clockOffsetMs: nextClockOffsetMs(base.clockOffsetMs, update.serverTime, receivedAtMs),
+        };
+      });
+    },
+    [incidentId],
+  );
+
+  useIncidentBoardEvents(incidentId, hasApiBoard && shouldSubscribeEvents, handleConnectionStatusEvent);
+
+  // 기준 시각이 지날 때마다 statusClockTick이 늘어난다. 그때 현재 서버 시각으로 상태가 다시 계산된다.
+  const displayedApiBoard = useMemo(() => {
+    if (!apiBoard) return null;
+    return applyConnectionStatus(apiBoard, connectionState.times, serverNowMs(connectionState.clockOffsetMs));
+  }, [apiBoard, connectionState, statusClockTick]);
+
+  // 새 이벤트 없이도 지연, 끊김으로 바뀌도록 다음 기준 시각에 상태를 다시 계산한다.
+  useEffect(() => {
+    if (!displayedApiBoard) return;
+    const nowMs = serverNowMs(connectionState.clockOffsetMs);
+    const nextChangeAtMs = nextConnectionStatusChangeAtMs(displayedApiBoard, nowMs);
+    if (nextChangeAtMs === null) return;
+    const timerId = window.setTimeout(() => setStatusClockTick((tick) => tick + 1), nextChangeAtMs - nowMs);
+    return () => window.clearTimeout(timerId);
+  }, [displayedApiBoard, connectionState.clockOffsetMs, statusClockTick]);
 
   // 아래 조회 상태 알림보다 먼저 선언해, 다른 사건의 추적을 지운 뒤에 알린다.
   useEffect(() => holdBoardOpenTrace(incidentId), [incidentId]);
@@ -106,6 +161,7 @@ export function useSituationBoardData(
   }, [incidentId]);
 
   const board = useMemo<SituationBoardFallbackData>(() => {
+    const apiBoard = displayedApiBoard;
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
     const apiOperationalPeriods = apiBoard ? toOperationalPeriods(apiBoard, fallbackBoard.operationalPeriods) : [];
     const activeOperationalPeriodId =
@@ -150,7 +206,7 @@ export function useSituationBoardData(
       recentMarkers,
       legendItems: createLegendItems(fallbackBoard.legendItems),
     };
-  }, [apiBoard, fallbackBoard, savedAreaDrafts, mapMovementPaths]);
+  }, [displayedApiBoard, fallbackBoard, savedAreaDrafts, mapMovementPaths]);
 
   return {
     board,
@@ -160,13 +216,28 @@ export function useSituationBoardData(
     isInitialLoadError: boardQuery.isError && apiBoard === null,
     isInitialReconnecting: boardQuery.isFetching && apiBoard === null,
     syncStatus,
-    apiBoard,
+    apiBoard: displayedApiBoard,
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
     retryInitialLoad: () => {
       void boardQuery.refetch({ cancelRefetch: false });
     },
   };
+}
+
+type ConnectionState = {
+  readonly incidentId: string;
+  readonly times: ReadonlyMap<string, ConnectionStatusTimes>;
+  // 서버 시각에서 브라우저 시각을 뺀 값이다. 아직 서버 시각을 받지 못했으면 null이다.
+  readonly clockOffsetMs: number | null;
+};
+
+function emptyConnectionState(incidentId: string): ConnectionState {
+  return { incidentId, times: new Map(), clockOffsetMs: null };
+}
+
+function serverNowMs(clockOffsetMs: number | null) {
+  return Date.now() + (clockOffsetMs ?? 0);
 }
 
 function createBoardSyncStatus({

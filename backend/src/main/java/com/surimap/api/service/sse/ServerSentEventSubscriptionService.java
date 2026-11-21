@@ -1,5 +1,6 @@
 package com.surimap.api.service.sse;
 
+import com.surimap.domain.connectionstatus.ConnectionStatusSnapshotEventPublisher;
 import com.surimap.global.sse.ServerSentEventConnection;
 import com.surimap.global.sse.ServerSentEventConnectionRegistry;
 import com.surimap.global.sse.ServerSentEventJobService;
@@ -8,6 +9,7 @@ import com.surimap.global.sse.ServerSentEventRefetchRequiredException;
 import com.surimap.global.sse.ServerSentEventStream;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.async.DeferredResult;
 
@@ -21,6 +23,8 @@ public class ServerSentEventSubscriptionService {
   private final ServerSentEventHistoryService historyService;
   private final ServerSentEventJobService jobService;
   private final ServerSentEventConnectionRegistry connectionRegistry;
+  // SSE 전송만 확인하는 테스트 구성에는 통신 상태 조회가 없다. 그때는 snapshot을 보내지 않는다.
+  private final ObjectProvider<ConnectionStatusSnapshotEventPublisher> snapshotEventPublisher;
 
   public DeferredResult<Void> openIncidentStream(UUID incidentId, String lastEventId) {
     // 순번 없는 연결의 시작 순번은 연결을 등록하기 전에 정해진다. 그 순번 이하의 과거 이벤트는 재시도돼도 이 연결에 전송되지 않는다.
@@ -60,8 +64,10 @@ public class ServerSentEventSubscriptionService {
         // 먼저 등록해 조회 도중 도착한 이벤트를 대기시킨다. 이력과 겹친 순번은 한 번만 보낸다.
         var history = historyService.getFirstPageAfter(incidentId, lastEventId);
         var cursor = new IncidentHistoryCursor(incidentId, history, sender);
+        // 종료되거나 파기된 사건의 연결에는 종료 정보만 보낸다.
         sender.start(
             !history.isTerminalReached(),
+            history.isTerminalReached() ? null : connectionStatusSnapshot(incidentId),
             cursor::nextMessage,
             eventType -> validateEventTransmission(incidentId, eventType));
       } catch (ServerSentEventRefetchRequiredException exception) {
@@ -72,6 +78,11 @@ public class ServerSentEventSubscriptionService {
         sender.start(false, null, null);
       }
     }
+  }
+
+  private ServerSentEventMessage connectionStatusSnapshot(UUID incidentId) {
+    var publisher = snapshotEventPublisher.getIfAvailable();
+    return publisher == null ? null : publisher.snapshot(incidentId);
   }
 
   private void validateEventTransmission(UUID incidentId, String eventType) {
