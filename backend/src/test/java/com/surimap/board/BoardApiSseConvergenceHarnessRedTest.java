@@ -164,8 +164,6 @@ class BoardApiSseConvergenceHarnessRedTest {
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
                 "SC-02", "handover_status", "S8", "mock-112-incident-001", true),
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
-                "SC-03", "package_badge", "S7", "tile-manifest-inc-precinct-001", true),
-            new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
                 "SC-04", "overall_search_area", "S2", "osa-precinct-001", true),
             new Sc02ToSc12BoardConvergenceHarnessRunner.ScenarioProbe(
                 "SC-05", "path", "S3-1", "gps-path-normal-001", true),

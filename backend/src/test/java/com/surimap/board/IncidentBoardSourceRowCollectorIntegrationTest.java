@@ -43,8 +43,6 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
@@ -115,7 +113,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             markerService,
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
@@ -137,7 +134,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "connection_status",
                     "marker",
                     "marker_notification",
-                    "package_badge",
                     "op_toggle",
                     "op_history",
                     "handover_memo",
@@ -159,7 +155,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "connection_status",
             "marker",
             "marker_notification",
-            "package_badge",
             "op_toggle",
             "op_history",
             "handover_memo",
@@ -198,7 +193,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                 "policePhoneId", PHONE_ID.toString(),
                 "createdAt", STARTED_AT));
     verify(notificationMapper).findNotificationRowsByIncidentId(INCIDENT_ID);
-    assertThat(row(snapshot, "package_badge").sourceSpec()).isEqualTo("S7");
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
     assertThat(row(snapshot, "handover_memo").payload())
         .containsEntry("content", "memo for next team");
@@ -278,7 +272,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
@@ -321,7 +314,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
@@ -354,7 +346,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             markerService,
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper());
@@ -362,11 +353,11 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
             new BoardSourceRowContext(
-                INCIDENT_ID, List.of(OP_ID), List.of("marker", "package_badge"), null));
+                INCIDENT_ID, List.of(OP_ID), List.of("marker", "op_toggle"), null));
 
     assertThat(snapshot.sourceRows())
         .extracting(BoardSourceRow::slot)
-        .containsOnly("marker", "package_badge");
+        .containsOnly("marker", "op_toggle");
     assertQueriedMarkerOpIds(markerService, OP_ID);
     assertThat(searchAreaQuery.overallCalls()).isZero();
     assertThat(searchAreaQuery.byIncidentCalls()).isZero();
@@ -382,7 +373,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper());
@@ -409,7 +399,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper());
@@ -435,7 +424,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(searchPathService()),
             provider(new FakeConnectionStatusQuery()),
             markerService,
-            new FakePackageQuery(),
             new MultiOpOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper());
@@ -479,7 +467,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             provider(null),
             provider(new FakeConnectionStatusQuery()),
             createMarkerService(),
-            new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
@@ -903,7 +890,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         provider(null),
         provider(null),
         createMarkerService(),
-        new FakePackageQuery(),
         new FakeOperationalPeriodQuery(),
         new FakeHandoverMemoQuery(),
         new FakeSummaryMapper(),
@@ -911,24 +897,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         provider(null),
         provider(null),
         mapperProvider);
-  }
-
-  private static final class FakePackageQuery implements OfflinePackageInstallationQuery {
-    @Override
-    public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-      return List.of(
-          new OfflinePackageInstallationStatus(
-              "pkg-status-test-001",
-              incidentId,
-              PHONE_ID.toString(),
-              "phone-test-001",
-              "Phone Test 001",
-              "READY",
-              7L,
-              701L,
-              1,
-              true));
-    }
   }
 
   private static final class FakeConnectionStatusQuery implements ConnectionStatusQuery {

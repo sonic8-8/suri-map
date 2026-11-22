@@ -42,7 +42,6 @@ BOARD_REQUIRED_SLOTS = {
     "connection_status",
     "marker",
     "marker_notification",
-    "package_badge",
     "op_toggle",
     "op_history",
     "handover_memo",
@@ -733,7 +732,6 @@ def check_id_cross_references(common: dict):
         ("board connection_status", board_rows["connection_status"]["sourceResponseId"], confirmed["incidentSeed"]["accountIds"][1]),
         ("board marker", board_rows["marker"]["sourceResponseId"], confirmed["incidentSeed"]["seedIds"]["markerId"]),
         ("board marker_notification", board_rows["marker_notification"]["sourceResponseId"], owner_refs["supportRequestResponseId"]),
-        ("board package badge", board_rows["package_badge"]["sourceResponseId"], owner_refs["packageBadgeResponseId"]),
         ("board op_toggle", board_rows["op_toggle"]["sourceResponseId"], confirmed["opTransition"]["currentOp"]["opId"]),
         ("board op_history", board_rows["op_history"]["sourceResponseId"], confirmed["opTransition"]["newOp"]["opId"]),
         ("board handover memo", board_rows["handover_memo"]["sourceResponseId"], confirmed["incidentSeed"]["seedIds"]["memoId"]),
@@ -799,13 +797,6 @@ def check_internal_consistency(common: dict):
     package_payload = package_replay["requestPayload"]
     package_write_operation = package_replay["writeOperation"]
     package_owner_response = package_replay["expectedOwnerResponse"]
-    package_event = package_replay["expectedS4Event"]
-    package_event_payload = package_event["payload"]
-    package_query = package_replay["expectedPackageStatusQuery"]
-    package_board_probe = package_replay["expectedBoardProbe"]
-    package_board_relation = package_board_probe["relationToBoardAssembly"]
-    board_rows = {row["slot"]: row for row in confirmed["boardAssembly"]["slotRows"]}
-    package_board_row = board_rows["package_badge"]
     ensure(package_replay["idempotencyKey"].startswith("idem-"), "SC-09 package replay idempotencyKey must be fixture-like")
     ensure(package_replay["dependencyGroup"] == "PACKAGE_INSTALLATION", "SC-09 package replay dependencyGroup mismatch")
     ensure(package_replay["sourceSpecEndpoint"] == "POST /incidents/{incidentId}/offline-package/installations", "SC-09 package sourceSpecEndpoint mismatch")
@@ -849,53 +840,6 @@ def check_internal_consistency(common: dict):
     ensure(package_write_operation["entityId"] == package_owner_response["id"], "SC-09 package writeOperation entityId mismatch")
     ensure(package_write_operation["entityType"] == "offline_package_installation", "SC-09 package writeOperation entityType mismatch")
     ensure(isinstance(package_owner_response.get("serverTs"), str) and package_owner_response["serverTs"], "SC-09 package owner response serverTs missing")
-    ensure(package_event["eventId"] == confirmed["eventRegistry"]["packageStatusBoardProjection"]["eventId"], "SC-09 package eventId mismatch")
-    ensure(package_event["schemaVersion"] == 1, "SC-09 package event schemaVersion mismatch")
-    ensure(package_event["serverTs"] == package_owner_response["serverTs"], "SC-09 package event serverTs mismatch")
-    ensure(package_event["incidentId"] == package_replay["incidentId"], "SC-09 package event incidentId mismatch")
-    ensure(package_event["payloadId"] == package_owner_response["id"], "SC-09 package event payloadId mismatch")
-    ensure(package_event["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package event policePhoneId mismatch")
-    ensure(package_event_payload["id"] == package_owner_response["id"], "SC-09 package event payload id mismatch")
-    ensure(package_event_payload["status"] == package_owner_response["status"], "SC-09 package event payload status mismatch")
-    ensure(package_event_payload["version"] == package_owner_response["version"], "SC-09 package event payload version mismatch")
-    ensure(package_event_payload["incidentId"] == package_replay["incidentId"], "SC-09 package event payload incidentId mismatch")
-    ensure(package_event_payload["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package event payload policePhoneId mismatch")
-    ensure(package_event_payload["manifestVersion"] == package_owner_response["manifestVersion"], "SC-09 package event payload manifestVersion mismatch")
-    ensure(package_query["method"] == "OfflinePackageInstallationQuery.byIncident", "SC-09 package status query method mismatch")
-    ensure(package_query["incidentId"] == package_replay["incidentId"], "SC-09 package status query incidentId mismatch")
-    ensure(package_query["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package status query policePhoneId mismatch")
-    ensure(package_query["policePhoneCode"] == package_replay["policePhoneCode"], "SC-09 package status query policePhoneCode mismatch")
-    ensure(package_query["policePhoneName"] == package_replay["policePhoneName"], "SC-09 package status query policePhoneName mismatch")
-    ensure(package_query["id"] == package_owner_response["id"], "SC-09 package status query id mismatch")
-    ensure(package_board_probe["incidentId"] == package_replay["incidentId"], "SC-09 package board incidentId mismatch")
-    ensure(package_board_probe["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package board policePhoneId mismatch")
-    ensure(package_board_probe["policePhoneCode"] == package_replay["policePhoneCode"], "SC-09 package board policePhoneCode mismatch")
-    ensure(package_board_probe["policePhoneName"] == package_replay["policePhoneName"], "SC-09 package board policePhoneName mismatch")
-    ensure(package_board_probe["id"] == package_owner_response["id"], "SC-09 package board probe id mismatch")
-    ensure(package_board_probe["slot"] == "package_badge", "SC-09 package board probe slot mismatch")
-    ensure(package_board_relation["baseSlot"] == package_board_row["slot"], "SC-09 package board relation slot mismatch")
-    ensure(package_board_relation["baseSourceResponseId"] == package_board_row["sourceResponseId"], "SC-09 package board relation sourceResponseId mismatch")
-    ensure(package_board_relation["baseBoardRowId"] == package_board_row["boardRowId"], "SC-09 package board relation boardRowId mismatch")
-    ensure(package_board_relation["baseStatusBeforeReplay"] == package_board_row["status"], "SC-09 package board relation status mismatch")
-    ensure(package_board_row["latestEventId"] != package_event["eventId"], "SC-09 package stale base row must not reuse READY replay eventId")
-    ensure(package_board_row["sequence"] < package_replay["sequence"], "SC-09 package stale base row sequence must be lower than replay sequence")
-    ensure(package_event["payloadStatus"] == package_owner_response["status"], "SC-09 package status mismatch")
-    ensure(package_query["status"] == package_owner_response["status"], "SC-09 package query status mismatch")
-    ensure(package_board_probe["status"] == package_owner_response["status"], "SC-09 package board status mismatch")
-    ensure(package_event["payloadVersion"] == package_owner_response["version"], "SC-09 package version mismatch")
-    ensure(package_query["version"] == package_owner_response["version"], "SC-09 package query version mismatch")
-    ensure(package_board_probe["minimumVersion"] == package_owner_response["version"], "SC-09 package board version mismatch")
-    ensure(package_event["sequence"] == package_replay["sequence"], "SC-09 package event sequence mismatch")
-    ensure(package_query["sequence"] == package_replay["sequence"], "SC-09 package query sequence mismatch")
-    ensure(package_board_probe["sequence"] == package_replay["sequence"], "SC-09 package board sequence mismatch")
-    ensure(
-        package_owner_response["manifestVersion"]
-        == package_event["manifestVersion"]
-        == package_event_payload["manifestVersion"]
-        == package_query["manifestVersion"]
-        == package_board_probe["manifestVersion"],
-        "SC-09 package manifestVersion mismatch",
-    )
 
 
 def check_mock112_seed_alignment(common: dict):

@@ -124,7 +124,6 @@ function renderIncidentDetailPage(
       onOpenHandover={vi.fn()}
       onOpenIncidentList={vi.fn()}
       onBrowserBackToIncidentList={onBrowserBackToIncidentList}
-      onOpenOfflinePackage={vi.fn()}
       onOpenSituationBoard={vi.fn()}
       onOpenIncidentClose={onOpenIncidentClose}
     />,

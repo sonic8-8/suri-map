@@ -3,7 +3,7 @@
     "revisionDate": "2026-05-07",
     "sourceDocs": [],
     "implementationReferences": [],
-    "notes": "No pending confirmation items remain. Package replay and package_badge consistency are checked against common-fixtures.json."
+    "notes": "No pending confirmation items remain. Package replay consistency is checked against common-fixtures.json."
   },
   "pendingConfirmation": []
 }

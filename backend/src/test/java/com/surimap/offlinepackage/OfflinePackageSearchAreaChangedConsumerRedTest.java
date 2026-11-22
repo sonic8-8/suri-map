@@ -2,14 +2,7 @@ package com.surimap.offlinepackage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.groups.Tuple.tuple;
 
-import com.surimap.board.BoardAssembler;
-import com.surimap.board.BoardAssemblyRequest;
-import com.surimap.board.BoardDTO;
-import com.surimap.board.BoardSlotRow;
-import com.surimap.board.BoardSourceRow;
-import com.surimap.board.PackageBadgeBoardAssembler;
 import com.surimap.global.event.CapturingEventPublisher;
 import com.surimap.global.event.EventPublishRequest;
 import com.surimap.maparea.fixture.BoundaryAreaFixtures;
@@ -19,8 +12,6 @@ import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.exception.OfflinePackageApiException;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import com.surimap.policephone.PolicePhoneDbFixtureSupport;
 import java.time.OffsetDateTime;
@@ -47,8 +38,6 @@ import org.springframework.test.context.ActiveProfiles;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("L6-T07 SEARCH_AREA_CHANGED stale offline package consumer RED")
 class OfflinePackageSearchAreaChangedConsumerRedTest {
-
-  @Autowired private OfflinePackageInstallationQuery installationQuery;
 
   @Autowired private OfflinePackageService offlinePackageService;
 
@@ -104,51 +93,32 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
   }
 
   @Test
-  @DisplayName("overall area change increments manifest and exposes re-download required")
-  void search_area_changed_marks_ready_and_partial_installations_stale_for_package_badge() {
-    assertThat(row(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID).status())
-        .isEqualTo("READY");
-    assertThat(row(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID).status())
-        .isEqualTo("PARTIAL");
-    assertThat(row(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID).status())
-        .isEqualTo("DOWNLOADING");
+  @DisplayName("전체 구역이 바뀌면 manifest 버전이 오르고 READY, PARTIAL, DOWNLOADING 설치 상태가 STALE로 바뀐다")
+  void search_area_changed_marks_ready_partial_and_downloading_installations_stale() {
+    // given: 이전 manifest에 READY, PARTIAL, DOWNLOADING 설치 상태가 있다.
+    assertThat(installationRow(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID))
+        .containsEntry("status", "READY");
+    assertThat(installationRow(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID))
+        .containsEntry("status", "PARTIAL");
+    assertThat(
+            installationRow(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID))
+        .containsEntry("status", "DOWNLOADING");
     OffsetDateTime beforeRevision = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
+    // when: 전체 구역 변경 이벤트를 소비한다.
     invokeSearchAreaChangedConsumer(searchAreaChangedEvent());
 
-    OfflinePackageInstallationStatus readyPhone =
-        row(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID);
-    OfflinePackageInstallationStatus partialPhone =
-        row(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID);
-    OfflinePackageInstallationStatus downloadingPhone =
-        row(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID);
-    assertStaleForCurrentManifest(readyPhone);
-    assertStaleForCurrentManifest(partialPhone);
-    assertStaleForCurrentManifest(downloadingPhone);
+    // then: 세 설치 상태가 이전 manifest 버전에 남은 채 STALE로 바뀐다. 현재 manifest는 새 버전이다.
+    assertStaleForPreviousManifest(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID);
+    assertStaleForPreviousManifest(
+        OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID);
+    assertStaleForPreviousManifest(
+        OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID);
     assertCurrentManifestRevisionRequiresDownload();
     assertCurrentManifestRevisionExpiresAfter(beforeRevision);
 
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .extracting(
-            event -> event.getPayload().get("id"), event -> event.getPayload().get("status"))
-        .contains(
-            tuple(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID, "STALE"),
-            tuple(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID, "STALE"),
-            tuple(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID, "STALE"));
-
-    BoardDTO board = boardFromPackageBadgeRows();
-    assertPackageBadgeRequiresRedownload(
-        board, OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID);
-    assertPackageBadgeRequiresRedownload(
-        board, OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID);
-    assertPackageBadgeRequiresRedownload(
-        board, OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID);
-
-    int publishedStatusChanges =
-        eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE).size();
+    // then: 같은 이벤트를 다시 소비해도 manifest 버전은 그대로다.
     invokeSearchAreaChangedConsumer(searchAreaChangedEvent());
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .hasSize(publishedStatusChanges);
     assertThat(
             offlinePackageService
                 .manifest(
@@ -159,23 +129,22 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
   }
 
   @Test
-  @DisplayName("stale transition publish request uses a new event id for the changed version")
-  void stale_transition_publish_request_uses_new_event_id_for_changed_version() {
+  @DisplayName("설치 보고를 저장하고 STALE로 바꿔도 OFFLINE_PACKAGE_INSTALLATION_CHANGED는 발행되지 않는다")
+  void report_and_stale_transition_do_not_publish_installation_changed() {
+    // given: 업무폰이 현재 manifest의 READY를 보고했다.
     offlinePackageService.reportInstallation(
         OfflinePackageManifestFixtures.INCIDENT_ID,
         "idem-package-ready-before-stale",
-        readyReport());
+        readyReport(),
+        true);
 
+    // when: 전체 구역 변경 이벤트를 소비한다.
     invokeSearchAreaChangedConsumer(searchAreaChangedEvent());
 
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .filteredOn(
-            event ->
-                OfflinePackageInstallationFixtures.INSTALLATION_ID.equals(
-                    event.getPayload().get("id")))
-        .extracting(EventPublishRequest::getEventId)
-        .doesNotHaveDuplicates()
-        .hasSize(2);
+    // then: 보고한 설치 상태는 STALE로 바뀌고, 설치 변경 이벤트는 한 번도 발행되지 않는다.
+    assertThat(installationRow(OfflinePackageInstallationFixtures.INSTALLATION_ID))
+        .containsEntry("status", "STALE");
+    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE)).isEmpty();
   }
 
   @Test
@@ -188,36 +157,34 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
                 offlinePackageService.reportInstallation(
                     OfflinePackageManifestFixtures.INCIDENT_ID,
                     "idem-package-old-manifest-ready-after-stale",
-                    readyReport()))
+                    readyReport(),
+                    true))
         .isInstanceOf(OfflinePackageApiException.class)
         .hasMessageContaining("write_conflict");
 
-    OfflinePackageInstallationStatus readyPhone =
-        row(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID);
-    assertThat(readyPhone.status()).isEqualTo("STALE");
-    assertThat(readyPhone.manifestVersion())
-        .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
-    assertThat(readyPhone.activeManifestVersion())
-        .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
+    assertStaleForPreviousManifest(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID);
   }
 
   private void invokeSearchAreaChangedConsumer(EventPublishRequest event) {
     searchAreaChangedConsumer.consume(event);
   }
 
-  private OfflinePackageInstallationStatus row(String id) {
-    return installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID).stream()
-        .filter(status -> id.equals(status.id()))
-        .findFirst()
-        .orElseThrow(() -> new AssertionError("missing package installation row: " + id));
+  private Map<String, Object> installationRow(String id) {
+    return jdbcTemplate.queryForMap(
+        """
+        SELECT i.status, m.manifest_version
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE i.id = ?
+        """,
+        UUID.fromString(id));
   }
 
-  private static void assertStaleForCurrentManifest(OfflinePackageInstallationStatus status) {
-    assertThat(status.status()).isEqualTo("STALE");
-    assertThat(status.readyForOfflineUse()).isFalse();
-    assertThat(status.manifestVersion()).isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
-    assertThat(status.activeManifestVersion())
-        .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
+  private void assertStaleForPreviousManifest(String id) {
+    Map<String, Object> row = installationRow(id);
+    assertThat(row).containsEntry("status", "STALE");
+    assertThat(((Number) row.get("manifest_version")).intValue())
+        .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
   }
 
   private void assertCurrentManifestRevisionRequiresDownload() {
@@ -246,70 +213,6 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             OfflinePackageInstallationFixtures.STALE_MANIFEST_ID);
 
     assertThat(expiresAt).isAfter(beforeRevision);
-  }
-
-  private BoardDTO boardFromPackageBadgeRows() {
-    List<BoardSourceRow> sourceRows =
-        new PackageBadgeBoardAssembler(installationQuery)
-            .sourceRowsByIncident(OfflinePackageManifestFixtures.INCIDENT_ID);
-    return new BoardAssembler()
-        .assemble(
-            new BoardAssemblyRequest(
-                OfflinePackageManifestFixtures.INCIDENT_ID,
-                "board-response-package-badge-l6-t07",
-                OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION,
-                OfflinePackageInstallationFixtures.SERVER_TS,
-                OfflinePackageManifestFixtures.OP_ID,
-                List.of(OfflinePackageManifestFixtures.OP_ID),
-                "overall-area-hash-precinct-revised",
-                sourceRows));
-  }
-
-  @SuppressWarnings("unchecked")
-  private static void assertPackageBadgeRequiresRedownload(BoardDTO board, String id) {
-    BoardSlotRow row = board.slotRow("package_badge", id);
-    assertThat(row.status()).isEqualTo("STALE");
-    assertThat(row.version()).isPositive();
-    assertThat(row.payload())
-        .containsEntry("packageStatus", "STALE")
-        .containsEntry("policePhoneCode", statusPhoneCode(id))
-        .containsEntry("policePhoneName", statusPhoneName(id))
-        .containsEntry("readyForOfflineUse", false)
-        .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION);
-
-    Map<String, Object> warningInput = (Map<String, Object>) row.payload().get("localWarningInput");
-    assertThat(warningInput)
-        .containsEntry("packageStatus", "STALE")
-        .containsEntry("raised", true)
-        .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
-        .containsEntry(
-            "activeManifestVersion", OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
-  }
-
-  private static String statusPhoneCode(String id) {
-    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
-      return OfflinePackageManifestFixtures.POLICE_PHONE_CODE;
-    }
-    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
-      return "dev-precinct-phone-02";
-    }
-    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
-      return "dev-precinct-phone-05";
-    }
-    return id;
-  }
-
-  private static String statusPhoneName(String id) {
-    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
-      return "종로 지구대 팀 폴리폰";
-    }
-    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
-      return "경찰서 팀폰 02";
-    }
-    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
-      return "경찰서 팀폰 05";
-    }
-    return statusPhoneCode(id);
   }
 
   private static EventPublishRequest searchAreaChangedEvent() {

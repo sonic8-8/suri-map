@@ -101,6 +101,9 @@ class IncidentBoardApiContractTest {
         .andExpect(jsonPath("$.slots.marker[0].sourceSpec").value("S5"))
         .andExpect(jsonPath("$.slots.marker[0].markerType").value("CLUE"))
         .andExpect(jsonPath("$.slots.overall_search_area").isMap())
+        // 지휘관은 오프라인 패키지 상태를 확인하지 않아 package_badge 슬롯을 응답에서 뺐다(#55).
+        .andExpect(jsonPath("$.slots.package_badge").doesNotExist())
+        .andExpect(jsonPath("$.slotSources.package_badge").doesNotExist())
         .andExpect(jsonPath("$.slotSources.path").isArray())
         .andExpect(jsonPath("$.slotSources.marker[0].id").value("marker-source-001"))
         .andExpect(jsonPath("$.sourceVersions.path").isArray())

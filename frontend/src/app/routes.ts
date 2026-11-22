@@ -10,7 +10,6 @@ export const ROUTES = {
   incidentBoard: '/incidents/:incidentId/board',
   incidentSearchHistory: '/incidents/:incidentId/search-history',
   incidentHandover: '/incidents/:incidentId/handover',
-  incidentOfflinePackage: '/incidents/:incidentId/offline-package',
   areaEdit: '/incidents/:incidentId/area-edit',
   incidentClose: '/incidents/:incidentId/close',
   legacyAreaEdit: '/area-edit',
@@ -31,10 +30,6 @@ export function getIncidentHandoverPath(incidentId: string) {
 
 export function getIncidentSearchHistoryPath(incidentId: string) {
   return `/incidents/${incidentId}/search-history`;
-}
-
-export function getIncidentOfflinePackagePath(incidentId: string) {
-  return `/incidents/${incidentId}/offline-package`;
 }
 
 export function getAreaEditPath(incidentId: string) {

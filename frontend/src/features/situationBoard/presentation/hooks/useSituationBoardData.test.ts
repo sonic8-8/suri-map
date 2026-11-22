@@ -781,9 +781,8 @@ describe('useSituationBoardData', () => {
     expect(merged?.slots.path).toEqual(previous.slots.path);
   });
 
-  test('keeps package badge and terminal slots when a refetch response omits them', () => {
+  test('keeps terminal slots when a refetch response omits them', () => {
     const previous = boardResponse({
-      package_badge: [{ id: 'package-001', status: 'READY', version: 1, sequence: 1 }],
       incident_terminal: [{ id: 'terminal-001', status: 'OPEN', version: 1, sequence: 1 }],
     });
     const current = boardResponse({
@@ -792,7 +791,6 @@ describe('useSituationBoardData', () => {
 
     const merged = mergeWithPreviousCriticalSlots(current, previous);
 
-    expect(merged?.slots.package_badge).toEqual(previous.slots.package_badge);
     expect(merged?.slots.incident_terminal).toEqual(previous.slots.incident_terminal);
   });
 

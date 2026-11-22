@@ -22,7 +22,6 @@ export type SearchHistoryRouteProps = {
   onMarkerNotification: (notification: MarkerNotification) => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOperationalPeriodCreated: (incidentId: string) => void;
-  onOpenOfflinePackage: (incidentId: string) => void;
   onOpenLogin: () => void;
 };
 
@@ -34,7 +33,6 @@ export function SearchHistoryRoute({
   onMarkerNotification,
   onMoveMarkerNotification,
   onOperationalPeriodCreated,
-  onOpenOfflinePackage,
   onOpenLogin,
 }: SearchHistoryRouteProps) {
   const incidentId = useRouteIncidentId();
@@ -61,7 +59,6 @@ export function SearchHistoryRoute({
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
       onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
-      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
       onOpenLogin={onOpenLogin}
       onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
     />

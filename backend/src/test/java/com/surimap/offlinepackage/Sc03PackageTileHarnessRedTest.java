@@ -55,9 +55,7 @@ class Sc03PackageTileHarnessRedTest {
             "S2:overall_search_area",
             "S5:initial_marker",
             "S8:operational_period",
-            "S4:offline_package_event",
             "S6:outbox_status_write",
-            "S3-2:package_badge",
             "S7:mock_tile_catalog",
             "S7:mock_tile_server_adapter",
             "S7:maplibre_render_stub");

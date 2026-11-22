@@ -15,7 +15,6 @@ import com.surimap.board.BoardAssembler;
 import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSourceRow;
-import com.surimap.board.PackageBadgeBoardAssembler;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -33,7 +32,6 @@ import com.surimap.incident.lifecycle.IncidentLifecycleGuardException;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.maparea.testdouble.SearchAreaQueryMock;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.retention.purge.IncidentClosedPurgeHandler;
 import com.surimap.retention.purge.IncidentDataPurgeRun;
 import com.surimap.retention.purge.IncidentDataPurgeStatus;
@@ -47,7 +45,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -94,7 +91,6 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   @Autowired private IncidentClosedPurgeHandler incidentClosedPurgeHandler;
 
-  @Autowired private OfflinePackageInstallationQuery offlinePackageInstallationQuery;
 
   @Autowired private MockMvc mockMvc;
 
@@ -409,7 +405,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   private BoardDTO assembleTerminalBoard(
       IncidentDataPurgeRun completed, OutboxRow purgedEvent, ServerSentEventMessage purgedSse) {
-    // S1-3 종료 행과 package badge 행을 포함해 S3-2가 소비하는 상황판 형태로 조립한다.
+    // S1-3 종료 행으로 S3-2가 소비하는 상황판 형태를 조립한다.
     return new BoardAssembler()
         .assemble(
             new BoardAssemblyRequest(
@@ -420,10 +416,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
                 null,
                 List.of(OP1_ID),
                 "overall-area-hash-precinct-current",
-                concat(
-                    List.of(incidentTerminalRow(completed, purgedEvent, purgedSse)),
-                    new PackageBadgeBoardAssembler(offlinePackageInstallationQuery)
-                        .sourceRowsByIncident(INCIDENT_ID.toString()))));
+                List.of(incidentTerminalRow(completed, purgedEvent, purgedSse))));
   }
 
   private BoardSourceRow incidentTerminalRow(
@@ -522,13 +515,6 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   private static String serializedSlots(BoardDTO board) {
     return String.valueOf(board.slots());
-  }
-
-  private static List<BoardSourceRow> concat(
-      List<BoardSourceRow> first, List<BoardSourceRow> second) {
-    List<BoardSourceRow> rows = new ArrayList<>(first);
-    rows.addAll(second);
-    return List.copyOf(rows);
   }
 
   private record OutboxRow(

@@ -187,6 +187,49 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("종료됐지만 패키지가 파기되지 않은 사건에 현재 manifest로 새 Idempotency-Key의 설치 보고를 보내면 incident_closed로 거절돼 설치 상태 행이 바뀌지 않는다")
+  void new_report_for_closed_incident_before_purge_is_rejected_with_incident_closed()
+      throws Exception {
+    // given: 앱 계정 A가 배정된 사건 A가 종료됐다. 사건 A의 현재 manifest는 파기되지 않았다.
+    closeIncident(INCIDENT_A);
+    List<Map<String, Object>> before = installationRows(MANIFEST_A);
+
+    // when & then: 앱 계정 A가 현재 manifest로 새 Idempotency-Key의 설치 보고를 보낸다.
+    report(APP_A, INCIDENT_A.toString(), APP_A_PHONE, MANIFEST_A, "idem-48-closed-new")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("incident_closed")))
+        .andExpect(jsonPath("$.id").doesNotExist());
+
+    // then: 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
+    assertThat(installationRows(MANIFEST_A)).isEqualTo(before);
+    assertThat(idempotencyRowCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("종료 전에 저장된 같은 Idempotency-Key의 설치 보고 응답은 사건이 종료된 뒤에도 그대로 돌아온다")
+  void stored_response_before_close_is_replayed_after_close() throws Exception {
+    // given: 앱 계정 A가 사건 A의 설치 보고를 보내 응답이 저장됐다. 그 뒤 사건 A가 종료됐다.
+    String storedResponse =
+        report(APP_A, INCIDENT_A.toString(), APP_A_PHONE, MANIFEST_A, "idem-48-closed-replay")
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    closeIncident(INCIDENT_A);
+    List<Map<String, Object>> before = installationRows(MANIFEST_A);
+
+    // when & then: 앱 계정 A가 같은 Idempotency-Key와 본문으로 다시 보내면 저장된 응답이 돌아온다.
+    report(APP_A, INCIDENT_A.toString(), APP_A_PHONE, MANIFEST_A, "idem-48-closed-replay")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(JsonPath.<String>read(storedResponse, "$.id"))))
+        .andExpect(jsonPath("$.status", is("READY")));
+
+    // then: 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
+    assertThat(installationRows(MANIFEST_A)).isEqualTo(before);
+    assertThat(idempotencyRowCount()).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("UUID 형식이 아닌 사건 별칭으로 설치 보고를 보내면 incident_access_denied로 거절된다")
   void incident_alias_is_denied() throws Exception {
     // when & then: 개발용 사건 별칭으로 설치 보고를 보낸다.
@@ -237,13 +280,6 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         "DELETE FROM idempotency_record WHERE idempotency_key LIKE ?",
         IDEMPOTENCY_KEY_PREFIX + "%");
-    // 설치 상태 변경 이벤트의 ID는 설치 상태 ID와 버전으로 정해진다.
-    // 작업자는 다음 테스트에서 같은 ID가 겹치지 않도록, 이 테스트의 사건에 남은 이벤트 행도 지우게 했다.
-    jdbcTemplate.update(
-        "DELETE FROM event_dispatch_job WHERE event_type = 'OFFLINE_PACKAGE_INSTALLATION_CHANGED'"
-            + " AND payload->>'incidentId' IN (?, ?)",
-        INCIDENT_A.toString(),
-        INCIDENT_B.toString());
     jdbcTemplate.update(
         "DELETE FROM offline_package_installation WHERE offline_package_manifest_id IN (?::uuid, ?::uuid)",
         MANIFEST_A,
@@ -299,6 +335,13 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
+  }
+
+  private void closeIncident(UUID incidentId) {
+    jdbcTemplate.update(
+        "UPDATE incident SET status = 'CLOSED', closed_at = ? WHERE id = ?::uuid",
+        Timestamp.from(BASE_TS.plusSeconds(3_600)),
+        incidentId.toString());
   }
 
   // 계정을 사건에 배정하고, police_phone.account_id가 그 계정인 등록된 업무폰을 한 대 넣는다.

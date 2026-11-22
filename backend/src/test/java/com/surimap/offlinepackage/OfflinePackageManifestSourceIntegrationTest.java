@@ -236,7 +236,8 @@ class OfflinePackageManifestSourceIntegrationTest {
                 List.of(),
                 null,
                 1_778_686_570_000L,
-                0L));
+                0L),
+            true);
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.manifestVersion()).isEqualTo(manifest.manifestVersion());

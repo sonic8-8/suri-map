@@ -24,7 +24,7 @@
 상황판은 경로와 마커뿐 아니라 업무폰의 오프라인 자료 설치 상태도 함께 조회합니다. 수정 전에는 이 과정의 트랜잭션이 다음과 같이 나뉘어 있었습니다.
 
 1. [상황판 조회](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `collect()`가 읽기 전용 트랜잭션을 시작하고 커넥션 하나를 확보합니다.
-2. 마커 알림까지 조회한 뒤 [패키지 상태 조립](../../backend/src/main/java/com/surimap/board/PackageBadgeBoardAssembler.java)을 거쳐 `OfflinePackageService.byIncident()`를 호출합니다.
+2. 마커 알림까지 조회한 뒤 [패키지 상태 조립](https://github.com/sonic8-8/suri-map/blob/1553651dfb591b90de5d4a6c0dc7acbf4875749b/backend/src/main/java/com/surimap/board/PackageBadgeBoardAssembler.java)을 거쳐 `OfflinePackageService.byIncident()`를 호출합니다.
 3. [서비스](../../backend/src/main/java/com/surimap/offlinepackage/service/OfflinePackageService.java)에 붙어 있던 `REQUIRES_NEW`가 별도 트랜잭션을 시작하려고 새 커넥션을 요구합니다. 이때 상황판이 확보한 첫 번째 커넥션은 반환되지 않습니다.
 
 같은 시점의 서버 상태와 오류 기록도 이 흐름을 뒷받침했습니다.
@@ -56,7 +56,7 @@ Git 이력에서는 [`27eb44c7`](https://github.com/sonic8-8/suri-map/commit/27e
 
 ### 회귀 테스트: 두 요청의 상태 조회 완료
 
-[OfflinePackageServiceTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageServiceTest.java)에 실제 Spring 서비스, MyBatis, PostgreSQL을 연결하는 테스트 한 개를 추가했습니다.
+[OfflinePackageServiceTest](https://github.com/sonic8-8/suri-map/blob/1553651dfb591b90de5d4a6c0dc7acbf4875749b/backend/src/test/java/com/surimap/offlinepackage/OfflinePackageServiceTest.java)에 실제 Spring 서비스, MyBatis, PostgreSQL을 연결하는 테스트 한 개를 추가했습니다.
 
 풀을 커넥션 2개로 제한하고 읽기 트랜잭션 두 개가 각각 연결을 확보한 뒤, 동시에 패키지 상태를 조회하도록 구성했습니다. 두 요청 모두 저장한 `READY` 상태를 반환해야 통과합니다. 어노테이션 이름이나 메서드 호출 횟수가 아니라 조회 완료와 반환값을 확인합니다.
 

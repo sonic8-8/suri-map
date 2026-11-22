@@ -20,7 +20,6 @@ import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.DetailRow;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.support.auth.WithMockAccount;
 import java.util.List;
 import java.util.Map;
@@ -60,8 +59,6 @@ class OfflinePackageInstallationApiRedTest {
   @Autowired private MockMvc mockMvc;
 
   @Autowired private CapturingEventPublisher eventHub;
-
-  @Autowired private OfflinePackageInstallationQuery installationQuery;
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -183,8 +180,9 @@ class OfflinePackageInstallationApiRedTest {
   @WithMockAccount(
       accountId = PHONE_ACCOUNT_ID,
       policePhoneId = OfflinePackageManifestFixtures.POLICE_PHONE_ID)
-  @DisplayName("READY status report publishes OFFLINE_PACKAGE_INSTALLATION_CHANGED")
-  void ready_status_report_publishes_offline_package_installation_changed() throws Exception {
+  @DisplayName("READY 설치 보고는 저장되지만 OFFLINE_PACKAGE_INSTALLATION_CHANGED는 발행되지 않는다")
+  void ready_status_report_saves_installation_without_installation_changed_event()
+      throws Exception {
     mockMvc
         .perform(
             post(OfflinePackageInstallationFixtures.apiPath())
@@ -202,34 +200,15 @@ class OfflinePackageInstallationApiRedTest {
             jsonPath("$.manifestVersion", is(OfflinePackageManifestFixtures.MANIFEST_VERSION)))
         .andExpect(jsonPath("$.readyForOfflineUse", is(true)));
 
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.getType()).isEqualTo(OfflinePackageInstallationFixtures.EVENT_TYPE);
-              assertThat(event.getPayloadFormatVersion()).isEqualTo(1);
-              assertThat(event.getSourceEntityType())
-                  .isEqualTo(OfflinePackageInstallationFixtures.SOURCE_ENTITY_TYPE);
-              assertThat(event.getPayload())
-                  .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
-                  .containsEntry("status", "READY")
-                  .containsEntry("version", (long) OfflinePackageInstallationFixtures.VERSION)
-                  .containsEntry("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID)
-                  .containsEntry("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
-                  .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
-                  .containsEntry("sequence", (long) OfflinePackageInstallationFixtures.SEQUENCE);
-            });
-
-    assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
+    assertThat(eventHub.findByType("OFFLINE_PACKAGE_INSTALLATION_CHANGED")).isEmpty();
+    assertThat(installationRows())
         .anySatisfy(
             row -> {
-              assertThat(row.id()).isEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
-              assertThat(row.status()).isEqualTo("READY");
-              assertThat(row.version()).isEqualTo(OfflinePackageInstallationFixtures.VERSION);
-              assertThat(row.sequence()).isEqualTo(OfflinePackageInstallationFixtures.SEQUENCE);
-              assertThat(row.manifestVersion())
-                  .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
-              assertThat(row.readyForOfflineUse()).isTrue();
+              assertThat(row)
+                  .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
+                  .containsEntry("status", "READY");
+              assertThat(((Number) row.get("version")).longValue())
+                  .isEqualTo(OfflinePackageInstallationFixtures.VERSION);
             });
   }
 
@@ -280,18 +259,18 @@ class OfflinePackageInstallationApiRedTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("READY")));
 
-    assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
+    assertThat(installationRows())
+        .anySatisfy(
+            row ->
+                assertThat(row)
+                    .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
+                    .containsEntry("police_phone_id", OfflinePackageManifestFixtures.POLICE_PHONE_ID))
         .anySatisfy(
             row -> {
-              assertThat(row.id()).isEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
-              assertThat(row.policePhoneId())
-                  .isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
-            })
-        .anySatisfy(
-            row -> {
-              assertThat(row.id()).isNotEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
-              assertThat(row.policePhoneId()).isEqualTo(SECOND_PHONE_ID);
-              assertThat(row.status()).isEqualTo("READY");
+              assertThat(row.get("id")).isNotEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
+              assertThat(row)
+                  .containsEntry("police_phone_id", SECOND_PHONE_ID)
+                  .containsEntry("status", "READY");
             });
   }
 
@@ -309,8 +288,6 @@ class OfflinePackageInstallationApiRedTest {
                 .content(OfflinePackageInstallationFixtures.readyReportJson()))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));
-
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE)).isEmpty();
   }
 
   @Test
@@ -347,8 +324,8 @@ class OfflinePackageInstallationApiRedTest {
   @WithMockAccount(
       accountId = PHONE_ACCOUNT_ID,
       policePhoneId = OfflinePackageManifestFixtures.POLICE_PHONE_ID)
-  @DisplayName("same Idempotency-Key replays response without duplicate event")
-  void duplicate_idempotency_key_replays_without_duplicate_event() throws Exception {
+  @DisplayName("같은 Idempotency-Key로 다시 보내면 저장된 응답이 돌아온다")
+  void duplicate_idempotency_key_replays_stored_response() throws Exception {
     for (int attempt = 0; attempt < 2; attempt++) {
       mockMvc
           .perform(
@@ -363,8 +340,18 @@ class OfflinePackageInstallationApiRedTest {
           .andExpect(jsonPath("$.id", is(OfflinePackageInstallationFixtures.INSTALLATION_ID)))
           .andExpect(jsonPath("$.status", is("READY")));
     }
+  }
 
-    assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE)).hasSize(1);
+  private List<Map<String, Object>> installationRows() {
+    return jdbcTemplate.queryForList(
+        """
+        SELECT CAST(id AS VARCHAR) AS id, CAST(police_phone_id AS VARCHAR) AS police_phone_id,
+               status, version
+        FROM offline_package_installation
+        WHERE police_phone_id IN (?, ?)
+        """,
+        UUID.fromString(OfflinePackageManifestFixtures.POLICE_PHONE_ID),
+        UUID.fromString(SECOND_PHONE_ID));
   }
 
   @TestConfiguration

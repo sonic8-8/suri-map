@@ -8,7 +8,6 @@ import {
 import type { LoginAccount } from '../../../../login/presentation/types/login';
 import type { IncidentDetailDto } from '../../../../incident/api/incidentReadApi';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
-import { toPackageBadgeSummary } from '../../slots/packageBadge/packageBadgeBoardMapper';
 
 type SituationBoardHeaderProps = {
   activeTab?: SuriMapPageHeaderTabId;
@@ -26,7 +25,6 @@ type SituationBoardHeaderProps = {
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
   onOpenSearchHistory?: () => void;
-  onOpenOfflinePackage?: () => void;
   onOpenLogin?: () => void;
 };
 
@@ -46,7 +44,6 @@ export function SituationBoardHeader({
   onOpenSituationBoard,
   onOpenHandover,
   onOpenSearchHistory,
-  onOpenOfflinePackage,
   onOpenLogin,
 }: SituationBoardHeaderProps) {
   const currentAccountLabel = currentUserAccount.name;
@@ -55,7 +52,6 @@ export function SituationBoardHeader({
     ...(incidentDetail ?? {}),
     activeOperationalPeriodLabel,
   });
-  const packageBadgeSummary = toPackageBadgeSummary(apiBoard);
 
   return (
     <SuriMapPageHeader
@@ -64,7 +60,6 @@ export function SituationBoardHeader({
       incidentContext={incidentContext}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
-      packageWarning={packageBadgeSummary}
       syncStatus={syncStatus}
       timestampLabel={timestampLabel}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
@@ -73,7 +68,6 @@ export function SituationBoardHeader({
       onOpenSearchHistory={onOpenSearchHistory}
       onOpenIncidentDetail={onOpenIncidentDetail}
       onOpenIncidentList={onOpenIncidentList}
-      onOpenOfflinePackage={onOpenOfflinePackage}
       onOpenLogin={onOpenLogin}
       onOpenSituationBoard={onOpenSituationBoard}
     />

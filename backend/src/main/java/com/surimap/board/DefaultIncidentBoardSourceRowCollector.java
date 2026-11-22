@@ -28,7 +28,6 @@ import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
@@ -65,7 +64,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final ObjectProvider<SearchPathService> searchPathService;
   private final ObjectProvider<ConnectionStatusQuery> connectionStatusQuery;
   private final MarkerService markerService;
-  private final PackageBadgeBoardAssembler packageBadgeBoardAssembler;
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
@@ -80,7 +78,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
-      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper) {
@@ -89,7 +86,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchPathService,
         connectionStatusQuery,
         markerService,
-        offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
         searchHistorySummaryMapper,
@@ -105,7 +101,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
-      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
@@ -118,7 +113,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchPathService,
         connectionStatusQuery,
         markerService,
-        offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
         searchHistorySummaryMapper,
@@ -135,7 +129,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
-      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
@@ -149,7 +142,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchPathService,
         connectionStatusQuery,
         markerService,
-        offlinePackageInstallationQuery,
         operationalPeriodQuery,
         handoverMemoQuery,
         searchHistorySummaryMapper,
@@ -167,7 +159,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<SearchPathService> searchPathService,
       ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
       MarkerService markerService,
-      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
@@ -182,11 +173,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.searchPathService = searchPathService;
     this.connectionStatusQuery = connectionStatusQuery;
     this.markerService = Objects.requireNonNull(markerService, "markerService must not be null");
-    this.packageBadgeBoardAssembler =
-        new PackageBadgeBoardAssembler(
-            Objects.requireNonNull(
-                offlinePackageInstallationQuery,
-                "offlinePackageInstallationQuery must not be null"));
     this.operationalPeriodQuery =
         Objects.requireNonNull(operationalPeriodQuery, "operationalPeriodQuery must not be null");
     this.handoverMemoQuery =
@@ -219,7 +205,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     collectConnectionStatusRows(context, rows, terminalRow.isPresent());
     collectMarkerRows(context, markerOpIds(context, activeOpId, selectedOpIds), rows);
     collectMarkerNotificationRows(context, rows);
-    collectPackageRows(context, rows);
     collectIncidentTerminalRow(context, rows, terminalRow);
     collectOperationalPeriodRows(context, rows);
     collectHandoverMemoRows(context, selectedOpIds, rows);
@@ -335,13 +320,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     query.byIncident(context.incidentId()).stream()
         .map(this::connectionStatusRow)
         .forEach(rows::add);
-  }
-
-  private void collectPackageRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
-    if (!context.includes("package_badge")) {
-      return;
-    }
-    rows.addAll(packageBadgeBoardAssembler.sourceRowsByIncident(context.incidentId().toString()));
   }
 
   private void collectMarkerNotificationRows(

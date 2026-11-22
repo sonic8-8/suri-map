@@ -46,7 +46,6 @@ type IncidentDetailPageProps = {
   onOpenSearchHistory?: () => void;
   onOpenIncidentList: () => void;
   onBrowserBackToIncidentList?: () => void;
-  onOpenOfflinePackage: () => void;
   onOpenSituationBoard: () => void;
   onOpenIncidentClose: () => void;
   onOpenLogin?: () => void;
@@ -63,7 +62,6 @@ export function IncidentDetailPage({
   onOpenSearchHistory,
   onOpenIncidentList,
   onBrowserBackToIncidentList,
-  onOpenOfflinePackage,
   onOpenSituationBoard,
   onOpenIncidentClose,
   onOpenLogin,
@@ -105,7 +103,6 @@ export function IncidentDetailPage({
           onOpenHandover={isClosed ? undefined : onOpenHandover}
           onOpenSearchHistory={isClosed ? undefined : onOpenSearchHistory}
           onOpenIncidentList={onOpenIncidentList}
-          onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenLogin={onOpenLogin}
           onOpenSituationBoard={onOpenSituationBoard}
         />

@@ -90,7 +90,6 @@ export type OperationalPeriodReviewWorkspaceProps = {
   onOpenSituationBoard: () => void;
   onOpenHandover?: () => void;
   onOpenSearchHistory?: () => void;
-  onOpenOfflinePackage: () => void;
   onOpenLogin?: () => void;
   onOperationalPeriodCreated?: () => void;
   onSharedMapPropsChange?: (props: HandoverComparisonMapSharedProps | null) => void;
@@ -159,7 +158,6 @@ export function OperationalPeriodReviewWorkspace({
   onOpenSituationBoard,
   onOpenHandover,
   onOpenSearchHistory,
-  onOpenOfflinePackage,
   onOpenLogin,
   onOperationalPeriodCreated,
   onSharedMapPropsChange,
@@ -796,7 +794,6 @@ export function OperationalPeriodReviewWorkspace({
           onOpenSituationBoard={onOpenSituationBoard}
           onOpenHandover={onOpenHandover}
           onOpenSearchHistory={onOpenSearchHistory}
-          onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenLogin={onOpenLogin}
         />
       )}

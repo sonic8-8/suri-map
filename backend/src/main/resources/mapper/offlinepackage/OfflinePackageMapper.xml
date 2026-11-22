@@ -28,23 +28,6 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="installationStatusMap"
-               type="com.surimap.offlinepackage.query.OfflinePackageInstallationStatus">
-        <constructor>
-            <arg column="id" javaType="string"/>
-            <arg column="incident_id" javaType="string"/>
-            <arg column="police_phone_id" javaType="string"/>
-            <arg column="police_phone_code" javaType="string"/>
-            <arg column="police_phone_name" javaType="string"/>
-            <arg column="status" javaType="string"/>
-            <arg column="version" javaType="_long"/>
-            <arg column="sequence_number" javaType="_long"/>
-            <arg column="manifest_version" javaType="_int"/>
-            <arg column="active_manifest_version" javaType="_int"/>
-            <arg column="ready_for_offline_use" javaType="_boolean"/>
-        </constructor>
-    </resultMap>
-
     <resultMap id="manifestRecordMap"
                type="com.surimap.offlinepackage.repository.OfflinePackageManifestRecord">
         <constructor>
@@ -180,14 +163,6 @@
           )
     </select>
 
-    <select id="findStaleCandidateInstallationIds" resultType="string">
-        SELECT id
-        FROM offline_package_installation
-        WHERE offline_package_manifest_id = CAST(#{manifestId} AS UUID)
-          AND status IN ('READY', 'PARTIAL', 'DOWNLOADING')
-        ORDER BY police_phone_id
-    </select>
-
     <select id="findCurrentManifestByIncident" resultMap="manifestRecordMap">
         SELECT
             id,
@@ -268,84 +243,6 @@
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
         WHERE i.offline_package_manifest_id = CAST(#{manifestId} AS UUID)
           AND i.police_phone_id = CAST(#{policePhoneId} AS UUID)
-    </select>
-
-    <select id="findStatusesByManifest" resultMap="installationStatusMap">
-        SELECT
-            i.id,
-            m.incident_id,
-            i.police_phone_id,
-            pp.phone_code AS police_phone_code,
-            pp.display_name AS police_phone_name,
-            i.status,
-            i.version,
-            901 AS sequence_number,
-            m.manifest_version,
-            m.manifest_version AS active_manifest_version,
-            i.status = 'READY' AS ready_for_offline_use
-        FROM offline_package_installation i
-        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
-        WHERE i.offline_package_manifest_id = CAST(#{manifestId} AS UUID)
-        ORDER BY i.police_phone_id
-    </select>
-
-    <select id="findStatusesByIds" resultMap="installationStatusMap">
-        SELECT
-            i.id,
-            m.incident_id,
-            i.police_phone_id,
-            pp.phone_code AS police_phone_code,
-            pp.display_name AS police_phone_name,
-            i.status,
-            i.version,
-            901 AS sequence_number,
-            m.manifest_version,
-            #{activeManifestVersion} AS active_manifest_version,
-            i.status = 'READY' AS ready_for_offline_use
-        FROM offline_package_installation i
-        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
-        WHERE i.id IN
-        <foreach collection="ids" item="id" open="(" separator="," close=")">
-            CAST(#{id} AS UUID)
-        </foreach>
-        ORDER BY i.police_phone_id
-    </select>
-
-    <select id="findStatusesByIncident" resultMap="installationStatusMap">
-        WITH latest_manifest AS (
-            SELECT incident_id, MAX(manifest_version) AS active_manifest_version
-            FROM offline_package_manifest
-            WHERE incident_id = CAST(#{incidentId} AS UUID)
-            GROUP BY incident_id
-        )
-        SELECT
-            i.id,
-            m.incident_id,
-            i.police_phone_id,
-            pp.phone_code AS police_phone_code,
-            pp.display_name AS police_phone_name,
-            i.status,
-            i.version,
-            901 AS sequence_number,
-            m.manifest_version,
-            latest_manifest.active_manifest_version,
-            i.status = 'READY' AS ready_for_offline_use
-        FROM offline_package_installation i
-        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        JOIN latest_manifest ON latest_manifest.incident_id = m.incident_id
-        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
-        WHERE m.incident_id = CAST(#{incidentId} AS UUID)
-        ORDER BY
-            CASE i.status
-                WHEN 'READY' THEN 1
-                WHEN 'PARTIAL' THEN 2
-                WHEN 'STALE' THEN 3
-                WHEN 'FAILED' THEN 4
-                ELSE 5
-            END,
-            i.police_phone_id
     </select>
 
     <update id="tombstoneInstallationsByIncident">

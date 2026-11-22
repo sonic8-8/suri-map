@@ -538,8 +538,6 @@ public class OfflinePackageRepository {
             record.id().toString(),
             record.incidentId().toString(),
             record.policePhoneId().toString(),
-            policePhoneCode(record.policePhoneId().toString()),
-            policePhoneName(record.policePhoneId().toString()),
             record.status(),
             record.version(),
             record.sequence(),
@@ -548,35 +546,24 @@ public class OfflinePackageRepository {
             record.readyForOfflineUse()));
   }
 
-  public synchronized List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-    return mapper.findStatusesByIncident(incidentDbId(incidentId)).stream()
-        .map(OfflinePackageRepository::publicStatus)
-        .toList();
-  }
-
-  public synchronized List<OfflinePackageInstallationStatus>
-      staleReadyAndPartialForOverallAreaChange(
-          String incidentId,
-          String overallSearchAreaId,
-          long overallSearchAreaVersion,
-          String sourceHash) {
+  // 반환값은 STALE로 바뀐 설치 상태 수다.
+  public synchronized int staleReadyAndPartialForOverallAreaChange(
+      String incidentId, String overallSearchAreaId, long overallSearchAreaVersion, String sourceHash) {
     ensureFixtureManifest();
     String incidentDbId = incidentDbId(incidentId);
     String overallSearchAreaDbId = searchAreaDbId(overallSearchAreaId);
     OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null) {
-      return List.of();
+      return 0;
     }
     if (PURGED_MANIFEST_HASH.equals(current.manifestHash())) {
-      return List.of();
+      return 0;
     }
     if (current.overallSearchAreaId().toString().equals(overallSearchAreaDbId)
         && current.overallSearchAreaVersion() >= overallSearchAreaVersion) {
-      return List.of();
+      return 0;
     }
 
-    List<String> changedStatusIds =
-        mapper.findStaleCandidateInstallationIds(current.id().toString());
     int nextManifestVersion = current.manifestVersion() + 1;
     String nextManifestId = nextManifestId(incidentDbId, nextManifestVersion);
     OffsetDateTime serverTs = serverNow();
@@ -590,13 +577,7 @@ public class OfflinePackageRepository {
         manifestHash(incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash),
         expiresAt,
         serverTs);
-    if (changedStatusIds.isEmpty()) {
-      return List.of();
-    }
-    mapper.markReadyAndPartialInstallationsStale(current.id().toString(), serverTs);
-    return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion).stream()
-        .map(OfflinePackageRepository::publicStatus)
-        .toList();
+    return mapper.markReadyAndPartialInstallationsStale(current.id().toString(), serverTs);
   }
 
   public synchronized long purgeIncidentPackage(UUID incidentId) {
@@ -938,12 +919,6 @@ public class OfflinePackageRepository {
         installationPublicId(status.id()),
         incidentPublicId(status.incidentId()),
         policePhonePublicId(status.policePhoneId()),
-        status.policePhoneCode() == null
-            ? policePhoneCode(status.policePhoneId())
-            : status.policePhoneCode(),
-        status.policePhoneName() == null
-            ? policePhoneName(status.policePhoneId())
-            : status.policePhoneName(),
         status.status(),
         status.version(),
         status.sequence(),
@@ -1011,44 +986,6 @@ public class OfflinePackageRepository {
 
   private static String policePhonePublicId(String value) {
     return policePhoneDbId(value);
-  }
-
-  private static String policePhoneCode(String value) {
-    String dbId = policePhoneDbId(value);
-    return KNOWN_DB_IDS_BY_ALIAS.entrySet().stream()
-        .filter(entry -> entry.getValue().equals(dbId) && entry.getKey().startsWith("dev-"))
-        .map(Map.Entry::getKey)
-        .findFirst()
-        .orElse(null);
-  }
-
-  private static String policePhoneName(String value) {
-    String code = policePhoneCode(value);
-    if (POLICE_PHONE_CODE.equals(code)) {
-      return "Precinct team phone";
-    }
-    if ("dev-precinct-cmd-phone-01".equals(code)) {
-      return "Precinct commander phone";
-    }
-    if ("dev-precinct-car-01".equals(code)) {
-      return "Precinct patrol phone";
-    }
-    if ("dev-alpha-cmd-phone-01".equals(code)) {
-      return "Missing commander phone";
-    }
-    if ("dev-alpha-phone-01".equals(code)) {
-      return "Missing team phone";
-    }
-    if ("dev-support-cmd-phone-01".equals(code)) {
-      return "Support commander phone";
-    }
-    if ("dev-support-car-01".equals(code)) {
-      return "Support patrol phone";
-    }
-    if ("dev-support-phone-01".equals(code)) {
-      return "Support team phone";
-    }
-    return null;
   }
 
   private static boolean isUuid(String value) {

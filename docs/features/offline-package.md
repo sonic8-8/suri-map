@@ -14,7 +14,7 @@
 
 - **기존 요구**: 일부 실패 시 성공 항목은 보존하고 실패 항목만 재시도한다. 다운로드 중 중복 실행을 막고, 실패 항목·진행률·서버 반영 대기를 구분해 표시한다.
 - **현재 차이**: Android 설치기는 받은 타일의 SHA-256을 비교한 뒤 저장한다. 그러나 작업자는 새로 읽은 manifest의 항목을 설치기에 전달하고, 설치기는 기존 완료 상태만으로 다운로드를 건너뛰지 않는다. 실패 항목만 재시도한다는 요구와 실제 작업 예약·캐시 사용을 함께 확인한다.
-- [앱 준비 상태 판정](../../android/app/src/main/java/com/surimap/feature/offline/data/OfflinePackageStateLoader.kt)은 로컬 설치 상태나 완료 항목을 보고 `READY`를 표시할 수 있다. 설치 상태 보고는 Outbox에 넣으므로 로컬 사용 가능, 서버 ACK, 상황판 배지 반영을 하나의 완료로 취급하지 않는다. 옛 S7의 ACK 전 `READY` 금지와 어느 표시를 뜻하는지부터 맞춘다.
+- [앱 준비 상태 판정](../../android/app/src/main/java/com/surimap/feature/offline/data/OfflinePackageStateLoader.kt)은 로컬 설치 상태나 완료 항목을 보고 `READY`를 표시할 수 있다. 설치 상태 보고는 Outbox에 넣으므로 로컬 사용 가능과 서버 ACK를 하나의 완료로 취급하지 않는다. 옛 S7의 ACK 전 `READY` 금지와 어느 표시를 뜻하는지부터 맞춘다.
 
 ## 자료가 바뀌거나 유효 기간이 지난 경우
 
@@ -29,15 +29,19 @@
   - 업무폰 하나를 여러 계정이 돌려쓴다. 한 계정도 여러 업무폰에 번갈아 로그인할 수 있다. 그래서 작업자는 `police_phone.account_id`와 토큰 계정을 비교하지 않게 했다. 2026-11-19 Issue #51에서 작업자는 업무폰 등록 확인을 없앴다. 다른 APP 쓰기 API와 같이 UUID 형식만 확인하게 했다. 업무폰을 넘겨받은 계정도 그 사건에 사건 권한이 있으면 manifest를 받는다.
   - 남는 한계: manifest의 배정 구역과 `policePhoneContext`는 지금도 업무폰에 연결된 계정(`police_phone.account_id`) 기준으로 조립된다. 그래서 업무폰을 넘겨받은 계정은 요청한 계정이 아니라 연결된 계정의 배정 구역을 받는다. `police_phone`에 활성 행이 없는 업무폰 ID로 요청하면 manifest의 배정 구역은 빈 목록이 된다. 이때 `policePhoneContext`에는 요청한 계정 대신 고정 팀 계정이 담긴다. 업무폰과 계정의 관계는 별도 작업에서 다시 정한다.
   - 업무폰 ID의 형식 확인으로는 요청이 실제로 그 업무폰에서 왔는지 증명되지 않는다. 그래서 업무폰 ID 확인을 보안 경계로 보지 않는다. 업무폰 인증은 MDM 같은 인프라 계층이 맡는다([업무폰 인증 결정](../adr/0037-police-phone-authentication-at-infrastructure.md)). 이 내용은 아래 설치 보고에도 같다.
-  - `policePhoneId`를 보내지 않으면 고정 업무폰으로 manifest가 조립되는 동작은 바꾸지 않았다. 웹 오프라인 패키지 상태 화면의 요청이 이 경우다. 지휘 계정은 그 사건에 개인 배정이 없어도 조직 범위 안의 사건이면 웹으로 manifest를 받는다.
+  - `policePhoneId`를 보내지 않으면 고정 업무폰으로 manifest가 조립되는 동작은 바꾸지 않았다. 지휘관은 그 사건에 개인 배정이 없어도 조직 범위 안의 사건이면 웹으로 manifest를 받는다.
   - 거절 조건은 사건 권한, 업무폰 ID 형식, 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 작업자는 사건 권한이 없는 계정이 응답 차이로 패키지의 준비나 파기 상태를 알 수 없게 하려고 이 순서로 정했다.
   - 작업자는 [manifest API 테스트](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestApiTest.java)에서 MockMvc와 테스트용 PostGIS로 HTTP 요청을 보내 확인했다. 실서버에서는 확인하지 않았다. 설치 보고의 사건 권한 확인과 업무폰 확인은 아래 항목에 적었다.
 - **설치 보고의 사건 권한 확인과 업무폰 확인 (2026-11-16)**: 요청한 사건에 사건 권한이 있는 계정만 `POST /api/incidents/{incidentId}/offline-package/installations`로 설치 상태를 바꿀 수 있다. 사건 권한의 기준은 manifest와 같다. 사건 권한이 없으면 403 `incident_access_denied`로 거절된다. 본문의 `policePhoneId`는 UUID 형식이어야 한다. 형식이 틀리면 400 `police_phone_required`로 거절된다. 업무폰 ID 확인의 기준은 manifest와 같다.
   - 작업자는 지금의 헤더 확인(`Authorization`, APP 채널, `Idempotency-Key`, 헤더와 본문의 업무폰 일치)을 그대로 두었다. 사건 권한 확인과 업무폰 확인은 헤더 확인 다음에 이뤄진다.
-  - 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰 ID 형식이 먼저 확인된다. 기존 확인인 manifest 불일치(409 `write_conflict`)와 파기(409 `incident_closed`)도 그 뒤에 이뤄진다. 작업자는 사건 권한이 없는 계정이 저장된 응답이나 응답 차이로 다른 업무폰의 설치 상태와 패키지 상태를 알 수 없게 하려고 이 순서로 정했다.
-  - 작업자는 사건이 종료됐지만 패키지가 파기되지 않은 경우의 처리를 바꾸지 않았다. 종료된 사건에도 사건 권한은 같은 기준으로 확인된다. 사건 권한이 있으면 설치 상태는 지금처럼 저장된다.
+  - 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰 ID 형식이 먼저 확인된다. 사건 종료(409 `incident_closed`), manifest 불일치(409 `write_conflict`), 파기(409 `incident_closed`)는 저장된 응답을 확인한 뒤에 확인된다. 작업자는 사건 권한이 없는 계정이 저장된 응답이나 응답 차이로 다른 업무폰의 설치 상태와 패키지 상태를 알 수 없게 하려고 이 순서로 정했다.
+  - **종료 사건의 설치 보고 거절 (2026-11-22, Issue #55)**: 사건이 종료되면 패키지가 파기되기 전이어도 새 설치 보고는 409 `incident_closed`로 거절된다. 종료 전에 같은 `Idempotency-Key`로 저장된 응답은 종료 뒤에도 그대로 돌아온다. 작업자는 인수인계 메모와 같게 하려고 종료 확인을 저장된 응답 확인 뒤에 두었다. 종료된 사건에도 사건 권한은 같은 기준으로 확인된다.
   - 남는 한계: 사건 권한이 있는 계정은 같은 사건 안의 다른 업무폰의 설치 상태도 보고할 수 있다. 서버에는 지금 어느 계정이 어느 업무폰에 로그인했는지 기록이 없어서, 요청한 계정이 그 업무폰을 쓰고 있는지는 확인되지 않는다. 같은 이유로 같은 사건에 사건 권한이 있는 다른 계정이 같은 `Idempotency-Key`와 본문으로 요청하면 저장된 응답을 받는다.
   - 작업자는 [설치 보고 API 테스트](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiTest.java)에서 MockMvc와 테스트용 PostGIS로 HTTP 요청을 보내 응답 상태, 오류 이름, 설치 상태 행을 확인했다. 실서버에서는 확인하지 않았다.
+- **지휘관의 오프라인 패키지 상태 확인 제거 (2026-11-22, Issue #55)**: 지휘관은 오프라인 패키지 상태를 확인하지 않는다. 그래서 작업자는 웹의 오프라인 패키지 상태 화면과 상황판 헤더의 오프라인 패키지 배지를 없앴다. 상황판 API 응답의 `package_badge` 슬롯도 호환 기간 없이 없앴다. 옛 화면 주소로 들어오면 다른 알 수 없는 주소와 같이 사건 목록으로 이동된다.
+  - 설치 보고를 저장한 뒤와 전체 구역 변경으로 `STALE`로 바꾼 뒤에 `OFFLINE_PACKAGE_INSTALLATION_CHANGED`는 더 이상 발행되지 않는다. 이 이벤트를 받던 화면이 없어졌기 때문이다. 공통 SSE 구독은 바꾸지 않았다.
+  - 설치 상태는 지금처럼 업무폰 ID별로 저장된다. 작업자는 업무폰 코드와 이름을 붙이려고 `police_phone`과 JOIN하던 설치 상태 조회 3개를 지웠다.
+  - 앱의 로컬 준비 상태 표시, manifest의 410 `package_purged`, 설치 보고로 바뀌는 항목 상태, 서버 파기 처리, 전체 구역 변경 때의 manifest 버전 증가와 `STALE` 전환은 그대로다.
 - [서버 파기 처리](../../backend/src/main/java/com/surimap/offlinepackage/purge/OfflinePackagePurgeService.java)는 사건의 manifest 내용과 설치 상태를 지운 상태로 표시한다. 이것은 Android의 Room 자료·다운로드 파일·진행 중인 작업 정리와 별개다. [단말 타일 캐시](../../android/app/src/main/java/com/surimap/core/map/MapLibreTileHttp.kt)는 사건별이 아니라 스타일·좌표별 파일을 사용하므로 공용 지도 캐시와 사건 개인정보의 파기 범위를 구분한다.
 - ACK 전 자료 보존과 사건 종료 시 개인정보 파기가 충돌하는 조건은 [오프라인 저장·재전송의 종료 처리](./offline-sync.md#사건-종료-후-남은-기록)와 함께 정한다. 서버 파기 시험만으로 단말의 오프라인 재진입 차단까지 검증됐다고 판단하지 않는다.
 

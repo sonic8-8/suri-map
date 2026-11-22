@@ -292,7 +292,6 @@ class BoardDtoAssemblyModelRedTest {
           new String[] {"accountId", "freshness", "lastHeartbeatAt", "lastSyncAt"};
       case "marker" -> new String[] {"opId", "geometry", "geometryHash"};
       case "marker_notification" -> new String[] {"markerId"};
-      case "package_badge" -> new String[] {"policePhoneId", "policePhoneCode", "policePhoneName"};
       case "op_toggle", "op_history", "handover_status" -> new String[] {};
       case "handover_memo" -> new String[] {"opId"};
       case "search_history_summary" -> new String[] {"opId", "summaryText"};
@@ -496,16 +495,6 @@ class BoardDtoAssemblyModelRedTest {
             "evt-s5-support-request-001",
             "hash-s5-toast-support-current"),
         row(
-            "package_badge",
-            "S7",
-            "pkg-inc-precinct-first-001",
-            "board-package-inc-precinct-first-001",
-            "STALE",
-            3,
-            701,
-            "evt-s7-package-stale-001",
-            "hash-s7-package-current"),
-        row(
             "op_toggle",
             "S8",
             "op-precinct-001-op1",
@@ -626,12 +615,6 @@ class BoardDtoAssemblyModelRedTest {
       case "marker_notification" -> {
         payload.put("markerId", "mk-precinct-support-001");
         payload.put("messageKey", "support_request_created");
-      }
-      case "package_badge" -> {
-        payload.put("policePhoneId", "00000000-0000-0000-0000-000000000101");
-        payload.put("policePhoneCode", "dev-precinct-phone-01");
-        payload.put("policePhoneName", "경찰서 팀폰");
-        payload.put("packageStatus", status);
       }
       case "op_toggle", "op_history" -> payload.put("opId", sourceResponseId);
       case "handover_memo" -> payload.put("opId", ACTIVE_OP_ID);

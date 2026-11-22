@@ -10,7 +10,6 @@ export type BoardSlotName =
   | 'connection_status'
   | 'marker'
   | 'marker_notification'
-  | 'package_badge'
   | 'op_toggle'
   | 'op_history'
   | 'handover_memo'
@@ -39,7 +38,6 @@ const boardSlotRegistry: readonly BoardSlotName[] = [
   'connection_status',
   'marker',
   'marker_notification',
-  'package_badge',
   'op_toggle',
   'op_history',
   'handover_memo',

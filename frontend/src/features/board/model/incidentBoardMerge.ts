@@ -19,7 +19,6 @@ const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
   'handover_memo',
   'handover_status',
   'search_history_summary',
-  'package_badge',
   'incident_terminal',
 ];
 

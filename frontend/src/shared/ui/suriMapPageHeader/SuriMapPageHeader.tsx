@@ -11,8 +11,7 @@ export type SuriMapPageHeaderTabId =
   | 'situationBoard'
   | 'areaEdit'
   | 'handover'
-  | 'searchHistory'
-  | 'offlinePackage';
+  | 'searchHistory';
 
 export type MarkerNotification = {
   id: string;
@@ -43,18 +42,12 @@ export type SuriMapPageHeaderSyncStatus = {
   tone: 'syncing' | 'stale' | 'error';
 };
 
-export type SuriMapPageHeaderPackageWarning = {
-  label: string;
-  ariaLabel?: string;
-};
-
 export type SuriMapPageHeaderProps = {
   activeTab: SuriMapPageHeaderTabId;
   currentAccountLabel?: string;
   incidentContext?: SuriMapPageHeaderIncidentContext;
   markerNotificationIndex?: number;
   markerNotifications?: MarkerNotification[];
-  packageWarning?: SuriMapPageHeaderPackageWarning | null;
   syncStatus?: SuriMapPageHeaderSyncStatus | null;
   timestampLabel?: string;
   showIncidentContextBar?: boolean;
@@ -63,7 +56,6 @@ export type SuriMapPageHeaderProps = {
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
   onOpenSearchHistory?: () => void;
-  onOpenOfflinePackage?: () => void;
   onOpenLogin?: () => void;
   onCloseMarkerNotifications?: () => void;
   onMoveMarkerNotification?: (nextIndex: number) => void;
@@ -132,7 +124,6 @@ export function SuriMapPageHeader({
   incidentContext = DEFAULT_INCIDENT_CONTEXT,
   markerNotificationIndex = 0,
   markerNotifications = [],
-  packageWarning = null,
   syncStatus = null,
   showIncidentContextBar = true,
   onCloseMarkerNotifications,
@@ -140,7 +131,6 @@ export function SuriMapPageHeader({
   onOpenIncidentList,
   onMoveMarkerNotification,
   onOpenSearchHistory,
-  onOpenOfflinePackage,
   onOpenLogin,
   onOpenSituationBoard,
   timestampLabel = '실시간',
@@ -149,7 +139,6 @@ export function SuriMapPageHeader({
     { id: 'incidentDetail', label: '사건 상세', onClick: onOpenIncidentDetail },
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
     { id: 'searchHistory', label: '수색 이력', onClick: onOpenSearchHistory },
-    { id: 'offlinePackage', label: '오프라인 패키지', onClick: onOpenOfflinePackage },
   ];
   const activeMarkerNotification = markerNotifications[markerNotificationIndex] ?? null;
   const hasPreviousMarkerNotification = markerNotificationIndex > 0;
@@ -234,17 +223,6 @@ export function SuriMapPageHeader({
             ))}
           </div>
           <div className={styles.incidentContextActions}>
-            {packageWarning ? (
-              <button
-                type="button"
-                className={styles.packageWarningBadge}
-                aria-label={packageWarning.ariaLabel ?? packageWarning.label}
-                disabled={!onOpenOfflinePackage}
-                onClick={onOpenOfflinePackage}
-              >
-                {packageWarning.label}
-              </button>
-            ) : null}
             {syncStatus ? (
               <div className={`${styles.syncStatus} ${syncStatusClassName(syncStatus.tone)}`}>{syncStatus.label}</div>
             ) : null}

@@ -11,7 +11,6 @@ import {
   getAreaEditPath,
   getIncidentBoardPath,
   getIncidentDetailPath,
-  getIncidentOfflinePackagePath,
   getIncidentSearchHistoryPath,
 } from '../routes';
 import { useRouteIncidentId } from '../useRouteIncidentId';
@@ -97,7 +96,6 @@ export function SituationBoardRoute({
       }
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
-      onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}
       onOpenLogin={onOpenLogin}
       onSaveAssignedAreas={(drafts) => onSaveAssignedAreas(incidentId, drafts)}
       savedAreaDrafts={savedAreaDrafts}

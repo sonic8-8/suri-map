@@ -26,7 +26,6 @@ export type IncidentDetailRouteProps = {
   onCloseMarkerNotifications: () => void;
   onMarkerNotification: (notification: MarkerNotification) => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
-  onOpenOfflinePackage: (incidentId: string) => void;
   onOpenLogin: () => void;
 };
 
@@ -37,7 +36,6 @@ export function IncidentDetailRoute({
   onCloseMarkerNotifications,
   onMarkerNotification,
   onMoveMarkerNotification,
-  onOpenOfflinePackage,
   onOpenLogin,
 }: IncidentDetailRouteProps) {
   const incidentId = useRouteIncidentId();
@@ -62,7 +60,6 @@ export function IncidentDetailRoute({
       onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
-      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenIncidentClose={() => navigate(getIncidentClosePath(incidentId))}
       onOpenLogin={onOpenLogin}

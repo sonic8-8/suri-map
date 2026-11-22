@@ -5,12 +5,10 @@ import com.surimap.global.auth.PolicePhoneIdFormat;
 import com.surimap.global.error.BusinessException;
 import com.surimap.global.error.ErrorCode;
 import com.surimap.global.event.EventPublishRequest;
-import com.surimap.global.event.EventPublisher;
 import com.surimap.incident.service.IncidentAccessService;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
-import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
@@ -20,32 +18,23 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class OfflinePackageService implements OfflinePackageInstallationQuery {
-
-  static final String EVENT_TYPE = "OFFLINE_PACKAGE_INSTALLATION_CHANGED";
-  static final String SOURCE_ENTITY_TYPE = "offline_package_installation";
+public class OfflinePackageService {
 
   private final OfflinePackageRepository repository;
-  private final EventPublisher eventHub;
   private final IdempotentResponseCache idempotentResponseCache;
   private final IncidentAccessService incidentAccessService;
 
   public OfflinePackageService(
       OfflinePackageRepository repository,
-      ObjectProvider<EventPublisher> eventHub,
       IdempotentResponseCache idempotentResponseCache,
       IncidentAccessService incidentAccessService) {
     this.repository = repository;
-    this.eventHub = eventHub.getIfAvailable(() -> request -> {});
     this.idempotentResponseCache = idempotentResponseCache;
     this.incidentAccessService = incidentAccessService;
   }
@@ -56,7 +45,7 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   public OfflinePackageManifestResponse manifestWithIncidentAccess(
       String incidentId, String policePhoneId, SuriMapAuthentication authentication) {
     incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
-    // 업무폰 ID가 없으면 지금처럼 고정 업무폰으로 조립된다. 웹 오프라인 패키지 상태 화면의 요청이 이 경우다.
+    // 업무폰 ID가 없으면 지금처럼 고정 업무폰으로 조립된다. 이 분기는 #56에서 정리한다.
     if (policePhoneId != null) {
       requireUuidPolicePhoneId(policePhoneId);
     }
@@ -75,13 +64,19 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
       String idempotencyKey,
       OfflinePackageInstallationReportRequest request,
       SuriMapAuthentication authentication) {
-    incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
+    boolean open =
+        incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
     requireUuidPolicePhoneId(request.policePhoneId());
-    return reportInstallation(incidentId, idempotencyKey, request);
+    return reportInstallation(incidentId, idempotencyKey, request, open);
   }
 
+  // 인수인계 메모처럼 종료 확인을 저장된 응답을 꺼낸 뒤에 두었다. 종료 전에 저장된 같은 Idempotency-Key의 응답은 종료 뒤에도 그대로 돌아온다.
+  // 종료된 사건의 새 보고는 패키지가 파기되기 전이어도 incident_closed로 거절된다.
   public OfflinePackageInstallationResponse reportInstallation(
-      String incidentId, String idempotencyKey, OfflinePackageInstallationReportRequest request) {
+      String incidentId,
+      String idempotencyKey,
+      OfflinePackageInstallationReportRequest request,
+      boolean incidentOpen) {
     String requestHash = requestHash(incidentId, request);
     return idempotentResponseCache.replayOrRun(
         "POST /api/incidents/" + incidentId + "/offline-package/installations",
@@ -90,10 +85,12 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         200,
         OfflinePackageInstallationResponse.class,
         () -> {
+          if (!incidentOpen) {
+            throw new BusinessException(ErrorCode.INCIDENT_CLOSED);
+          }
           OffsetDateTime serverTs = serverNow();
           OfflinePackageInstallationStatus status =
               repository.saveStatus(incidentId, request, serverTs);
-          eventHub.publish(publishRequest(status, serverTs.toInstant()));
           return new OfflinePackageInstallationResponse(
               status.id(),
               status.status(),
@@ -105,12 +102,6 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         response ->
             new ResponseMetadata(
                 response.id(), response.status(), response.version(), response.version()));
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-    return repository.byIncident(incidentId);
   }
 
   @Transactional
@@ -134,10 +125,8 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     String sourceHash =
         String.valueOf(
             payload.getOrDefault("overallAreaHash", payload.getOrDefault("geometry", "")));
-    repository
-        .staleReadyAndPartialForOverallAreaChange(
-            incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash)
-        .forEach(status -> eventHub.publish(publishRequest(status, serverNow().toInstant())));
+    repository.staleReadyAndPartialForOverallAreaChange(
+        incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash);
   }
 
   // 사건 ID는 UUID다. UUID가 아닌 값에는 사건 권한이 있을 수 없으므로 incident_access_denied로 거절된다.
@@ -155,38 +144,8 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED));
   }
 
-  private static EventPublishRequest publishRequest(
-      OfflinePackageInstallationStatus status, java.time.Instant occurredAt) {
-    return EventPublishRequest.builder()
-        .eventId(stableUuid("event:" + EVENT_TYPE + ":" + status.id() + ":" + status.version()))
-        .incidentId(stableUuid("incident:" + status.incidentId()))
-        .type(EVENT_TYPE)
-        .payloadFormatVersion(1)
-        .sourceEntityType(SOURCE_ENTITY_TYPE)
-        .sourceEntityId(stableUuid(SOURCE_ENTITY_TYPE + ":" + status.id()))
-        .occurredAt(occurredAt)
-        .payload(payload(status))
-        .build();
-  }
-
   private static OffsetDateTime serverNow() {
     return OffsetDateTime.now(ZoneOffset.UTC);
-  }
-
-  private static Map<String, Object> payload(OfflinePackageInstallationStatus status) {
-    Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("id", status.id());
-    payload.put("status", status.status());
-    payload.put("version", status.version());
-    payload.put("incidentId", status.incidentId());
-    payload.put("policePhoneId", status.policePhoneId());
-    payload.put("manifestVersion", status.manifestVersion());
-    payload.put("sequence", status.sequence());
-    return payload;
-  }
-
-  private static UUID stableUuid(String source) {
-    return UUID.nameUUIDFromBytes(source.getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   private static String requestHash(

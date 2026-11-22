@@ -20,10 +20,10 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
   private static final List<String> SELECTED_OP_IDS =
       List.of("op-precinct-001-op1", "op-precinct-001-op2");
   private static final String GEOMETRY_HASH = "hash-board-geometry-current";
+  // SC-03 오프라인 패키지는 상황판 슬롯이 없어 이 표에 넣지 않는다(#55).
   private static final List<String> TASK_SCENARIO_MATRIX =
       List.of(
-          "SC-02", "SC-03", "SC-04", "SC-05", "SC-06", "SC-07", "SC-08", "SC-09", "SC-10", "SC-11",
-          "SC-12");
+          "SC-02", "SC-04", "SC-05", "SC-06", "SC-07", "SC-08", "SC-09", "SC-10", "SC-11", "SC-12");
 
   BoardApiAssemblyCoverageReport boardApiAssemblyCoverage() throws IOException {
     JsonNode confirmed = fixture("test-fixtures/common-fixtures.json").path("confirmed");
@@ -59,9 +59,6 @@ final class Sc02ToSc12BoardConvergenceHarnessRunner {
     return switch (scenarioId) {
       case "SC-02" ->
           new ScenarioProbe(scenarioId, "handover_status", "S8", "mock-112-incident-001", true);
-      case "SC-03" ->
-          new ScenarioProbe(
-              scenarioId, "package_badge", "S7", "tile-manifest-inc-precinct-001", true);
       case "SC-04" ->
           new ScenarioProbe(scenarioId, "overall_search_area", "S2", "osa-precinct-001", true);
       case "SC-05" -> new ScenarioProbe(scenarioId, "path", "S3-1", "gps-path-normal-001", true);

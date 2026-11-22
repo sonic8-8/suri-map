@@ -102,12 +102,12 @@ class DatabaseEventPublisherTest {
         EventPublishRequest.builder()
             .eventId(UUID.fromString("20000000-0000-4000-8000-000000000001"))
             .incidentId(UUID.fromString("10000000-0000-4000-8000-000000000001"))
-            .type("OFFLINE_PACKAGE_INSTALLATION_CHANGED")
+            .type("HANDOVER_MEMO_CREATED")
             .payloadFormatVersion(1)
-            .sourceEntityType("offline_package_installation")
+            .sourceEntityType("handover_memo")
             .sourceEntityId(UUID.fromString("30000000-0000-4000-8000-000000000001"))
             .occurredAt(Instant.parse("2026-05-19T00:00:00Z"))
-            .payload(Map.of("id", "pkg-1"))
+            .payload(Map.of("id", "memo-1"))
             .build();
 
     // when: 다른 유형의 이벤트를 발행한다.

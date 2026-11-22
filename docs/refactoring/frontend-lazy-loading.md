@@ -22,7 +22,7 @@
 2026-09-21 정적 대조이며 이번에 빌드·성능 측정을 다시 실행하지 않았다.
 
 - 현재 [라우트 연결](../../frontend/src/app/App.tsx)은 별도 adapter를 사용한다. [사건 목록](../../frontend/src/app/routeAdapters/IncidentListRoute.tsx)·[사건 상세](../../frontend/src/app/routeAdapters/IncidentDetailRoute.tsx)·[사건 종료](../../frontend/src/app/routeAdapters/IncidentCloseRoute.tsx)에 지연 import가 있다.
-- [오프라인 패키지](../../frontend/src/app/routeAdapters/OfflinePackageRoute.tsx)는 정적 import다. [상황판](../../frontend/src/features/situationBoard/presentation/pages/SituationBoardPage.tsx) 안의 `HandoverPage`도 정적 import이고, [기존 인수인계 라우트](../../frontend/src/app/routeAdapters/HandoverRoute.tsx)는 수색 이력 화면으로 이동한다. 과거 네 페이지가 지금도 모두 분리된다는 설명은 유지하지 않는다.
+- 정적 import였던 오프라인 패키지 상태 화면의 라우트는 2026-11-22 Issue #55에서 지웠다. [상황판](../../frontend/src/features/situationBoard/presentation/pages/SituationBoardPage.tsx) 안의 `HandoverPage`는 정적 import이고, [기존 인수인계 라우트](../../frontend/src/app/routeAdapters/HandoverRoute.tsx)는 수색 이력 화면으로 이동한다. 과거 네 페이지가 지금도 모두 분리된다는 설명은 유지하지 않는다.
 - [IncidentListPage.loadIncidentCards](../../frontend/src/features/incidents/presentation/pages/IncidentListPage.tsx)는 목록 조회 뒤 각 상세를 병렬 조회한다. 상세 실패는 해당 카드의 대체 표시로 처리한다. 요청 수를 줄이는 후속 작업은 남아 있다.
 
 새 최적화 전에는 같은 사건 수·캐시 조건에서 JS chunk와 Fetch/XHR를 따로 관찰한다. 반복 측정 없이 라우트 분리나 추가 캐시부터 도입하지 않는다.

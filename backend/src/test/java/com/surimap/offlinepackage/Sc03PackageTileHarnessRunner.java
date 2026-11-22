@@ -36,9 +36,7 @@ public class Sc03PackageTileHarnessRunner {
           "S2:overall_search_area",
           "S5:initial_marker",
           "S8:operational_period",
-          "S4:offline_package_event",
           "S6:outbox_status_write",
-          "S3-2:package_badge",
           "S7:mock_tile_catalog",
           "S7:mock_tile_server_adapter",
           "S7:maplibre_render_stub");
@@ -119,19 +117,10 @@ public class Sc03PackageTileHarnessRunner {
         manifest.operationalPeriods().stream()
             .anyMatch(op -> Objects.equals(op.opId(), OfflinePackageManifestFixtures.OP_ID)));
     evidence.put(
-        "S4:offline_package_event",
-        Objects.equals(
-                sourceConstants.commonPackageEventType(), "OFFLINE_PACKAGE_INSTALLATION_CHANGED")
-            && Objects.equals(
-                sourceConstants.commonPackageEventIncidentId(),
-                OfflinePackageManifestFixtures.INCIDENT_ID));
-    evidence.put(
         "S6:outbox_status_write",
         Objects.equals(sourceConstants.commonOutboxDependencyGroup(), "PACKAGE_INSTALLATION")
             && Objects.equals(
                 sourceConstants.commonOutboxEntityType(), "offline_package_installation"));
-    evidence.put(
-        "S3-2:package_badge", Objects.equals(sourceConstants.commonBoardSlot(), "package_badge"));
     evidence.put(
         "S7:mock_tile_catalog",
         Objects.equals(tileManifest.manifestId(), sourceConstants.commonFixturesTileManifestId())
@@ -306,11 +295,8 @@ public class Sc03PackageTileHarnessRunner {
       String commonFixturesTileKeyRange,
       String commonFixturesBlobUriTemplate,
       String commonFixturesOverallAreaHash,
-      String commonPackageEventType,
-      String commonPackageEventIncidentId,
       String commonOutboxDependencyGroup,
-      String commonOutboxEntityType,
-      String commonBoardSlot) {
+      String commonOutboxEntityType) {
 
     static SourceConstants load() {
       try {
@@ -319,9 +305,7 @@ public class Sc03PackageTileHarnessRunner {
             OBJECT_MAPPER.readTree(root.resolve("test-fixtures/common-fixtures.json").toFile());
         JsonNode commonFixtures = commonRoot.at("/confirmed/tileManifest");
         JsonNode packageReplay = commonRoot.at("/confirmed/outboxReplay/sc09PackageReplay");
-        JsonNode expectedS4Event = packageReplay.path("expectedS4Event");
         JsonNode writeOperation = packageReplay.path("writeOperation");
-        JsonNode expectedBoardProbe = packageReplay.path("expectedBoardProbe");
 
         return new SourceConstants(
             commonFixtures.path("manifestId").asText(),
@@ -331,11 +315,8 @@ public class Sc03PackageTileHarnessRunner {
             tileKeyRange(commonFixtures.path("tileKeyRange")),
             commonFixtures.path("blobUriTemplate").asText(),
             commonFixtures.path("overallAreaHash").asText(),
-            expectedS4Event.path("type").asText(),
-            expectedS4Event.path("incidentId").asText(),
             packageReplay.path("dependencyGroup").asText(),
-            writeOperation.path("entityType").asText(),
-            expectedBoardProbe.path("slot").asText());
+            writeOperation.path("entityType").asText());
       } catch (IOException exception) {
         throw new UncheckedIOException("Failed to read SC-03 source constants", exception);
       }

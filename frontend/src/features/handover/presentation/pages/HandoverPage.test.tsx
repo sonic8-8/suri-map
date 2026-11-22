@@ -172,7 +172,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
           onSharedMapPropsChange={onSharedMapPropsChange}
         />
@@ -219,7 +218,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
           onSharedMapPropsChange={onSharedMapPropsChange}
         />
@@ -253,7 +251,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -286,7 +283,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -375,7 +371,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -441,7 +436,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -503,7 +497,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -542,7 +535,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -608,7 +600,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
           onSharedMapPropsChange={onSharedMapPropsChange}
         />
@@ -645,7 +636,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -677,7 +667,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,
@@ -722,7 +711,6 @@ describe('HandoverPage', () => {
           onMoveMarkerNotification={vi.fn()}
           onOpenIncidentList={vi.fn()}
           onOpenIncidentDetail={vi.fn()}
-          onOpenOfflinePackage={vi.fn()}
           onOpenSituationBoard={vi.fn()}
         />
       </QueryClientProvider>,

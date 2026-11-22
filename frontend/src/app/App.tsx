@@ -7,7 +7,6 @@ import { IncidentCloseRoute } from './routeAdapters/IncidentCloseRoute';
 import { IncidentDetailRoute } from './routeAdapters/IncidentDetailRoute';
 import { IncidentListRoute } from './routeAdapters/IncidentListRoute';
 import { LoginRoute } from './routeAdapters/LoginRoute';
-import { OfflinePackageRoute } from './routeAdapters/OfflinePackageRoute';
 import { SearchHistoryRoute } from './routeAdapters/SearchHistoryRoute';
 import { SituationBoardRoute } from './routeAdapters/SituationBoardRoute';
 import { useAppSession } from './useAppSession';
@@ -17,7 +16,6 @@ import {
   BOOTSTRAP_INCIDENT_ID,
   getAreaEditPath,
   getIncidentClosePath,
-  getIncidentOfflinePackagePath,
   ROUTES,
 } from './routes';
 
@@ -47,7 +45,6 @@ export function App() {
   };
   const loginRedirectState = { from: `${location.pathname}${location.search}${location.hash}` };
   const loginRedirectElement = <Navigate to={ROUTES.login} replace state={loginRedirectState} />;
-  const openOfflinePackage = (nextIncidentId: string) => navigate(getIncidentOfflinePackagePath(nextIncidentId));
 
   return (
     <RouteErrorBoundary
@@ -80,7 +77,6 @@ export function App() {
                 <IncidentDetailRoute
                   currentUserAccount={account}
                   {...markerNotificationRouteProps}
-                  onOpenOfflinePackage={openOfflinePackage}
                   onOpenLogin={openLogin}
                 />
               )}
@@ -138,23 +134,7 @@ export function App() {
                 <SearchHistoryRoute
                   currentUserAccount={account}
                   {...markerNotificationRouteProps}
-                  onOpenOfflinePackage={openOfflinePackage}
                   onOperationalPeriodCreated={refreshOperationalPeriodViews}
-                  onOpenLogin={openLogin}
-                />
-              )}
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.incidentOfflinePackage}
-          element={
-            <ProtectedRoute value={currentUserAccount} fallback={loginRedirectElement}>
-              {(account) => (
-                <OfflinePackageRoute
-                  currentUserAccount={account}
-                  {...markerNotificationRouteProps}
-                  onOpenOfflinePackage={openOfflinePackage}
                   onOpenLogin={openLogin}
                 />
               )}

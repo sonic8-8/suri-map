@@ -146,7 +146,7 @@ class OfflinePackagePurgeHookRedTest {
     assertThatThrownBy(
             () ->
                 offlinePackageService.reportInstallation(
-                    INCIDENT_ID.toString(), "idem-purged-package-ready", readyReport()))
+                    INCIDENT_ID.toString(), "idem-purged-package-ready", readyReport(), true))
         .isInstanceOf(OfflinePackageApiException.class)
         .hasMessageContaining("incident_closed");
 

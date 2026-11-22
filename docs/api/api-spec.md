@@ -480,7 +480,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 
 #### GET `/api/incidents/{incidentId}/offline-package/manifest`
 
-- Consumer: APP, WEB, S3-2. WEB은 오프라인 패키지 상태 화면이다. WEB은 `policePhoneId` 없이 요청한다.
+- Consumer: APP, S3-2.
 - Headers: `Authorization`
 - Guard: `public-session`, 요청한 `incidentId`의 사건 권한 확인, `policePhoneId`를 보냈을 때 UUID 형식인지 확인
 - Idempotency-Key: no
@@ -502,7 +502,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 {id, status, version, manifestVersion, readyForOfflineUse, serverTs}`
 - Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 설치 상태가 저장된다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없거나 `incidentId`가 UUID가 아니면 403 `incident_access_denied`다.
 - PolicePhone: 본문의 `policePhoneId`는 UUID 형식이어야 한다. 확인 기준은 manifest와 같다. UUID가 아닌 값은 400 `police_phone_required`다. 등록 기록이 없는 업무폰 ID도 그대로 설치 상태에 저장된다. 헤더와 본문의 업무폰이 다르면 지금처럼 헤더 확인에서 403 `police_phone_not_assigned`다.
-- Check order: 거절 조건은 헤더 확인, 사건 권한(403 `incident_access_denied`), 업무폰 ID 형식(400 `police_phone_required`), 같은 `Idempotency-Key`의 저장된 응답, manifest 불일치(409 `write_conflict`), 파기(409 `incident_closed`) 순서로 확인된다. 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰 ID 형식을 확인한 뒤에만 저장된 응답이 돌아간다. 거절된 요청에서는 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
+- Check order: 거절 조건은 헤더 확인, 사건 권한(403 `incident_access_denied`), 업무폰 ID 형식(400 `police_phone_required`), 같은 `Idempotency-Key`의 저장된 응답, 사건 종료(409 `incident_closed`), manifest 불일치(409 `write_conflict`), 파기(409 `incident_closed`) 순서로 확인된다. 같은 `Idempotency-Key`의 저장된 응답이 있어도 사건 권한과 업무폰 ID 형식을 확인한 뒤에만 저장된 응답이 돌아간다. 종료 전에 저장된 같은 `Idempotency-Key`의 응답은 사건이 종료된 뒤에도 그대로 돌아온다. 종료된 사건의 새 보고는 패키지가 파기되기 전이어도 409 `incident_closed`로 거절된다. 거절된 요청에서는 설치 상태 행과 요청 처리 기록이 바뀌지 않는다.
 - Errors: `tile_unavailable`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 ### 4.8 Operational Period / Duty Shift / Handover

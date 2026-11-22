@@ -13,7 +13,6 @@ public final class BoardSlotRegistry {
           "connection_status",
           "marker",
           "marker_notification",
-          "package_badge",
           "op_toggle",
           "op_history",
           "handover_memo",

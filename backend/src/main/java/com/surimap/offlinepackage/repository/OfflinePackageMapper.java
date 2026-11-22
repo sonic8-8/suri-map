@@ -1,8 +1,6 @@
 package com.surimap.offlinepackage.repository;
 
-import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import java.time.OffsetDateTime;
-import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -39,8 +37,6 @@ public interface OfflinePackageMapper {
 
   int countPurgeTargetInstallationsByIncident(@Param("incidentId") String incidentId);
 
-  List<String> findStaleCandidateInstallationIds(@Param("manifestId") String manifestId);
-
   OfflinePackageManifestRecord findCurrentManifestByIncident(
       @Param("incidentId") String incidentId);
 
@@ -60,15 +56,6 @@ public interface OfflinePackageMapper {
 
   OfflinePackageInstallationRecord findInstallationForPhone(
       @Param("manifestId") String manifestId, @Param("policePhoneId") String policePhoneId);
-
-  List<OfflinePackageInstallationStatus> findStatusesByManifest(
-      @Param("manifestId") String manifestId);
-
-  List<OfflinePackageInstallationStatus> findStatusesByIds(
-      @Param("ids") List<String> ids, @Param("activeManifestVersion") int activeManifestVersion);
-
-  List<OfflinePackageInstallationStatus> findStatusesByIncident(
-      @Param("incidentId") String incidentId);
 
   int tombstoneInstallationsByIncident(
       @Param("incidentId") String incidentId, @Param("updatedAt") OffsetDateTime updatedAt);
