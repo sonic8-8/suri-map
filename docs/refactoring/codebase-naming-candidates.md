@@ -151,6 +151,20 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | harness/sc10 | [Sc10Fixtures](../../backend/src/test/java/com/surimap/harness/sc10/fixture/Sc10Fixtures.java) |
 | harness/sc12 | [Sc12IncidentCloseDataPurgeIntegrationTest](../../backend/src/test/java/com/surimap/harness/sc12/Sc12IncidentCloseDataPurgeIntegrationTest.java) |
 
+## Backend — `Api`가 붙은 테스트 이름
+
+2026-11-24 수색 구역을 관서와 팀에 배정하는 spec #62를 쓰면서 확인했다. `backend/src/test` 아래 이름에 `Api`가 들어간 테스트 클래스는 22개다. 그 가운데 15개는 이 문서의 다른 절에 이미 있다. 아래 7개는 없어서 추가했다. `backend/AGENTS.md` 테스트 기준에서는 클래스 이름을 `<검증 대상>Test`로 쓴다. `Api`가 검증 대상인지, 테스트 분류인지는 테스트 내용을 확인한 뒤 정한다.
+
+| 영역 | 추가 후보 |
+|---|---|
+| api/controller/path | [SearchPathQueryApiTest](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathQueryApiTest.java) |
+| api/controller/path | [SearchPathSegmentCorrectionApiTest](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathSegmentCorrectionApiTest.java) |
+| app/map | [AppMapRevisionApiContractTest](../../backend/src/test/java/com/surimap/app/map/AppMapRevisionApiContractTest.java) |
+| offlinepackage | [OfflinePackageInstallationApiTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiTest.java) |
+| offlinepackage | [OfflinePackageManifestApiTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestApiTest.java) |
+| opcomparison | [OpComparisonApiServiceTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonApiServiceTest.java) |
+| searcharea | [SearchAreaApiServiceQueryTest](../../backend/src/test/java/com/surimap/searcharea/SearchAreaApiServiceQueryTest.java) |
+
 ## 인수인계·수색 차수
 
 2026-09-18 다음 문서 정리 대상의 파일명을 확인했다. 아래 파일은 `ContractTest`라는 분류만으로 검증 대상·범위를 알기 어려워 추가했다. 최종 이름과 통합 여부는 테스트 내용을 확인한 뒤 정한다. 기존 목록의 `Sc10`·`Sc11`·`RedTest`·`Runner`·`FixtureTest`는 중복 등록하지 않았다.
@@ -182,6 +196,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [OperationalPeriodFixtureExactnessTest](../../backend/src/test/java/com/surimap/operationalperiod/fixturetest/OperationalPeriodFixtureExactnessTest.java) | 고정값 대조와 실제 차수 전환 검증을 구분. 옛 상태·URL을 고정한 검사의 필요성을 함께 확인 |
 | [IncidentHandoverSupportAssignmentContractTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentContractTest.java) | `Contract` 분류 대신 인계·지원 배정의 실제 검증 대상을 드러낼 필요가 있음 |
 | [resources/mapper/op/OperationalPeriodMapper.xml](../../backend/src/main/resources/mapper/op/OperationalPeriodMapper.xml) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. XML 폴더 이름 `op`가 Java 패키지 이름 `operationalperiod`와 다르다. Mapper scan 경로와 함께 확인한다. |
+
+2026-11-24 #62를 쓰면서 확인했다. 웹 상황판의 지도 메모(구역 팝업과 마커 팝업에서 쓰는 메모)와 수색 이력의 새 OP 열기 메모는 인수인계와 용도가 다르다. 그런데 두 메모의 화면 문구와 코드 이름은 인수인계와 같은 인수인계 메모, `HandoverMemo`다. 예를 들어 [SearchMapCanvas.tsx](../../frontend/src/features/situationBoard/presentation/components/map/SearchMapCanvas.tsx)에서 지도 메모의 대상 타입은 `HandoverMemoTargetType`이다. [CreateOperationalPeriodModal.tsx](../../frontend/src/features/handover/presentation/components/CreateOperationalPeriodModal.tsx)에서 새 OP 열기 메모 입력란의 제목은 "인수인계 메모"다. 둘을 어떤 이름으로 나눌지는 #62 뒤에 정한다.
 
 ## 사건 가져오기·배정·종료
 
@@ -317,6 +333,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 현재 이름 | 변경 후보·확인할 점 |
 |---|---|
+| [PolicePhoneContext](../../android/app/src/main/java/com/surimap/ui/navigation/PolicePhoneRoute.kt) | 2026-11-24 #62를 쓰면서 확인했다. 앱 세션 클래스로, 업무폰 ID, 계정 ID, API와 tile 같은 서버 주소, access token을 담는다. manifest 응답 필드 `policePhoneContext`와 이름이 같지만 다른 것이다. 그 필드는 #61에서 Backend 응답에서 지운다. 클래스 이름은 담는 값에 맞춰 정한다. |
 | [AndroidHarnessFixtureCatalog / AndroidHarnessFixtureEntry](../../android/app/src/test/java/com/surimap/testing/AndroidHarnessFixtureCatalog.kt) | 공용 JSON의 catalog를 읽는 테스트 지원 코드다. 시나리오 실행기처럼 보이는 `Harness`를 덜고 데이터 조회 역할 기준으로 명명 검토 |
 | [AndroidHarnessFixtureCatalogTest](../../android/app/src/test/java/com/surimap/testing/AndroidHarnessFixtureCatalogTest.kt) | 리소스 로딩·ID·사용 시나리오 검증이다. 위 로더 이름과 함께 정리하며 실제 앱 흐름 검증과 구분 |
 | [HarnessSyncStatus / EnqueueResult.harnessStatus](../../android/app/src/main/java/com/surimap/core/sync/LocalWriteOperation.kt) | `LocalSyncStatus` / `localSyncStatus` 후보 — 실제 앱의 로컬 동기화 상태 |
