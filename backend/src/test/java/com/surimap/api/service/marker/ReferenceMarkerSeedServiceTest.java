@@ -74,7 +74,6 @@ class ReferenceMarkerSeedServiceTest extends PostGisIntegrationTestSupport {
     assertThat(marker.getMemo()).isEqualTo(MarkerSeedFixtures.MEMO);
     assertThat(marker.getOccurredAt()).isEqualTo(MarkerSeedFixtures.OCCURRED_AT);
     assertThat(marker.getCreatedByAccountId()).isEqualTo(MarkerSeedFixtures.ACCOUNT_ID);
-    assertThat(marker.getPolicePhoneId()).isNull();
     assertThat(marker.getDutyShiftId()).isNull();
     assertThat(marker.getSupportRequestType()).isNull();
     assertThat(countMarkers()).isEqualTo(1);

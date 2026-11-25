@@ -230,7 +230,6 @@ class AppMarkerControllerTest {
             .id(MARKER_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .status("ACTIVE")
             .version(1L)
             .build();
@@ -262,7 +261,7 @@ class AppMarkerControllerTest {
         .andExpect(jsonPath("$.id", is(MARKER_ID.toString())))
         .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
-        .andExpect(jsonPath("$.policePhoneId", is(POLICE_PHONE_ID.toString())))
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.status", is("ACTIVE")))
         .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.photos").isEmpty());
@@ -318,7 +317,6 @@ class AppMarkerControllerTest {
             .id(MARKER_ID)
             .incidentId(INCIDENT_ID)
             .opId(OP_ID)
-            .policePhoneId(POLICE_PHONE_ID)
             .status("ACTIVE")
             .version(1L)
             .photos(

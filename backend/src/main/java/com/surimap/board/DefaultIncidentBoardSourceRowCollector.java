@@ -720,7 +720,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Map<String, Object> payload = new LinkedHashMap<>();
     putUuid(payload, "opId", row.getOpId());
     putUuid(payload, "accountId", row.getAccountId());
-    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
     payload.put("markerType", row.getType().name());
     if (row.getSupportRequestType() != null) {
       payload.put("supportRequestType", row.getSupportRequestType().name());
@@ -896,7 +895,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("markerId", row.getMarkerId().toString());
     payload.put("incidentId", row.getIncidentId().toString());
     putUuid(payload, "opId", row.getOpId());
-    putUuid(payload, "policePhoneId", row.getPolicePhoneId());
     payload.put("createdAt", row.getCreatedAt());
     // 슬롯 키만 변경하고 기존 상황판 행 ID·대체 이벤트 ID·내용 해시는 유지한다.
     return sourceRow(

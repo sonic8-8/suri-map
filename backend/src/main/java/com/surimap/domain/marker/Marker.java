@@ -28,7 +28,6 @@ public class Marker {
   private String memo;
   private Instant occurredAt;
   private UUID createdByAccountId;
-  private UUID policePhoneId;
   private String markerSource;
   private String status;
   private long version;
@@ -45,7 +44,6 @@ public class Marker {
       String memo,
       Instant occurredAt,
       UUID createdByAccountId,
-      UUID policePhoneId,
       MarkerSource markerSource,
       MarkerStatus status,
       long version) {
@@ -63,10 +61,6 @@ public class Marker {
         Objects.requireNonNull(createdByAccountId, "createdByAccountId must not be null");
     this.markerSource =
         Objects.requireNonNull(markerSource, "markerSource must not be null").name();
-    if (markerSource == MarkerSource.APP) {
-      Objects.requireNonNull(policePhoneId, "policePhoneId must not be null");
-    }
-    this.policePhoneId = policePhoneId;
     this.status = Objects.requireNonNull(status, "status must not be null").name();
     if (version <= 0) {
       throw new IllegalArgumentException("version must be positive");

@@ -109,7 +109,6 @@ data class MarkerDetailUiState(
     val securityContextAccountId: String,
     val canManageAllMarkers: Boolean,
     val canEditByContext: Boolean? = null,
-    val policePhoneLabel: String,
     val accountLabel: String,
     val locationLabel: String,
     val occurredAtLabel: String,
@@ -159,7 +158,6 @@ data class MarkerDetailUiState(
             add(title)
             add(memo)
             add(permissionLabel)
-            add(policePhoneLabel)
             add(accountLabel)
             add(locationLabel)
             add(occurredAtLabel)
@@ -204,7 +202,6 @@ data class MarkerDetailUiState(
                 createdByAccountId = "acct-person-beta",
                 securityContextAccountId = "acct-person-alpha",
                 canManageAllMarkers = false,
-                policePhoneLabel = "실종팀 작성 단말",
                 accountLabel = "실종팀 경감 이지휘"
             )
 
@@ -222,7 +219,6 @@ data class MarkerDetailUiState(
                 securityContextAccountId = "",
                 canManageAllMarkers = false,
                 canEditByContext = false,
-                policePhoneLabel = "확인 중",
                 accountLabel = "확인 중",
                 locationLabel = "확인 중",
                 occurredAtLabel = "확인 중",
@@ -244,7 +240,6 @@ data class MarkerDetailUiState(
                 securityContextAccountId = "",
                 canManageAllMarkers = false,
                 canEditByContext = false,
-                policePhoneLabel = "작성 단말 미확인",
                 accountLabel = "계정 미확인",
                 locationLabel = "위치 미확인",
                 occurredAtLabel = "시각 미확인",
@@ -276,7 +271,6 @@ data class MarkerDetailUiState(
             securityContextAccountId: String,
             canManageAllMarkers: Boolean,
             canEditByContext: Boolean? = null,
-            policePhoneLabel: String = "기동대 1부대 A팀 작성 단말",
             accountLabel: String = "기동대 1부대 경위 김수색",
             locationLabel: String = "35.163100, 126.913400",
             occurredAtLabel: String = "14:18",
@@ -304,7 +298,6 @@ data class MarkerDetailUiState(
                 securityContextAccountId = securityContextAccountId,
                 canManageAllMarkers = canManageAllMarkers,
                 canEditByContext = canEditByContext,
-                policePhoneLabel = policePhoneLabel,
                 accountLabel = accountLabel,
                 locationLabel = locationLabel,
                 occurredAtLabel = occurredAtLabel,

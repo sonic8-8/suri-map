@@ -15,6 +15,7 @@ data class MarkerDetailSessionContext(
     val incidentId: String?,
     val opId: String?,
     val policePhoneId: String?,
+    val accountId: String?,
     val markerId: String?
 )
 
@@ -54,9 +55,10 @@ class MarkerDetailStateLoader(
         val markerId = optString("id")
         val markerType = markerType()
         val coordinates = pointCoordinates()
-        val accountId = optString("accountId").ifBlank { "account-unknown" }
-        val markerPolicePhoneId = optString("policePhoneId")
-        val canEdit = markerPolicePhoneId.isNotBlank() && markerPolicePhoneId == context.policePhoneId
+        val markerAccountId = optString("accountId")
+        val accountId = markerAccountId.ifBlank { "account-unknown" }
+        // 마커를 작성한 계정으로 로그인했을 때만 수정할 수 있다. 같은 업무폰이라도 다른 계정이 작성한 마커는 읽기 전용이다.
+        val canEdit = markerAccountId.isNotBlank() && markerAccountId == context.accountId
         val version = optLong("version", 0L)
         return MarkerDetailUiState(
             markerId = markerId,
@@ -67,10 +69,9 @@ class MarkerDetailStateLoader(
             lon = coordinates?.first,
             lat = coordinates?.second,
             createdByAccountId = accountId,
-            securityContextAccountId = if (canEdit) accountId else context.policePhoneId.orEmpty(),
+            securityContextAccountId = context.accountId.orEmpty(),
             canManageAllMarkers = false,
             canEditByContext = canEdit,
-            policePhoneLabel = markerPolicePhoneId.toSafePolicePhoneLabel(),
             accountLabel = accountId.toSafeAccountLabel(),
             locationLabel = coordinates?.let { (lon, lat) ->
                 "${String.format(Locale.US, "%.6f", lat)}, ${String.format(Locale.US, "%.6f", lon)}"
@@ -136,13 +137,6 @@ class MarkerDetailStateLoader(
             else -> MarkerDetailPhotoStatus.Attached
         }
 }
-
-private fun String.toSafePolicePhoneLabel(): String =
-    if (isBlank()) {
-        "작성 단말 미확인"
-    } else {
-        "작성 단말 확인됨"
-    }
 
 private fun String.toSafeAccountLabel(): String =
     if (isBlank()) {

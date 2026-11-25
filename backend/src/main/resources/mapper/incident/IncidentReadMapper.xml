@@ -236,6 +236,22 @@
         ORDER BY ia.assigned_at ASC, ia.account_id ASC
     </select>
 
+    <select id="findAssignedAccountsByIncidentId" resultMap="assignmentRowMap">
+        <!-- 배정이 해제된 계정도 포함한다. 지난 기록의 작성 계정 이름을 찾을 때 쓴다. -->
+        SELECT
+            ia.account_id,
+            a.display_name AS account_display_name,
+            a.account_type,
+            a.organization_type,
+            ia.incident_role,
+            ia.assigned_at
+        FROM incident_assignment ia
+        LEFT JOIN account a
+            ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+        WHERE ia.incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY ia.assigned_at ASC, ia.account_id ASC
+    </select>
+
     <select id="findActiveAssignmentTargetsByIncidentId" resultMap="assignmentTargetRowMap">
         SELECT
             ia.account_id,

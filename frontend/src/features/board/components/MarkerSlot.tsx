@@ -52,12 +52,6 @@ export function MarkerSlot({ rows, loadState = { kind: 'idle' } }: MarkerSlotPro
             <dd>{row.geometryHash}</dd>
             <dt>opId</dt>
             <dd>{row.opId}</dd>
-            {row.policePhoneId ? (
-              <>
-                <dt>policePhoneId</dt>
-                <dd>{row.policePhoneId}</dd>
-              </>
-            ) : null}
             <dt>geometryType</dt>
             <dd>{row.geometry.type}</dd>
             <dt>coordinates</dt>

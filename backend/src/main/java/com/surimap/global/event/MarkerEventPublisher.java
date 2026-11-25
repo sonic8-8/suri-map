@@ -71,14 +71,11 @@ public class MarkerEventPublisher {
               "recipientPolicy",
               "markerType",
               "locationLabel",
-              "policePhoneName")) {
+              "createdByAccountDisplayName")) {
         values.remove(field, null);
       }
       if (notificationPayload.getRecipientAccountIds().isEmpty()) {
         values.remove("recipientAccountIds");
-      }
-      if (notificationPayload.getRecipientPolicePhoneIds().isEmpty()) {
-        values.remove("recipientPolicePhoneIds");
       }
       return values;
     }
@@ -87,9 +84,6 @@ public class MarkerEventPublisher {
     values.put("id", payload.getId().toString());
     values.put("incidentId", payload.getIncidentId().toString());
     values.put("opId", payload.getOpId() == null ? null : payload.getOpId().toString());
-    values.put(
-        "policePhoneId",
-        payload.getPolicePhoneId() == null ? null : payload.getPolicePhoneId().toString());
     values.put("status", payload.getStatus());
     values.put("version", payload.getVersion());
     putIfPresent(values, "type", payload.getType());

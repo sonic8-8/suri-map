@@ -16,6 +16,11 @@
 - **현재 차이**: [메모 Service](../../backend/src/main/java/com/surimap/api/service/handover/HandoverMemoApiService.java)는 현재 차수와 대상 종류를 확인하지만, 전달받은 대상 ID가 실제로 존재하고 같은 사건·차수에 속하는지는 조회하지 않는다. [Request](../../backend/src/main/java/com/surimap/api/controller/handover/request/CreateHandoverMemoRequest.java)는 공백을 거부하지만 최대 길이는 검사하지 않는다.
 - [저장 SQL](../../backend/src/main/resources/mapper/handover/HandoverMemoMapper.xml)은 작성 계정·서버 시각을 남기지만 채널·업무폰·`clientTs`를 메모 행에 저장하지 않는다. 다른 감사 기록으로 추적되는지와 필요한 보존 범위를 별도로 확인한다. 일반 필드 검증 오류의 표현도 기존 공개 오류와 함께 정하며 임의 오류 코드를 추가하지 않는다.
 
+## 인수인계 타임라인의 마커 행위자
+
+- 인수인계 타임라인(`GET /api/operational-periods/{operationalPeriodId}/handover-timeline`)에서 마커 행의 행위자는 작성 계정이다. 행위자 이름은 그 사건에 배정된 적이 있는 계정의 표시 이름이다(2026-11-25 #57, Backend 타임라인 API 테스트와 사건 배정 조회 테스트로 확인).
+- 마커를 남긴 뒤 배정이 해제된 계정도 이름으로 나온다. 경로 행과 인수인계 메모 행의 행위자도 계정 이름으로 나온다.
+
 ## 미전송 기록을 기다린 뒤 요약
 
 - **기존 요구**: 근무 종료 요청보다 앞선 같은 사건·업무폰·차수의 경로·마커·사진·메모 전송이 끝날 때까지 종료 요청을 보내지 않는다. `ACKED`·`FAILED_FINAL`·`PURGED`를 대기 종료 상태로 취급하되, 최종 실패를 서버 저장 성공과 혼동하지 않는다.

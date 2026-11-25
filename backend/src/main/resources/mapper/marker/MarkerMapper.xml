@@ -15,7 +15,6 @@
         <result property="memo" column="memo"/>
         <result property="occurredAt" column="occurred_at"/>
         <result property="createdByAccountId" column="created_by_account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-        <result property="policePhoneId" column="police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="markerSource" column="marker_source"/>
         <result property="status" column="status"/>
         <result property="version" column="version"/>
@@ -46,7 +45,6 @@
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version,
@@ -64,7 +62,6 @@
             #{marker.memo},
             #{marker.occurredAt},
             #{marker.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{marker.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{marker.markerSource},
             #{marker.status},
             #{marker.version},
@@ -86,7 +83,6 @@
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version,
@@ -104,7 +100,6 @@
             #{marker.memo},
             #{marker.occurredAt},
             #{marker.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{marker.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{marker.markerSource},
             #{marker.status},
             #{marker.version},
@@ -125,7 +120,6 @@
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version
@@ -148,7 +142,6 @@
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version
@@ -168,7 +161,6 @@
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version

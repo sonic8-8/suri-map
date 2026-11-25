@@ -201,8 +201,7 @@ export function createBoardMapMarkers(board: BoardResponseLike | null): BoardMap
           readString(row, 'reporter') ??
           readString(row, 'reportedBy') ??
           readString(row, 'createdByAccountDisplayName') ??
-          readString(row, 'createdByAccountId') ??
-          readString(row, 'policePhoneId'),
+          readString(row, 'createdByAccountId'),
         sourceLabel: readString(row, 'source'),
         photoCount: readNumber(row, 'photoCount') ?? readPhotoCount(row),
         photoThumbnailUrl: readPhotoThumbnailUrl(row),

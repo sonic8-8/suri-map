@@ -22,8 +22,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
       UUID.fromString("55555555-5555-5555-5555-555555550071");
   private static final UUID CREATE_ACCOUNT_ID =
       UUID.fromString("11111111-1111-1111-1111-111111110071");
-  private static final UUID CREATE_POLICE_PHONE_ID =
-      UUID.fromString("22222222-2222-2222-2222-222222220071");
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:05:00Z");
 
   private static final UUID INCIDENT_A = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa7108");
@@ -39,8 +37,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
   private static final UUID OTHER_INCIDENT_MARKER_ID =
       UUID.fromString("66666666-6666-4666-8666-666666667108");
   private static final UUID ACCOUNT_ID = UUID.fromString("77777777-7777-4777-8777-777777777108");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("88888888-8888-4888-8888-888888887108");
 
   @Autowired private MarkerMapper markerMapper;
 
@@ -77,12 +73,7 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
     assertThat(incidentIdNullable).isEqualTo("NO");
     assertThat(srid).isEqualTo(4326);
     assertThat(geometryType).isEqualTo("POINT");
-    assertThat(indexes)
-        .contains(
-            "idx_marker_op_status",
-            "idx_marker_type",
-            "idx_marker_police_phone",
-            "idx_marker_location");
+    assertThat(indexes).contains("idx_marker_op_status", "idx_marker_type", "idx_marker_location");
   }
 
   @Test
@@ -123,7 +114,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
             .memo("S14P31C106-71 field clue")
             .occurredAt(CLIENT_TS)
             .createdByAccountId(CREATE_ACCOUNT_ID)
-            .policePhoneId(CREATE_POLICE_PHONE_ID)
             .markerSource(MarkerSource.APP)
             .status(MarkerStatus.ACTIVE)
             .version(1L)
@@ -141,7 +131,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
     assertThat(record.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
     assertThat(record.getVersion()).isEqualTo(1L);
     assertThat(record.getCreatedByAccountId()).isEqualTo(CREATE_ACCOUNT_ID);
-    assertThat(record.getPolicePhoneId()).isEqualTo(CREATE_POLICE_PHONE_ID);
     assertThat(record.getOccurredAt()).isEqualTo(CLIENT_TS);
     assertThat(record.getLocation().getSRID()).isEqualTo(4326);
     assertThat(record.getLocation().getX()).isEqualTo(126.913400);
@@ -273,13 +262,12 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version
         )
         VALUES (?, ?, ?, NULL, ?, NULL, ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326),
-                ?, ?, ?, ?, 'APP', ?, ?)
+                ?, ?, ?, 'APP', ?, ?)
         """,
         markerId,
         incidentId,
@@ -288,7 +276,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
         "L5-T08 marker for " + incidentId,
         Timestamp.from(Instant.parse("2026-04-28T00:00:00Z").plusSeconds(version)),
         ACCOUNT_ID,
-        POLICE_PHONE_ID,
         status,
         version);
   }
@@ -330,7 +317,6 @@ class MarkerMapperTest extends PostGisIntegrationTestSupport {
             .memo("S14P31C106-71 field clue")
             .occurredAt(CLIENT_TS)
             .createdByAccountId(CREATE_ACCOUNT_ID)
-            .policePhoneId(CREATE_POLICE_PHONE_ID)
             .markerSource(MarkerSource.APP)
             .status(MarkerStatus.ACTIVE)
             .version(1L)

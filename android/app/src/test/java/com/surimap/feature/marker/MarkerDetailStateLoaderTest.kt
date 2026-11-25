@@ -39,8 +39,7 @@ class MarkerDetailStateLoaderTest {
                           "id": "$MARKER_ID",
                           "incidentId": "$INCIDENT_ID",
                           "opId": "$OP_ID",
-                          "accountId": "acct-field-alpha",
-                          "policePhoneId": "$POLICE_PHONE_ID",
+                          "accountId": "$LOGGED_IN_ACCOUNT_ID",
                           "type": "CLUE",
                           "status": "ACTIVE",
                           "version": 7,
@@ -80,7 +79,6 @@ class MarkerDetailStateLoaderTest {
         assertTrue(state.canDelete)
         assertEquals("수정 이력 7회", state.versionLabel)
         assertEquals("동기화", state.syncLabel)
-        assertEquals("작성 단말 확인됨", state.policePhoneLabel)
         assertEquals("현장 요원", state.accountLabel)
         assertEquals("37.580123, 126.970123", state.locationLabel)
         assertEquals(1, state.photos.size)
@@ -94,11 +92,11 @@ class MarkerDetailStateLoaderTest {
         assertEquals("https://photo.example/full.jpg", state.photos.single().viewUrl)
         assertTrue(state.visibleText().contains("사진 열기"))
         assertFalse(state.visibleText().contains("CLUE"))
-        assertFalse(state.visibleText().any { it.contains("acct-field-alpha") || it.contains(POLICE_PHONE_ID) })
+        assertFalse(state.visibleText().any { it.contains(LOGGED_IN_ACCOUNT_ID) })
     }
 
     @Test
-    fun markerCreatedByDifferentPolicePhoneIsReadonly() = runBlocking {
+    fun markerCreatedByDifferentAccountIsReadonlyOnSamePolicePhone() = runBlocking {
         val loader =
             MarkerDetailStateLoader {
                 SuriMapApiResponse(
@@ -110,12 +108,11 @@ class MarkerDetailStateLoaderTest {
                         {
                           "id": "$MARKER_ID",
                           "accountId": "acct-other",
-                          "policePhoneId": "${policePhoneIdFixture("other-001")}",
                           "type": "PERSON_FOUND",
                           "status": "ACTIVE",
                           "version": 3,
                           "geometry": {"type": "Point", "coordinates": [126.95, 35.162]},
-                          "memo": "타 단말 작성"
+                          "memo": "같은 폴리폰에서 다른 계정이 작성"
                         }
                       ]
                     }
@@ -145,7 +142,6 @@ class MarkerDetailStateLoaderTest {
                         {
                           "id": "$MARKER_ID",
                           "accountId": "d1000000-0000-4000-8000-000000000003",
-                          "policePhoneId": "$POLICE_PHONE_ID",
                           "type": "CLUE",
                           "status": "ACTIVE",
                           "version": 1,
@@ -191,14 +187,15 @@ class MarkerDetailStateLoaderTest {
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("003")
-        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        const val LOGGED_IN_ACCOUNT_ID = "acct-field-alpha"
         val MARKER_ID = markerIdFixture("detail-001")
         val PHOTO_ID = photoIdFixture("photo-001")
         val CONTEXT =
             MarkerDetailSessionContext(
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
-                policePhoneId = POLICE_PHONE_ID,
+                policePhoneId = policePhoneIdFixture("precinct-001"),
+                accountId = LOGGED_IN_ACCOUNT_ID,
                 markerId = MARKER_ID
             )
     }

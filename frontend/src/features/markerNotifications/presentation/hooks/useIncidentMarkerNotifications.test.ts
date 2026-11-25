@@ -251,7 +251,7 @@ test('재렌더링·재연결에서는 수신 기록을 유지하고 구독을 �
         id: '50000000-0000-4000-8000-000000000801',
         status: 'REQUESTED',
         version: 1,
-        policePhoneId: '00000000-0000-0000-0000-000000000101',
+        createdByAccountDisplayName: '수완지구대 1팀 김현장',
         clientTs: '2026-04-28T00:05:00Z',
       },
     },
@@ -268,7 +268,7 @@ test('재렌더링·재연결에서는 수신 기록을 유지하고 구독을 �
     expect.objectContaining({
       id: notificationMessage.data.eventId,
       markerType: '지원 요청',
-      reporter: '수완지구대 현장 단말',
+      reporter: '수완지구대 1팀 김현장',
       markerRecordedAtLabel: '09:05',
     }),
   );

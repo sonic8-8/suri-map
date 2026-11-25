@@ -212,7 +212,6 @@ class MarkerControllerTest {
             .opId(OP_ID)
             .dutyShiftId(null)
             .accountId(READ_ACCOUNT_ID)
-            .policePhoneId(READ_POLICE_PHONE_ID)
             .type(MarkerType.CLUE)
             .supportRequestType(null)
             .source(MarkerSource.APP)
@@ -259,8 +258,7 @@ class MarkerControllerTest {
             .andExpect(jsonPath("$.markers[0].incidentId").value(INCIDENT_ID.toString()))
             .andExpect(jsonPath("$.markers[0].opId").value(OP_ID.toString()))
             .andExpect(jsonPath("$.markers[0].accountId").value(READ_ACCOUNT_ID.toString()))
-            .andExpect(
-                jsonPath("$.markers[0].policePhoneId").value(READ_POLICE_PHONE_ID.toString()))
+            .andExpect(jsonPath("$.markers[0].policePhoneId").doesNotExist())
             .andExpect(jsonPath("$.markers[0].type").value("CLUE"))
             .andExpect(jsonPath("$.markers[0].source").value("APP"))
             .andExpect(jsonPath("$.markers[0].status").value("ACTIVE"))

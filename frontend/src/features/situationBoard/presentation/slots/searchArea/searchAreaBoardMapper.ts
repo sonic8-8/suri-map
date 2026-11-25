@@ -352,10 +352,7 @@ function readSearchAreaStatus(row: Record<string, unknown>): SearchAreaHierarchy
 function createPolicePhoneIdsByAccountId(board: SituationBoardResponseDto) {
   const policePhoneIdsByAccountId = new Map<string, string>();
 
-  for (const row of [
-    ...readSlotRows(board, 'path'),
-    ...readSlotRows(board, 'marker'),
-  ]) {
+  for (const row of readSlotRows(board, 'path')) {
     const accountId = readString(row, 'accountId') ?? readString(row, 'account_id');
     const policePhoneId = readPolicePhoneId(row);
     if (accountId && policePhoneId && !policePhoneIdsByAccountId.has(accountId)) {

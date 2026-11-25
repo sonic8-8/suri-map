@@ -21,6 +21,7 @@ import com.surimap.dutyshift.DutyShift;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,7 @@ public class HandoverTimelineApiService {
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
   private final DutyShiftMapper dutyShiftMapper;
+  private final IncidentAssignmentView incidentAssignmentView;
   private final SearchPathMetricsCalculator metricsCalculator = new SearchPathMetricsCalculator();
 
   public HandoverTimelineApiService(
@@ -55,7 +57,8 @@ public class HandoverTimelineApiService {
       MarkerService markerService,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper,
-      DutyShiftMapper dutyShiftMapper) {
+      DutyShiftMapper dutyShiftMapper,
+      IncidentAssignmentView incidentAssignmentView) {
     this.searchPathService =
         Objects.requireNonNull(searchPathService, "searchPathService must not be null");
     this.markerService = Objects.requireNonNull(markerService, "markerService must not be null");
@@ -66,6 +69,8 @@ public class HandoverTimelineApiService {
             searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
     this.dutyShiftMapper =
         Objects.requireNonNull(dutyShiftMapper, "dutyShiftMapper must not be null");
+    this.incidentAssignmentView =
+        Objects.requireNonNull(incidentAssignmentView, "incidentAssignmentView must not be null");
   }
 
   @Transactional(readOnly = true)
@@ -91,7 +96,8 @@ public class HandoverTimelineApiService {
     List<MarkerServiceResponse> markers = scopedMarkers(incidentId, operationalPeriodId, scope);
     List<HandoverMemoRow> memos = scopedMemos(incidentId, operationalPeriodId, scope);
 
-    ActorRegistry actors = new ActorRegistry();
+    ActorRegistry actors =
+        new ActorRegistry(incidentAssignmentView.accountDisplayNames(incidentId));
     List<PathResponse> pathResponses = pathResponses(paths, actors);
     List<EventResponse> events = events(paths, markers, memos, actors);
     MetricsResponse metrics = metrics(paths, markers, memos, scope, operationalPeriodId);
@@ -204,7 +210,7 @@ public class HandoverTimelineApiService {
       }
     }
     for (MarkerServiceResponse marker : markers) {
-      String actorId = actors.actorFor(marker.getPolicePhoneId(), "현장 기록자");
+      String actorId = actors.actorFor(marker.getAccountId(), "현장 기록자");
       events.add(
           new EventResponse(
               "marker-" + marker.getId(),
@@ -359,7 +365,12 @@ public class HandoverTimelineApiService {
     private static final String UNKNOWN_ACTOR_ID = "actor-unknown";
 
     private final Map<UUID, ActorResponse> actors = new LinkedHashMap<>();
+    private final Map<UUID, String> accountDisplayNames;
     private boolean unknownActorReferenced;
+
+    private ActorRegistry(Map<UUID, String> accountDisplayNames) {
+      this.accountDisplayNames = accountDisplayNames;
+    }
 
     private String actorFor(UUID sourceId, String displayPrefix) {
       if (sourceId == null) {
@@ -373,7 +384,7 @@ public class HandoverTimelineApiService {
                 int index = actors.size() + 1;
                 return new ActorResponse(
                     actorId(sourceId),
-                    displayPrefix + " " + index,
+                    accountDisplayNames.getOrDefault(sourceId, displayPrefix + " " + index),
                     ACTOR_COLORS.get((index - 1) % ACTOR_COLORS.size()));
               })
           .actorId();

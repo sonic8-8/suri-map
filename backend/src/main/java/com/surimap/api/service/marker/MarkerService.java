@@ -102,12 +102,7 @@ public class MarkerService {
 
     MarkerEventPayload eventPayload =
         createPublishPayload(
-            request.getAuthentication().policePhoneId(),
-            current,
-            MarkerStatus.UPDATED,
-            current.getVersion(),
-            current.getMarkerType(),
-            location);
+            current, MarkerStatus.UPDATED, current.getVersion(), current.getMarkerType(), location);
     markerEventPublisher.publish("MARKER_UPDATED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
@@ -140,13 +135,7 @@ public class MarkerService {
     requireSingleRowUpdated(updated);
 
     MarkerEventPayload eventPayload =
-        createPublishPayload(
-            request.getAuthentication().policePhoneId(),
-            current,
-            MarkerStatus.DELETED,
-            current.getVersion(),
-            null,
-            null);
+        createPublishPayload(current, MarkerStatus.DELETED, current.getVersion(), null, null);
     markerEventPublisher.publish("MARKER_DELETED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
@@ -210,27 +199,17 @@ public class MarkerService {
   }
 
   private MarkerEventPayload createPublishPayload(
-      UUID requestingPolicePhoneId,
-      Marker marker,
-      MarkerStatus status,
-      long version,
-      String markerType,
-      GeoJsonPoint location) {
+      Marker marker, MarkerStatus status, long version, String markerType, GeoJsonPoint location) {
     return MarkerEventPayload.builder()
         .id(marker.getId())
         .incidentId(marker.getIncidentId())
         .opId(marker.getOperationalPeriodId())
-        .policePhoneId(resolveEventPolicePhoneId(marker, requestingPolicePhoneId))
         .status(status.name())
         .version(version)
         .type(markerType)
         .location(location)
         .serverTs(clock.instant())
         .build();
-  }
-
-  private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {
-    return requestingPolicePhoneId == null ? marker.getPolicePhoneId() : requestingPolicePhoneId;
   }
 
   private ResponseMetadata metadataFor(MarkerMutationServiceResponse response) {

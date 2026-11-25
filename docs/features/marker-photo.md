@@ -16,6 +16,16 @@
 
 [AppMarkerServiceTest](../../backend/src/test/java/com/surimap/app/service/marker/AppMarkerServiceTest.java)에서 실제 PostgreSQL/PostGIS로 여러 사진의 초기 첨부, 생성 후 추가, 재요청, 뒤쪽 사진 만료 시 전체 롤백을 검증한다. 파일 저장소·FCM은 대역을 사용하므로 실제 업로드·업무폰 수신·상황판 사진 표시까지 검증한 것은 아니다.
 
+## 마커 수정 권한과 알림 수신 업무폰
+
+업무폰은 여러 계정이 돌려쓰므로 마커와 마커 알림은 업무폰이 아니라 계정으로 다룬다(2026-11-25 #57, Backend HTTP API 테스트와 Android JVM 테스트로 확인).
+
+- 마커와 마커 알림에는 업무폰 ID를 저장하지 않는다. 마커 조회와 생성 응답, 상황판의 `marker`와 `marker_notification` 행, 마커 SSE와 FCM payload에도 `policePhoneId`가 없다. 사진 첨부로 나가는 `MARKER_UPDATED`에도 없다.
+- 마커 목록의 `accountId`가 로그인한 계정과 같을 때만 앱에 수정 버튼이 나온다. 같은 업무폰이라도 다른 계정이 남긴 마커는 읽기 전용이다.
+- 마커 알림의 수신 업무폰은 FCM을 보낼 때 수신 계정의 ACTIVE FCM 토큰으로 정한다. 계정 A가 쓰던 업무폰에서 계정 B가 토큰을 다시 등록하면, 그 업무폰으로는 B의 알림만 간다. 알림 스냅샷에는 수신 계정만 남고 수신 업무폰 목록은 없다.
+- 상황판의 마커 알림에는 작성 계정의 표시 이름(`createdByAccountDisplayName`)이 나온다. 이 이름은 알림을 만들 때 사건 배정에서 읽는다. FCM payload에는 넣지 않는다.
+- 실제 업무폰에서 알림을 받는지는 FCM 대역으로만 확인했다.
+
 ## 마커를 삭제한 뒤의 사진
 
 - **기존 요구**: 마커 삭제 또는 사건 파기 시 첨부 사진을 `ATTACHED`에서 `DELETED`로 전환한다.
@@ -44,6 +54,6 @@
 
 ## 테스트 입력과 원문
 
-- [공용 fixture](../../test-fixtures/common-fixtures.json)의 `confirmed.markerAndNotification`을 유지한다. 지원 배정·지원 요청·실종자 발견 알림 3개는 S5의 값과 같고, `markerPhotoAttach`는 사진 첨부 사례의 핵심 7개 필드만 가진다. 전체 복사본은 아니다.
+- [공용 fixture](../../test-fixtures/common-fixtures.json)의 `confirmed.markerAndNotification`을 유지한다. 지원 배정, 지원 요청, 실종자 발견 알림 3개는 S5의 값을 따른다. 지원 요청과 실종자 발견 알림에서는 수신 업무폰 목록을 뺐다(#57). `markerPhotoAttach`는 사진 첨부 사례의 핵심 7개 필드만 가진다. 전체 복사본은 아니다.
 - S5에만 있던 사진 첨부의 추가 기대값, 권한 실패 사례, 전달 단계별 실패 설명은 직접 읽는 실행 코드가 없어 아래 원문에 보존한다. 새 fixture나 로더를 만들지 않으며 기존 공용·Java 테스트 입력과 식별자는 바꾸지 않는다.
 - 과거 요구·미정 사항·구현 계획과 전체 fixture: [S5 원문 (`ef5153f9`)](https://github.com/sonic8-8/suri-map/blob/ef5153f951c89866700c91ac3277947418f8926c/docs/spec/specs/S5.json). 기존 주석·시험 기록의 S5 표기는 이 원문을 가리키며, 현재 구조나 구현 완료를 뜻하지 않는다.

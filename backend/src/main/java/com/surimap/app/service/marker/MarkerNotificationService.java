@@ -16,7 +16,6 @@ import com.surimap.global.event.MarkerNotificationPayload;
 import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.incident.service.IncidentAssignmentView.NotificationTargets;
-import com.surimap.policephone.PolicePhoneMapper;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.math.BigDecimal;
@@ -29,7 +28,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -43,7 +41,6 @@ public class MarkerNotificationService {
   private final MarkerNotificationMapper markerNotificationMapper;
   private final IncidentAssignmentView incidentAssignmentView;
   private final ObjectMapper objectMapper;
-  private final PolicePhoneMapper policePhoneMapper;
   private final MarkerEventPublisher markerEventPublisher;
   private final FcmTokenQuery fcmTokenQuery;
   private final FcmDispatcherPort fcmDispatcher;
@@ -53,15 +50,12 @@ public class MarkerNotificationService {
       MarkerNotificationMapper markerNotificationMapper,
       IncidentAssignmentView incidentAssignmentView,
       ObjectMapper objectMapper,
-      ObjectProvider<PolicePhoneMapper> policePhoneMapperProvider,
       MarkerEventPublisher markerEventPublisher,
       FcmTokenQuery fcmTokenQuery,
       FcmDispatcherPort fcmDispatcher) {
     this.markerNotificationMapper = Objects.requireNonNull(markerNotificationMapper);
     this.incidentAssignmentView = Objects.requireNonNull(incidentAssignmentView);
     this.objectMapper = Objects.requireNonNull(objectMapper);
-    this.policePhoneMapper =
-        policePhoneMapperProvider == null ? null : policePhoneMapperProvider.getIfAvailable();
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.fcmTokenQuery = Objects.requireNonNull(fcmTokenQuery);
     this.fcmDispatcher = Objects.requireNonNull(fcmDispatcher);
@@ -72,7 +66,6 @@ public class MarkerNotificationService {
     Objects.requireNonNull(marker.getId(), "markerId must not be null");
     Objects.requireNonNull(marker.getIncidentId(), "incidentId must not be null");
     Objects.requireNonNull(marker.getOperationalPeriodId(), "opId must not be null");
-    Objects.requireNonNull(marker.getPolicePhoneId(), "policePhoneId must not be null");
     Objects.requireNonNull(marker.getMarkerType(), "markerType must not be null");
     Objects.requireNonNull(marker.getLocation(), "location must not be null");
     Objects.requireNonNull(marker.getOccurredAt(), "clientTs must not be null");
@@ -104,7 +97,6 @@ public class MarkerNotificationService {
             .notificationType(notificationType)
             .recipientRule(notificationType.getRecipientPolicy())
             .recipientAccountIds(accountDbIds(recipients.accountIds()))
-            .recipientPolicePhoneIds(policePhoneDbIds(recipients.policePhoneIds()))
             .notificationPayloadJson(serializeNotificationPayload(notificationType, payload))
             .status(MarkerNotificationStatus.SNAPSHOT_CREATED)
             .version(INITIAL_NOTIFICATION_VERSION)
@@ -135,16 +127,17 @@ public class MarkerNotificationService {
         .markerId(marker.getId())
         .incidentId(marker.getIncidentId())
         .opId(marker.getOperationalPeriodId())
-        .policePhoneId(marker.getPolicePhoneId())
         .status(status.name())
         .version(notificationVersion)
         .type(notificationType.name())
         .recipientPolicy(notificationType.getRecipientPolicy().name())
         .recipientAccountIds(recipients.accountIds())
-        .recipientPolicePhoneIds(recipients.policePhoneIds())
         .markerType(marker.getMarkerType())
         .locationLabel(formatLocationLabel(marker))
-        .policePhoneName(findPolicePhoneName(marker.getPolicePhoneId()))
+        .createdByAccountDisplayName(
+            incidentAssignmentView
+                .accountDisplayNames(marker.getIncidentId())
+                .get(marker.getCreatedByAccountId()))
         .clientTs(marker.getOccurredAt())
         .build();
   }
@@ -169,13 +162,6 @@ public class MarkerNotificationService {
     return lon.toPlainString() + "," + lat.toPlainString();
   }
 
-  private String findPolicePhoneName(UUID policePhoneId) {
-    if (policePhoneMapper == null || policePhoneId == null) {
-      return null;
-    }
-    return policePhoneMapper.findDisplayNameById(policePhoneId).orElse(null);
-  }
-
   private void sendFcmAfterCommit(String eventType, MarkerNotificationPayload payload) {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
       sendFcm(eventType, payload);
@@ -191,11 +177,15 @@ public class MarkerNotificationService {
   }
 
   private void sendFcm(String eventType, MarkerNotificationPayload payload) {
+    List<UUID> recipientAccountIds =
+        payload.getRecipientAccountIds().stream()
+            .map(AccountIdentityCatalog::accountIdFromCodeOrUuid)
+            .toList();
+    if (recipientAccountIds.isEmpty()) {
+      return;
+    }
     List<String> recipientTokens =
-        payload.getRecipientPolicePhoneIds().stream()
-            .map(MarkerNotificationService::parseUuid)
-            .filter(Objects::nonNull)
-            .flatMap(policePhoneId -> fcmTokenQuery.activeByPolicePhone(policePhoneId).stream())
+        fcmTokenQuery.activeByAccounts(recipientAccountIds).stream()
             .map(FcmTokenRow::tokenCiphertext)
             .map(this::decryptToken)
             .filter(token -> !token.isBlank())
@@ -224,22 +214,14 @@ public class MarkerNotificationService {
   private static Map<String, Object> createFcmPayload(
       String eventType, MarkerNotificationPayload payload) {
     Map<String, Object> values = payload.toMap();
-    // FCM은 다섯 식별자가 모두 있는 알림만 전송한다.
-    for (String field : List.of("id", "markerId", "incidentId", "opId", "policePhoneId")) {
+    // 네 식별자가 모두 있는 알림만 FCM으로 보낸다.
+    for (String field : List.of("id", "markerId", "incidentId", "opId")) {
       Objects.requireNonNull(values.get(field), field + " must not be null");
     }
     values.put("type", eventType);
-    values.remove("policePhoneName");
+    values.remove("createdByAccountDisplayName");
     values.remove("locationLabel", null);
     return values;
-  }
-
-  private static UUID parseUuid(String value) {
-    try {
-      return UUID.fromString(value);
-    } catch (RuntimeException exception) {
-      return null;
-    }
   }
 
   private String decryptToken(String tokenCiphertext) {
@@ -264,26 +246,5 @@ public class MarkerNotificationService {
         .map(AccountIdentityCatalog::accountIdFromCodeOrUuid)
         .map(UUID::toString)
         .toList();
-  }
-
-  private static List<String> policePhoneDbIds(List<String> policePhoneIds) {
-    return policePhoneIds.stream()
-        .map(MarkerNotificationService::policePhoneIdFromCodeOrUuid)
-        .map(UUID::toString)
-        .toList();
-  }
-
-  private static UUID policePhoneIdFromCodeOrUuid(String policePhoneCodeOrId) {
-    return switch (policePhoneCodeOrId) {
-      case "dev-precinct-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000201");
-      case "dev-precinct-car-01" -> UUID.fromString("50000000-0000-0000-0000-000000000001");
-      case "dev-precinct-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000101");
-      case "dev-alpha-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000204");
-      case "dev-alpha-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000205");
-      case "dev-support-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000206");
-      case "dev-support-car-01" -> UUID.fromString("00000000-0000-0000-0000-000000000207");
-      case "dev-support-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000208");
-      default -> UUID.fromString(policePhoneCodeOrId);
-    };
   }
 }

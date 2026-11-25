@@ -16,7 +16,6 @@ public class MarkerCreateResponse {
   private UUID id;
   private UUID incidentId;
   private UUID opId;
-  private UUID policePhoneId;
   private String status;
   private long version;
 
@@ -28,14 +27,12 @@ public class MarkerCreateResponse {
       UUID id,
       UUID incidentId,
       UUID opId,
-      UUID policePhoneId,
       String status,
       long version,
       List<MarkerCreatePhotoResponse> photos) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.status = status;
     this.version = version;
     this.photos = photos == null ? List.of() : List.copyOf(photos);
@@ -46,7 +43,6 @@ public class MarkerCreateResponse {
         .id(response.getId())
         .incidentId(response.getIncidentId())
         .opId(response.getOpId())
-        .policePhoneId(response.getPolicePhoneId())
         .status(response.getStatus())
         .version(response.getVersion())
         .photos(response.getPhotos().stream().map(MarkerCreatePhotoResponse::from).toList())

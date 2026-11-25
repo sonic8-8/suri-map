@@ -56,8 +56,6 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID OP_ID = UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb5701");
   private static final UUID MARKER_ID = UUID.fromString("cccccccc-cccc-4ccc-8ccc-cccccccc5701");
   private static final UUID ACCOUNT_ID = UUID.fromString("dddddddd-dddd-4ddd-8ddd-dddddddd5701");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("eeeeeeee-eeee-4eee-8eee-eeeeeeee5701");
   private static final UUID PHOTO_ID = UUID.fromString("ffffffff-ffff-4fff-8fff-ffffffff5701");
   private static final Instant OCCURRED_AT = Instant.parse("2026-05-14T00:00:01Z");
   private static final Instant ATTACHED_AT = Instant.parse("2026-05-14T00:00:02Z");
@@ -84,18 +82,17 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         """
         INSERT INTO marker (
             id, incident_id, operational_period_id, marker_type, location, memo,
-            occurred_at, created_by_account_id, police_phone_id, marker_source, status, version
+            occurred_at, created_by_account_id, marker_source, status, version
         )
         VALUES (?, ?, ?, 'CLUE', ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326),
-                ?, ?, ?, ?, 'APP', 'ACTIVE', 7)
+                ?, ?, ?, 'APP', 'ACTIVE', 7)
         """,
         MARKER_ID,
         INCIDENT_ID,
         OP_ID,
         "등산로 입구 제보",
         Timestamp.from(OCCURRED_AT),
-        ACCOUNT_ID,
-        POLICE_PHONE_ID);
+        ACCOUNT_ID);
     jdbcTemplate.update(
         """
         INSERT INTO photo (
@@ -128,7 +125,6 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(marker.getOpId()).isEqualTo(OP_ID);
     assertThat(marker.getDutyShiftId()).isNull();
     assertThat(marker.getAccountId()).isEqualTo(ACCOUNT_ID);
-    assertThat(marker.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
     assertThat(marker.getType().name()).isEqualTo("CLUE");
     assertThat(marker.getSupportRequestType()).isNull();
     assertThat(marker.getSource()).isEqualTo(MarkerSource.APP);
@@ -333,7 +329,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     prepareMarkerMutation();
     // given: 업무폰 정보가 없는 기준 마커를 웹에서 수정한다.
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
-    insertMarker(source, null);
+    insertMarker(source);
     MarkerUpdateServiceRequest request =
         updateRequest().toBuilder()
             .authentication(createAuthentication("WEB", null))
@@ -347,11 +343,10 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     // then: 업무폰을 만들어 넣지 않고 수정 내용과 이벤트를 저장한다.
     assertResponse(response, "UPDATED");
     Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
-    assertThat(saved.getPolicePhoneId()).isNull();
     assertThat(saved.getMemo()).isEqualTo("updated clue memo");
     assertThat(saved.getMarkerType()).isEqualTo("NOTE");
     assertThat(readEventTypes()).containsExactly("MARKER_UPDATED");
-    assertEvent(readEventPayload(), "UPDATED", null);
+    assertEvent(readEventPayload(), "UPDATED");
   }
 
   @Test
@@ -360,7 +355,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     prepareMarkerMutation();
     // given: 업무폰 정보가 없는 사전 등록 마커를 준비한다.
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
-    insertMarker(MarkerSource.MOCK_SEED, null);
+    insertMarker(MarkerSource.MOCK_SEED);
     MarkerDeleteServiceRequest request =
         deleteRequest().toBuilder()
             .authentication(createAuthentication("WEB", null))
@@ -374,9 +369,8 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     assertResponse(response, "DELETED");
     Marker saved = markerMapper.findById(MUTATION_MARKER_ID).orElseThrow();
     assertThat(saved.getStatus()).isEqualTo("DELETED");
-    assertThat(saved.getPolicePhoneId()).isNull();
     assertThat(readEventTypes()).containsExactly("MARKER_DELETED");
-    assertEvent(readEventPayload(), "DELETED", null);
+    assertEvent(readEventPayload(), "DELETED");
   }
 
   @Test
@@ -385,7 +379,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     prepareMarkerMutation();
     // given: 웹에서 현장 마커를 변경하도록 요청한다.
     jdbcTemplate.update("DELETE FROM marker WHERE id = ?", MUTATION_MARKER_ID);
-    insertMarker(MarkerSource.APP, ASSIGNED_POLICE_PHONE_ID);
+    insertMarker(MarkerSource.APP);
     SuriMapAuthentication requestAuthentication =
         createAuthentication("WEB", ASSIGNED_POLICE_PHONE_ID);
 
@@ -610,7 +604,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         MUTATION_INCIDENT_ID,
         PRECINCT_TEAM_ID);
     mutationAuthentication = createAuthentication("WEB", null);
-    insertMarker(MarkerSource.MOCK_SEED, null);
+    insertMarker(MarkerSource.MOCK_SEED);
   }
 
   private SuriMapAuthentication createAuthentication(String channel, UUID policePhoneId) {
@@ -637,7 +631,7 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
         .build();
   }
 
-  private void insertMarker(MarkerSource source, UUID policePhoneId) {
+  private void insertMarker(MarkerSource source) {
     markerMapper.insertSeed(
         Marker.builder()
             .id(MUTATION_MARKER_ID)
@@ -648,7 +642,6 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
             .memo("initial clue")
             .occurredAt(CLIENT_TS)
             .createdByAccountId(PRECINCT_TEAM_ID)
-            .policePhoneId(policePhoneId)
             .markerSource(source)
             .status(MarkerStatus.ACTIVE)
             .version(1L)
@@ -669,17 +662,13 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
     assertThat(readEventTypes()).isEmpty();
   }
 
-  private void assertEvent(JsonNode event, String status, UUID policePhoneId) {
+  private void assertEvent(JsonNode event, String status) {
     assertThat(event.path("id").asText()).isEqualTo(MUTATION_MARKER_ID.toString());
     assertThat(event.path("incidentId").asText()).isEqualTo(MUTATION_INCIDENT_ID.toString());
     assertThat(event.path("opId").asText()).isEqualTo(MUTATION_OP_ID.toString());
     assertThat(event.path("version").asLong()).isEqualTo(2L);
     assertThat(event.path("status").asText()).isEqualTo(status);
-    if (policePhoneId == null) {
-      assertThat(event.path("policePhoneId").isNull()).isTrue();
-    } else {
-      assertThat(event.path("policePhoneId").asText()).isEqualTo(policePhoneId.toString());
-    }
+    assertThat(event.has("policePhoneId")).isFalse();
   }
 
   private List<String> readEventTypes() {

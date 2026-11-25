@@ -100,19 +100,14 @@ function toMarkerNotification(message: EventStreamMessage): MarkerNotification |
     eventId;
   const markerRecordedAt = readString(payload, 'clientTs');
   const markerType = readString(payload, 'markerType') ?? eventType;
-  const policePhoneId = readString(payload, 'policePhoneId');
-  const policePhoneName =
-    readString(payload, 'policePhoneName') ??
-    readString(payload, 'police_phone_name') ??
-    readString(payload, 'phoneName') ??
-    readString(payload, 'displayName');
+  const authorName = readString(payload, 'createdByAccountDisplayName');
   const opId = readString(payload, 'opId') ?? readString(payload, 'operationalPeriodId');
 
   return {
     id: eventId ?? `${eventType}:${markerId ?? Date.now()}`,
     title: eventType === 'PERSON_FOUND' ? '발견 마커 수신' : '지원 요청 마커 수신',
     markerType: formatMarkerTypeLabel(markerType, eventType),
-    reporter: policePhoneName?.trim() || lookupKnownPolicePhoneName(policePhoneId) || '작성 단말 확인 불가',
+    reporter: authorName?.trim() || '작성자 확인 불가',
     areaLabel: opId ? `OP ${opId}` : 'OP 확인 불가',
     markerRecordedAtLabel: markerRecordedAt ? formatTimeLabel(new Date(markerRecordedAt)) : '확인 불가',
     coordinateLabel: '',
@@ -126,11 +121,6 @@ function formatMarkerTypeLabel(markerType: string, eventType: string) {
   if (markerType === 'FIELD_CONDITION') return '현장 상태';
   if (markerType === 'NOTE') return '메모';
   return markerType;
-}
-
-function lookupKnownPolicePhoneName(policePhoneId: string | null) {
-  if (!policePhoneId) return null;
-  return KNOWN_POLICE_PHONE_NAMES_BY_ID[policePhoneId] ?? null;
 }
 
 function formatTimeLabel(date: Date) {
@@ -148,15 +138,3 @@ function readString(row: Record<string, unknown>, key: string) {
   const value = row[key];
   return typeof value === 'string' ? value : null;
 }
-
-const KNOWN_POLICE_PHONE_NAMES_BY_ID: Record<string, string> = {
-  '00000000-0000-0000-0000-000000000101': '수완지구대 현장 단말',
-  '00000000-0000-0000-0000-000000000201': '수완지구대 지휘 단말',
-  '50000000-0000-0000-0000-000000000001': '수완지구대 순찰차 단말',
-  '00000000-0000-0000-0000-000000000204': '여성청소년과 실종팀 지휘 단말',
-  '00000000-0000-0000-0000-000000000205': '여성청소년과 실종팀 현장 단말',
-  '00000000-0000-0000-0000-000000000206': '기동대 지휘 단말',
-  '00000000-0000-0000-0000-000000000207': '기동대 차량 단말',
-  '00000000-0000-0000-0000-000000000208': '기동대 현장 단말',
-  '00000000-0000-0000-0000-000000000301': '미배정 폴리폰 단말',
-};

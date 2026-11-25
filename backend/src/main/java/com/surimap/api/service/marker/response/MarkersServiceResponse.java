@@ -36,7 +36,6 @@ public class MarkersServiceResponse {
     private UUID opId;
     private UUID dutyShiftId;
     private UUID accountId;
-    private UUID policePhoneId;
     private MarkerType type;
     private MarkerSupportRequestType supportRequestType;
     private MarkerSource source;
@@ -54,7 +53,6 @@ public class MarkersServiceResponse {
         UUID opId,
         UUID dutyShiftId,
         UUID accountId,
-        UUID policePhoneId,
         MarkerType type,
         MarkerSupportRequestType supportRequestType,
         MarkerSource source,
@@ -69,7 +67,6 @@ public class MarkersServiceResponse {
       this.opId = opId;
       this.dutyShiftId = dutyShiftId;
       this.accountId = accountId;
-      this.policePhoneId = policePhoneId;
       this.type = type;
       this.supportRequestType = supportRequestType;
       this.source = source;
@@ -89,7 +86,6 @@ public class MarkersServiceResponse {
           .opId(marker.getOperationalPeriodId())
           .dutyShiftId(marker.getDutyShiftId())
           .accountId(marker.getCreatedByAccountId())
-          .policePhoneId(marker.getPolicePhoneId())
           .type(MarkerType.valueOf(marker.getMarkerType()))
           .supportRequestType(
               marker.getSupportRequestType() == null

@@ -18,7 +18,6 @@ public class MarkerNotification {
   private MarkerNotificationType notificationType;
   private MarkerNotificationRecipientPolicy recipientRule;
   private List<String> recipientAccountIds;
-  private List<String> recipientPolicePhoneIds;
   private String notificationPayloadJson;
   private MarkerNotificationStatus status;
   private long version;
@@ -31,7 +30,6 @@ public class MarkerNotification {
       MarkerNotificationType notificationType,
       MarkerNotificationRecipientPolicy recipientRule,
       List<String> recipientAccountIds,
-      List<String> recipientPolicePhoneIds,
       String notificationPayloadJson,
       MarkerNotificationStatus status,
       long version,
@@ -44,10 +42,6 @@ public class MarkerNotification {
     this.recipientAccountIds =
         List.copyOf(
             Objects.requireNonNull(recipientAccountIds, "recipientAccountIds must not be null"));
-    this.recipientPolicePhoneIds =
-        List.copyOf(
-            Objects.requireNonNull(
-                recipientPolicePhoneIds, "recipientPolicePhoneIds must not be null"));
     this.notificationPayloadJson =
         Objects.requireNonNull(notificationPayloadJson, "notificationPayloadJson must not be null");
     this.status = Objects.requireNonNull(status, "status must not be null");

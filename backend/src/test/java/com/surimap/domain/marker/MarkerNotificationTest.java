@@ -17,29 +17,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 class MarkerNotificationTest {
 
   @Test
-  @DisplayName("알림 생성 후 원본 수신자 목록이 바뀌어도, 생성 당시 계정·업무폰 목록을 유지한다")
+  @DisplayName("알림 생성 후 원본 수신자 목록이 바뀌어도, 생성 당시 계정 목록을 유지한다")
   void build_afterRecipientListsChange_preservesRecipientsAtCreation() {
-    // given: 외부에서 수정할 수 있는 계정·업무폰 목록을 준비한다.
+    // given: 외부에서 수정할 수 있는 계정 목록을 준비한다.
     String accountId = UUID.randomUUID().toString();
-    String policePhoneId = UUID.randomUUID().toString();
     List<String> accountIds = new ArrayList<>(List.of(accountId));
-    List<String> policePhoneIds = new ArrayList<>(List.of(policePhoneId));
 
     // when: 알림을 생성한 뒤 원본 목록을 비운다.
     MarkerNotification notification =
-        createNotificationBuilder()
-            .recipientAccountIds(accountIds)
-            .recipientPolicePhoneIds(policePhoneIds)
-            .build();
+        createNotificationBuilder().recipientAccountIds(accountIds).build();
     accountIds.clear();
-    policePhoneIds.clear();
 
     // then: 생성 당시 수신자를 보존하고, getter로 받은 목록도 직접 수정할 수 없다.
     assertThat(notification.getRecipientAccountIds()).containsExactly(accountId);
-    assertThat(notification.getRecipientPolicePhoneIds()).containsExactly(policePhoneId);
     assertThatThrownBy(() -> notification.getRecipientAccountIds().clear())
-        .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> notification.getRecipientPolicePhoneIds().clear())
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
@@ -63,9 +54,6 @@ class MarkerNotificationTest {
     assertThatNullPointerException()
         .isThrownBy(() -> createNotificationBuilder().recipientAccountIds(null).build())
         .withMessage("recipientAccountIds must not be null");
-    assertThatNullPointerException()
-        .isThrownBy(() -> createNotificationBuilder().recipientPolicePhoneIds(null).build())
-        .withMessage("recipientPolicePhoneIds must not be null");
     assertThatNullPointerException()
         .isThrownBy(() -> createNotificationBuilder().notificationPayloadJson(null).build())
         .withMessage("notificationPayloadJson must not be null");
@@ -97,11 +85,9 @@ class MarkerNotificationTest {
     // given: 목록 자체는 있지만 수신자 식별자가 빠져 있다.
     List<String> recipients = Collections.singletonList(null);
 
-    // when & then: 계정 목록과 업무폰 목록 모두 null 항목을 허용하지 않는다.
+    // when & then: 계정 목록에 null 항목이 있으면 알림을 만들 수 없다.
     assertThatNullPointerException()
         .isThrownBy(() -> createNotificationBuilder().recipientAccountIds(recipients).build());
-    assertThatNullPointerException()
-        .isThrownBy(() -> createNotificationBuilder().recipientPolicePhoneIds(recipients).build());
   }
 
   private MarkerNotification.MarkerNotificationBuilder createNotificationBuilder() {
@@ -111,7 +97,6 @@ class MarkerNotificationTest {
         .notificationType(MarkerNotificationType.SUPPORT_REQUEST_CREATED)
         .recipientRule(MarkerNotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
         .recipientAccountIds(List.of())
-        .recipientPolicePhoneIds(List.of())
         .notificationPayloadJson("{}")
         .status(MarkerNotificationStatus.SNAPSHOT_CREATED)
         .version(1L)

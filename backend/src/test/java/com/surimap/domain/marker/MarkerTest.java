@@ -283,7 +283,6 @@ class MarkerTest {
         .memo("기존 메모")
         .occurredAt(Instant.parse("2026-04-28T00:05:00Z"))
         .createdByAccountId(UUID.fromString("11111111-1111-1111-1111-111111110072"))
-        .policePhoneId(UUID.fromString("22222222-2222-2222-2222-222222220072"))
         .markerSource(source)
         .status(MarkerStatus.ACTIVE)
         .version(1L)

@@ -175,9 +175,8 @@ class IncidentHandoverSupportAssignmentContractTest {
   }
 
   @Test
-  @DisplayName("IncidentAssignmentView.notificationTargets는 지원 배정 대상 단말만 반환한다")
-  void notificationTargetsForSupportAssignmentReturnOnlyNewSupportTeamAndPatrolPhones()
-      throws Exception {
+  @DisplayName("IncidentAssignmentView.notificationTargets는 지원 배정 대상 계정만 반환한다")
+  void notificationTargets_supportAssignment_returnsOnlyNewSupportTeamAccounts() throws Exception {
     assignmentPollingHandler.registerInitialAssignments(initialAssignments());
     assignmentPollingHandler.handleAssignmentChanges(
         SOURCE_INCIDENT_ID,
@@ -190,12 +189,7 @@ class IncidentHandoverSupportAssignmentContractTest {
 
     assertThat(stringList(targets, "accountIds"))
         .containsExactlyInAnyOrder(
-            "11111111-1111-1111-1111-111111110007",
-            "11111111-1111-1111-1111-111111110008");
-    assertThat(stringList(targets, "policePhoneIds"))
-        .containsExactlyInAnyOrder(
-            "00000000-0000-0000-0000-000000000207",
-            "00000000-0000-0000-0000-000000000208");
+            "11111111-1111-1111-1111-111111110007", "11111111-1111-1111-1111-111111110008");
   }
 
   private static boolean assignmentChangedEventMatches(

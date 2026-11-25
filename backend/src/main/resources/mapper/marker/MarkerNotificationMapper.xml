@@ -10,7 +10,6 @@
         <result property="markerId" column="marker_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="opId" column="op_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-        <result property="policePhoneId" column="police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="notificationType" column="notification_type"/>
         <result property="status" column="status"/>
         <result property="version" column="version"/>
@@ -24,7 +23,6 @@
             notification.marker_id AS marker_id,
             marker.incident_id AS incident_id,
             marker.operational_period_id AS op_id,
-            marker.police_phone_id AS police_phone_id,
             notification.notification_type AS notification_type,
             notification.status AS status,
             notification.version AS version,
@@ -50,7 +48,6 @@
             notification_type,
             recipient_rule,
             recipient_account_ids,
-            recipient_police_phone_ids,
             notification_payload,
             status,
             version,
@@ -66,16 +63,6 @@
                     ARRAY[
                     <foreach collection="notification.recipientAccountIds" item="accountId" separator=",">
                         CAST(#{accountId} AS UUID)
-                    </foreach>
-                    ]::uuid[]
-                </when>
-                <otherwise>ARRAY[]::uuid[]</otherwise>
-            </choose>,
-            <choose>
-                <when test="notification.recipientPolicePhoneIds != null and notification.recipientPolicePhoneIds.size > 0">
-                    ARRAY[
-                    <foreach collection="notification.recipientPolicePhoneIds" item="policePhoneId" separator=",">
-                        CAST(#{policePhoneId} AS UUID)
                     </foreach>
                     ]::uuid[]
                 </when>

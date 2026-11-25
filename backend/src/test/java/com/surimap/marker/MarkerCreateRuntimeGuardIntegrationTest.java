@@ -243,9 +243,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
             .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
-            .andExpect(
-                jsonPath("$.policePhoneId")
-                    .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
+            .andExpect(jsonPath("$.policePhoneId").doesNotExist())
             .andExpect(jsonPath("$.status", is("ACTIVE")))
             .andExpect(jsonPath("$.version", is(1)))
             .andReturn();
@@ -309,9 +307,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
-        .andExpect(
-            jsonPath("$.policePhoneId")
-                .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()));
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist());
 
     Integer markerRows =
         jdbcTemplate.queryForObject(
@@ -320,12 +316,10 @@ SELECT COUNT(*)
 FROM marker
 WHERE memo = ?
 AND created_by_account_id = ?::uuid
-AND police_phone_id = ?::uuid
 """,
             Integer.class,
             COMMANDER_MARKER_MEMO,
-            AccountIdentityCatalog.PRECINCT_COMMANDER_ID.toString(),
-            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString());
+            AccountIdentityCatalog.PRECINCT_COMMANDER_ID.toString());
 
     assertThat(markerRows).isEqualTo(1);
   }

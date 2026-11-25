@@ -18,6 +18,8 @@ import com.surimap.api.service.path.request.SearchPathQueryServiceRequest;
 import com.surimap.api.service.path.response.SearchPathQueryRowServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQuerySegmentServiceResponse;
 import com.surimap.api.service.path.response.SearchPathQueryServiceResponse;
+import com.surimap.domain.connectionstatus.ConnectionStatusQuery;
+import com.surimap.domain.connectionstatus.ConnectionStatusRow;
 import com.surimap.domain.marker.MarkerNotificationMapper;
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
 import com.surimap.domain.marker.MarkerSource;
@@ -46,8 +48,6 @@ import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.domain.connectionstatus.ConnectionStatusQuery;
-import com.surimap.domain.connectionstatus.ConnectionStatusRow;
 import com.surimap.retention.purge.IncidentDataPurgeRun;
 import com.surimap.retention.purge.IncidentDataPurgeStatus;
 import com.surimap.retention.purge.IncidentDataPurgeStore;
@@ -86,7 +86,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
       UUID.fromString("51000000-0000-4000-8000-000000000001");
   private static final UUID NOTIFICATION_EVENT_ID =
       UUID.fromString("52000000-0000-4000-8000-000000000001");
-  private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-4000-8000-000000000001");
@@ -190,7 +189,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                 "markerId", MARKER_ID.toString(),
                 "incidentId", INCIDENT_ID.toString(),
                 "opId", OP_ID.toString(),
-                "policePhoneId", PHONE_ID.toString(),
                 "createdAt", STARTED_AT));
     verify(notificationMapper).findNotificationRowsByIncidentId(INCIDENT_ID);
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
@@ -757,6 +755,11 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
+    public List<AssignmentRow> findAssignedAccountsByIncidentId(UUID incidentId) {
+      return findActiveAssignmentsByIncidentId(incidentId);
+    }
+
+    @Override
     public List<com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow>
         findActiveAssignmentTargetsByIncidentId(UUID incidentId) {
       com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow row =
@@ -833,7 +836,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                               .incidentId(incidentId)
                               .opId(OP_ID)
                               .accountId(ACCOUNT_ID)
-                              .policePhoneId(PHONE_ID)
                               .type(MarkerType.CLUE)
                               .source(MarkerSource.APP)
                               .status(MarkerStatus.ACTIVE)
@@ -874,7 +876,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .markerId(MARKER_ID)
         .incidentId(INCIDENT_ID)
         .opId(OP_ID)
-        .policePhoneId(PHONE_ID)
         .notificationType("SUPPORT_REQUEST_CREATED")
         .status("SNAPSHOT_CREATED")
         .version(12L)

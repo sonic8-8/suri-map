@@ -130,13 +130,12 @@ export function createSupportRequestMarker() {
     }
   }
 
-  // Then: 새 마커·사건·차수·작성 업무폰·사진 없음이 요청과 일치해야 한다.
+  // Then: 응답의 마커 ID, 사건, 차수는 요청과 같아야 한다. 사진은 없어야 한다.
   const valid =
     received !== null &&
     received.id === marker.id &&
     received.incidentId === markerFixture.incidentId &&
     received.opId === markerFixture.opId &&
-    received.policePhoneId === requester.policePhoneId &&
     received.status === "ACTIVE" &&
     received.version === 1 &&
     Array.isArray(received.photos) &&

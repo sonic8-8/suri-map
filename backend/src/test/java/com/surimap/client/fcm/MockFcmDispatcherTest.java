@@ -200,15 +200,12 @@ class MockFcmDispatcherTest {
       assertEquals("SUPPORT_REQUEST_CREATED", capture.getPayloadField("type"));
       assertEquals(NotificationFixtures.SUPPORT_NOTIFICATION_ID, capture.getPayloadField("id"));
       assertEquals(NotificationFixtures.INCIDENT_ID, capture.getPayloadField("incidentId"));
-      assertEquals(NotificationFixtures.POLICE_PHONE_ID, capture.getPayloadField("policePhoneId"));
+      assertNull(capture.getPayloadField("policePhoneId"));
       assertNull(capture.getPayloadField("deviceId"));
       assertEquals("SNAPSHOT_CREATED", capture.getPayloadField("status"));
       assertEquals(1, capture.getPayloadField("version"));
       assertEquals(
           NotificationFixtures.SUPPORT_RECIPIENT_ACCOUNT_IDS, capture.recipientAccountIds());
-      assertEquals(
-          NotificationFixtures.SUPPORT_RECIPIENT_POLICE_PHONE_IDS,
-          capture.recipientPolicePhoneIds());
     }
   }
 
@@ -237,14 +234,11 @@ class MockFcmDispatcherTest {
       assertEquals("PERSON_FOUND", capture.getPayloadField("type"));
       assertEquals(
           NotificationFixtures.PERSON_FOUND_MARKER_ID, capture.getPayloadField("markerId"));
-      assertEquals(NotificationFixtures.POLICE_PHONE_ID, capture.getPayloadField("policePhoneId"));
+      assertNull(capture.getPayloadField("policePhoneId"));
       assertNull(capture.getPayloadField("deviceId"));
       assertEquals("SNAPSHOT_CREATED", capture.getPayloadField("status"));
       assertEquals(
           NotificationFixtures.PERSON_FOUND_RECIPIENT_ACCOUNT_IDS, capture.recipientAccountIds());
-      assertEquals(
-          NotificationFixtures.PERSON_FOUND_RECIPIENT_POLICE_PHONE_IDS,
-          capture.recipientPolicePhoneIds());
     }
   }
 

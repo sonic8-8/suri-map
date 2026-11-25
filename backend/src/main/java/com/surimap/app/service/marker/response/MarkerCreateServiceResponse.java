@@ -16,7 +16,6 @@ public class MarkerCreateServiceResponse {
   private UUID id;
   private UUID incidentId;
   private UUID opId;
-  private UUID policePhoneId;
   private String status;
   private long version;
 
@@ -28,14 +27,12 @@ public class MarkerCreateServiceResponse {
       UUID id,
       UUID incidentId,
       UUID opId,
-      UUID policePhoneId,
       String status,
       long version,
       List<PhotoAttachServiceResponse> photos) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;
-    this.policePhoneId = policePhoneId;
     this.status = status;
     this.version = version;
     this.photos = photos == null ? List.of() : List.copyOf(photos);

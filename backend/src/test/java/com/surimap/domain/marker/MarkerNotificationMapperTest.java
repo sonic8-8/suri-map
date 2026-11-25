@@ -24,8 +24,6 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
       UUID.fromString("54000000-0000-4000-8000-000000002931");
   private static final UUID EVENT_ID = UUID.fromString("55000000-0000-4000-8000-000000002931");
   private static final UUID ACCOUNT_ID = UUID.fromString("56000000-0000-4000-8000-000000002931");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("57000000-0000-4000-8000-000000002931");
   private static final Instant CREATED_AT = Instant.parse("2026-05-13T00:00:00Z");
 
   @Autowired private MarkerNotificationMapper mapper;
@@ -52,7 +50,6 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
             .notificationType(MarkerNotificationType.SUPPORT_REQUEST_CREATED)
             .recipientRule(MarkerNotificationRecipientPolicy.COMMANDERS_AND_FIELD_COMMANDERS)
             .recipientAccountIds(List.of())
-            .recipientPolicePhoneIds(List.of())
             .notificationPayloadJson("{\"type\":\"SUPPORT_REQUEST_CREATED\"}")
             .status(MarkerNotificationStatus.SNAPSHOT_CREATED)
             .version(4L)
@@ -93,7 +90,6 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
               assertThat(row.getMarkerId()).isEqualTo(MARKER_ID);
               assertThat(row.getIncidentId()).isEqualTo(INCIDENT_ID);
               assertThat(row.getOpId()).isEqualTo(OP_ID);
-              assertThat(row.getPolicePhoneId()).isEqualTo(POLICE_PHONE_ID);
               assertThat(row.getNotificationType()).isEqualTo("SUPPORT_REQUEST_CREATED");
               assertThat(row.getStatus()).isEqualTo("SNAPSHOT_CREATED");
               assertThat(row.getVersion()).isEqualTo(3L);
@@ -178,21 +174,19 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
             memo,
             occurred_at,
             created_by_account_id,
-            police_phone_id,
             marker_source,
             status,
             version
         )
         VALUES (?, ?, ?, NULL, 'SUPPORT_REQUEST', 'DRONE',
                 ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326),
-                'support requested', ?, ?, ?, 'APP', 'ACTIVE', 2)
+                'support requested', ?, ?, 'APP', 'ACTIVE', 2)
         """,
         markerId,
         incidentId,
         OP_ID,
         Timestamp.from(CREATED_AT),
-        ACCOUNT_ID,
-        POLICE_PHONE_ID);
+        ACCOUNT_ID);
   }
 
   private void insertNotification(UUID notificationId, UUID markerId, Instant createdAt) {
@@ -204,19 +198,17 @@ class MarkerNotificationMapperTest extends PostGisIntegrationTestSupport {
             notification_type,
             recipient_rule,
             recipient_account_ids,
-            recipient_police_phone_ids,
             notification_payload,
             status,
             version,
             created_at
         )
         VALUES (?, ?, 'SUPPORT_REQUEST_CREATED', 'COMMANDERS_AND_FIELD_COMMANDERS',
-                ARRAY[?]::uuid[], ARRAY[?]::uuid[], '{}'::jsonb, 'SNAPSHOT_CREATED', 3, ?)
+                ARRAY[?]::uuid[], '{}'::jsonb, 'SNAPSHOT_CREATED', 3, ?)
         """,
         notificationId,
         markerId,
         ACCOUNT_ID,
-        POLICE_PHONE_ID,
         Timestamp.from(createdAt));
   }
 

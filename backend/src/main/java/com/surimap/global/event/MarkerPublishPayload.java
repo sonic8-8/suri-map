@@ -11,8 +11,6 @@ public interface MarkerPublishPayload {
 
   UUID getOpId();
 
-  UUID getPolicePhoneId();
-
   String getStatus();
 
   long getVersion();

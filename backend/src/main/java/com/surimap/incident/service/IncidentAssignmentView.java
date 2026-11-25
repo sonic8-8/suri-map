@@ -2,10 +2,13 @@ package com.surimap.incident.service;
 
 import com.surimap.domain.marker.MarkerNotificationRecipientPolicy;
 import com.surimap.incident.repository.IncidentReadMapper;
+import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -42,6 +45,21 @@ public class IncidentAssignmentView {
     return notificationTargets(incidentId, targetPolicyFor(recipientPolicy));
   }
 
+  /** 사건에 배정된 적이 있는 계정의 표시 이름. 배정이 해제된 계정도 포함한다. */
+  @Transactional(readOnly = true)
+  public Map<UUID, String> accountDisplayNames(UUID incidentId) {
+    Objects.requireNonNull(incidentId, "incidentId must not be null");
+    Map<UUID, String> names = new LinkedHashMap<>();
+    for (AssignmentRow row : incidentReadMapper.findAssignedAccountsByIncidentId(incidentId)) {
+      if (row.getAccountId() != null
+          && row.getAccountDisplayName() != null
+          && !row.getAccountDisplayName().isBlank()) {
+        names.putIfAbsent(UUID.fromString(row.getAccountId()), row.getAccountDisplayName());
+      }
+    }
+    return names;
+  }
+
   private static String targetPolicyFor(MarkerNotificationRecipientPolicy recipientPolicy) {
     return switch (Objects.requireNonNull(recipientPolicy, "recipientPolicy must not be null")) {
       case COMMANDERS_AND_FIELD_COMMANDERS -> SUPPORT_REQUEST;
@@ -71,17 +89,12 @@ public class IncidentAssignmentView {
   private static NotificationTargets targets(
       List<AssignmentTargetRow> rows, Predicate<AssignmentTargetRow> predicate) {
     Set<String> accountIds = new LinkedHashSet<>();
-    Set<String> policePhoneIds = new LinkedHashSet<>();
     for (AssignmentTargetRow row : rows) {
-      if (!predicate.test(row)) {
-        continue;
-      }
-      accountIds.add(row.getAccountId());
-      if (row.getPolicePhoneId() != null) {
-        policePhoneIds.add(row.getPolicePhoneId());
+      if (predicate.test(row)) {
+        accountIds.add(row.getAccountId());
       }
     }
-    return new NotificationTargets(List.copyOf(accountIds), List.copyOf(policePhoneIds));
+    return new NotificationTargets(List.copyOf(accountIds));
   }
 
   private static String normalizePolicy(String targetPolicy) {
@@ -90,12 +103,10 @@ public class IncidentAssignmentView {
   }
 
   /** IncidentAssignmentView.notificationTargets 응답. */
-  public record NotificationTargets(List<String> accountIds, List<String> policePhoneIds) {
+  public record NotificationTargets(List<String> accountIds) {
 
     public NotificationTargets {
       accountIds = List.copyOf(Objects.requireNonNull(accountIds, "accountIds must not be null"));
-      policePhoneIds =
-          List.copyOf(Objects.requireNonNull(policePhoneIds, "policePhoneIds must not be null"));
     }
   }
 }

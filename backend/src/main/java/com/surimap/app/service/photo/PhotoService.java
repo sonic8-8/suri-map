@@ -160,11 +160,7 @@ public class PhotoService {
         () -> formatLegacyAttachRequestBody(markerId, photoId, request),
         200,
         PhotoAttachServiceResponse.class,
-        () ->
-            attachPhotoToExistingMarker(
-                requirePhotoAccess(markerId, context),
-                request,
-                context.getAuthentication().policePhoneId()),
+        () -> attachPhotoToExistingMarker(requirePhotoAccess(markerId, context), request),
         this::metadataForAttach);
   }
 
@@ -328,7 +324,7 @@ public class PhotoService {
   }
 
   private PhotoAttachServiceResponse attachPhotoToExistingMarker(
-      Marker marker, PhotoAttachServiceRequest request, UUID policePhoneId) {
+      Marker marker, PhotoAttachServiceRequest request) {
     UUID markerId = marker.getId();
     MarkerPhoto photo = attachUploadedPhoto(markerId, request);
     long expectedMarkerVersion = marker.getVersion();
@@ -339,7 +335,7 @@ public class PhotoService {
     if (updated != 1) {
       throw conflict();
     }
-    publishMarkerPhotoUpdate(marker, policePhoneId, photo);
+    publishMarkerPhotoUpdate(marker, photo);
     return PhotoAttachServiceResponse.from(photo, marker.getVersion());
   }
 
@@ -409,7 +405,7 @@ public class PhotoService {
     }
   }
 
-  private void publishMarkerPhotoUpdate(Marker marker, UUID policePhoneId, MarkerPhoto photo) {
+  private void publishMarkerPhotoUpdate(Marker marker, MarkerPhoto photo) {
     if (marker == null
         || photo == null
         || marker.getId() == null
@@ -431,7 +427,6 @@ public class PhotoService {
         marker.getOperationalPeriodId() == null
             ? null
             : marker.getOperationalPeriodId().toString());
-    payload.put("policePhoneId", policePhoneId == null ? null : policePhoneId.toString());
     payload.put("status", marker.getStatus());
     payload.put("version", marker.getVersion());
     payload.put("photoDelta", photoDelta);

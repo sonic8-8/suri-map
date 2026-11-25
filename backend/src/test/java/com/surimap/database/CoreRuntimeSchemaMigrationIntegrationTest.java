@@ -77,7 +77,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "event_dispatch_job", "event_id", "uuid");
         assertColumnType(connection, "event_dispatch_job", "source_entity_id", "uuid");
         assertColumnType(connection, "marker_notification", "recipient_account_ids", "_uuid");
-        assertColumnType(connection, "marker_notification", "recipient_police_phone_ids", "_uuid");
         assertColumnType(connection, "idempotency_record", "id", "uuid");
         assertColumnType(connection, "idempotency_record", "idempotency_key", "varchar");
         assertColumnType(connection, "idempotency_record", "request_body_hash", "bpchar");
@@ -99,14 +98,16 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertIndexExists(connection, "search_area_assignment", "ux_search_area_assignment_active");
         assertIndexExists(connection, "search_path", "idx_search_path_geom");
         assertIndexExists(connection, "search_path_segment", "idx_search_path_segment_geom");
-        assertIndexExists(connection, "idempotency_record", "ux_idempotency_record_key_path_method");
+        assertIndexExists(
+            connection, "idempotency_record", "ux_idempotency_record_key_path_method");
         assertTableDoesNotExist(connection, "refresh_token");
       }
     }
   }
 
   @Test
-  @DisplayName("incident source_incident_id migration normalizes legacy smoke alias before UUID cast")
+  @DisplayName(
+      "incident source_incident_id migration normalizes legacy smoke alias before UUID cast")
   void incidentSourceIncidentIdMigrationNormalizesLegacySmokeAlias() throws Exception {
     try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE)) {
       postgres.start();
@@ -164,6 +165,141 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
             assertThat(result.getString(1)).isEqualTo("00000000-0000-0000-0000-000000000001");
           }
         }
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("마커 업무폰 컬럼 삭제 migration은 저장된 마커 이벤트와 알림 snapshot을 새 payload 형식으로 바꾼다")
+  void markerPolicePhoneMigration_storedMarkerPayloads_removesPolicePhoneKeysAndFillsAuthorName()
+      throws Exception {
+    try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE)) {
+      postgres.start();
+
+      // given: 배포 전 형식으로 저장된 마커 이벤트, 마커 알림 이벤트, 배정 변경 이벤트, 알림 snapshot이 있다.
+      // 발견 알림의 마커에는 작성 계정이 있다. 지원 요청 알림의 마커는 DB에 없다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .target("20261120.001")
+          .load()
+          .migrate();
+      try (Connection connection =
+              DriverManager.getConnection(
+                  postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+          var statement = connection.createStatement()) {
+        statement.executeUpdate(
+            """
+            INSERT INTO account (
+                id, login_id, password_hash, display_name, account_type, organization_type,
+                status, created_at, updated_at
+            )
+            VALUES (
+                'a0000000-0000-4000-8000-000000005701', 'acct-5701-author', '{noop}fixture',
+                '작성자 김현장', 'TEAM', 'MISSING_TEAM', 'ACTIVE', now(), now()
+            )
+            """);
+        statement.executeUpdate(
+            """
+            INSERT INTO marker (
+                id, incident_id, operational_period_id, marker_type, location, occurred_at,
+                created_by_account_id, police_phone_id, marker_source, status, version
+            )
+            VALUES (
+                'c0000000-0000-4000-8000-000000005701', gen_random_uuid(), gen_random_uuid(),
+                'PERSON_FOUND', ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326), now(),
+                'a0000000-0000-4000-8000-000000005701', gen_random_uuid(), 'APP', 'ACTIVE', 1
+            )
+            """);
+        statement.executeUpdate(
+            """
+            INSERT INTO event_dispatch_job (
+                event_id, incident_id, event_type, payload, source_entity_type,
+                source_entity_id, occurred_at
+            )
+            VALUES
+              ('e0000000-0000-4000-8000-000000005701', gen_random_uuid(), 'MARKER_CREATED',
+               '{"id":"m1","policePhoneId":"p1","status":"ACTIVE"}', 'marker',
+               gen_random_uuid(), now()),
+              ('e0000000-0000-4000-8000-000000005702', gen_random_uuid(), 'PERSON_FOUND',
+               '{"id":"n1","markerId":"c0000000-0000-4000-8000-000000005701","policePhoneId":"p1","policePhoneName":"업무폰","recipientPolicePhoneIds":["p2"],"recipientAccountIds":["a1"]}',
+               'marker_notification', gen_random_uuid(), now()),
+              ('e0000000-0000-4000-8000-000000005703', gen_random_uuid(),
+               'INCIDENT_ASSIGNMENT_CHANGED', '{"id":"i1","recipientPolicePhoneIds":["p2"]}',
+               'incident', gen_random_uuid(), now()),
+              ('e0000000-0000-4000-8000-000000005704', gen_random_uuid(),
+               'SUPPORT_REQUEST_CREATED',
+               '{"id":"n2","markerId":"c0000000-0000-4000-8000-000000005799","policePhoneName":"업무폰"}',
+               'marker_notification', gen_random_uuid(), now())
+            """);
+        statement.executeUpdate(
+            """
+            INSERT INTO marker_notification (
+                id, marker_id, notification_type, recipient_rule, recipient_account_ids,
+                recipient_police_phone_ids, notification_payload, status, version
+            )
+            VALUES (
+                'f0000000-0000-4000-8000-000000005701', 'c0000000-0000-4000-8000-000000005701',
+                'PERSON_FOUND', 'ALL_INCIDENT_ASSIGNED', ARRAY[]::uuid[], ARRAY[]::uuid[],
+                '{"id":"n1","markerId":"c0000000-0000-4000-8000-000000005701","policePhoneId":"p1","policePhoneName":"업무폰","recipientPolicePhoneIds":["p2"],"recipientAccountIds":["a1"]}',
+                'SNAPSHOT_CREATED', 1
+            )
+            """);
+      }
+
+      // when: 남은 migration을 적용한다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .load()
+          .migrate();
+
+      // then: 마커와 마커 알림 행에는 업무폰 키가 없다.
+      // then: 작성 계정을 찾은 발견 알림에는 작성 계정 이름이 채워진다.
+      // then: 마커를 찾지 못한 지원 요청 알림에는 이름이 채워지지 않는다.
+      // then: 배정 변경 이벤트는 바뀌지 않는다.
+      try (Connection connection =
+          DriverManager.getConnection(
+              postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+        assertThat(eventPayload(connection, "e0000000-0000-4000-8000-000000005701"))
+            .isEqualTo("{\"id\": \"m1\", \"status\": \"ACTIVE\"}");
+        assertThat(eventPayload(connection, "e0000000-0000-4000-8000-000000005702"))
+            .isEqualTo(
+                "{\"id\": \"n1\", \"markerId\": \"c0000000-0000-4000-8000-000000005701\","
+                    + " \"recipientAccountIds\": [\"a1\"],"
+                    + " \"createdByAccountDisplayName\": \"작성자 김현장\"}");
+        assertThat(eventPayload(connection, "e0000000-0000-4000-8000-000000005703"))
+            .isEqualTo("{\"id\": \"i1\", \"recipientPolicePhoneIds\": [\"p2\"]}");
+        assertThat(eventPayload(connection, "e0000000-0000-4000-8000-000000005704"))
+            .isEqualTo(
+                "{\"id\": \"n2\", \"markerId\": \"c0000000-0000-4000-8000-000000005799\"}");
+        try (var statement =
+                connection.prepareStatement(
+                    """
+                    SELECT notification_payload::text
+                    FROM marker_notification
+                    WHERE id = 'f0000000-0000-4000-8000-000000005701'::uuid
+                    """);
+            ResultSet result = statement.executeQuery()) {
+          assertThat(result.next()).isTrue();
+          assertThat(result.getString(1))
+              .isEqualTo(
+                  "{\"id\": \"n1\", \"markerId\": \"c0000000-0000-4000-8000-000000005701\","
+                      + " \"recipientAccountIds\": [\"a1\"],"
+                      + " \"createdByAccountDisplayName\": \"작성자 김현장\"}");
+        }
+      }
+    }
+  }
+
+  private static String eventPayload(Connection connection, String eventId) throws SQLException {
+    try (var statement =
+        connection.prepareStatement(
+            "SELECT payload::text FROM event_dispatch_job WHERE event_id = ?::uuid")) {
+      statement.setString(1, eventId);
+      try (ResultSet result = statement.executeQuery()) {
+        assertThat(result.next()).isTrue();
+        return result.getString(1);
       }
     }
   }

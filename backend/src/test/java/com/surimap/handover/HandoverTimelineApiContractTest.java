@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.surimap.api.controller.handover.HandoverTimelineController;
 import com.surimap.api.service.handover.HandoverTimelineApiService;
 import com.surimap.api.service.marker.MarkerService;
@@ -30,6 +31,9 @@ import com.surimap.domain.path.SearchPathSegment;
 import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.incident.repository.IncidentReadMapper;
+import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
+import com.surimap.incident.service.IncidentAssignmentView;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import com.surimap.support.auth.GuardPortTestStubs;
@@ -53,7 +57,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(HandoverTimelineController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GuardConfig.class, GuardPortTestStubs.class, HandoverTimelineApiService.class})
+@Import({
+  GuardConfig.class,
+  GuardPortTestStubs.class,
+  HandoverTimelineApiService.class,
+  IncidentAssignmentView.class
+})
 @DisplayName("S8 handover timeline read API contract")
 class HandoverTimelineApiContractTest {
 
@@ -77,6 +86,7 @@ class HandoverTimelineApiContractTest {
   @MockitoBean private HandoverMemoQuery handoverMemoQuery;
   @MockitoBean private SearchHistorySummaryMapper searchHistorySummaryMapper;
   @MockitoBean private DutyShiftMapper dutyShiftMapper;
+  @MockitoBean private IncidentReadMapper incidentReadMapper;
 
   @Test
   @WithMockAccount(
@@ -129,6 +139,51 @@ class HandoverTimelineApiContractTest {
 
     verify(markerService).list(INCIDENT_ID, OP_ID, null, null);
     verify(handoverMemoQuery).byContext(INCIDENT_ID, OP_ID, null, null);
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.WEB,
+      accountId = "11111111-1111-1111-1111-111111110001")
+  @DisplayName("마커 행의 행위자는 작성 계정 이름으로 표시된다")
+  void marker_event_actor_shows_created_by_account_name() throws Exception {
+    when(searchPathService.findAll()).thenReturn(List.of());
+    when(markerService.list(INCIDENT_ID, OP_ID, null, null))
+        .thenReturn(
+            MarkersServiceResponse.builder()
+                .incidentId(INCIDENT_ID)
+                .markers(List.of(marker()))
+                .build());
+    when(handoverMemoQuery.byContext(INCIDENT_ID, OP_ID, null, null)).thenReturn(List.of());
+    when(searchHistorySummaryMapper.findByOp(OP_ID, INCIDENT_ID, "OP", OP_ID, null, null))
+        .thenReturn(List.of());
+    AssignmentRow author = new AssignmentRow();
+    author.setAccountId(ACCOUNT_ID.toString());
+    author.setAccountDisplayName("수완지구대 1팀 김현장");
+    when(incidentReadMapper.findAssignedAccountsByIncidentId(INCIDENT_ID))
+        .thenReturn(List.of(author));
+
+    var body =
+        mockMvc
+            .perform(
+                get("/api/operational-periods/{operationalPeriodId}/handover-timeline", OP_ID)
+                    .header("Authorization", "Bearer commander")
+                    .header("X-Client-Channel", "WEB")
+                    .queryParam("incidentId", INCIDENT_ID.toString())
+                    .queryParam("scopeType", "OP"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.events[0].type", is("MARKER")))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    // then: 마커 이벤트의 행위자 ID로 찾은 행위자 이름이 작성 계정 이름이다.
+    String markerActorId = JsonPath.read(body, "$.events[0].actorId");
+    List<String> names =
+        JsonPath.read(body, "$.actors[?(@.actorId == '" + markerActorId + "')].displayName");
+    assertThat(names).containsExactly("수완지구대 1팀 김현장");
   }
 
   @Test
@@ -231,7 +286,6 @@ class HandoverTimelineApiContractTest {
         .opId(OP_ID)
         .dutyShiftId(null)
         .accountId(ACCOUNT_ID)
-        .policePhoneId(POLICE_PHONE_ID)
         .type(MarkerType.CLUE)
         .supportRequestType(null)
         .source(MarkerSource.APP)

@@ -159,7 +159,6 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
             .operationalPeriodId(OP1_ID)
             .dutyShiftId(DUTY_SHIFT_ID)
             .createdByAccountId(PRECINCT_TEAM_ID)
-            .policePhoneId(ASSIGNED_POLICE_PHONE_ID)
             .markerType(MarkerType.CLUE)
             .location(MarkerGeometryFixtures.VALID_MARKER_POINT)
             .occurredAt(Instant.parse("2026-04-28T00:05:00Z"))
@@ -324,8 +323,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("같은 작성자가 다른 등록 업무폰으로 사진을 첨부하면, 요청한 업무폰을 수정 이벤트에 기록한다")
-  void attach_sameAuthorOnAnotherPhone_savesPhotoAndEventWithRequestPhone() {
+  @DisplayName("같은 작성자가 다른 업무폰으로 사진을 첨부하면, 사진이 첨부되고 수정 이벤트에는 업무폰 ID가 없다")
+  void attach_sameAuthorOnAnotherPhone_savesPhotoAndEventWithoutPolicePhoneId() {
     // given: 현재 계정은 마커 작성자이며 요청에 다른 등록 업무폰을 사용한다.
     PhotoUploadUrlServiceResponse response =
         photoService.createUploadUrl(
@@ -353,7 +352,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 .context(attachContext)
                 .build());
 
-    // then: 사진·부모 마커를 함께 변경하고 이번 요청의 업무폰을 이벤트에 기록한다.
+    // then: 사진과 부모 마커가 함께 바뀐다. 이벤트 payload에는 업무폰 ID가 없다.
     assertThat(attached.getStatus()).isEqualTo("ATTACHED");
     assertThat(attached.getPhotoId()).isEqualTo(photo.getId());
     assertThat(attached.getVersion()).isEqualTo(2L);
@@ -373,7 +372,8 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
                 SELECT event_id, event_type, incident_id, source_entity_type, source_entity_id,
                     payload_format_version, payload ->> 'id' AS payload_marker_id,
                     payload ->> 'incidentId' AS payload_incident_id,
-                    payload ->> 'opId' AS op_id, payload ->> 'policePhoneId' AS police_phone_id,
+                    payload ->> 'opId' AS op_id,
+                    jsonb_exists(payload, 'policePhoneId') AS has_police_phone_id,
                     payload ->> 'status' AS marker_status, payload ->> 'version' AS marker_version,
                     jsonb_typeof(payload -> 'version') AS marker_version_type,
                     payload -> 'photoDelta' ->> 'photoId' AS photo_id,
@@ -392,7 +392,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         .containsEntry("payload_marker_id", MARKER_ID.toString())
         .containsEntry("payload_incident_id", INCIDENT_ID.toString())
         .containsEntry("op_id", OP1_ID.toString())
-        .containsEntry("police_phone_id", OTHER_REGISTERED_POLICE_PHONE_ID.toString())
+        .containsEntry("has_police_phone_id", false)
         .containsEntry("marker_status", "UPDATED")
         .containsEntry("marker_version", "2")
         .containsEntry("marker_version_type", "number")

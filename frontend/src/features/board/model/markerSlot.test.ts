@@ -26,7 +26,6 @@ describe('markerSlot', () => {
             source: 'APP',
             memo: '헬기 촬영 확인 요청',
             occurredAt: '2026-05-01T09:48:00+09:00',
-            policePhoneId: '00000000-0000-0000-0000-000000000207',
             geometry: {
               type: 'Point',
               coordinates: [126.9416, 37.5274],

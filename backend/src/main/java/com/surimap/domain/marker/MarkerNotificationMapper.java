@@ -28,7 +28,6 @@ public interface MarkerNotificationMapper {
     private UUID markerId;
     private UUID incidentId;
     private UUID opId;
-    private UUID policePhoneId;
     private String notificationType;
     private String status;
     private long version;

@@ -78,7 +78,6 @@ DO $$ BEGIN
         WHERE m.incident_id IS DISTINCT FROM '{fixture['incidentId']}'::uuid
            OR m.operational_period_id IS DISTINCT FROM '{fixture['opId']}'::uuid
            OR m.created_by_account_id IS DISTINCT FROM '{fixture['accountId']}'::uuid
-           OR m.police_phone_id IS DISTINCT FROM '{fixture['policePhoneId']}'::uuid
            OR m.marker_source != 'APP' OR m.marker_type != 'SUPPORT_REQUEST'
            OR m.version != 1 OR m.status != 'ACTIVE'
     ) THEN RAISE EXCEPTION 'Marker ownership or contents changed'; END IF;

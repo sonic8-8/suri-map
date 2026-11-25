@@ -170,7 +170,6 @@ public class AppMarkerService {
             .memo(request.getMemo())
             .occurredAt(request.getClientTs())
             .createdByAccountId(authentication.accountId())
-            .policePhoneId(authentication.policePhoneId())
             .markerSource(MarkerSource.APP)
             .status(MarkerStatus.ACTIVE)
             .version(INITIAL_VERSION)
@@ -184,7 +183,6 @@ public class AppMarkerService {
             .id(markerId)
             .incidentId(request.getIncidentId())
             .opId(opId)
-            .policePhoneId(authentication.policePhoneId())
             .status(MarkerStatus.ACTIVE.name())
             .version(INITIAL_VERSION)
             .type(markerType.name())
@@ -198,7 +196,6 @@ public class AppMarkerService {
             .id(markerId)
             .incidentId(request.getIncidentId())
             .opId(opId)
-            .policePhoneId(authentication.policePhoneId())
             .status(marker.getStatus())
             .version(marker.getVersion())
             .photos(photos)
@@ -240,12 +237,7 @@ public class AppMarkerService {
 
     MarkerEventPayload eventPayload =
         createPublishPayload(
-            request.getAuthentication().policePhoneId(),
-            current,
-            MarkerStatus.UPDATED,
-            current.getVersion(),
-            current.getMarkerType(),
-            location);
+            current, MarkerStatus.UPDATED, current.getVersion(), current.getMarkerType(), location);
     markerEventPublisher.publish("MARKER_UPDATED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
@@ -267,13 +259,7 @@ public class AppMarkerService {
     requireSingleRowUpdated(updated);
 
     MarkerEventPayload eventPayload =
-        createPublishPayload(
-            request.getAuthentication().policePhoneId(),
-            current,
-            MarkerStatus.DELETED,
-            current.getVersion(),
-            null,
-            null);
+        createPublishPayload(current, MarkerStatus.DELETED, current.getVersion(), null, null);
     markerEventPublisher.publish("MARKER_DELETED", eventPayload);
 
     return MarkerMutationServiceResponse.from(current);
@@ -335,26 +321,16 @@ public class AppMarkerService {
   }
 
   private MarkerEventPayload createPublishPayload(
-      UUID requestingPolicePhoneId,
-      Marker marker,
-      MarkerStatus status,
-      long version,
-      String markerType,
-      GeoJsonPoint location) {
+      Marker marker, MarkerStatus status, long version, String markerType, GeoJsonPoint location) {
     return MarkerEventPayload.builder()
         .id(marker.getId())
         .incidentId(marker.getIncidentId())
         .opId(marker.getOperationalPeriodId())
-        .policePhoneId(resolveEventPolicePhoneId(marker, requestingPolicePhoneId))
         .status(status.name())
         .version(version)
         .type(markerType)
         .location(location)
         .serverTs(clock.instant())
         .build();
-  }
-
-  private UUID resolveEventPolicePhoneId(Marker marker, UUID requestingPolicePhoneId) {
-    return requestingPolicePhoneId == null ? marker.getPolicePhoneId() : requestingPolicePhoneId;
   }
 }

@@ -87,7 +87,7 @@ describe('searchAreaBoardMapper', () => {
     expect(tree.children?.[0]?.colorToken).toBe('AREA_ROSE_01');
   });
 
-  test('assigned account policePhoneId falls back to path and marker rows', () => {
+  test('assigned account policePhoneId falls back to path rows only', () => {
     const board = createBoard({
       area: [
         createAreaPayload({
@@ -106,7 +106,7 @@ describe('searchAreaBoardMapper', () => {
     const rows = toSearchAreaRows(board);
 
     expect(rows[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-path');
-    expect(rows[1]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-marker');
+    expect(rows[1]?.assignedAccounts[0]?.policePhoneId).toBeNull();
     expect(toAssignmentsByAreaId(board).get('team-001')?.[0]?.policePhoneId).toBe('phone-from-path');
   });
 });

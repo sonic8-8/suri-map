@@ -57,7 +57,6 @@ export type MarkerBoardRow = BoardSourceCursor & {
   readonly slot: 'marker';
   readonly sourceSpec: 'S5';
   readonly geometry: S5MarkerGeoJsonPoint;
-  readonly policePhoneId?: string | null;
   readonly type?: string;
   readonly memo?: string;
   readonly photoSummary?: unknown;

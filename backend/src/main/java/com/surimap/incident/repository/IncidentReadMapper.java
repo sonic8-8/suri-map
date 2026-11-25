@@ -42,6 +42,8 @@ public interface IncidentReadMapper {
 
   List<AssignmentRow> findActiveAssignmentsByIncidentId(@Param("incidentId") UUID incidentId);
 
+  List<AssignmentRow> findAssignedAccountsByIncidentId(@Param("incidentId") UUID incidentId);
+
   List<AssignmentTargetRow> findActiveAssignmentTargetsByIncidentId(
       @Param("incidentId") UUID incidentId);
 }

@@ -216,8 +216,6 @@ class IncidentHandoverSupportAssignmentScenarioTest extends PostGisIntegrationTe
         incidentAssignmentView.notificationTargets(INCIDENT_ID, "SUPPORT_ASSIGNMENT");
     assertThat(targets.accountIds())
         .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_RECIPIENT_ACCOUNT_IDS);
-    assertThat(targets.policePhoneIds())
-        .containsExactlyElementsOf(NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS);
 
     // then: 실제 배정 서비스가 호출한 FCM 기록을 확인한다. 테스트에서 send를 호출하지 않는다.
     MockFcmDispatcher.CapturedDispatch captured =

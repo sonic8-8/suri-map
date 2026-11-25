@@ -158,7 +158,6 @@ function createMarkerRow(): MarkerSlotProps['rows'][number] {
     sourceId: MARKER_ID,
     incidentId: INCIDENT_ID,
     opId: OP1_ID,
-    policePhoneId: null,
     type: 'CLUE',
     memo: '신고자 진술 위치',
     status: 'ACTIVE',

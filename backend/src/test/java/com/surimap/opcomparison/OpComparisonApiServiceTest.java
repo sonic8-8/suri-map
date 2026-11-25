@@ -278,7 +278,6 @@ class OpComparisonApiServiceTest {
         .opId(OP2_ID)
         .dutyShiftId(null)
         .accountId(ACCOUNT_ID)
-        .policePhoneId(null)
         .type(MarkerType.NOTE)
         .supportRequestType(null)
         .source(MarkerSource.APP)

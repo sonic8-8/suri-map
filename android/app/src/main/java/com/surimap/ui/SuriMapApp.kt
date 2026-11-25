@@ -3830,6 +3830,7 @@ private fun IncidentContext?.toMarkerDetailSessionContext(
         incidentId = this?.incidentId,
         opId = this?.currentOpId,
         policePhoneId = policePhoneContext?.policePhoneId,
+        accountId = policePhoneContext?.accountId,
         markerId = markerId
     )
 

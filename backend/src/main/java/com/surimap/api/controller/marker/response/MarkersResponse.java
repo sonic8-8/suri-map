@@ -39,7 +39,6 @@ public class MarkersResponse {
     private UUID incidentId;
     private UUID opId;
     private UUID accountId;
-    private UUID policePhoneId;
     private String type;
     private String supportRequestType;
     private String source;
@@ -56,7 +55,6 @@ public class MarkersResponse {
         UUID incidentId,
         UUID opId,
         UUID accountId,
-        UUID policePhoneId,
         String type,
         String supportRequestType,
         String source,
@@ -70,7 +68,6 @@ public class MarkersResponse {
       this.incidentId = incidentId;
       this.opId = opId;
       this.accountId = accountId;
-      this.policePhoneId = policePhoneId;
       this.type = type;
       this.supportRequestType = supportRequestType;
       this.source = source;
@@ -88,7 +85,6 @@ public class MarkersResponse {
           .incidentId(marker.getIncidentId())
           .opId(marker.getOpId())
           .accountId(marker.getAccountId())
-          .policePhoneId(marker.getPolicePhoneId())
           .type(marker.getType().name())
           .supportRequestType(
               marker.getSupportRequestType() == null ? null : marker.getSupportRequestType().name())

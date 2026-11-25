@@ -428,7 +428,7 @@ BEGIN;
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM marker
         WHERE created_by_account_id::text LIKE 'a1000000-0000-4000-8000-%'
-           OR police_phone_id::text LIKE 'b1000000-0000-4000-8000-%')
+           OR duty_shift_id::text LIKE 'd1000000-0000-4000-8000-%')
     THEN RAISE EXCEPTION 'Remove owned board-test markers before resetting GPS fixtures';
     END IF;
 END $$;
