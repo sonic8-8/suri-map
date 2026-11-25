@@ -12,10 +12,7 @@ import { connectBoardMapObserver, measureBoardMapUpdate } from '../../../../boar
 import {
   addGeoJsonSource,
   canCorrectReferenceMarker,
-  createManualSearchPathPoints,
   createReferenceMarkerCorrectionRequest,
-  interpolateManualRouteCoordinates,
-  resolveSearchAreaPolicePhoneId,
   SearchMapCanvas,
   syncOperationalGeoJsonSourceDataWhenAvailable,
 } from './SearchMapCanvas';
@@ -587,111 +584,6 @@ describe('reference marker correction', () => {
   });
 });
 
-describe('manual search path draft', () => {
-  test('uses assigned PolicePhone ID from the selected area or its children', () => {
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A', policePhoneId: 'phone-direct' }],
-        }),
-      ),
-    ).toBe('phone-direct');
-
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          assignedAccounts: [],
-          children: [
-            searchAreaNode({
-              id: 'child-1',
-              assignedAccounts: [{ accountId: 'account-2', displayName: 'Team B', policePhoneId: 'phone-child' }],
-            }),
-          ],
-        }),
-      ),
-    ).toBe('phone-child');
-
-    expect(resolveSearchAreaPolicePhoneId(searchAreaNode({ assignedAccounts: [] }))).toBeNull();
-  });
-
-  test('does not infer PolicePhone ID from a child search area in another OP', () => {
-    expect(
-      resolveSearchAreaPolicePhoneId(
-        searchAreaNode({
-          opId: 'op-current',
-          assignedAccounts: [],
-          children: [
-            searchAreaNode({
-              id: 'child-previous',
-              opId: 'op-previous',
-              assignedAccounts: [{ accountId: 'account-1', displayName: 'Team A', policePhoneId: 'phone-previous' }],
-            }),
-          ],
-        }),
-        'op-current',
-      ),
-    ).toBeNull();
-  });
-
-  test('creates point timestamps at the Android GPS sample interval', () => {
-    const points = createManualSearchPathPoints(
-      [
-        [126.9000004, 35.1000004],
-        [126.9100004, 35.1100004],
-        [126.9200004, 35.1200004],
-      ],
-      new Date('2026-05-11T06:00:00Z'),
-    );
-
-    expect(points).toMatchObject([
-      {
-        lon: 126.9,
-        lat: 35.1,
-        clientTs: '2026-05-11T06:00:00.000Z',
-        speedMps: 0,
-        horizontalAccuracyM: 5,
-      },
-      {
-        lon: 126.91,
-        lat: 35.11,
-        clientTs: '2026-05-11T06:00:05.000Z',
-        horizontalAccuracyM: 5,
-      },
-      {
-        lon: 126.92,
-        lat: 35.12,
-        clientTs: '2026-05-11T06:00:10.000Z',
-        horizontalAccuracyM: 5,
-      },
-    ]);
-    expect(points.every((point) => countDecimalPlaces(point.lon) <= 6 && countDecimalPlaces(point.lat) <= 6)).toBe(
-      true,
-    );
-    expect(points.slice(1).every((point) => typeof point.speedMps === 'number' && point.speedMps >= 0)).toBe(true);
-    expect(points.every((point) => point.pointId.length > 0)).toBe(true);
-  });
-
-  test('interpolates long anchor segments and preserves anchor order', () => {
-    const anchors: Array<[number, number]> = [
-      [126.9, 35.1],
-      [126.901, 35.1],
-      [126.901, 35.101],
-    ];
-
-    const coordinates = interpolateManualRouteCoordinates(anchors);
-    const points = createManualSearchPathPoints(coordinates, new Date('2026-05-11T06:00:00Z'));
-
-    expect(coordinates.length).toBeGreaterThan(anchors.length);
-    expect(coordinates.length).toBeLessThanOrEqual(120);
-    expect(coordinates[0]).toEqual(anchors[0]);
-    expect(coordinates).toContainEqual(anchors[1]);
-    expect(coordinates.at(-1)).toEqual(anchors[2]);
-    expect(points.at(-1)?.clientTs).toBe(
-      new Date(Date.parse('2026-05-11T06:00:00Z') + (coordinates.length - 1) * 5_000).toISOString(),
-    );
-  });
-});
-
 function createMap(overrides: {
   source?: { setData: ReturnType<typeof vi.fn> } | null;
   getSource?: (sourceId: string) => unknown;
@@ -724,9 +616,4 @@ function emptyFeatureCollection(): BoardMapFeatureCollection {
     type: 'FeatureCollection',
     features: [],
   };
-}
-
-function countDecimalPlaces(value: number) {
-  const decimalPart = value.toString().split('.')[1];
-  return decimalPart?.length ?? 0;
 }

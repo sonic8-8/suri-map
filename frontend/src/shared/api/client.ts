@@ -18,8 +18,6 @@ export interface ApiRequestOptions<TBody = unknown> {
   signal?: AbortSignal;
   accessToken?: string | null;
   idempotencyKey?: string;
-  clientChannel?: 'APP' | 'WEB' | 'INTERNAL';
-  policePhoneId?: string;
 }
 
 export interface ApiClientOptions {
@@ -171,13 +169,10 @@ function buildRequestHeaders<TBody>(
 ): Headers {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
-  headers.set('X-Client-Channel', options.clientChannel ?? 'WEB');
+  headers.set('X-Client-Channel', 'WEB');
 
   if (options.idempotencyKey) {
     headers.set('Idempotency-Key', options.idempotencyKey);
-  }
-  if (options.policePhoneId) {
-    headers.set('X-PolicePhone-Id', options.policePhoneId);
   }
 
   const token = options.accessToken ?? getAccessToken?.();

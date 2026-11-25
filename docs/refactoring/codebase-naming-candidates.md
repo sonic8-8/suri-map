@@ -324,7 +324,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [errorCode()](../../frontend/src/shared/api/client.ts) | `resolveApiErrorCode` — 응답 본문 또는 HTTP 상태로 오류 코드 결정 |
 | [incidentBoardQueryKeyParams() / emptyCursor()](../../frontend/src/features/board/api/incidentBoardApi.ts) | `buildIncidentBoardQueryKeyParams` / `createEmptyBoardSourceCursor` |
 | [geometryUtils.ts](../../frontend/src/features/areaEdit/presentation/utils/geometryUtils.ts)·[AreaEditMapCanvas.tsx](../../frontend/src/features/areaEdit/presentation/components/AreaEditMapCanvas.tsx)의 signedArea() / isBetween() | 각각 삼각형 부호 면적의 2배 계산·좌표 범위 검사에 맞춰 명명 |
-| [searchPathApi.ts의 `createManualPath`](../../frontend/src/features/path/api/searchPathApi.ts) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 꺼져 있는 개발용 경로 편집기에서만 호출된다. 이 함수로 WEB 채널에서 앱 전용 쓰기가 호출되는데, 이름에는 이 사실이 드러나지 않는다. 남길지부터 정한다. |
+| searchPathApi.ts의 `createManualPath` | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 조사 때는 꺼져 있는 개발용 경로 편집기에서만 호출된다고 적었다. 실제로는 구역 팝업에서 편집기를 열 수 있었다. 이 함수로 WEB 채널에서 앱 전용 쓰기가 호출됐지만, 이름에는 이 사실이 드러나지 않았다. 2026-11-25 #60에서 지웠다. 개발용 경로 편집기와, 편집기에서만 호출되던 마커 생성 mutation도 함께 지웠다. |
 
 ## Android
 
