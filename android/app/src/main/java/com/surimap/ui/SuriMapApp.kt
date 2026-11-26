@@ -82,7 +82,6 @@ import com.surimap.core.database.OfflinePackageItemStatusEntity
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
-import com.surimap.core.fcm.FcmTokenProvider
 import com.surimap.core.fcm.FirebaseMessagingTokenProvider
 import com.surimap.core.fcm.IncidentAssignmentRefreshSignal
 import com.surimap.core.fcm.IncidentClosedFcmPayload
@@ -594,6 +593,14 @@ fun SuriMapApp() {
                 ?.let(incidentSessionState::activatePolicePhoneContext)
         },
         onSessionExpired = {
+            incidentSessionState.policePhoneContext?.let { expiredContext ->
+                startFcmLogoutCleanup(
+                    application = application,
+                    apiBaseUrl = expiredContext.apiBaseUrl,
+                    policePhoneId = expiredContext.policePhoneId,
+                    accessToken = expiredContext.accessToken
+                )
+            }
             oidcSessionStateStore.clear()
             oidcAuthStateJson = null
             incidentSessionState.clearOidcSession()
@@ -1272,40 +1279,62 @@ private fun NotificationPermissionEffect() {
 @Composable
 private fun FcmRegistrationEffect(policePhoneContext: PolicePhoneContext?) {
     val context = LocalContext.current.applicationContext
-    val stateStore = remember(context) {
-        SharedPreferencesFcmRegistrationStateStore(context)
-    }
-    val tokenProvider: FcmTokenProvider = remember {
-        if (BuildConfig.SURI_MAP_FIREBASE_MESSAGING_ENABLED) {
-            FirebaseMessagingTokenProvider()
-        } else {
-            NoFcmTokenProvider
-        }
-    }
 
     LaunchedEffect(
         policePhoneContext?.policePhoneId,
         policePhoneContext?.apiBaseUrl,
         policePhoneContext?.accessToken,
-        stateStore,
-        tokenProvider
+        context
     ) {
         val readyContext = policePhoneContext ?: return@LaunchedEffect
         if (readyContext.accessToken.isNullOrBlank()) {
             return@LaunchedEffect
         }
-        val authClient =
-            AuthPhoneApiClient(
-                apiClient = SuriMapApiClient(baseUrl = readyContext.apiBaseUrl),
-                accessTokenProvider = readyContext.accessTokenProvider()
-            )
-        FcmRegistrationCoordinator(
-            firebaseMessagingEnabled = BuildConfig.SURI_MAP_FIREBASE_MESSAGING_ENABLED,
-            tokenProvider = tokenProvider,
-            stateStore = stateStore,
-            registerToken = authClient::registerFcmToken
-        ).registerCurrentToken(readyContext.policePhoneId)
+        val accountId = readyContext.accountId ?: return@LaunchedEffect
+        fcmRegistrationCoordinator(
+            context = context,
+            apiBaseUrl = readyContext.apiBaseUrl,
+            accessTokenProvider = readyContext.accessTokenProvider()
+        ).registerCurrentToken(accountId, readyContext.policePhoneId)
     }
+}
+
+private fun fcmRegistrationCoordinator(
+    context: Context,
+    apiBaseUrl: String,
+    accessTokenProvider: AccessTokenProvider
+): FcmRegistrationCoordinator {
+    val authClient =
+        AuthPhoneApiClient(
+            apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+            accessTokenProvider = accessTokenProvider
+        )
+    return FcmRegistrationCoordinator(
+        firebaseMessagingEnabled = BuildConfig.SURI_MAP_FIREBASE_MESSAGING_ENABLED,
+        tokenProvider =
+            if (BuildConfig.SURI_MAP_FIREBASE_MESSAGING_ENABLED) {
+                FirebaseMessagingTokenProvider()
+            } else {
+                NoFcmTokenProvider
+            },
+        stateStore = SharedPreferencesFcmRegistrationStateStore(context),
+        registerToken = authClient::registerFcmToken,
+        revokeToken = authClient::revokeFcmToken
+    )
+}
+
+// 다른 계정으로 로그인할 때와 세션이 만료됐을 때 같은 FCM 정리를 실행한다. 지금은 두 경우 모두 세션이 만료된 뒤라 서버 해제는 보통 401로 거절된다.
+private fun startFcmLogoutCleanup(
+    application: SuriMapApplication,
+    apiBaseUrl: String,
+    policePhoneId: String,
+    accessToken: String?
+) {
+    fcmRegistrationCoordinator(
+        context = application,
+        apiBaseUrl = apiBaseUrl,
+        accessTokenProvider = { accessToken }
+    ).startLogoutCleanup(application.fcmLogoutScope, policePhoneId)
 }
 
 @Composable
@@ -3215,6 +3244,14 @@ private fun AuthBootstrapRoute(
             val sessionDecision =
                 restoredSession?.let { decideBootstrapOidcSession(it, refreshResult) }
             val sessionForBootstrap = sessionDecision?.session
+            if (sessionDecision?.endsRestoredSession == true) {
+                startFcmLogoutCleanup(
+                    application = appContext as SuriMapApplication,
+                    apiBaseUrl = config.apiBaseUrl,
+                    policePhoneId = config.policePhoneId.orEmpty(),
+                    accessToken = restoredSession?.accessToken
+                )
+            }
             if (sessionDecision?.replaceStoredSession == true) {
                 oidcSession = sessionForBootstrap
                 onOidcSessionChanged(sessionForBootstrap)
@@ -3272,6 +3309,15 @@ private fun AuthBootstrapRoute(
         },
         onSwitchAccount = {
             val previousIdToken = oidcSession?.idToken
+            val previousAccessToken = oidcSession?.accessToken
+            val config = managedConfigurationReader.read()
+            // 연결 해제 결과를 기다리지 않고 로그아웃을 이어 간다. 요청이 실패해도 로그아웃은 끝난다.
+            startFcmLogoutCleanup(
+                application = appContext as SuriMapApplication,
+                apiBaseUrl = config.apiBaseUrl,
+                policePhoneId = config.policePhoneId.orEmpty(),
+                accessToken = previousAccessToken
+            )
             oidcSession = null
             incidentSessionState.clearPolicePhoneContext()
             onOidcSessionChanged(null)

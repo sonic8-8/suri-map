@@ -2,6 +2,7 @@ package com.surimap.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -134,6 +135,21 @@ class AuthPhoneApiIntegrationTest {
                       "token": "fcm-token-web"
                     }
                     """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("channel_not_allowed"));
+  }
+
+  @Test
+  @DisplayName("WEB 세션으로는 APP FCM 토큰 연결 해제를 요청할 수 없다")
+  void web_oidc_session_revoke_app_fcm_token_is_rejected() throws Exception {
+    String accessToken = webAccessToken();
+
+    mockMvc
+        .perform(
+            delete("/api/fcm/tokens")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "WEB")
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error").value("channel_not_allowed"));
   }

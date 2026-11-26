@@ -35,6 +35,9 @@ class SuriMapApplication : Application() {
     private val accountHeartbeatScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val accountHeartbeatHttpClient by lazy { OkHttpClient() }
 
+    // 로그아웃한 화면이 사라져도 FCM 정리가 끝나도록 앱 프로세스 범위에서 실행한다.
+    val fcmLogoutScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     val accountHeartbeatScheduler by lazy {
         AccountHeartbeatScheduler(
             scope = accountHeartbeatScope,
@@ -104,6 +107,7 @@ class SuriMapApplication : Application() {
     override fun onTerminate() {
         searchPathLocationScope.cancel()
         accountHeartbeatScope.cancel()
+        fcmLogoutScope.cancel()
         super.onTerminate()
     }
 }

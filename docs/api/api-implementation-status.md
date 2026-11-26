@@ -29,6 +29,7 @@ API 문서와 이 표는 Spring REST Docs 전환 전까지 임시 보존한다. 
 |---|---|---|
 | Keycloak/OIDC login/logout | S1-2 | 구현 |
 | `POST /api/fcm/tokens` | S1-2 | 구현 |
+| `DELETE /api/fcm/tokens` | #59에서 2026-11-26 추가 | 구현 |
 | `POST /api/sync/heartbeat` | S1-2 | 구현 |
 | `POST /api/incidents/import` | S1-1 | 구현 |
 | `POST /api/internal/mock-112/events` | S1-1 | 구현 |

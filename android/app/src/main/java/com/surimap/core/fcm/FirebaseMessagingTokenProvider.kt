@@ -29,4 +29,19 @@ class FirebaseMessagingTokenProvider : FcmTokenProvider {
             null
         }
     }
+
+    // 토큰을 지우지 못해도 로그아웃은 끝나야 하므로 실패는 무시한다.
+    override suspend fun deleteToken() {
+        try {
+            suspendCancellableCoroutine { continuation ->
+                FirebaseMessaging.getInstance().deleteToken()
+                    .addOnCompleteListener {
+                        if (continuation.isActive) {
+                            continuation.resume(Unit)
+                        }
+                    }
+            }
+        } catch (_: IllegalStateException) {
+        }
+    }
 }

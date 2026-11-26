@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -39,6 +40,18 @@ public class FcmTokenController {
         FcmTokenResponse.from(
             policePhonePersistenceService.registerFcmToken(
                 policePhoneId, auth.getAccountId(), request.getAppInstanceId(), request.getToken())));
+  }
+
+  // 요청한 계정이 이 업무폰에 등록한 토큰만 해제된다. 같은 업무폰에 남은 다른 계정의 토큰은 그대로 남는다.
+  @DeleteMapping("/api/fcm/tokens")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  public ResponseEntity<Void> revoke(
+      @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader) {
+    SuriMapAuthentication auth = currentAuthentication();
+    UUID policePhoneId = validatePolicePhoneBinding(policePhoneIdHeader, auth);
+    policePhonePersistenceService.revokeActiveTokensForLogout(policePhoneId, auth.getAccountId());
+    return ResponseEntity.noContent().build();
   }
 
   private SuriMapAuthentication currentAuthentication() {

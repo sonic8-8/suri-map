@@ -227,6 +227,35 @@ class AuthBootstrapContractTest {
     }
 
     @Test
+    fun onlyRejectedOidcRefreshEndsRestoredSessionForFcmLogoutCleanup() {
+        val restoredSession =
+            OidcLoginSession(
+                accessToken = "stored-access-token",
+                idToken = "stored-id-token",
+                accessTokenExpiresAtEpochMs = 0L,
+                authStateJson = "stored-auth-state"
+            )
+        val refreshedSession = restoredSession.copy(accessToken = "refreshed-access-token")
+
+        assertFalse(
+            decideBootstrapOidcSession(restoredSession, OidcSessionRefreshResult.Unavailable)
+                .endsRestoredSession
+        )
+        assertFalse(
+            decideBootstrapOidcSession(
+                restoredSession,
+                OidcSessionRefreshResult.Refreshed(refreshedSession)
+            ).endsRestoredSession
+        )
+        assertTrue(
+            decideBootstrapOidcSession(
+                restoredSession,
+                OidcSessionRefreshResult.AuthenticationRequired
+            ).endsRestoredSession
+        )
+    }
+
+    @Test
     fun managedPolicePhoneConfigCarriesFutureTileAndStorageSettingsWithoutVendorCoupling() {
         val config =
             ManagedPolicePhoneConfig(

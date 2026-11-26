@@ -2,6 +2,7 @@ package com.surimap.policephone;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -280,6 +281,7 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
         Arguments.of("인수인계 메모", handoverMemoCreate()),
         Arguments.of("수색 구역 경계 알림", boundaryAlertCreate()),
         Arguments.of("FCM 토큰", fcmTokenRegister()),
+        Arguments.of("FCM 토큰 연결 해제", fcmTokenRevoke()),
         Arguments.of("시각 동기화", syncClock()),
         Arguments.of("미전송 기록 재전송", outboxRequeue()));
   }
@@ -407,6 +409,10 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
         """
         { "appInstanceId": "app-instance-5101", "token": "fcm-token-5101" }
         """);
+  }
+
+  private static MockHttpServletRequestBuilder fcmTokenRevoke() {
+    return delete("/api/fcm/tokens");
   }
 
   private static MockHttpServletRequestBuilder syncClock() {

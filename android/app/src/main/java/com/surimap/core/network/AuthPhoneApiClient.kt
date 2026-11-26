@@ -34,6 +34,17 @@ class AuthPhoneApiClient(
         )
     }
 
+    suspend fun revokeFcmToken(policePhoneId: String): SuriMapApiResponse {
+        return apiClient.execute(
+            SuriMapApiRequest(
+                method = "DELETE",
+                path = "/api/fcm/tokens",
+                accessToken = accessTokenProvider.accessToken(),
+                policePhoneId = policePhoneId
+            )
+        )
+    }
+
     suspend fun heartbeat(request: PolicePhoneHeartbeatNetworkRequest): SuriMapApiResponse {
         return apiClient.execute(
             SuriMapApiRequest(

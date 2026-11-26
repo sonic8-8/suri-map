@@ -114,6 +114,17 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 {id, status, version}`
 - Errors: `police_phone_required`, `channel_not_allowed`
 
+#### DELETE `/api/fcm/tokens`
+
+- Consumer: APP
+- Headers: `Authorization`, `X-Client-Channel`, `X-PolicePhone-Id`
+- Guard: `app-police-phone`
+- Idempotency-Key: no
+- Request: 본문 없음
+- Response: `204`
+- Errors: `police_phone_required`, `channel_not_allowed`
+- Note: 앱에서는 "다른 계정으로 로그인"을 누를 때와 세션이 만료됐을 때 요청한다. 계정은 access token에서, 업무폰 ID는 `X-PolicePhone-Id`에서 읽는다. 요청한 계정이 그 업무폰에 등록한 ACTIVE 토큰만 `REVOKED`로 바뀐다. 같은 업무폰에 다른 계정이 등록한 토큰은 그대로 남는다. 해제할 토큰이 없어도 응답은 `204`다. 같은 계정이 해제를 다시 보내도 응답은 `204`다. 이때 토큰의 상태와 해제 시각은 바뀌지 않는다. 그래서 등록 API처럼 `Idempotency-Key`는 필요하지 않다. 요청한 계정의 토큰만 해제되는 것, 다른 계정의 토큰이 남는 것, 해제할 토큰이 없거나 다시 보냈을 때의 `204`와 위의 두 오류는 Backend API 테스트로 확인했다(2026-11-26 #59). 앱에서 요청하는 시점은 코드와 빌드로만 확인했다.
+
 #### POST `/api/sync/heartbeat`
 
 - Consumer: APP

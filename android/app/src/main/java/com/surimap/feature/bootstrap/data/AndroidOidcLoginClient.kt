@@ -35,7 +35,11 @@ sealed interface OidcSessionRefreshResult {
 data class OidcBootstrapSessionDecision(
     val session: OidcLoginSession?,
     val replaceStoredSession: Boolean
-)
+) {
+    // 저장해 둔 세션이 만료돼 지워지는 경우다. 이때 다른 계정으로 로그인할 때와 같은 FCM 정리를 실행한다.
+    val endsRestoredSession: Boolean
+        get() = replaceStoredSession && session == null
+}
 
 internal fun decideBootstrapOidcSession(
     restoredSession: OidcLoginSession,
