@@ -27,7 +27,6 @@ import com.surimap.app.service.marker.response.MarkerCreateServiceResponse;
 import com.surimap.app.service.marker.response.MarkerMutationServiceResponse;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
 import com.surimap.global.auth.MarkerAuthenticationResolver;
 import com.surimap.global.auth.SuriMapAuthentication;
@@ -77,7 +76,6 @@ class AppMarkerControllerTest {
   @MockitoBean private AppMarkerService appMarkerService;
   @MockitoBean private MarkerService markerService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
-  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
 
   @BeforeEach
   void setUp() {

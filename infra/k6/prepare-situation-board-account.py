@@ -39,14 +39,13 @@ def query_database(sql):
 
 def inspect_notification_targets():
     # Match IncidentAssignmentView + IncidentReadMapper, including COMMAND accounts
-    # with MEMBER assignments. Do not filter on account status or phone.registered:
-    # the production recipient query does not filter on either field.
+    # with MEMBER assignments. Do not filter on account status: the production
+    # recipient query does not filter on it. Notifications go to ACTIVE FCM tokens.
     return json.loads(query_database(f"""
 WITH recipients AS (
-    SELECT DISTINCT a.id AS account_id, pp.id AS phone_id
+    SELECT DISTINCT a.id AS account_id
     FROM incident_assignment ia
     LEFT JOIN account a ON a.id = ia.account_id
-    LEFT JOIN police_phone pp ON pp.account_id = ia.account_id AND pp.status = 'ACTIVE'
     WHERE ia.incident_id = '{path_fixtures.INCIDENT_ID}'::uuid
       AND ia.revoked_at IS NULL
       AND (a.account_type = 'COMMAND' OR ia.incident_role = 'FIELD_COMMANDER')
@@ -58,9 +57,10 @@ SELECT json_build_object(
         WHERE id = '{path_fixtures.OPERATIONAL_PERIOD_ID}'::uuid
           AND incident_id = '{path_fixtures.INCIDENT_ID}'::uuid AND status = 'ACTIVE'),
     'recipientAccounts', (SELECT count(DISTINCT account_id) FROM recipients),
-    'recipientPhones', (SELECT count(DISTINCT phone_id) FROM recipients),
+    'recipientPhones', (SELECT count(DISTINCT police_phone_id) FROM fcm_token
+        WHERE status = 'ACTIVE' AND account_id IN (SELECT account_id FROM recipients)),
     'activeFcmTokens', (SELECT count(*) FROM fcm_token
-        WHERE status = 'ACTIVE' AND police_phone_id IN (SELECT phone_id FROM recipients))
+        WHERE status = 'ACTIVE' AND account_id IN (SELECT account_id FROM recipients))
 );
 """))
 
@@ -157,7 +157,7 @@ DO $$ BEGIN
              OR incident_id != '{path_fixtures.INCIDENT_ID}'::uuid))
     OR EXISTS (SELECT 1 FROM incident_assignment
         WHERE account_id = '{account_id}'::uuid AND id != '{assignment_id}'::uuid)
-    OR EXISTS (SELECT 1 FROM police_phone WHERE account_id = '{account_id}'::uuid)
+    OR EXISTS (SELECT 1 FROM fcm_token WHERE account_id = '{account_id}'::uuid)
     OR EXISTS (SELECT 1 FROM marker WHERE created_by_account_id = '{account_id}'::uuid)
     THEN RAISE EXCEPTION 'Account ownership/use changed; refusing cleanup'; END IF;
 END $$;

@@ -271,7 +271,7 @@ public final class IncidentReadRows {
     }
   }
 
-  /** 알림 대상 계산을 위한 active assignment + account + police_phone row. */
+  /** 알림 대상 계산을 위한 active assignment + account row. */
   public static class AssignmentTargetRow {
     private String accountId;
     private String incidentRole;

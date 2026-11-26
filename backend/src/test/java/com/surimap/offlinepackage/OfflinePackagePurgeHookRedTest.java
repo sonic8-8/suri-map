@@ -215,7 +215,7 @@ class OfflinePackagePurgeHookRedTest {
   private void assertManifestReadBlockedOrSanitized() {
     try {
       OfflinePackageManifestResponse manifest =
-          offlinePackageService.manifest(INCIDENT_ID.toString(), "dev-purge-phone-01");
+          offlinePackageService.manifest(INCIDENT_ID.toString(), "dev-purge-phone-01", null);
       assertThat(manifest.missingPerson()).isNull();
       assertThat(manifest.packageItems())
           .noneSatisfy(

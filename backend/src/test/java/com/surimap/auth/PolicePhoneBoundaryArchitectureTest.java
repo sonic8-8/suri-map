@@ -2,14 +2,9 @@ package com.surimap.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.api.service.path.SearchPathService;
-import com.surimap.app.service.path.AppSearchPathService;
 import com.surimap.app.service.photo.PhotoService;
-import com.surimap.app.service.searcharea.AppSearchAreaBoundaryAlertService;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.domain.marker.MarkerAccessMapper;
 import com.surimap.domain.marker.MarkerWriteAccessValidator;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,21 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PolicePhoneBoundaryArchitectureTest {
-
-  @Test
-  @DisplayName("SearchPathService는 업무폰 등록 여부를 직접 검증하지 않는다")
-  void searchPathServiceDoesNotDependOnPolicePhoneValidationPort() {
-    assertThat(Arrays.stream(SearchPathService.class.getDeclaredFields()).map(Field::getType))
-        .doesNotContain(PolicePhoneValidationPort.class);
-    assertThat(
-            Arrays.stream(AppSearchPathService.class.getDeclaredFields())
-                .map(field -> field.getType().getSimpleName()))
-        .doesNotContain("PolicePhoneGuard");
-    assertThat(
-            Arrays.stream(AppSearchAreaBoundaryAlertService.class.getDeclaredFields())
-                .map(Field::getType))
-        .doesNotContain(PolicePhoneValidationPort.class);
-  }
 
   @Test
   @DisplayName("마커 권한 검사와 사진 서비스는 업무폰 등록 조회 메서드를 갖지 않는다")

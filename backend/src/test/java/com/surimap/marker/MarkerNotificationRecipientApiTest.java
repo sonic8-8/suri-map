@@ -61,7 +61,7 @@ class MarkerNotificationRecipientApiTest extends PostGisIntegrationTestSupport {
         TRUNCATE TABLE
           event_dispatch_job, idempotency_record, fcm_token, marker_notification, photo, marker,
           duty_shift, search_area_assignment, search_area, operational_period,
-          incident_assignment, police_phone, account, incident
+          incident_assignment, account, incident
         CASCADE
         """);
     fcmDispatcher.reset();
@@ -126,19 +126,6 @@ class MarkerNotificationRecipientApiTest extends PostGisIntegrationTestSupport {
         INCIDENT_ID,
         AUTHOR_ID,
         base,
-        base,
-        base);
-    // 업무폰 P가 A에 연결돼 있어도 수신 업무폰은 이 연결로 정하지 않는다.
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-          id, phone_code, display_name, account_id, status, registered,
-          created_at, updated_at, version
-        )
-        VALUES (?, 'phone-5701-p', '업무폰 P', ?, 'ACTIVE', TRUE, ?, ?, 1)
-        """,
-        POLICE_PHONE_P_ID,
-        ACCOUNT_A_ID,
         base,
         base);
     jdbcTemplate.update(

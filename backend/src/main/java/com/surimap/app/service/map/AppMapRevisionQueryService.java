@@ -27,7 +27,7 @@ public class AppMapRevisionQueryService {
   }
 
   @Transactional(readOnly = true)
-  public AppMapRevisionResponse revisions(UUID incidentId, UUID opId, UUID policePhoneId) {
+  public AppMapRevisionResponse revisions(UUID incidentId, UUID opId, UUID accountId) {
     return new AppMapRevisionResponse(
         incidentId,
         opId,
@@ -37,7 +37,7 @@ public class AppMapRevisionQueryService {
             source(SOURCE_OP_SEARCH_AREAS, () -> opScoped(opId, () -> mapper.opSearchAreasRevision(incidentId, opId))),
             source(SOURCE_SEARCH_PATHS, () -> opScoped(opId, () -> mapper.searchPathsRevision(incidentId, opId))),
             source(SOURCE_LIVE_MARKERS, () -> opScoped(opId, () -> mapper.liveMarkersRevision(incidentId, opId))),
-            source(SOURCE_INITIAL_MARKERS, () -> mapper.initialMarkersRevision(incidentId, opId, policePhoneId))));
+            source(SOURCE_INITIAL_MARKERS, () -> mapper.initialMarkersRevision(incidentId, opId, accountId))));
   }
 
   private SourceRevision source(String source, Supplier<String> revision) {

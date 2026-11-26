@@ -56,7 +56,6 @@ class SearchPathSegmentCorrectionApiTest extends PostGisIntegrationTestSupport {
           duty_shift,
           operational_period,
           incident_assignment,
-          police_phone,
           account,
           incident
         CASCADE
@@ -329,10 +328,9 @@ class SearchPathSegmentCorrectionApiTest extends PostGisIntegrationTestSupport {
         Timestamp.from(BASE_TS));
   }
 
-  // 테스트 준비에서 이 도우미로 사건 배정, 업무폰, 근무, 수색 경로, 자동 분류된 경로 구간을 계정마다 한 개씩 넣는다.
+  // 테스트 준비에서 이 도우미로 사건 배정, 근무, 수색 경로, 자동 분류된 경로 구간을 계정마다 한 개씩 넣는다.
   private void insertAssignedSegment(UUID incidentId, UUID opId, String accountId, String suffix) {
     String assignmentId = "61000000-0000-0000-0000-00000000" + suffix;
-    String policePhoneId = "50000000-0000-0000-0000-00000000" + suffix;
     String dutyShiftId = "60000000-0000-0000-0000-00000000" + suffix;
     String pathId = "81000000-0000-0000-0000-00000000" + suffix;
     String segmentId = "71000000-0000-0000-0000-00000000" + suffix;
@@ -347,19 +345,6 @@ class SearchPathSegmentCorrectionApiTest extends PostGisIntegrationTestSupport {
         incidentId.toString(),
         accountId,
         Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS));
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-          id, phone_code, display_name, account_id, status, registered,
-          created_at, updated_at, version
-        )
-        VALUES (?::uuid, ?, 'Segment correction phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1)
-        """,
-        policePhoneId,
-        "phone-" + suffix,
-        accountId,
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
     jdbcTemplate.update(

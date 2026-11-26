@@ -27,10 +27,12 @@
 ## 권한 검사와 실패 순서
 
 - 앱의 현장 기록과 웹의 구역·차수 지휘를 구분하되, 마커 수정·삭제와 인수인계 메모는 양쪽 채널의 세부 권한을 확인한다. 내부 원천 반영은 일반 앱·웹의 권한과 분리한다. 옛 경계표의 웹 지원 배정 허용은 같은 문서의 mock 112 반영 전용 설명과 충돌하므로 새 API의 근거로 삼지 않는다.
-- 표시용 `displayName`은 권한 근거가 아니다. 기관 계정의 신원·소속, 사건별 배정·역할, 등록 업무폰을 구분한다. 옛 경계 문서는 업무폰을 요청 헤더에 바인딩한다고 설명하지만 S1-2는 서명된 단말 값과의 일치를 요구했다. 신뢰 근거가 다른 두 설명을 같은 인증 정책으로 취급하지 않는다.
+- 표시용 `displayName`은 권한 근거가 아니다. 기존 요구에서는 기관 계정의 신원과 소속, 사건별 배정과 역할, 등록 업무폰을 구분했다. 2026-11-26 #61부터 서버에는 업무폰 등록 기록이 없다. 옛 경계 문서는 업무폰을 요청 헤더에 바인딩한다고 설명하지만 S1-2는 서명된 단말 값과의 일치를 요구했다. 신뢰 근거가 다른 두 설명을 같은 인증 정책으로 취급하지 않는다.
 - 기존 요구는 채널·역할·해당 사건의 배정·등록 단말·필요한 근무/차수 맥락을 각각 확인하고, 여러 조건이 틀려도 합의한 우선 오류 하나를 반환하는 것이다. 사건 가져오기·종료의 역할 차이는 [사건 기록](./incident-lifecycle.md)에 남겼다.
 - **현재 차이**: [공용 인터셉터](../../backend/src/main/java/com/surimap/common/auth/guard/GuardInterceptor.java)는 채널 → 역할 → 사건 접근 → 단말 순서로 검사한다. 역할 검사는 `MEMBER`뿐인지 판단하며, 사건 접근은 사건 ID 없이 별도 포트에 위임한다. 원문의 세밀한 역할표·실패 순서가 모든 API에 구현됐다고 보지 않는다.
-- [FCM 등록 Controller](../../backend/src/main/java/com/surimap/app/controller/policephone/FcmTokenController.java)는 앱 채널·단말 존재·등록을 검사하지만 원문에 있던 배정 검사는 붙어 있지 않다. 같은 헤더에서 만든 인증 객체와 다시 헤더를 비교하는 것만으로 서명된 단말 결합을 검증할 수는 없다.
+- [FCM 등록 Controller](../../backend/src/main/java/com/surimap/app/controller/policephone/FcmTokenController.java)에서는 앱 채널과 업무폰 ID 형식이 검사된다. 헤더 값은 인증 객체의 값과 비교된다. 원문에 있던 배정 검사는 붙어 있지 않다. 같은 헤더에서 만든 인증 객체와 다시 헤더를 비교하는 것만으로 서명된 단말 결합을 검증할 수는 없다.
+- **업무폰 기록 테이블 삭제 (2026-11-26 #61, Backend migration 테스트와 manifest API 테스트로 확인)**: 업무폰 인증은 MDM 같은 인프라 계층에서 맡는다([업무폰 인증 결정](../adr/0037-police-phone-authentication-at-infrastructure.md)). 그래서 작업자는 업무폰마다 두던 `police_phone` 테이블을 지웠다. `@RequirePolicePhone`과 각 Controller의 업무폰 ID 확인에서는 지금처럼 헤더 형식과 인증 객체의 값만 비교된다. 업무폰 등록 확인은 없다. 다른 테이블에 저장된 `police_phone_id` 값은 그대로 남는다.
+  - 작업자는 쓰는 API가 없던 업무폰 배정 검사(`@RequirePolicePhoneAssigned`, `@RequireDeviceAssigned`)와 그 DB 구현을 지웠다. 이 검사에서만 나오던 `device_not_assigned` 오류 코드도 없어졌다. `police_phone_not_assigned`와 `police_phone_not_registered`는 다른 Service와 Controller에서 계속 응답된다.
 
 ## 통신 최신성과 알림 토큰
 
@@ -47,6 +49,6 @@
 
 ## 테스트 입력과 원문
 
-- 계정 별칭·역할·업무폰 최신성 입력은 [공용 fixture](../../test-fixtures/common-fixtures.json)의 `accountAliases`·`incidentSeed`·`boardAssembly`와 기존 Java/DB seed를 그대로 사용한다. fixture 통과를 실제 Keycloak·단말 인증 성공으로 해석하지 않는다.
+- 계정 별칭, 역할, 통신 상태 입력은 [공용 fixture](../../test-fixtures/common-fixtures.json)의 `accountAliases`, `incidentSeed`, `boardAssembly`와 기존 Java/DB seed를 그대로 사용한다. fixture 통과를 실제 Keycloak 인증이나 업무폰 인증의 성공으로 해석하지 않는다.
 - 추가 DB 왕복 2회 이하·상황판 p95 2초는 옛 목표이며 측정 결과가 아니다. 로그인·권한 거부·heartbeat·활성 세션 계측과 개인정보 없는 실패 기록의 구현 여부도 후속 확인 대상이다.
 - 권한표·입력·실패 시나리오·미정 사항: [S1-2 원문 (`2c9515d7`)](https://github.com/sonic8-8/suri-map/blob/2c9515d7e0a3bd0c75fcbe6bca78e31a660159a1/docs/spec/specs/S1-2.json). 삭제 전 원문과 Git 파일의 바이트 일치를 확인했다. 이름 정리는 [후보 목록](../refactoring/codebase-naming-candidates.md)에서 별도로 다룬다.

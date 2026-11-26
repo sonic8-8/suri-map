@@ -23,5 +23,5 @@ public interface AppMapRevisionMapper {
   String initialMarkersRevision(
       @Param("incidentId") UUID incidentId,
       @Param("opId") UUID opId,
-      @Param("policePhoneId") UUID policePhoneId);
+      @Param("accountId") UUID accountId);
 }

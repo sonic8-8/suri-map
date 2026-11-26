@@ -19,12 +19,6 @@ WHERE id IN (
     '61000000-0000-0000-0000-000000002622'::uuid,
     '61000000-0000-0000-0000-000000002621'::uuid
 );
-DELETE FROM police_phone
-WHERE id IN (
-    '50000000-0000-0000-0000-000000002622'::uuid,
-    '50000000-0000-0000-0000-000000000001'::uuid
-)
-   OR phone_code = 'dev-precinct-car-01';
 DELETE FROM account
 WHERE id IN (
     '62000000-0000-0000-0000-000000002621'::uuid,
@@ -88,33 +82,6 @@ VALUES
         '2026-04-28T00:00:00Z'::timestamptz,
         '2026-04-28T00:00:00Z'::timestamptz
     );
-
-INSERT INTO police_phone (
-    id,
-    phone_code,
-    display_name,
-    account_id,
-    status,
-    registered,
-    last_heartbeat_at,
-    last_sync_at,
-    version,
-    created_at,
-    updated_at
-)
-VALUES (
-    '50000000-0000-0000-0000-000000000001'::uuid,
-    'dev-precinct-car-01',
-    'Path persistence phone',
-    '62000000-0000-0000-0000-000000002621'::uuid,
-    'ACTIVE',
-    TRUE,
-    '2026-04-28T00:00:00Z'::timestamptz,
-    '2026-04-28T00:00:00Z'::timestamptz,
-    1,
-    '2026-04-28T00:00:00Z'::timestamptz,
-    '2026-04-28T00:00:00Z'::timestamptz
-);
 
 INSERT INTO incident_assignment (
     id,

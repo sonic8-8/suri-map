@@ -59,7 +59,7 @@ class SyncHeartbeatApiTest extends PostGisIntegrationTestSupport {
   private static final String MULTI_INCIDENT_ACCOUNT = "62000000-0000-0000-0000-000000005204";
   private static final String UNASSIGNED_ACCOUNT = "62000000-0000-0000-0000-000000005205";
   private static final String COMMANDER = "63000000-0000-0000-0000-000000005201";
-  // 테스트에서 police_phone 테이블을 비우므로, 두 업무폰 ID는 DB에 기록이 없는 값이다.
+  // 서버에는 업무폰마다 두는 기록이 없으므로, 두 업무폰 ID는 아무 UUID다.
   private static final String PHONE_P = "50000000-0000-0000-0000-000000005201";
   private static final String PHONE_Q = "50000000-0000-0000-0000-000000005202";
   private static final Instant BASE_TS = Instant.parse("2026-11-20T00:00:00Z");
@@ -78,7 +78,6 @@ class SyncHeartbeatApiTest extends PostGisIntegrationTestSupport {
           event_dispatch_job,
           location_data_access_audit,
           incident_assignment,
-          police_phone,
           account,
           incident
         CASCADE

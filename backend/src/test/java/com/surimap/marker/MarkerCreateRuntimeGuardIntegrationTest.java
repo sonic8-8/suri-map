@@ -76,13 +76,6 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         INCIDENT_ID);
     jdbcTemplate.update(
         """
-        UPDATE police_phone
-        SET registered = TRUE, status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-        """,
-        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
-    jdbcTemplate.update(
-        """
         INSERT INTO incident_assignment (
             id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at
         ) VALUES (

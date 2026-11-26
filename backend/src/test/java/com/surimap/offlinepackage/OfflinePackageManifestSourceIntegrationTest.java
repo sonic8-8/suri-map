@@ -111,7 +111,7 @@ class OfflinePackageManifestSourceIntegrationTest {
     OffsetDateTime beforeRequest = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     OfflinePackageManifestResponse manifest =
-        service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString());
+        service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString(), ACCOUNT_ID);
 
     assertThat(manifest.incident().incidentId()).isEqualTo(INCIDENT_ID.toString());
     assertThat(manifest.incident().sourceFixture()).isEqualTo(SOURCE_INCIDENT_ID.toString());
@@ -180,7 +180,7 @@ class OfflinePackageManifestSourceIntegrationTest {
     givenSourceRows();
 
     OfflinePackageManifestResponse manifest =
-        service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString());
+        service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString(), ACCOUNT_ID);
 
     assertThat(manifest.tileItems())
         .allSatisfy(
@@ -199,7 +199,8 @@ class OfflinePackageManifestSourceIntegrationTest {
     UUID incidentId = UUID.fromString("10000000-0000-4000-8000-000000002999");
     when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.manifest(incidentId.toString(), POLICE_PHONE_ID.toString()))
+    assertThatThrownBy(
+            () -> service.manifest(incidentId.toString(), POLICE_PHONE_ID.toString(), ACCOUNT_ID))
         .isInstanceOfSatisfying(
             OfflinePackageApiException.class,
             exception -> {
@@ -215,7 +216,9 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     OfflinePackageManifestResponse manifest =
         service.manifest(
-            OfflinePackageRepository.INCIDENT_ID, OfflinePackageRepository.POLICE_PHONE_ID);
+            OfflinePackageRepository.INCIDENT_ID,
+            OfflinePackageRepository.POLICE_PHONE_ID,
+            ACCOUNT_ID);
     OffsetDateTime beforeReport = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     OfflinePackageInstallationResponse response =

@@ -156,12 +156,8 @@
             FROM search_area_assignment assignment
             JOIN search_area area
               ON area.id = assignment.search_area_id
-            <if test="policePhoneId != null">
-            JOIN police_phone phone
-              ON phone.account_id = assignment.assigned_account_id
-             AND phone.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-            </if>
-            WHERE assignment.status = 'ACTIVE'
+            WHERE assignment.assigned_account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND assignment.status = 'ACTIVE'
               AND assignment.revoked_at IS NULL
               <if test="opId != null">
               AND area.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}

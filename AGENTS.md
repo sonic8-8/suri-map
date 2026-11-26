@@ -26,7 +26,7 @@
 - 오프라인 패키지의 다운로드·준비 완료·갱신·파기를 바꿀 때는 `docs/features/offline-package.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
 - 수색 차수, 근무, 인수인계 메모, 수색 이력 요약을 바꿀 때는 `docs/features/handover.md`에서 기존 요구와 현재 구현, 테스트 입력의 차이를 확인한다.
 - 사건 가져오기·배정·종료를 바꿀 때는 `docs/features/incident-lifecycle.md`에서 원천 시스템과의 역할 분담, 접근 범위, 종료 후 개인정보 제거의 기존 요구와 구현 차이를 확인한다.
-- 로그인·채널·사건 접근·업무폰 최신성·FCM 토큰을 바꿀 때는 `docs/features/authentication.md`에서 인증 결합·권한 검사·암호화의 기존 요구와 구현 차이를 확인한다.
+- 로그인, 채널, 사건 접근, 업무폰 ID 확인, 통신 상태, FCM 토큰을 바꿀 때는 `docs/features/authentication.md`에서 인증 결합, 권한 검사, 암호화의 기존 요구와 구현 차이를 확인한다.
 - 사건 데이터 파기·위치 조회 감사·운영 로그를 바꿀 때는 `docs/features/data-retention.md`에서 미전송 원본 보존, 실제 삭제 연결과 기록 실패 처리의 차이를 확인한다.
 - 수색 구역의 도형·분할·담당 배정·완료 처리를 바꿀 때는 `docs/features/search-area.md`에서 실제 API에 연결된 검증과 기존 요구의 차이를 확인한다.
 - GPS 수집·묶음 저장·경로 조회를 바꿀 때는 `docs/features/search-path.md`에서 측정 시각·수집 순서, 좌표 저장·도형 조립, 품질 검사의 요구와 구현 차이를 확인한다.

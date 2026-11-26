@@ -5,9 +5,9 @@
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/demo/seed-demo-scenario.sql
 --
 -- This script intentionally uses synthetic people and places. It keeps the
--- stable acct-* fixture account and dev-* police_phone rows intact. Demo
--- login users such as station1, missing1, and support1 are real demo account
--- rows, and the demo incident graph points only at demo account/phone rows.
+-- stable acct-* fixture account rows intact. Demo login users such as
+-- station1, missing1, and support1 are real demo account rows, and the demo
+-- incident graph points only at demo account rows.
 -- The incident graph itself is recreated by DEMO_INCIDENT_ID on every run.
 
 BEGIN;
@@ -168,51 +168,6 @@ ON CONFLICT (id) DO UPDATE SET
     account_type = EXCLUDED.account_type,
     organization_type = EXCLUDED.organization_type,
     status = EXCLUDED.status,
-    updated_at = CURRENT_TIMESTAMP;
-
-INSERT INTO police_phone (
-    id,
-    phone_code,
-    display_name,
-    account_id,
-    status,
-    registered,
-    last_heartbeat_at,
-    last_sync_at,
-    version,
-    heartbeat_sequence,
-    last_heartbeat_event_id,
-    created_at,
-    updated_at
-)
-VALUES
-    ('d2000000-0000-4000-8000-000000000001', 'station1-phone', '수완지구대 지휘 단말', 'd1000000-0000-4000-8000-000000000001', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000002', 'station2-phone', '수완지구대 순찰차 단말', 'd1000000-0000-4000-8000-000000000002', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '45 seconds', CURRENT_TIMESTAMP - INTERVAL '40 seconds', 8, 1208, 'd0000000-0000-4000-8000-000000009102', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000003', 'station3-phone', '수완지구대 현장 단말', 'd1000000-0000-4000-8000-000000000003', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '25 seconds', CURRENT_TIMESTAMP - INTERVAL '20 seconds', 12, 1212, 'd0000000-0000-4000-8000-000000009103', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000004', 'missing1-phone', '여성청소년과 실종팀 지휘 단말', 'd1000000-0000-4000-8000-000000000004', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000005', 'missing2-phone', '여성청소년과 실종팀 현장 단말', 'd1000000-0000-4000-8000-000000000005', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '2 minutes', CURRENT_TIMESTAMP - INTERVAL '90 seconds', 7, 1207, 'd0000000-0000-4000-8000-000000009105', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000006', 'support1-phone', '기동대 지휘 단말', 'd1000000-0000-4000-8000-000000000006', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000007', 'support2-phone', '기동대 차량 단말', 'd1000000-0000-4000-8000-000000000007', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '6 minutes', CURRENT_TIMESTAMP - INTERVAL '5 minutes', 6, 1206, 'd0000000-0000-4000-8000-000000009107', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000008', 'support3-phone', '기동대 현장 단말', 'd1000000-0000-4000-8000-000000000008', 'ACTIVE', TRUE, NULL, NULL, 4, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000009', 'station4-phone', '수완지구대 2호 순찰차 단말', 'd1000000-0000-4000-8000-000000000009', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '35 seconds', CURRENT_TIMESTAMP - INTERVAL '30 seconds', 5, 1305, 'd0000000-0000-4000-8000-000000009201', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000010', 'station5-phone', '첨단지구대 지원 순찰차 단말', 'd1000000-0000-4000-8000-000000000010', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '4 minutes', CURRENT_TIMESTAMP - INTERVAL '3 minutes', 4, 1304, 'd0000000-0000-4000-8000-000000009202', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000011', 'missing3-phone', '실종팀 드론운용반 단말', 'd1000000-0000-4000-8000-000000000011', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '50 seconds', CURRENT_TIMESTAMP - INTERVAL '45 seconds', 6, 1306, 'd0000000-0000-4000-8000-000000009203', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000012', 'missing4-phone', '실종팀 탐문반 단말', 'd1000000-0000-4000-8000-000000000012', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '8 minutes', CURRENT_TIMESTAMP - INTERVAL '7 minutes', 3, 1303, 'd0000000-0000-4000-8000-000000009204', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000013', 'support4-phone', '기동대 1제대 현장 단말', 'd1000000-0000-4000-8000-000000000013', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '70 seconds', CURRENT_TIMESTAMP - INTERVAL '65 seconds', 6, 1306, 'd0000000-0000-4000-8000-000000009205', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000014', 'support5-phone', '기동대 2제대 현장 단말', 'd1000000-0000-4000-8000-000000000014', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '12 minutes', CURRENT_TIMESTAMP - INTERVAL '10 minutes', 2, 1302, 'd0000000-0000-4000-8000-000000009206', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000015', 'support6-phone', '기동대 교통통제 차량 단말', 'd1000000-0000-4000-8000-000000000015', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '20 seconds', CURRENT_TIMESTAMP - INTERVAL '15 seconds', 7, 1307, 'd0000000-0000-4000-8000-000000009207', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d2000000-0000-4000-8000-000000000016', 'support7-phone', '기동대 야간 예비팀 단말', 'd1000000-0000-4000-8000-000000000016', 'ACTIVE', TRUE, NULL, NULL, 1, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (id) DO UPDATE SET
-    phone_code = EXCLUDED.phone_code,
-    display_name = EXCLUDED.display_name,
-    account_id = EXCLUDED.account_id,
-    status = EXCLUDED.status,
-    registered = EXCLUDED.registered,
-    last_heartbeat_at = EXCLUDED.last_heartbeat_at,
-    last_sync_at = EXCLUDED.last_sync_at,
-    version = EXCLUDED.version,
-    heartbeat_sequence = EXCLUDED.heartbeat_sequence,
-    last_heartbeat_event_id = EXCLUDED.last_heartbeat_event_id,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO incident (

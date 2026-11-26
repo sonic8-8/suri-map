@@ -68,7 +68,6 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
           search_area,
           operational_period,
           incident_assignment,
-          police_phone,
           account,
           incident
         CASCADE
@@ -102,18 +101,6 @@ class SearchAreaBoundaryAlertApiIntegrationTest extends PostGisIntegrationTestSu
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS),
         COMMANDER_ID.toString(),
-        Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS));
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-          id, phone_code, display_name, account_id, status, registered,
-          created_at, updated_at, version
-        )
-        VALUES (?::uuid, 'phone-boundary-418', 'Boundary phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1)
-        """,
-        POLICE_PHONE_ID.toString(),
-        ACCOUNT_ID.toString(),
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
     jdbcTemplate.update(

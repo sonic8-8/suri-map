@@ -451,9 +451,6 @@ WHERE id::text LIKE 'd1000000-0000-4000-8000-%';
 DELETE FROM incident_assignment
 WHERE id::text LIKE 'c1000000-0000-4000-8000-%';
 
-DELETE FROM police_phone
-WHERE id::text LIKE 'b1000000-0000-4000-8000-%';
-
 DELETE FROM account
 WHERE id::text LIKE 'a1000000-0000-4000-8000-%';
 
@@ -471,7 +468,6 @@ WITH fixture AS (
     SELECT
         value,
         ('a1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS account_id,
-        ('b1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS phone_id,
         ('c1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS assignment_id,
         ('d1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS duty_shift_id,
         ('e1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS path_id
@@ -489,29 +485,6 @@ SELECT
     'SUPPORT_UNIT',
     'oidc-only',
     'ACTIVE',
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
-FROM fixture;
-
-WITH fixture AS (
-    SELECT
-        value,
-        ('a1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS account_id,
-        ('b1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS phone_id
-    FROM generate_series(1, {police_phone_count}) AS value
-)
-INSERT INTO police_phone (
-    id, phone_code, display_name, account_id, status, registered,
-    version, created_at, updated_at
-)
-SELECT
-    phone_id,
-    'load-phone-' || lpad(value::text, 4, '0'),
-    'Load phone ' || lpad(value::text, 4, '0'),
-    account_id,
-    'ACTIVE',
-    TRUE,
-    1,
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM fixture;

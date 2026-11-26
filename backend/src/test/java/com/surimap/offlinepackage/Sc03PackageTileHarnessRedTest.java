@@ -50,7 +50,6 @@ class Sc03PackageTileHarnessRedTest {
         .containsExactlyInAnyOrder(
             "S1-1:incident",
             "S1-1:missing_person",
-            "S1-2:police_phone_assignment",
             "S2:assigned_area",
             "S2:overall_search_area",
             "S5:initial_marker",

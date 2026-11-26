@@ -82,7 +82,7 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 
 | 영역 | 변경 대상 |
 |---|---|
-| account | [AuthPolicePhoneHarnessRunnerRedTest](../../backend/src/test/java/com/surimap/account/AuthPolicePhoneHarnessRunnerRedTest.java) |
+| account | [AuthPolicePhoneHarnessRunnerRedTest](../../backend/src/test/java/com/surimap/account/AuthPolicePhoneHarnessRunnerRedTest.java). 2026-11-26 #61에서 작업자가 업무폰 배정 mock을 지웠다. `runner_exposes_role_channel_and_police_phone_assignment_mocks`의 메서드 이름에는 배정 mock이 남았다. |
 | account | [S1_2HarnessAuthMockRedTest](../../backend/src/test/java/com/surimap/account/S1_2HarnessAuthMockRedTest.java) |
 | account | [S1_2HarnessSeedLoaderRedTest](../../backend/src/test/java/com/surimap/account/S1_2HarnessSeedLoaderRedTest.java) |
 | account | [S1_2RoleChannelMatrixBoundaryRedTest](../../backend/src/test/java/com/surimap/account/S1_2RoleChannelMatrixBoundaryRedTest.java) |
@@ -138,6 +138,10 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | [InMemoryFcmTokenFixtureStoreTest](../../backend/src/test/java/com/surimap/policephone/InMemoryFcmTokenFixtureStoreTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 이름의 대상인 `InMemoryFcmTokenFixtureStore` 클래스가 운영 코드와 테스트 코드 어디에도 없다. 실제 검증 대상을 확인해 `<검증 대상>Test`로 정리한다. |
 | [IdempotentWriteServiceBehaviorTest](../../backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `IdempotentWriteServiceTest`와 검증 대상이 겹친다. 운영에서 쓰이지 않는 `@IdempotentWrite`를 붙인 곳은 이 테스트뿐이다. 애너테이션을 남길지 정할 때 통합 여부를 함께 정한다. |
 | [SyncClockContractTest](../../backend/src/test/java/com/surimap/sync/clock/SyncClockContractTest.java) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. `Contract` 분류 대신 실제 검증 대상을 드러낼 후보다. 함께 등록했던 `OfflinePackageInstallationQueryContractTest`는 2026-11-22 Issue #55에서 지웠다. |
+| [PolicePhoneDbFixtureSupport](../../backend/src/test/java/com/surimap/policephone/PolicePhoneDbFixtureSupport.java) | 2026-11-26 #61에서 작업자가 `police_phone` 테이블을 지우며 업무폰 행 입력도 지웠다. 남은 입력은 계정 2개와 사건 배정 1개다. 이 입력에 맞는 이름을 정한다. |
+| [search-path-other-phone.sql](../../backend/src/test/resources/sql/path/search-path-other-phone.sql) | 2026-11-26 #61에서 작업자가 업무폰 행 입력을 지웠다. 남은 입력은 다른 계정의 사건 배정과 근무다. 파일 이름의 `phone`은 이 입력과 맞지 않는다. |
+| [PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID](../../backend/src/main/java/com/surimap/policephone/PolicePhoneFixtures.java) | 2026-11-26 #61에서 작업자가 `police_phone` 테이블과 업무폰 배정 검사를 지웠다. 서버에서는 업무폰의 등록 여부와 배정 여부를 확인하지 않는다. 그래서 이름에 남은 "등록"과 "배정"에 해당하는 상태가 없다. 이 값을 쓰는 테스트가 실제로 무엇을 확인하는지 보고 이름을 정한다. |
+| [InMemoryPolicePhoneFixtureStore](../../backend/src/main/java/com/surimap/policephone/InMemoryPolicePhoneFixtureStore.java) | 2026-11-26 #61 뒤에는 이 클래스에 FCM 토큰 저장과 조회만 남았다. 이 클래스는 테스트 대역이다. 그런데 `src/main`에 있다. 등록 조건과 사용처를 확인해 이름과 위치를 함께 정한다. |
 
 ## Backend — 시나리오 번호 파일
 
@@ -159,7 +163,7 @@ S4·S3-2 문서 정리에서 수정한 `BoardApiSseConvergenceHarnessRedTest`도
 | api/controller/path | [SearchPathQueryApiTest](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathQueryApiTest.java) |
 | api/controller/path | [SearchPathSegmentCorrectionApiTest](../../backend/src/test/java/com/surimap/api/controller/path/SearchPathSegmentCorrectionApiTest.java) |
 | app/map | [AppMapRevisionApiContractTest](../../backend/src/test/java/com/surimap/app/map/AppMapRevisionApiContractTest.java) |
-| offlinepackage | [OfflinePackageInstallationApiTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiTest.java) |
+| offlinepackage | [OfflinePackageInstallationApiTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageInstallationApiTest.java). 2026-11-26 #61에서 DisplayName은 "자기가 쓰는"으로 고쳤다. `assigned_app_account_with_linked_police_phone_saves_installation`의 메서드 이름에는 서버에서 없어진 업무폰 연결(linked) 관계가 남았다. |
 | offlinepackage | [OfflinePackageManifestApiTest](../../backend/src/test/java/com/surimap/offlinepackage/OfflinePackageManifestApiTest.java) |
 | opcomparison | [OpComparisonApiServiceTest](../../backend/src/test/java/com/surimap/opcomparison/OpComparisonApiServiceTest.java) |
 | searcharea | [SearchAreaApiServiceQueryTest](../../backend/src/test/java/com/surimap/searcharea/SearchAreaApiServiceQueryTest.java) |
@@ -228,7 +232,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | 인증 | [WithMockAccountFixtureContractTest](../../backend/src/test/java/com/surimap/account/WithMockAccountFixtureContractTest.java) — `Fixture`·`Contract` 대신 인증 설정의 검증 대상 확인 |
 | 인증 | [AuthPhoneApiIntegrationTest](../../backend/src/test/java/com/surimap/account/AuthPhoneApiIntegrationTest.java) — API·인증·DB의 실제 검증 경계를 확인해 명명 |
 | 인증 | [AccountIdentityPersistenceIntegrationTest](../../backend/src/test/java/com/surimap/account/AccountIdentityPersistenceIntegrationTest.java) — 저장·Mapper 검증 대상 확인 |
-| 인증 | [AuthPolicePhoneHarnessFixtures](../../backend/src/test/java/com/surimap/account/harness/AuthPolicePhoneHarnessFixtures.java) — `Harness` 대신 인증·업무폰 테스트 데이터라는 역할 검토 |
+| 인증 | [AuthPolicePhoneHarnessFixtures](../../backend/src/test/java/com/surimap/account/harness/AuthPolicePhoneHarnessFixtures.java) — `Harness` 대신 인증과 업무폰 테스트 데이터라는 역할 검토. 2026-11-26 #61에서 작업자가 업무폰 배정 검사를 지웠다. `unassignedPolicePhoneApp`과 `PolicePhoneAssignment.registered`, `assigned`의 "등록"과 "배정"에 해당하는 상태가 서버에 없다. |
 | 인증 | [RealS1_2AuthPolicePhoneContract](../../backend/src/test/java/com/surimap/account/harness/RealS1_2AuthPolicePhoneContract.java) — `Real`·Spec 번호·`Contract` 대신 실제 서비스 연결 범위 확인 |
 | 업무폰 | [PolicePhonePersistenceIntegrationTest](../../backend/src/test/java/com/surimap/policephone/PolicePhonePersistenceIntegrationTest.java) — Service·Mapper 중 검증 책임 확인 |
 | 업무폰 | `PolicePhoneHeartbeatIntegrationTest`: 2026-11-20 #52에서 지웠다. heartbeat 저장과 이벤트는 [SyncHeartbeatApiTest](../../backend/src/test/java/com/surimap/app/controller/sync/SyncHeartbeatApiTest.java)에서 확인한다. |
@@ -258,7 +262,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [SearchPathServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathServiceTest.java)의 영문 `DisplayName` | 2026-10-02 조회 일관성 진단 중 확인. 2026-10-06 클래스 표시명은 제거했다. 남은 영문 메서드 표시명은 기존 검증을 유지하며 조건·기대 결과를 한글로 표현할 후보다. |
 | [SseSequenceMigrationTest](../../backend/src/test/java/com/surimap/database/SseSequenceMigrationTest.java) | 2026-10-06 전체 회귀 검사에서 확인. 프로젝트 SSE 이름을 풀어 쓰는 합의와 맞지 않는 `Sse` 접두사다. 실제 검증 대상인 순번·저장 순서 migration을 드러내는 이름으로 정리한다. 이번에는 검증 대상 migration의 버전만 고정하고 이름은 유지했다. |
 | [SearchPathQueryPerformanceServiceTest](../../backend/src/test/java/com/surimap/api/service/path/SearchPathQueryPerformanceServiceTest.java) | 2026-10-02 조회 시간 초과 수정 중 확인. 실제 대상은 `SearchPathService`이며 이름에 해당하는 별도 서비스는 없다. 기존 Service 테스트로의 통합·성능 태그 유지와 클래스 영문 표시명 제거를 검토한다. 이번에는 이름·실행 범위를 바꾸지 않았다. |
-| [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것. 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 클래스 이름도 확인했다. 이름은 저장 서비스지만 heartbeat 기록, FCM 토큰 저장, 배정 검사까지 맡는다. 맡은 일을 나눌지 정한 뒤 클래스 이름을 맞춘다. |
+| [PolicePhonePersistenceService.encryptToken](../../backend/src/main/java/com/surimap/policephone/PolicePhonePersistenceService.java) | 암호화하지 않고 `cipher:`만 붙임. 필요한 토큰 보호 방식을 먼저 정하고 이름을 맞출 것. 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 클래스 이름도 확인했다. 이름은 저장 서비스지만, 그때 이 클래스에는 heartbeat 기록, FCM 토큰 저장, 배정 검사가 함께 있었다. 2026-11-26 #61에서 작업자가 다시 확인했을 때 이 클래스에는 FCM 토큰 저장과 조회만 남아 있었다. 클래스 이름은 이 역할에 맞춘다. |
 | [GeometryPolicy.s2HarnessDefault](../../backend/src/main/java/com/surimap/maparea/geometry/policy/GeometryPolicy.java) | 운영 검증 설정에서도 쓰는 값에 Spec 번호·시험용 기본값 이름이 남음. 적용 범위 확인 |
 | [DefaultIncidentBoardSourceRowCollector](../../backend/src/main/java/com/surimap/board/DefaultIncidentBoardSourceRowCollector.java)의 `geometryHash`·`latestEventId` 생성 | 좌표 해시·실제 이벤트 조회로 오해할 수 있으나 ID·상태·버전으로 값을 만듦. 공개 필드 호환성과 실제 추적 요구를 함께 검토 |
 | [IncidentBoardController](../../backend/src/main/java/com/surimap/board/IncidentBoardController.java)의 `sinceVersion`·[BoardAssembler](../../backend/src/main/java/com/surimap/board/BoardAssembler.java)의 `boardResponseVersion` | 2026-10-02 확인: `sinceVersion`은 수집기로 전달되지만 조회 필터로 사용되지 않는다. 응답 버전은 서로 다른 원본 행 버전의 최댓값이므로 사건 전체의 변경 순번이 아니다. 증분 조회 기준처럼 사용하는 것을 피하고, 갱신 설계 때 역할·공개 필드 호환성을 함께 검토한다. 이번에는 후보만 등록했다. |
@@ -302,8 +306,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 
 | 현재 이름 | 확인할 점 |
 |---|---|
-| [RequireDevice](../../backend/src/main/java/com/surimap/common/auth/RequireDevice.java) / [RequireDeviceAssigned](../../backend/src/main/java/com/surimap/common/auth/RequireDeviceAssigned.java) | 기존 PolicePhone 가드와 호환 관계 확인; 애너테이션과 오류 코드 변경은 별도 합의 |
-| [DeviceRequiredException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceRequiredException.java) / [DeviceNotAssignedException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceNotAssignedException.java) | 위 별칭 가드의 `device_*` 오류 응답과 함께 확인 |
+| [RequireDevice](../../backend/src/main/java/com/surimap/common/auth/RequireDevice.java) | 기존 PolicePhone 가드와 호환 관계 확인; 애너테이션과 오류 코드 변경은 별도 합의. 2026-11-26 #61에서 쓰는 API가 없던 `RequireDeviceAssigned`, `RequirePolicePhoneAssigned`와 배정 검사를 지웠다. |
+| [DeviceRequiredException](../../backend/src/main/java/com/surimap/common/auth/guard/DeviceRequiredException.java) | 위 별칭 가드의 `device_required` 오류 응답과 함께 확인. `DeviceNotAssignedException`(`device_not_assigned`)은 2026-11-26 #61에서 지웠다. |
 
 ## Frontend
 
@@ -373,6 +377,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | 문서 후보 | 확인할 점 |
 |---|---|
 | [infra/k6/README.md](../../infra/k6/README.md) | 2026-10-28 지운 작업 폴더 참조 정리 중 확인했다. 제목은 "Search-path load test"지만 본문은 GPS 경로 저장 부하뿐 아니라 Android Outbox 재전송, 서버 Breakpoint Test, 상황판 반영 시간 측정, 지휘 계정과 시험 마커 준비까지 614줄에 담는다. 폴더 이름 `k6`도 도구 이름이며, 안에는 k6 스크립트 밖의 Python, Node 준비와 관측 도구가 함께 있다. 제목을 실제 범위(부하 테스트 실행 안내)에 맞추거나 시나리오별 문서로 나눌지 검토한다. 폴더와 스크립트 이름은 위 합의대로 유지하고, Jenkinsfile과 `docs/architecture.md`의 참조를 함께 확인한다. 후보 등록이며 문서는 바꾸지 않았다. |
+| [prepare-search-path-batch-fixtures.py](../../infra/k6/prepare-search-path-batch-fixtures.py)의 `DEFAULT_POLICE_PHONE_COUNT`, `--police-phone-count`, `police_phone_count`와 [k6 README](../../infra/k6/README.md)의 같은 옵션 | 2026-11-26 #61에서 작업자가 이 도구에서 업무폰 행을 만드는 SQL을 지웠다. 이제 이 값은 부하 테스트 계정과 수색 경로의 수다. 옵션 이름을 바꾸면 README와 실행 명령을 함께 바꿔야 한다. |
 
 ## 반영 이력 요약
 

@@ -48,7 +48,7 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
   private static final UUID COMMANDER_ID = UUID.fromString("63000000-0000-0000-0000-000000005101");
   private static final UUID INCIDENT_ASSIGNMENT_ID =
       UUID.fromString("61000000-0000-0000-0000-000000005101");
-  // 이 업무폰 ID는 police_phone 테이블에 없다.
+  // 서버에는 업무폰마다 두는 기록이 없으므로 이 업무폰 ID는 아무 UUID다.
   private static final UUID UNKNOWN_POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-0000-0000-000000005101");
   private static final Instant BASE_TS = Instant.parse("2026-11-19T00:00:00Z");
@@ -63,7 +63,7 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
           event_dispatch_job, idempotency_record, fcm_token, photo, marker,
           handover_memo, search_path_lifecycle_event, search_path_segment, search_path,
           duty_shift, search_area_assignment, search_area, operational_period,
-          incident_assignment, police_phone, account, incident
+          incident_assignment, account, incident
         CASCADE
         """);
     Timestamp base = Timestamp.from(BASE_TS);

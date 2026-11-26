@@ -177,8 +177,8 @@ class AuthFixtureExactnessTest {
   }
 
   @Test
-  @DisplayName("production account policePhone seed keeps auth fixture IDs and aliases")
-  void production_account_policePhone_seed_keeps_auth_fixture_ids_and_aliases() throws IOException {
+  @DisplayName("production account seed keeps auth fixture IDs and aliases")
+  void production_account_seed_keeps_auth_fixture_ids_and_aliases() throws IOException {
     String seedSql =
         Files.readString(
                 Path.of(
@@ -203,8 +203,6 @@ class AuthFixtureExactnessTest {
       assertThat(seedSql).contains("'" + fixture.accountCode() + "'");
       assertThat(seedSql).contains("'" + fixture.accountType().name() + "'");
       assertThat(seedSql).contains("'" + fixture.organizationType().name() + "'");
-      assertThat(seedSql).contains("'" + fixture.policePhoneId() + "'");
-      assertThat(seedSql).contains("'" + fixture.policePhoneCode() + "'");
     }
   }
 

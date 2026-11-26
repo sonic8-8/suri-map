@@ -52,43 +52,10 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     jdbcTemplate.update("DELETE FROM offline_package_installation");
     jdbcTemplate.update("DELETE FROM offline_package_manifest");
     PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
-    ensurePackagePolicePhones();
     eventHub.reset();
     offlinePackageService.manifest(
-        OfflinePackageManifestFixtures.INCIDENT_ID, OfflinePackageManifestFixtures.POLICE_PHONE_ID);
-  }
-
-  private void ensurePackagePolicePhones() {
-    ensurePackagePolicePhone(
-        OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID,
-        "dev-precinct-phone-02",
-        "경찰서 팀폰 02");
-    ensurePackagePolicePhone(
-        OfflinePackageInstallationFixtures.SEEDED_PHONE_05_ID,
-        "dev-precinct-phone-05",
-        "경찰서 팀폰 05");
-  }
-
-  private void ensurePackagePolicePhone(String id, String phoneCode, String displayName) {
-    jdbcTemplate.update(
-        """
-        MERGE INTO police_phone (
-            id,
-            phone_code,
-            display_name,
-            account_id,
-            status,
-            registered,
-            last_heartbeat_at,
-            last_sync_at,
-            heartbeat_sequence,
-            last_heartbeat_event_id,
-            version
-        ) KEY(id) VALUES (?, ?, ?, ?, 'ACTIVE', TRUE, NULL, NULL, 0, NULL, 1)
-        """,
-        UUID.fromString(id),
-        phoneCode,
-        displayName,
+        OfflinePackageManifestFixtures.INCIDENT_ID,
+        OfflinePackageManifestFixtures.POLICE_PHONE_ID,
         UUID.fromString(OfflinePackageManifestFixtures.ACCOUNT_ID));
   }
 
@@ -123,7 +90,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             offlinePackageService
                 .manifest(
                     OfflinePackageManifestFixtures.INCIDENT_ID,
-                    OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+                    OfflinePackageManifestFixtures.POLICE_PHONE_ID,
+                    UUID.fromString(OfflinePackageManifestFixtures.ACCOUNT_ID))
                 .manifestVersion())
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
   }
@@ -191,7 +159,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     OfflinePackageManifestResponse manifest =
         offlinePackageService.manifest(
             OfflinePackageManifestFixtures.INCIDENT_ID,
-            OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+            OfflinePackageManifestFixtures.POLICE_PHONE_ID,
+            UUID.fromString(OfflinePackageManifestFixtures.ACCOUNT_ID));
     assertThat(manifest.manifestVersion())
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
     assertThat(manifest.manifestId())

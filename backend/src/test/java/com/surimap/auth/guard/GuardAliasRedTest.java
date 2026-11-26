@@ -11,7 +11,6 @@ import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneAssigned;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.Role;
 import com.surimap.config.SecurityConfig;
@@ -229,7 +228,7 @@ class GuardAliasRedTest {
   }
 
   // ---------------------------------------------------------------------------
-  // app-police-phone: @RequireChannel(APP) + @RequirePolicePhone + @RequirePolicePhoneAssigned
+  // app-police-phone: @RequireChannel(APP) + @RequirePolicePhone
   // ---------------------------------------------------------------------------
 
   @Test
@@ -304,37 +303,9 @@ class GuardAliasRedTest {
         .andExpect(status().isOk());
   }
 
-  /**
-   * PolicePhone not assigned to any active incident. Currently FAILS (RED)
-   * — @RequirePolicePhoneAssigned has no enforcement.
-   */
-  @Test
-  @WithMockAccount(
-      channel = Channel.APP,
-      accountType = AccountType.TEAM,
-      organizationType = OrganizationType.MISSING_TEAM,
-      policePhoneId = "00000000-0000-0000-0000-000000000301")
-  void appPolicePhone_unassignedPolicePhone_isRejectedWithPolicePhoneNotAssigned()
-      throws Exception {
-    mockMvc
-        .perform(
-            post("/api/guard-harness/app-police-phone")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("X-PolicePhone-Id", "00000000-0000-0000-0000-000000000301")
-                .content("{}"))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
-
-    assertThat(controller.getWriteCount())
-        .as(
-            "domain row must NOT be created when police_phone_not_assigned guard rejects the"
-                + " request")
-        .isEqualTo(0);
-  }
-
   // ---------------------------------------------------------------------------
   // field-or-web-write: @RequireChannel(APP,WEB)
-  //   APP path additionally requires @RequirePolicePhone + @RequirePolicePhoneAssigned
+  //   APP path additionally requires @RequirePolicePhone
   //   WEB path requires no police phone guards
   // ---------------------------------------------------------------------------
 
@@ -564,13 +535,11 @@ class GuardAliasRedTest {
     }
 
     /**
-     * app-police-phone: APP channel + policePhone present and assigned. (S1-2.json
-     * api_guard_aliases)
+     * app-police-phone: APP channel + policePhone present. (S1-2.json api_guard_aliases)
      */
     @PostMapping("/api/guard-harness/app-police-phone")
     @RequireChannel({Channel.APP})
     @RequirePolicePhone
-    @RequirePolicePhoneAssigned
     ResponseEntity<Void> appPolicePhone() {
       writeCounter.incrementAndGet();
       return ResponseEntity.ok().build();
@@ -583,7 +552,6 @@ class GuardAliasRedTest {
     @PostMapping("/api/guard-harness/field-or-web-write")
     @RequireChannel({Channel.APP, Channel.WEB})
     @RequirePolicePhone
-    @RequirePolicePhoneAssigned
     ResponseEntity<Void> fieldOrWebWrite() {
       writeCounter.incrementAndGet();
       return ResponseEntity.ok().build();

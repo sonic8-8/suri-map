@@ -2,12 +2,10 @@ package com.surimap.account.harness;
 
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneAssigned;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.GuardException;
 import com.surimap.common.auth.guard.GuardInterceptor;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import java.lang.reflect.Method;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -22,8 +20,8 @@ public final class RealS1_2AuthPolicePhoneContract implements AuthPolicePhoneCon
   private final HandlerMethod appPolicePhoneHandler;
   private final HandlerMethod webCommandHandler;
 
-  public RealS1_2AuthPolicePhoneContract(PolicePhoneValidationPort policePhoneValidationPort) {
-    this.guardInterceptor = new GuardInterceptor(auth -> {}, policePhoneValidationPort);
+  public RealS1_2AuthPolicePhoneContract() {
+    this.guardInterceptor = new GuardInterceptor(auth -> {});
     this.appPolicePhoneHandler = appPolicePhoneHandler();
     this.webCommandHandler = webCommandHandler();
   }
@@ -96,7 +94,6 @@ public final class RealS1_2AuthPolicePhoneContract implements AuthPolicePhoneCon
 
     @RequireChannel(com.surimap.common.auth.Channel.APP)
     @RequirePolicePhone
-    @RequirePolicePhoneAssigned
     void appPolicePhone() {}
 
     @RequireChannel(com.surimap.common.auth.Channel.WEB)

@@ -40,7 +40,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
             connection,
             List.of(
                 "account",
-                "police_phone",
                 "fcm_token",
                 "search_area_assignment",
                 "search_path",
@@ -54,12 +53,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "incident", "source_incident_id", "uuid");
         assertColumnType(connection, "account", "id", "uuid");
         assertColumnType(connection, "account", "login_id", "varchar");
-        assertColumnType(connection, "police_phone", "id", "uuid");
-        assertColumnType(connection, "police_phone", "account_id", "uuid");
-        assertColumnType(connection, "police_phone", "registered", "bool");
-        assertColumnType(connection, "police_phone", "heartbeat_sequence", "int8");
-        assertColumnType(connection, "police_phone", "last_heartbeat_event_id", "uuid");
-        assertColumnType(connection, "police_phone", "version", "int8");
         assertColumnType(connection, "fcm_token", "police_phone_id", "uuid");
         assertColumnType(connection, "search_area_assignment", "search_area_id", "uuid");
         assertColumnType(connection, "search_path", "duty_shift_id", "uuid");
@@ -92,8 +85,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertGeometryColumn(connection, "search_path_segment", "geometry", "LINESTRING", 4326);
 
         assertIndexExists(connection, "account", "ux_account_login_id");
-        assertIndexExists(connection, "police_phone", "ux_police_phone_code");
-        assertIndexExists(connection, "police_phone", "idx_police_phone_account_status");
         assertIndexExists(connection, "fcm_token", "ux_fcm_token_police_phone_instance_active");
         assertIndexExists(connection, "search_area_assignment", "ux_search_area_assignment_active");
         assertIndexExists(connection, "search_path", "idx_search_path_geom");
@@ -101,6 +92,7 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertIndexExists(
             connection, "idempotency_record", "ux_idempotency_record_key_path_method");
         assertTableDoesNotExist(connection, "refresh_token");
+        assertTableDoesNotExist(connection, "police_phone");
       }
     }
   }
@@ -349,6 +341,80 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
           assertThat(result.getString(1)).isEqualTo("a1000000-0000-4000-8000-000000005801");
           assertThat(result.getString(2)).isEqualTo("a0000000-0000-4000-8000-000000005801");
           assertThat(result.getString(3)).isEqualTo("ACTIVE");
+        }
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("업무폰 테이블 삭제 migration을 적용하면 police_phone과 그 테이블을 참조하는 FK만 지워진다. 업무폰 ID 값은 남는다")
+  void policePhoneMigration_policePhoneRowsAndReferencingFk_dropsTableAndKeepsPolicePhoneIds()
+      throws Exception {
+    try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE)) {
+      postgres.start();
+
+      // given: 배포 전 형식의 DB다. 업무폰 행이 있다. FCM 토큰은 그 업무폰 ID를 FK로 참조한다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .target("20261125.002")
+          .load()
+          .migrate();
+      try (Connection connection =
+              DriverManager.getConnection(
+                  postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+          var statement = connection.createStatement()) {
+        statement.executeUpdate(
+            """
+            INSERT INTO police_phone (id, phone_code, display_name, account_id, status, registered)
+            VALUES (
+                'b0000000-0000-4000-8000-000000006101', 'phone-6101', '팀폰 6101',
+                '11111111-1111-1111-1111-111111110003', 'ACTIVE', TRUE
+            )
+            """);
+        statement.executeUpdate(
+            """
+            ALTER TABLE fcm_token
+                ADD CONSTRAINT fk_fcm_token_police_phone_6101
+                FOREIGN KEY (police_phone_id) REFERENCES police_phone(id)
+            """);
+        statement.executeUpdate(
+            """
+            INSERT INTO fcm_token (
+                id, account_id, police_phone_id, app_instance_id, token_hash, token_ciphertext,
+                status, version
+            )
+            VALUES (
+                'f1000000-0000-4000-8000-000000006101', '11111111-1111-1111-1111-111111110003',
+                'b0000000-0000-4000-8000-000000006101', 'app-6101', 'hash-6101',
+                'cipher:token-6101', 'ACTIVE', 1
+            )
+            """);
+      }
+
+      // when: 남은 migration을 적용한다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .load()
+          .migrate();
+
+      // then: police_phone 테이블은 없다.
+      // then: FCM 토큰 행은 업무폰 ID 값을 그대로 가진다.
+      try (Connection connection =
+          DriverManager.getConnection(
+              postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+        assertTableDoesNotExist(connection, "police_phone");
+        try (var statement =
+                connection.prepareStatement(
+                    """
+                    SELECT police_phone_id::text
+                    FROM fcm_token
+                    WHERE id = 'f1000000-0000-4000-8000-000000006101'::uuid
+                    """);
+            ResultSet result = statement.executeQuery()) {
+          assertThat(result.next()).isTrue();
+          assertThat(result.getString(1)).isEqualTo("b0000000-0000-4000-8000-000000006101");
         }
       }
     }

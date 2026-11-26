@@ -33,10 +33,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
       UUID.fromString("62000000-0000-4000-8000-000000099001");
   private static final UUID OTHER_ACCOUNT_ID =
       UUID.fromString("62000000-0000-4000-8000-000000099002");
-  private static final UUID TARGET_PHONE_ID =
-      UUID.fromString("50000000-0000-4000-8000-000000099001");
-  private static final UUID OTHER_PHONE_ID =
-      UUID.fromString("50000000-0000-4000-8000-000000099002");
   private static final UUID TARGET_ASSIGNMENT_ID =
       UUID.fromString("61000000-0000-4000-8000-000000099001");
   private static final UUID OTHER_ASSIGNMENT_ID =
@@ -67,7 +63,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
             duty_shift,
             operational_period,
             incident_assignment,
-            police_phone,
             account,
             incident
         CASCADE
@@ -193,30 +188,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
         startedAt,
         startedAt,
         OTHER_ACCOUNT_ID.toString(),
-        startedAt,
-        startedAt);
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-            id, phone_code, display_name, account_id, status, registered,
-            last_heartbeat_at, last_sync_at, version, created_at, updated_at
-        )
-        VALUES
-            (?::uuid, 'dev-path-perf-target', 'Path perf target phone',
-             ?::uuid, 'ACTIVE', TRUE, ?, ?, 1, ?, ?),
-            (?::uuid, 'dev-path-perf-other', 'Path perf other phone',
-             ?::uuid, 'ACTIVE', TRUE, ?, ?, 1, ?, ?)
-        """,
-        TARGET_PHONE_ID.toString(),
-        TARGET_ACCOUNT_ID.toString(),
-        startedAt,
-        startedAt,
-        startedAt,
-        startedAt,
-        OTHER_PHONE_ID.toString(),
-        OTHER_ACCOUNT_ID.toString(),
-        startedAt,
-        startedAt,
         startedAt,
         startedAt);
     jdbcTemplate.update(

@@ -8,17 +8,11 @@ import com.surimap.account.harness.AuthPolicePhoneHarnessRunner;
 import com.surimap.account.harness.MockAuthPolicePhoneContract;
 import com.surimap.account.harness.RealS1_2AuthPolicePhoneContract;
 import com.surimap.common.auth.Channel;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("L2-T09A auth/policePhone harness runner RED")
 class AuthPolicePhoneHarnessRunnerRedTest {
-
-  private final Clock clock = Clock.fixed(Instant.parse("2026-05-08T00:00:00Z"), ZoneOffset.UTC);
 
   @Test
   @DisplayName("runner exposes role channel and policePhone assignment mocks")
@@ -42,7 +36,7 @@ class AuthPolicePhoneHarnessRunnerRedTest {
   void mock_and_real_contracts_swap_without_fixture_id_drift() {
     AuthPolicePhoneContract mock = new MockAuthPolicePhoneContract();
     AuthPolicePhoneContract real =
-        new RealS1_2AuthPolicePhoneContract(new InMemoryPolicePhoneFixtureStore(clock));
+        new RealS1_2AuthPolicePhoneContract();
 
     var fixture = AuthPolicePhoneHarnessFixtures.precinctTeamApp();
 
@@ -55,7 +49,7 @@ class AuthPolicePhoneHarnessRunnerRedTest {
   void mock_and_real_contracts_expose_same_role_channel_guard_outcomes() {
     AuthPolicePhoneContract mock = new MockAuthPolicePhoneContract();
     AuthPolicePhoneContract real =
-        new RealS1_2AuthPolicePhoneContract(new InMemoryPolicePhoneFixtureStore(clock));
+        new RealS1_2AuthPolicePhoneContract();
 
     assertThat(mock.checkWebCommand(AuthPolicePhoneHarnessFixtures.alphaCommanderWeb()))
         .isEqualTo(real.checkWebCommand(AuthPolicePhoneHarnessFixtures.alphaCommanderWeb()));
@@ -70,7 +64,7 @@ class AuthPolicePhoneHarnessRunnerRedTest {
   void mock_and_real_contracts_expose_same_app_police_phone_failure_codes() {
     AuthPolicePhoneContract mock = new MockAuthPolicePhoneContract();
     AuthPolicePhoneContract real =
-        new RealS1_2AuthPolicePhoneContract(new InMemoryPolicePhoneFixtureStore(clock));
+        new RealS1_2AuthPolicePhoneContract();
 
     assertThat(mock.checkAppPolicePhone(AuthPolicePhoneHarnessFixtures.precinctTeamApp()))
         .isEqualTo(real.checkAppPolicePhone(AuthPolicePhoneHarnessFixtures.precinctTeamApp()));
@@ -91,7 +85,7 @@ class AuthPolicePhoneHarnessRunnerRedTest {
   void app_police_phone_failure_precedence_compound_violation_returns_first_error_only() {
     AuthPolicePhoneContract mock = new MockAuthPolicePhoneContract();
     AuthPolicePhoneContract real =
-        new RealS1_2AuthPolicePhoneContract(new InMemoryPolicePhoneFixtureStore(clock));
+        new RealS1_2AuthPolicePhoneContract();
 
     var compoundViolation = AuthPolicePhoneHarnessFixtures.webChannelMissingPolicePhone();
 

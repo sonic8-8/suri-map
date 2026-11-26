@@ -1,8 +1,5 @@
 package com.surimap.policephone;
 
-import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
-import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import java.nio.charset.StandardCharsets;
@@ -16,13 +13,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Minimal S1-2 fixture store for registered and assigned PolicePhone state.
- *
- * <p>This keeps the vertical slice local to L2-T03 until the production police_phone persistence
- * is introduced.
- */
-public class InMemoryPolicePhoneFixtureStore implements PolicePhoneValidationPort, FcmTokenQuery {
+/** 테스트에서 FCM 토큰 조회를 DB 없이 재현할 때 쓰는 메모리 저장소다. */
+public class InMemoryPolicePhoneFixtureStore implements FcmTokenQuery {
 
   private final Clock clock;
   private final Map<UUID, FixtureState> fixtures = new ConcurrentHashMap<>();
@@ -39,14 +31,6 @@ public class InMemoryPolicePhoneFixtureStore implements PolicePhoneValidationPor
     activeTokensById.clear();
     activeTokenIdsByPhoneAndInstance.clear();
     seedFixtures();
-  }
-
-  @Override
-  public void checkAssigned(UUID policePhoneId) {
-    FixtureState fixture = fixtures.get(policePhoneId);
-    if (fixture == null || !fixture.assigned()) {
-      throw new PolicePhoneNotAssignedException();
-    }
   }
 
   @Override
@@ -80,7 +64,7 @@ public class InMemoryPolicePhoneFixtureStore implements PolicePhoneValidationPor
       UUID policePhoneId, String appInstanceId, String token, Instant registeredAt) {
     FixtureState fixture = fixtures.get(policePhoneId);
     if (fixture == null) {
-      throw new PolicePhoneNotRegisteredException();
+      throw new IllegalArgumentException("unknown police phone fixture: " + policePhoneId);
     }
 
     String key = activeTokenKey(policePhoneId, appInstanceId);
@@ -135,13 +119,13 @@ public class InMemoryPolicePhoneFixtureStore implements PolicePhoneValidationPor
     Instant seededAt = clock.instant().minusSeconds(30);
     fixtures.put(
         PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
-        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID, true));
+        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID));
     fixtures.put(
         PolicePhoneFixtures.ASSIGNED_PATH_POLICE_PHONE_ID,
-        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID, true));
+        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID));
     fixtures.put(
         PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID,
-        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID, false));
+        new FixtureState(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID));
     registerFcmToken(
         PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
         PolicePhoneFixtures.ASSIGNED_APP_INSTANCE_ID,
@@ -179,19 +163,13 @@ public class InMemoryPolicePhoneFixtureStore implements PolicePhoneValidationPor
 
   private static final class FixtureState {
     private final String accountId;
-    private final boolean assigned;
 
-    private FixtureState(String accountId, boolean assigned) {
+    private FixtureState(String accountId) {
       this.accountId = accountId;
-      this.assigned = assigned;
     }
 
     private String accountId() {
       return accountId;
-    }
-
-    private boolean assigned() {
-      return assigned;
     }
   }
 

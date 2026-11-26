@@ -24,7 +24,7 @@ Fixture는 App 서버에서 준비한다.
 python3 prepare-search-path-batch-fixtures.py
 ```
 
-기본 실행은 부하 시험 전용 계정, 업무폰, 사건 배정, DutyShift와 `RECORDING` 경로를 468개 만든다. Keycloak 사용자와 client는 access token을 발급한 뒤 삭제한다. 준비에 실패하면 Fixture 파일을 결과로 사용하지 않는다.
+기본값으로 실행하면 부하 테스트 전용 계정, 사건 배정, 근무(DutyShift)와 `RECORDING` 경로가 468개씩 만들어진다. 업무폰 행은 만들지 않는다. 업무폰 ID는 요청 헤더에 넣을 값으로 Fixture 파일에 담긴다. Keycloak 사용자와 client는 access token을 발급한 뒤 삭제한다. 준비에 실패하면 Fixture 파일을 결과로 사용하지 않는다.
 
 Fixture 파일은 `/srv/apps/suri-map/load-test/path-append-requester-fixtures.json`에 권한 `600`으로 저장된다. 부하 시험 데이터는 `a1000000`부터 `e1000000`까지의 전용 ID 접두사를 사용하며 하네스 Fixture와 기존 데이터는 건드리지 않는다.
 
@@ -572,7 +572,7 @@ python3 prepare-situation-board-account.py prepare \
   --allow-temporary-profile-edit
 ```
 
-- 활성 FCM 토큰이 있으면 준비를 중단한다. 계정 상태나 업무폰 등록 여부로 임의 제외하지 않고 제품의 수신자 조회 조건을 따른다. 준비 당시 토큰이 없었어도 나중에 등록될 수 있으므로 **마커 전송 직전에도 재확인해야 한다**. 현재 도구만으로 실행 중 외부 발송 방지를 보장하지 않는다.
+- 활성 FCM 토큰이 있으면 준비를 중단한다. 계정 상태로 임의 제외하지 않고 제품의 수신자 조회 조건을 따른다. 알림은 수신 계정의 활성 FCM 토큰으로 보내진다. 준비 당시 토큰이 없었어도 나중에 등록될 수 있으므로 **마커 전송 직전에도 재확인해야 한다**. 현재 도구만으로 실행 중 외부 발송 방지를 보장하지 않는다.
 - 로그인 정보와 정리 대상 ID는 권한 `600`인 manifest에 저장한다. 이 파일은 비밀정보이므로 Git·공유 로그·시험 결과에 포함하지 않는다. 기존 계정은 덮어쓰지 않으며 준비가 중간에 실패하면 정리할 때까지 manifest를 보존한다.
 - Keycloak 사용자 속성이 그대로 저장됐는지 확인한다. `--allow-temporary-profile-edit`는 원본을 `board-account.user-profile.json`에 백업한 뒤 계정 생성 중에만 `ADMIN_EDIT`을 허용한다. 일반 사용자의 편집 권한은 열지 않는다. 성공·예외 모두 원복을 시도하고 GET 결과가 원본과 같은지 확인한다. 동시 설정 변경을 발견하면 덮어쓰지 않고 중단한다. 강제 종료·네트워크 단절 시 자동 복구를 보장하지 못하므로 백업은 남겨두고, 원복 확인 실패 시 다음 시험을 진행하지 않는다.
 - 2026-10-01 준비 시 Hetzner Keycloak 26.6.1에 위 세 속성 정의가 없고 미정의 속성 정책도 미설정임을 확인했다. [Keycloak 기본 정책](https://www.keycloak.org/docs/latest/server_admin/)에 따른 제약을 설명하고 사용자에게 일시적 관리자 편집 허용·원복을 승인받았다. 실제 계정 생성 후 원본 설정과 완전히 동일하게 복구됐음을 별도 조회로 재확인했다.
@@ -585,7 +585,7 @@ python3 prepare-situation-board-account.py cleanup \
   --manifest /srv/apps/suri-map/load-test/board-account.json
 ```
 
-manifest의 정확한 계정·배정만 삭제하며, 계정에 업무폰·다른 배정·작성 마커가 생겼거나 소유 정보가 달라지면 중단한다. 생성한 Keycloak 사용자가 다른 사용자로 대체된 경우도 삭제하지 않는다. 정상 완료 후 비밀정보 파일도 제거한다. **마커·알림·이벤트·경로 정리를 대신하는 명령이 아니다.**
+manifest의 정확한 계정과 배정만 삭제한다. 계정에 FCM 토큰, 다른 배정, 작성 마커가 생겼거나 소유 정보가 달라지면 중단한다. 생성한 Keycloak 사용자가 다른 사용자로 대체된 경우도 삭제하지 않는다. 정상 완료 후 비밀정보 파일도 제거한다. **마커, 알림, 이벤트, 경로 정리를 대신하는 명령이 아니다.**
 
 검증: `python3 prepare-situation-board-account.py self-check`는 외부 연결 없이 중단 조건과 정리 대상 검사를 확인한다. 2026-10-01 격리된 PostgreSQL에 관련 migration의 테이블과 현재 UUID 배정 컬럼을 준비해 생성·반복 정리·기존 계정 보존·소유 정보 불일치 롤백·FCM 탐지를 검증했다. 전체 migration·Keycloak·실제 서버 로그인을 검증한 결과와 구분한다.
 

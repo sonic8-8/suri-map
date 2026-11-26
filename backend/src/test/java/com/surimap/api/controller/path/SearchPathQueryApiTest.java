@@ -55,7 +55,6 @@ class SearchPathQueryApiTest extends PostGisIntegrationTestSupport {
           duty_shift,
           operational_period,
           incident_assignment,
-          police_phone,
           account,
           incident
         CASCADE
@@ -286,10 +285,9 @@ class SearchPathQueryApiTest extends PostGisIntegrationTestSupport {
         Timestamp.from(BASE_TS));
   }
 
-  // 계정을 사건에 배정하고, 그 계정의 업무폰, 근무, 수색 경로를 한 개씩 넣는다.
+  // 계정을 사건에 배정하고, 그 계정의 근무와 수색 경로를 한 개씩 넣는다.
   private void insertAssignedPath(UUID incidentId, UUID opId, String accountId, String suffix) {
     String assignmentId = "61000000-0000-0000-0000-00000000" + suffix;
-    String policePhoneId = "50000000-0000-0000-0000-00000000" + suffix;
     String dutyShiftId = "60000000-0000-0000-0000-00000000" + suffix;
     String pathId = "81000000-0000-0000-0000-00000000" + suffix;
     jdbcTemplate.update(
@@ -303,19 +301,6 @@ class SearchPathQueryApiTest extends PostGisIntegrationTestSupport {
         incidentId.toString(),
         accountId,
         Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS));
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-          id, phone_code, display_name, account_id, status, registered,
-          created_at, updated_at, version
-        )
-        VALUES (?::uuid, ?, 'Search path access phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1)
-        """,
-        policePhoneId,
-        "phone-" + suffix,
-        accountId,
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
     jdbcTemplate.update(

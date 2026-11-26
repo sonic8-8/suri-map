@@ -23,7 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -47,9 +46,6 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
   private static final String APP_A_PHONE = "50000000-0000-0000-0000-000000004801";
   private static final String APP_A_PEER_PHONE = "50000000-0000-0000-0000-000000004802";
   private static final String APP_B_PHONE = "50000000-0000-0000-0000-000000004803";
-  private static final String UNREGISTERED_PHONE = "50000000-0000-0000-0000-000000004804";
-  private static final String DISABLED_PHONE = "50000000-0000-0000-0000-000000004805";
-  private static final String UNKNOWN_PHONE = "50000000-0000-0000-0000-000000004899";
   private static final String READY_HASH = "1".repeat(64);
   private static final String PURGED_HASH = "0".repeat(64);
   private static final String IDEMPOTENCY_KEY_PREFIX = "idem-48-";
@@ -65,14 +61,11 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
     insertAccount(APP_B);
     insertIncident(INCIDENT_A);
     insertIncident(INCIDENT_B);
-    insertAssignmentAndPhone(INCIDENT_A, APP_A, APP_A_PHONE, "4801");
-    insertAssignmentAndPhone(INCIDENT_A, APP_A_PEER, APP_A_PEER_PHONE, "4802");
-    insertAssignmentAndPhone(INCIDENT_B, APP_B, APP_B_PHONE, "4803");
-    // 앱 계정 A에 연결된 업무폰이지만 등록되지 않았거나 비활성이다.
-    insertPolicePhone(UNREGISTERED_PHONE, APP_A, "phone-4804", "ACTIVE", false);
-    insertPolicePhone(DISABLED_PHONE, APP_A, "phone-4805", "DISABLED", true);
+    insertAssignment(INCIDENT_A, APP_A, "4801");
+    insertAssignment(INCIDENT_A, APP_A_PEER, "4802");
+    insertAssignment(INCIDENT_B, APP_B, "4803");
     insertManifest(MANIFEST_A, INCIDENT_A, READY_HASH);
-    // 사건마다 다른 계정에 연결된 업무폰의 PARTIAL 설치 상태가 한 행씩 있다.
+    // 사건마다 다른 계정이 쓰던 업무폰의 PARTIAL 설치 상태가 한 행씩 있다.
     insertPartialInstallation(MANIFEST_A, APP_A_PEER_PHONE);
     insertPartialInstallation(MANIFEST_B, APP_B_PHONE);
   }
@@ -89,7 +82,7 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
     insertManifest(MANIFEST_B, INCIDENT_B, READY_HASH);
     List<Map<String, Object>> before = installationRows(MANIFEST_B);
 
-    // when & then: 앱 계정 A가 배정되지 않은 사건 B의 설치 보고를 자기 계정에 연결된 업무폰으로 보낸다.
+    // when & then: 앱 계정 A가 배정되지 않은 사건 B의 설치 보고를 자기가 쓰는 업무폰으로 보낸다.
     report(APP_A, INCIDENT_B.toString(), APP_A_PHONE, MANIFEST_B, "idem-48-cross-incident")
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("incident_access_denied")))
@@ -103,7 +96,7 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("업무폰을 넘겨받은 앱 계정이 그 업무폰으로 자기 사건의 설치 보고를 보내면 지금처럼 설치 상태가 저장된다")
   void assigned_app_account_with_handed_over_police_phone_saves_installation() throws Exception {
-    // given: 업무폰 APP_A_PEER_PHONE의 police_phone.account_id는 APP_A_PEER다. 이 업무폰에는 PARTIAL 설치 상태가 있다.
+    // given: APP_A_PEER가 쓰던 업무폰 APP_A_PEER_PHONE에는 PARTIAL 설치 상태가 있다.
     // when & then: 같은 사건에 배정된 앱 계정 A가 그 업무폰을 넘겨받아 설치 보고를 보낸다.
     String installationId =
         JsonPath.read(
@@ -129,7 +122,7 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("같은 Idempotency-Key의 저장된 응답이 있어도 사건 권한이 없는 앱 계정의 설치 보고는 incident_access_denied로 거절된다")
   void stored_response_is_not_replayed_to_app_account_without_incident_access() throws Exception {
-    // given: 사건 B에 배정된 앱 계정이 자기 계정에 연결된 업무폰으로 설치 보고를 보내 응답이 저장됐다.
+    // given: 사건 B에 배정된 앱 계정이 자기가 쓰는 업무폰으로 설치 보고를 보내 응답이 저장됐다.
     insertManifest(MANIFEST_B, INCIDENT_B, READY_HASH);
     report(APP_B, INCIDENT_B.toString(), APP_B_PHONE, MANIFEST_B, "idem-48-replay-incident")
         .andExpect(status().isOk());
@@ -147,9 +140,9 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("배정된 앱 계정이 자기 계정에 연결된 업무폰으로 자기 사건의 설치 보고를 보내면 지금처럼 설치 상태가 저장된다")
+  @DisplayName("배정된 앱 계정이 자기가 쓰는 업무폰으로 자기 사건의 설치 보고를 보내면 지금처럼 설치 상태가 저장된다")
   void assigned_app_account_with_linked_police_phone_saves_installation() throws Exception {
-    // when & then: 앱 계정 A가 자기 사건 A의 설치 보고를 자기 계정에 연결된 업무폰으로 보낸다.
+    // when & then: 앱 계정 A가 자기 사건 A의 설치 보고를 자기가 쓰는 업무폰으로 보낸다.
     String installationId =
         JsonPath.read(
             report(APP_A, INCIDENT_A.toString(), APP_A_PHONE, MANIFEST_A, "idem-48-own")
@@ -164,7 +157,7 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
                 .getContentAsString(),
             "$.id");
 
-    // then: 자기 계정에 연결된 업무폰의 READY 행이 더해진다. 다른 계정에 연결된 업무폰의 PARTIAL 행은 그대로다.
+    // then: 자기가 쓰는 업무폰의 READY 행이 더해진다. 다른 계정이 쓰던 업무폰의 PARTIAL 행은 그대로다.
     assertThat(installationRows(MANIFEST_A))
         .extracting(row -> row.get("police_phone_id"), row -> row.get("status"))
         .containsExactlyInAnyOrder(tuple(APP_A_PHONE, "READY"), tuple(APP_A_PEER_PHONE, "PARTIAL"));
@@ -254,27 +247,6 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
     assertThat(idempotencyRowCount()).isZero();
   }
 
-  @ParameterizedTest(name = "{0}")
-  @CsvSource({
-    "등록되지 않은 업무폰, " + UNREGISTERED_PHONE,
-    "비활성 업무폰, " + DISABLED_PHONE,
-    "없는 업무폰 ID, " + UNKNOWN_PHONE
-  })
-  @DisplayName("업무폰의 등록 상태와 관계없이 설치 보고는 그 업무폰 ID로 저장된다")
-  void unregistered_or_disabled_or_unknown_police_phone_saves_installation(
-      String description, String policePhoneId) throws Exception {
-    // when & then: 사건 A에 배정된 앱 계정 A가 그 업무폰 ID로 설치 보고를 보낸다.
-    report(APP_A, INCIDENT_A.toString(), policePhoneId, MANIFEST_A, "idem-48-not-registered")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status", is("READY")));
-
-    // then: 그 업무폰 ID의 READY 행이 더해진다. 다른 업무폰의 PARTIAL 행은 그대로다.
-    assertThat(installationRows(MANIFEST_A))
-        .extracting(row -> row.get("police_phone_id"), row -> row.get("status"))
-        .containsExactlyInAnyOrder(
-            tuple(policePhoneId, "READY"), tuple(APP_A_PEER_PHONE, "PARTIAL"));
-  }
-
   // 작업자는 다른 PostGIS 테스트가 쓰는 기본 seed 계정이 지워지지 않도록, 이 테스트가 넣은 행만 지우게 했다.
   private void deleteSeededRows() {
     jdbcTemplate.update(
@@ -292,13 +264,6 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
         "DELETE FROM incident_assignment WHERE incident_id IN (?::uuid, ?::uuid)",
         INCIDENT_A.toString(),
         INCIDENT_B.toString());
-    jdbcTemplate.update(
-        "DELETE FROM police_phone WHERE id IN (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid)",
-        APP_A_PHONE,
-        APP_A_PEER_PHONE,
-        APP_B_PHONE,
-        UNREGISTERED_PHONE,
-        DISABLED_PHONE);
     jdbcTemplate.update(
         "DELETE FROM account WHERE id IN (?::uuid, ?::uuid, ?::uuid)", APP_A, APP_A_PEER, APP_B);
     jdbcTemplate.update(
@@ -344,9 +309,7 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
         incidentId.toString());
   }
 
-  // 계정을 사건에 배정하고, police_phone.account_id가 그 계정인 등록된 업무폰을 한 대 넣는다.
-  private void insertAssignmentAndPhone(
-      UUID incidentId, String accountId, String policePhoneId, String suffix) {
+  private void insertAssignment(UUID incidentId, String accountId, String suffix) {
     jdbcTemplate.update(
         """
         INSERT INTO incident_assignment (
@@ -358,26 +321,6 @@ class OfflinePackageInstallationApiTest extends PostGisIntegrationTestSupport {
         incidentId.toString(),
         accountId,
         Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS),
-        Timestamp.from(BASE_TS));
-    insertPolicePhone(policePhoneId, accountId, "phone-" + suffix, "ACTIVE", true);
-  }
-
-  private void insertPolicePhone(
-      String policePhoneId, String accountId, String phoneCode, String status, boolean registered) {
-    jdbcTemplate.update(
-        """
-        INSERT INTO police_phone (
-          id, phone_code, display_name, account_id, status, registered,
-          created_at, updated_at, version
-        )
-        VALUES (?::uuid, ?, 'Offline package installation phone', ?::uuid, ?, ?, ?, ?, 1)
-        """,
-        policePhoneId,
-        phoneCode,
-        accountId,
-        status,
-        registered,
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS));
   }

@@ -57,7 +57,7 @@ class AppMapRevisionApiContractTest {
       roles = Role.MEMBER)
   @DisplayName("APP GET /api/incidents/{incidentId}/map-revisions는 지도 source revision 목록을 반환한다")
   void appCanReadMapSourceRevisions() throws Exception {
-    when(service.revisions(INCIDENT_ID, OP_ID, POLICE_PHONE_ID))
+    when(service.revisions(INCIDENT_ID, OP_ID, ACCOUNT_ID))
         .thenReturn(
             new AppMapRevisionResponse(
                 INCIDENT_ID,
@@ -80,7 +80,7 @@ class AppMapRevisionApiContractTest {
         .andExpect(jsonPath("$.sources[1].source").value("search_paths"));
 
     verify(incidentAccessPort).checkAccess(any());
-    verify(service).revisions(INCIDENT_ID, OP_ID, POLICE_PHONE_ID);
+    verify(service).revisions(INCIDENT_ID, OP_ID, ACCOUNT_ID);
     verify(locationAccessRecorder)
         .record(
             eq(ACCOUNT_ID),

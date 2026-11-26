@@ -11,13 +11,6 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface PolicePhoneMapper {
 
-  Optional<PolicePhoneStateRow> findActiveById(@Param("policePhoneId") UUID policePhoneId);
-
-  Optional<String> findDisplayNameById(@Param("policePhoneId") UUID policePhoneId);
-
-  Optional<PolicePhoneAssignmentRow> findActiveAssignmentByPolicePhone(
-      @Param("policePhoneId") UUID policePhoneId);
-
   Optional<Long> findActiveTokenVersion(
       @Param("policePhoneId") UUID policePhoneId, @Param("appInstanceId") String appInstanceId);
 

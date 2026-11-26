@@ -31,7 +31,6 @@ public class Sc03PackageTileHarnessRunner {
       List.of(
           "S1-1:incident",
           "S1-1:missing_person",
-          "S1-2:police_phone_assignment",
           "S2:assigned_area",
           "S2:overall_search_area",
           "S5:initial_marker",
@@ -82,14 +81,6 @@ public class Sc03PackageTileHarnessRunner {
         "S1-1:missing_person",
         Objects.equals(
             manifest.missingPerson().incidentId(), OfflinePackageManifestFixtures.INCIDENT_ID));
-    evidence.put(
-        "S1-2:police_phone_assignment",
-        Objects.equals(
-                manifest.policePhoneContext().policePhoneId(),
-                OfflinePackageManifestFixtures.POLICE_PHONE_ID)
-            && Objects.equals(
-                manifest.policePhoneContext().accountId(),
-                OfflinePackageManifestFixtures.ACCOUNT_ID));
     evidence.put(
         "S2:assigned_area",
         manifest.assignedAreas().stream()

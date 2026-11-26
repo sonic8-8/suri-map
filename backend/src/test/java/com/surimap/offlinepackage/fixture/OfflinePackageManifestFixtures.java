@@ -93,7 +93,6 @@ public final class OfflinePackageManifestFixtures {
       int manifestVersion,
       OffsetDateTime expiresAt,
       String packageHash,
-      PolicePhoneContext policePhoneContext,
       IncidentMetadata incident,
       MissingPerson missingPerson,
       List<OperationalPeriod> operationalPeriods,
@@ -102,9 +101,6 @@ public final class OfflinePackageManifestFixtures {
       OverallSearchArea overallSearchArea,
       List<TileItem> tileItems,
       List<PackageItem> packageItems) {}
-
-  public record PolicePhoneContext(
-      String policePhoneId, String accountId, String accountType, String teamId, String role) {}
 
   public record IncidentMetadata(
       String incidentId, String status, String packageContext, String sourceFixture) {}

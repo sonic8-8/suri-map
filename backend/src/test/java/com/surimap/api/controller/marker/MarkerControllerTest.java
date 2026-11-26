@@ -32,7 +32,6 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.guard.IncidentAccessDeniedException;
 import com.surimap.common.auth.guard.IncidentAccessPort;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.ClockConfig;
 import com.surimap.config.GuardConfig;
 import com.surimap.domain.marker.MarkerSource;
@@ -104,7 +103,6 @@ class MarkerControllerTest {
   @MockitoBean private MarkerService markerService;
   @MockitoBean private AppMarkerService appMarkerService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
-  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
   @MockitoBean private IncidentAccessPort incidentAccessPort;
   @MockitoBean private LocationAccessRecorder locationAccessRecorder;
 

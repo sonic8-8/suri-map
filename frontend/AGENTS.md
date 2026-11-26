@@ -14,7 +14,7 @@ Suri-Map Web 상황판 전용 규칙이다. 저장소 공통 규칙은 `../AGENT
 ## 프로젝트 / 플랫폼 개요
 
 - Web은 현장 입력 앱이 아니라 지휘 상황판이다.
-- 전체/팀 수색 구역, PolicePhone 경로, 마커, OP 비교, 인수인계 메모, 수색 이력 요약을 보여준다.
+- 전체/팀 수색 구역, 계정별 수색 경로, 마커, OP 비교, 인수인계 메모, 수색 이력 요약을 보여준다.
 - Web 전용 command: 사건 import/close, 전체 수색 구역 조정, 구역 분할/할당/완료, OP 생성, 차량/도보 구간 보정, OP 비교 분석 생성.
 - 수색 이력 요약은 읽기 전용으로 표시한다. 생성·재시도는 서버 내부 처리이며, 기존 요구와 남은 연결은 `../docs/features/handover.md`에서 확인한다.
 - 앱 전용 write인 현장 마커 생성, 사진 업로드, GPS batch, SearchPath 시작/종료, package installation status write를 Web에서 구현하지 않는다.
@@ -80,7 +80,7 @@ src/
 - Slot 이름과 데이터 형식은 Backend 응답, 프론트엔드 타입·처리 코드, 관련 테스트를 대조한다. 변경 시 양쪽 소비자 호환성을 검증한다.
 - MapLibre source/layer id는 slot과 entity가 드러나게 정한다.
 - `search_area.area_level = OVERALL`은 초기 viewport와 package 범위 기준이다. 자동 누락 판단 기준으로 쓰지 않는다.
-- PolicePhone freshness는 색, 외곽선, 라벨 같은 시각 인코딩으로만 표현하고 별도 알림으로 만들지 않는다.
+- 통신 상태는 색, 외곽선, 라벨 같은 시각 인코딩으로만 표현한다. 별도 알림으로 만들지 않는다.
 
 ## Realtime
 

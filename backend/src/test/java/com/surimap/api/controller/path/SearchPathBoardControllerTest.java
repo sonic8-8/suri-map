@@ -10,7 +10,6 @@ import com.surimap.api.service.path.SearchPathBoardService;
 import com.surimap.api.service.path.response.SearchPathPageServiceResponse;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.guard.IncidentAccessPort;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.ClockConfig;
 import com.surimap.config.GuardConfig;
 import com.surimap.global.error.GlobalExceptionHandler;
@@ -50,7 +49,6 @@ class SearchPathBoardControllerTest {
   @Autowired private MockMvc mvc;
   @MockitoBean private SearchPathBoardService service;
   @MockitoBean private IncidentAccessPort incidentAccessPort;
-  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
   @MockitoBean private LocationAccessRecorder locationAccessRecorder;
 
   @Test

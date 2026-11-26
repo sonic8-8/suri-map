@@ -45,16 +45,16 @@ public class OfflinePackageService {
   public OfflinePackageManifestResponse manifestWithIncidentAccess(
       String incidentId, String policePhoneId, SuriMapAuthentication authentication) {
     incidentAccessService.requireIncidentAccess(parseIncidentId(incidentId), authentication);
-    // 업무폰 ID가 없으면 지금처럼 고정 업무폰으로 조립된다. 이 분기는 #56에서 정리한다.
     if (policePhoneId != null) {
       requireUuidPolicePhoneId(policePhoneId);
     }
-    return manifest(incidentId, policePhoneId);
+    return manifest(incidentId, policePhoneId, accountIdOf(authentication));
   }
 
   @Transactional
-  public OfflinePackageManifestResponse manifest(String incidentId, String policePhoneId) {
-    return repository.manifest(incidentId, policePhoneId);
+  public OfflinePackageManifestResponse manifest(
+      String incidentId, String policePhoneId, UUID accountId) {
+    return repository.manifest(incidentId, policePhoneId, accountId);
   }
 
   // 사건 권한이 없는 계정이 같은 Idempotency-Key의 저장된 응답을 받지 못하도록,
@@ -142,6 +142,15 @@ public class OfflinePackageService {
   private static void requireUuidPolicePhoneId(String policePhoneId) {
     PolicePhoneIdFormat.parse(policePhoneId)
         .orElseThrow(() -> new BusinessException(ErrorCode.POLICE_PHONE_REQUIRED));
+  }
+
+  // 계정 ID가 UUID가 아니면 배정된 구역이 있을 수 없으므로, 배정 구역이 빈 manifest가 내려간다.
+  private static UUID accountIdOf(SuriMapAuthentication authentication) {
+    try {
+      return UUID.fromString(authentication.getAccountId());
+    } catch (IllegalArgumentException exception) {
+      return null;
+    }
   }
 
   private static OffsetDateTime serverNow() {

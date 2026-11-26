@@ -39,7 +39,7 @@ Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. 
 - WEB은 Keycloak Authorization Code + PKCE redirect 흐름으로 로그인하고, APP은 MDM/managed config와 내부망 확인 후 Custom Tabs/AppAuth Authorization Code + PKCE 흐름으로 로그인한다.
 - access token에는 개인 계정 식별자인 `accountId`와 권한 projection 보조값인 `accountType`, `organizationType`이 있어야 한다. APP channel의 폴리폰 식별자는 token claim이 아니라 MDM/managed config에서 읽은 `X-PolicePhone-Id` header로 전달한다.
 - 표시용 claim은 `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`을 사용한다. `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 시연 계정이 실제로 속한 운용 leaf 조직 경로를 담고, `displayName`은 `소속 + 계급 + 이름` 조합의 UI label이다. `displayName`은 권한 판정에는 쓰지 않는다. 권한 판정은 `accountId`, `accountType`, `organizationType`, `X-PolicePhone-Id`, 사건 배정, backend-derived Suri-Map role 기준으로 수행한다. `accountType`은 개인 계정의 파생 분류일 뿐 팀/순찰차 공유 계정 식별자가 아니다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 role은 Keycloak/기관 SSO role claim이 아니라 Suri-Map backend가 개인 계정·소속·사건 배정으로 파생하는 API 접근 제어용 authority다.
-- 계급, 직책, 소속의 source of truth는 Keycloak/기관 SSO claim이다. Suri-Map 운영 DB의 `account` 값은 사건 배정 FK와 조회 성능을 위한 local projection이며, 기관 계급/직책/전역 권한을 결정하지 않는다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이며 인증 서버 계정 claim이 아니다.
+- 계급, 직책, 소속의 source of truth는 Keycloak/기관 SSO claim이다. Suri-Map 운영 DB의 `account` 값은 사건 배정 FK와 조회 성능을 위한 local projection이며, 기관 계급/직책/전역 권한을 결정하지 않는다. 업무폰은 MDM 같은 인프라 계층에서 관리한다. 2026-11-26 #61에서 운영 DB의 `police_phone` 테이블을 지웠으므로, 서버에는 업무폰마다 두는 기록이 없다.
 - APP 전용 write는 `@RequireChannel(APP)`, PolicePhone guard, 사건 배정 guard를 통과해야 한다.
 - WEB 지휘 write는 `@RequireChannel(WEB)`, role guard, 사건 접근 guard를 통과해야 한다.
 - 서버 내부 호출자와 S1-3 purge/audit/query port는 public API가 아니다.
@@ -199,6 +199,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Response: `200 {incidentId, opId, sources:[{source, revision}]}`
 - `source`: one of `incident_detail`, `overall_search_area`, `op_search_areas`, `search_paths`, `live_markers`, `initial_markers`
 - `revision`: opaque source revision string. APP must compare for equality only; it must not infer risk, completion, or next search recommendations from the value.
+- `initial_markers`의 revision은 요청한 계정에 배정된 구역으로 계산된다. 2026-11-26 #61부터 `policePhoneId`는 받기만 하고 계산에 쓰지 않는다.
 - Note: 이 endpoint는 Android 지도 화면이 변경 여부를 먼저 확인해 동일 revision이면 로컬 Room/offline cache를 재사용하기 위한 경량 read다. 각 source의 상세 payload는 기존 owner API(`GET /api/incidents/{incidentId}`, `GET /api/search-areas`, `GET /api/search-paths`, `GET /api/markers`, `GET /api/incidents/{incidentId}/offline-package/manifest`)를 계속 canonical source로 사용한다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
@@ -498,9 +499,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Query: optional `policePhoneId`, `knownManifestRevision`
 - Response: `200 {manifestId, incidentId, manifestVersion, expiresAt, packageHash, incident, missingPerson, operationalPeriods, assignedAreas, initialMarkers, overallSearchArea, tileItems, packageItems}`
 - Incident access: 토큰의 계정이 요청한 사건에 사건 권한을 가질 때만 manifest를 받는다. 사건 권한의 기준은 `GET /api/search-paths`와 같다. 사건 권한이 없거나 `incidentId`가 UUID가 아니면 403 `incident_access_denied`다.
-- PolicePhone: 업무폰 인증은 MDM 같은 인프라 계층이 맡으므로(ADR-0037) 서버는 업무폰의 등록 여부를 확인하지 않는다. `policePhoneId`를 보내면 UUID 형식인지만 확인한다. UUID가 아닌 값은 400 `police_phone_required`다. 업무폰을 여러 계정이 돌려쓰므로 `police_phone.account_id`와 토큰 계정은 비교하지 않는다. `policePhoneId`를 보내지 않으면 지금처럼 고정 업무폰으로 manifest가 조립된다.
+- PolicePhone: 업무폰 인증은 MDM 같은 인프라 계층이 맡으므로(ADR-0037) 서버는 업무폰의 등록 여부를 확인하지 않는다. `policePhoneId`를 보내면 UUID 형식인지만 확인한다. UUID가 아닌 값은 400 `police_phone_required`다. 서버에는 업무폰마다 두는 기록이 없다. `assignedAreas`에는 요청한 계정에 배정된 구역만 담긴다. 업무폰 ID를 보냈는지, 그 업무폰을 누가 썼는지와 관계없이 `assignedAreas`는 같다. 2026-11-26 #61에서 응답의 `policePhoneContext`를 없앴다. `policePhoneId`를 보내지 않으면 `packageItems`의 설치 상태는 지금처럼 고정 업무폰 ID로 조회된다.
 - Check order: 거절 조건은 사건 권한(403 `incident_access_denied`), 업무폰 ID 형식(400 `police_phone_required`), 준비 전(409 `package_manifest_not_ready`), 파기(410 `package_purged`) 순서로 확인된다. 사건 권한이 없으면 패키지가 준비되지 않았거나 파기된 사건도 `incident_access_denied`로 거절된다.
-- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_assigned`, `package_manifest_not_ready`, `package_purged`, `overall_search_area_required`, `tile_unavailable`
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `package_manifest_not_ready`, `package_purged`, `overall_search_area_required`, `tile_unavailable`
 - Note: 오프라인 패키지는 전체 수색구역과 타일 기준 범위가 준비된 뒤 생성된다. 수색구역 미지정 상태의 manifest 요청은 `409 {error: "package_manifest_not_ready"}` 또는 기존 호환 오류 `overall_search_area_required`로 응답할 수 있으며, APP은 이를 사건 진입 실패가 아닌 패키지 대기 상태로 표시한다.
 
 #### POST `/api/incidents/{incidentId}/offline-package/installations`

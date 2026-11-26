@@ -24,7 +24,6 @@ import com.surimap.app.service.photo.request.PhotoUploadUrlServiceRequest;
 import com.surimap.app.service.photo.response.PhotoAttachServiceResponse;
 import com.surimap.app.service.photo.response.PhotoUploadUrlServiceResponse;
 import com.surimap.common.auth.Channel;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.config.GuardConfig;
 import com.surimap.global.auth.SuriMapAuthentication;
 import com.surimap.global.auth.SuriMapAuthenticationResolver;
@@ -72,7 +71,6 @@ class PhotoControllerTest {
 
   @MockitoBean private PhotoService photoService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
-  @MockitoBean private PolicePhoneValidationPort policePhoneValidationPort;
 
   @BeforeEach
   void setUp() {

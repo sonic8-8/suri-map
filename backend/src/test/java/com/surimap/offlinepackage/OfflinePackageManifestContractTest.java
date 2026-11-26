@@ -49,23 +49,15 @@ class OfflinePackageManifestContractTest {
           "detailAddress");
 
   @Test
-  @DisplayName("manifest root identity and PolicePhone context follow SC-03 handoff")
-  void manifest_root_identity_and_police_phone_context_are_fixed() {
+  @DisplayName("manifest 최상위 식별값은 SC-03 handoff와 같다. policePhoneContext 필드는 없다")
+  void manifest_root_identity_is_fixed_without_police_phone_context() {
     OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
 
     assertThat(manifest.manifestId()).isEqualTo(OfflinePackageManifestFixtures.MANIFEST_ID);
     assertThat(manifest.incidentId()).isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(manifest.manifestVersion()).isEqualTo(1);
     assertThat(manifest.packageHash()).matches(SHA256_HEX);
-
-    assertThat(manifest.policePhoneContext().policePhoneId())
-        .isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
-    assertThat(manifest.policePhoneContext().accountId())
-        .isEqualTo("11111111-1111-1111-1111-111111110003");
-    assertThat(manifest.policePhoneContext().accountType()).isEqualTo("TEAM");
-    assertThat(manifest.policePhoneContext().teamId()).isEqualTo("team-precinct-jongno");
-    assertThat(manifest.policePhoneContext().role()).isEqualTo("MEMBER");
-    assertThat(policePhoneContextFields()).doesNotContain("phoneType", "phone_type");
+    assertThat(manifestFields()).doesNotContain("policePhoneContext");
   }
 
   @Test
@@ -177,13 +169,6 @@ class OfflinePackageManifestContractTest {
 
   private static List<String> manifestFields() {
     return Arrays.stream(OfflinePackageManifest.class.getRecordComponents())
-        .map(RecordComponent::getName)
-        .toList();
-  }
-
-  private static List<String> policePhoneContextFields() {
-    return Arrays.stream(
-            OfflinePackageManifestFixtures.PolicePhoneContext.class.getRecordComponents())
         .map(RecordComponent::getName)
         .toList();
   }

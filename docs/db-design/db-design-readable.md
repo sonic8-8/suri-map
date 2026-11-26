@@ -14,10 +14,9 @@
 | `missing_person` | 사건 진행에 필요한 실종자 정보. 사건당 최대 한 행이며, 종료 후 제거할 수 있도록 사건 자체와 분리했다. 사진은 `photo_object_key`로 참조한다. |
 | `incident_assignment` | 사건에 배정된 계정과 사건 안에서의 역할. 구역 담당 배정과 다르며, 해제 시각으로 유효 배정을 구분한다. |
 | `account` | 조작·기록의 계정 식별자. `login_id`는 로그인용 값이고 관계에 사용하는 `id`와 다르다. |
-| `police_phone` | 현장 앱을 사용하는 물리 업무폰. 마지막 heartbeat 수신·동기화 시각, 수용한 순번·이벤트 ID를 보관한다. |
 | `mock112_webhook_event` | 원천 알림의 중복 처리를 막고 처리 결과를 재사용하는 기록. 사용자의 쓰기 요청을 다루는 `idempotency_record`와 구분한다. |
 
-개인 계정으로 경로를 기록하는 구현과 옛 공유 계정·팀/순찰차 seed를 같은 정책으로 해석하지 않는다. 현재 [PolicePhoneMapper](../../backend/src/main/resources/mapper/policephone/PolicePhoneMapper.xml)는 `police_phone.account_id`로 계정·사건 배정을 조회한다. 계정과 단말을 연결하는 이 저장 구조만으로 단말 소유권이나 계정 공유 정책이 정해지는 것은 아니다.
+개인 계정으로 경로를 기록하는 구현과 옛 공유 계정, 팀 및 순찰차 seed를 같은 정책으로 해석하지 않는다. 업무폰은 MDM 같은 인프라 계층에서 관리한다. 2026-11-26 #61에서 업무폰마다 두던 `police_phone` 테이블을 지웠다. 다른 테이블의 `police_phone_id`는 요청한 업무폰 ID를 그대로 저장한 값이다.
 
 관련 요구와 차이: [사건 가져오기·배정·종료](../features/incident-lifecycle.md), [인증·업무폰·토큰](../features/authentication.md).
 

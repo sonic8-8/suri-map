@@ -119,13 +119,7 @@ WHERE id = 'e3000000-0000-4000-8000-000000000001';
 DELETE FROM fcm_token
 WHERE account_id IN (
     SELECT id FROM account WHERE login_id LIKE 'test3-%'
-)
-   OR police_phone_id IN (
-    SELECT id FROM police_phone WHERE phone_code LIKE 'test3-%'
 );
-
-DELETE FROM police_phone
-WHERE phone_code LIKE 'test3-%';
 
 DELETE FROM account
 WHERE login_id LIKE 'test3-%';
@@ -188,49 +182,6 @@ ON CONFLICT (id) DO UPDATE SET
     account_type = EXCLUDED.account_type,
     organization_type = EXCLUDED.organization_type,
     status = EXCLUDED.status,
-    updated_at = CURRENT_TIMESTAMP;
-
-INSERT INTO police_phone (
-    id,
-    phone_code,
-    display_name,
-    account_id,
-    status,
-    registered,
-    last_heartbeat_at,
-    last_sync_at,
-    version,
-    heartbeat_sequence,
-    last_heartbeat_event_id,
-    created_at,
-    updated_at
-)
-SELECT
-    ('e2000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
-    'test3-phone-' || lpad(gs::text, 2, '0'),
-    'test3 현장 단말 ' || lpad(gs::text, 2, '0'),
-    ('e1000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
-    'ACTIVE',
-    TRUE,
-    CASE WHEN gs IN (16, 19) THEN NULL ELSE CURRENT_TIMESTAMP - (gs || ' minutes')::interval END,
-    CASE WHEN gs IN (16, 19) THEN NULL ELSE CURRENT_TIMESTAMP - ((gs + 1) || ' minutes')::interval END,
-    gs + 1,
-    2000 + gs,
-    CASE WHEN gs IN (16, 19) THEN NULL ELSE ('e2990000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid END,
-    CURRENT_TIMESTAMP,
-    CURRENT_TIMESTAMP
-FROM generate_series(1, 20) AS gs
-ON CONFLICT (id) DO UPDATE SET
-    phone_code = EXCLUDED.phone_code,
-    display_name = EXCLUDED.display_name,
-    account_id = EXCLUDED.account_id,
-    status = EXCLUDED.status,
-    registered = EXCLUDED.registered,
-    last_heartbeat_at = EXCLUDED.last_heartbeat_at,
-    last_sync_at = EXCLUDED.last_sync_at,
-    version = EXCLUDED.version,
-    heartbeat_sequence = EXCLUDED.heartbeat_sequence,
-    last_heartbeat_event_id = EXCLUDED.last_heartbeat_event_id,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO incident (

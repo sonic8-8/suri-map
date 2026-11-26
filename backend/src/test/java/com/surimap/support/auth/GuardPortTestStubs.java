@@ -4,10 +4,7 @@ import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.IncidentAccessDeniedException;
 import com.surimap.common.auth.guard.IncidentAccessPort;
-import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
-import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,22 +38,6 @@ public class GuardPortTestStubs {
     return new StubIncidentAccessPort();
   }
 
-  /**
-   * Stub police phone validator.
-   *
-   * <p>Rules (by last 12 bits of the UUID least-significant bits):
-   *
-   * <ul>
-   *   <li>0x300–0x3FF → NOT assigned → {@code police_phone_not_assigned}
-   *   <li>Otherwise → pass
-   * </ul>
-   */
-  @Bean
-  @ConditionalOnMissingBean(PolicePhoneValidationPort.class)
-  PolicePhoneValidationPort stubPolicePhoneValidationPort() {
-    return new StubPolicePhoneValidationPort();
-  }
-
   // ---------------------------------------------------------------------------
   // Static inner implementations
   // ---------------------------------------------------------------------------
@@ -74,21 +55,6 @@ public class GuardPortTestStubs {
       if (UNASSIGNED_TEAM_ACCOUNT_ID.equals(auth.getAccountId())) {
         throw new TeamNotAssignedException();
       }
-    }
-  }
-
-  static final class StubPolicePhoneValidationPort implements PolicePhoneValidationPort {
-
-    @Override
-    public void checkAssigned(UUID policePhoneId) {
-      int bucket = lastTwelveHexBits(policePhoneId);
-      if (bucket >= 0x300 && bucket < 0x400) {
-        throw new PolicePhoneNotAssignedException();
-      }
-    }
-
-    private int lastTwelveHexBits(UUID id) {
-      return (int) (id.getLeastSignificantBits() & 0xFFF);
     }
   }
 }

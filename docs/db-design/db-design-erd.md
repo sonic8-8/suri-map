@@ -51,11 +51,12 @@ erDiagram
 erDiagram
     incident ||--o{ offline_package_manifest : packages
     offline_package_manifest ||--o{ offline_package_installation : reports
-    police_phone ||--o{ offline_package_installation : installs
 
     incident ||--o| incident_data_purge : tracks
     incident_data_purge ||--o{ incident_data_purge_hook_step : records
 ```
+
+설치 상태는 업무폰 ID별로 저장된다. 2026-11-26 #61에서 `police_phone` 테이블을 지웠으므로 업무폰 ID는 다른 테이블과 연결되지 않는 값이다.
 
 이 관계는 패키지 준비 성공이나 개인정보 파기 완료의 증거가 아니다. 서버 상태 보고·실제 단말 자료·대상별 처리 결과를 함께 확인한다.
 

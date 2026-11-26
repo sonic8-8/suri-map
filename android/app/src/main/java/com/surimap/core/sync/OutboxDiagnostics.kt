@@ -51,7 +51,6 @@ object OutboxDiagnosticsClassifier {
             lastError in setOf(
                 "police_phone_not_assigned",
                 "police_phone_not_registered",
-                "device_not_assigned",
                 "device_not_registered",
                 "device_required"
             ) -> "POLICE_PHONE_ACCESS_REQUIRED" to false

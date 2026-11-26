@@ -1,7 +1,5 @@
 package com.surimap.policephone;
 
-import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
-import com.surimap.common.auth.guard.PolicePhoneValidationPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
@@ -17,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class PolicePhonePersistenceService implements PolicePhoneValidationPort, FcmTokenQuery {
+public class PolicePhonePersistenceService implements FcmTokenQuery {
 
   private final PolicePhoneMapper mapper;
   private final Clock clock;
@@ -25,12 +23,6 @@ public class PolicePhonePersistenceService implements PolicePhoneValidationPort,
   public PolicePhonePersistenceService(PolicePhoneMapper mapper, Clock clock) {
     this.mapper = mapper;
     this.clock = clock;
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public void checkAssigned(UUID policePhoneId) {
-    activeAssignment(policePhoneId);
   }
 
   @Transactional
@@ -81,12 +73,6 @@ public class PolicePhonePersistenceService implements PolicePhoneValidationPort,
       return List.of();
     }
     return mapper.findActiveTokensByAccounts(accountIds);
-  }
-
-  private PolicePhoneAssignmentRow activeAssignment(UUID policePhoneId) {
-    return mapper
-        .findActiveAssignmentByPolicePhone(policePhoneId)
-        .orElseThrow(PolicePhoneNotAssignedException::new);
   }
 
   private UUID parseAccountId(String accountId) {

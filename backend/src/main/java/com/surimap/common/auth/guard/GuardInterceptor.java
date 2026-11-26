@@ -3,10 +3,8 @@ package com.surimap.common.auth.guard;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireDevice;
-import com.surimap.common.auth.RequireDeviceAssigned;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneAssigned;
 import com.surimap.common.auth.RequireRole;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
@@ -29,7 +27,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *   <li>{@link RequireRole} — account must have a non-MEMBER role
  *   <li>{@link RequireIncidentAccess} — account must be assigned to the active incident
  *   <li>{@link RequirePolicePhone} — policePhoneId must be a UUID present in session (APP only)
- *   <li>{@link RequirePolicePhoneAssigned} — police phone must be assigned to incident (APP only)
  * </ul>
  *
  * <p>Police-phone guards are skipped when the channel is WEB. The interceptor is a no-op for
@@ -38,12 +35,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class GuardInterceptor implements HandlerInterceptor {
 
   private final IncidentAccessPort incidentAccessPort;
-  private final PolicePhoneValidationPort policePhoneValidationPort;
 
-  public GuardInterceptor(
-      IncidentAccessPort incidentAccessPort, PolicePhoneValidationPort policePhoneValidationPort) {
+  public GuardInterceptor(IncidentAccessPort incidentAccessPort) {
     this.incidentAccessPort = incidentAccessPort;
-    this.policePhoneValidationPort = policePhoneValidationPort;
   }
 
   @Override
@@ -57,18 +51,14 @@ public class GuardInterceptor implements HandlerInterceptor {
     var requireRole = method.getMethodAnnotation(RequireRole.class);
     var requireIncidentAccess = method.getMethodAnnotation(RequireIncidentAccess.class);
     var requirePolicePhone = method.getMethodAnnotation(RequirePolicePhone.class);
-    var requireAssigned = method.getMethodAnnotation(RequirePolicePhoneAssigned.class);
     var requireDevice = method.getMethodAnnotation(RequireDevice.class);
-    var requireDeviceAssigned = method.getMethodAnnotation(RequireDeviceAssigned.class);
 
     boolean hasAnyGuard =
         requireChannel != null
             || requireRole != null
             || requireIncidentAccess != null
             || requirePolicePhone != null
-            || requireAssigned != null
-            || requireDevice != null
-            || requireDeviceAssigned != null;
+            || requireDevice != null;
 
     if (!hasAnyGuard) {
       return true;
@@ -97,17 +87,6 @@ public class GuardInterceptor implements HandlerInterceptor {
       if (requirePolicePhone != null || requireDevice != null) {
         enforcePolicePhonePresent(auth, requireDevice != null);
         parsePolicePhoneId(auth, requireDevice != null);
-      }
-
-      if (requireAssigned != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth, false));
-      }
-      if (requireDeviceAssigned != null && auth.getPolicePhoneId() != null) {
-        try {
-          policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth, true));
-        } catch (PolicePhoneNotAssignedException ex) {
-          throw new DeviceNotAssignedException();
-        }
       }
     }
 

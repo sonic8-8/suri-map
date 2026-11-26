@@ -7,8 +7,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 public final class PolicePhoneDbFixtureSupport {
 
-  private static final UUID UNREGISTERED_POLICE_PHONE_ID =
-      UUID.fromString("00000000-0000-0000-0000-000000000201");
   private static final UUID UNASSIGNED_ACCOUNT_ID =
       UUID.fromString("11111111-1111-1111-1111-111111110009");
   private static final UUID ASSIGNMENT_ID = UUID.fromString("71000000-0000-0000-0000-000000000001");
@@ -31,28 +29,6 @@ public final class PolicePhoneDbFixtureSupport {
         "미배정 폴리폰 계정",
         "TEAM",
         "POLICE_SUBSTATION");
-
-    ensurePolicePhone(
-        jdbcTemplate,
-        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
-        "dev-precinct-phone-01",
-        "종로 지구대 팀 폴리폰",
-        AccountIdentityCatalog.PRECINCT_TEAM_ID,
-        true);
-    ensurePolicePhone(
-        jdbcTemplate,
-        UNREGISTERED_POLICE_PHONE_ID,
-        "dev-precinct-cmd-phone-01",
-        "종로 지구대 지휘 폴리폰",
-        AccountIdentityCatalog.PRECINCT_TEAM_ID,
-        false);
-    ensurePolicePhone(
-        jdbcTemplate,
-        PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID,
-        "dev-unassigned-phone-01",
-        "미배정 폴리폰",
-        UNASSIGNED_ACCOUNT_ID,
-        true);
     ensureAssignedFixture(jdbcTemplate);
   }
 
@@ -74,36 +50,6 @@ public final class PolicePhoneDbFixtureSupport {
         displayName,
         accountType,
         organizationType);
-  }
-
-  private static void ensurePolicePhone(
-      JdbcTemplate jdbcTemplate,
-      UUID id,
-      String phoneCode,
-      String displayName,
-      UUID accountId,
-      boolean registered) {
-    jdbcTemplate.update(
-        """
-        MERGE INTO police_phone (
-            id,
-            phone_code,
-            display_name,
-            account_id,
-            status,
-            registered,
-            last_heartbeat_at,
-            last_sync_at,
-            heartbeat_sequence,
-            last_heartbeat_event_id,
-            version
-        ) KEY(id) VALUES (?, ?, ?, ?, 'ACTIVE', ?, NULL, NULL, 0, NULL, 1)
-        """,
-        id,
-        phoneCode,
-        displayName,
-        accountId,
-        registered);
   }
 
   private static void ensureAssignedFixture(JdbcTemplate jdbcTemplate) {

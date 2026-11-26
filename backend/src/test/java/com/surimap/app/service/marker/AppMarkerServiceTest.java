@@ -89,7 +89,7 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550071");
   private static final UUID PHOTO_ID = UUID.fromString("55555555-5555-5555-5555-555555550172");
   private static final UUID DUTY_SHIFT_ID = UUID.fromString("33333333-3333-3333-3333-333333330071");
-  // Flyway가 생성하는 지휘 계정과 현장 지휘관 계정의 업무폰이다.
+  // 지휘 계정과 현장 지휘관 계정이 FCM 토큰을 등록할 때 쓰는 업무폰 ID다.
   private static final UUID COMMANDER_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000201");
   private static final UUID FIELD_COMMANDER_PHONE_ID =
@@ -148,9 +148,6 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
         ASSIGNED_POLICE_PHONE_ID,
         COMMANDER_PHONE_ID,
         FIELD_COMMANDER_PHONE_ID);
-    // 기본 시드의 지휘 업무폰은 미등록 상태다. 이 테스트는 등록과 토큰 발급을 마친 수신자를 가정한다.
-    jdbcTemplate.update(
-        "UPDATE police_phone SET registered = TRUE WHERE id = ?", COMMANDER_PHONE_ID);
     policePhonePersistenceService.registerFcmToken(
         ASSIGNED_POLICE_PHONE_ID, PRECINCT_TEAM_ID.toString(), "marker-test", TEAM_FCM_TOKEN);
     policePhonePersistenceService.registerFcmToken(

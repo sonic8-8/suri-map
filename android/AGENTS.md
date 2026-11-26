@@ -73,7 +73,7 @@ Outbox 상태와 전이 조건은 `app/src/main/java/com/surimap/core/sync/Outbo
 ## PolicePhone / Path
 
 - 경로 기록 주체는 로그인한 `accountId`다.
-- `PolicePhone`은 앱 단말 인증, 배정 guard, outbox 전송 컨텍스트로 유지한다.
+- 업무폰 ID는 outbox 전송 컨텍스트로 유지한다. 업무폰 인증은 MDM 같은 인프라 계층에서 맡는다(ADR-0037).
 - 모든 현장 write는 현재 `incidentId`, `opId`, `accountId`, `policePhoneId`, 필요 시 `dutyShiftId`에 귀속된다.
 - SearchPath는 수색 시작부터 종료까지의 경로 단위다. 기록 종료 후 다시 시작하면 새 SearchPath다.
 - GPS 수집 주기, 좌표 묶음 조건, HTTP 전송 간격을 구분한다. 각각 `LocationRecorder.kt`, `SearchPathGpsBatchRecorder.kt`, `OutboxWorker.kt`와 호출·설정 경로에서 확인한다. 묶음 조건을 고정 전송 간격으로 해석하거나 부하테스트 가정을 제품 설정으로 취급하지 않는다.

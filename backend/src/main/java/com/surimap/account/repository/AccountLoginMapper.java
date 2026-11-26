@@ -8,6 +8,4 @@ import org.apache.ibatis.annotations.Param;
 public interface AccountLoginMapper {
 
   Optional<AccountLoginRow> findActiveAccountByLoginId(@Param("loginId") String loginId);
-
-  Optional<PolicePhoneLoginRow> findActivePolicePhoneByCode(@Param("phoneCode") String phoneCode);
 }

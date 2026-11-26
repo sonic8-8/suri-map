@@ -8,7 +8,6 @@ import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.Offline
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.OperationalPeriod;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.OverallSearchArea;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.PackageItem;
-import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.PolicePhoneContext;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.TileItem;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.TileKeyRange;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures.TileManifest;
@@ -22,13 +21,6 @@ public final class OfflinePackageManifestFixtureBuilder {
   private String manifestId = OfflinePackageManifestFixtures.MANIFEST_ID;
   private String incidentId = OfflinePackageManifestFixtures.INCIDENT_ID;
   private int manifestVersion = OfflinePackageManifestFixtures.MANIFEST_VERSION;
-  private PolicePhoneContext policePhoneContext =
-      new PolicePhoneContext(
-          OfflinePackageManifestFixtures.POLICE_PHONE_ID,
-          OfflinePackageManifestFixtures.ACCOUNT_ID,
-          "TEAM",
-          OfflinePackageManifestFixtures.TEAM_ID,
-          "MEMBER");
   private IncidentMetadata incident =
       new IncidentMetadata(
           OfflinePackageManifestFixtures.INCIDENT_ID,
@@ -139,7 +131,6 @@ public final class OfflinePackageManifestFixtureBuilder {
         manifestVersion,
         OfflinePackageManifestFixtures.EXPIRES_AT,
         "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-        policePhoneContext,
         incident,
         missingPerson,
         List.copyOf(operationalPeriods),

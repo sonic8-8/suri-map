@@ -79,12 +79,6 @@ class OfflinePackageInstallationApiRedTest {
             UUID.fromString(OfflinePackageManifestFixtures.INCIDENT_ID),
             UUID.fromString(SECOND_PHONE_ACCOUNT_ID)))
         .thenReturn(Optional.of(new DetailRow()));
-    // 설치 보고에는 등록된 업무폰이 필요하다. 공유 H2 DB에서는 업무폰 H2 테스트가 끝난 뒤 업무폰 등록이 해제된 채로 남는다.
-    // 그래서 작업자는 이 테스트에서 쓰는 두 업무폰을 테스트마다 등록 상태로 맞추게 했다.
-    jdbcTemplate.update(
-        "UPDATE police_phone SET registered = TRUE WHERE id IN (?, ?)",
-        UUID.fromString(OfflinePackageManifestFixtures.POLICE_PHONE_ID),
-        UUID.fromString(SECOND_PHONE_ID));
   }
 
   @Test

@@ -38,26 +38,7 @@ class PolicePhonePersistenceIntegrationTest {
   void resetDbFixtures() {
     jdbcTemplate.update("DELETE FROM fcm_token");
     jdbcTemplate.update("DELETE FROM incident_assignment");
-    jdbcTemplate.update(
-        """
-        UPDATE police_phone
-        SET registered = FALSE,
-            last_heartbeat_at = NULL,
-            last_sync_at = NULL,
-            heartbeat_sequence = 0,
-            last_heartbeat_event_id = NULL,
-            version = 1
-        """);
     PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
-    jdbcTemplate.update(
-        """
-        UPDATE police_phone
-        SET registered = TRUE
-        WHERE id IN (?, ?, ?)
-        """,
-        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
-        PolicePhoneFixtures.ASSIGNED_PATH_POLICE_PHONE_ID,
-        PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID);
     jdbcTemplate.update(
         """
         INSERT INTO incident_assignment (

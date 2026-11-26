@@ -1,6 +1,5 @@
 package com.surimap.offlinepackage.service;
 
-import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.api.service.marker.MarkerService;
 import com.surimap.api.service.marker.response.MarkersServiceResponse;
 import com.surimap.api.service.marker.response.MarkersServiceResponse.MarkerServiceResponse;
@@ -24,7 +23,6 @@ import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.MissingPers
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.OperationalPeriod;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.OverallSearchArea;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PackageItem;
-import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PolicePhoneContext;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.TileItem;
 import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.exception.OfflinePackageApiException;
@@ -35,8 +33,6 @@ import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.policephone.PolicePhoneMapper;
-import com.surimap.policephone.PolicePhoneStateRow;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -136,7 +132,6 @@ public class OfflinePackageRepository {
   private final SearchAreaQuery searchAreaQuery;
   private final SearchAreaAssignmentQuery assignmentQuery;
   private final MarkerService markerService;
-  private final PolicePhoneMapper policePhoneMapper;
   private final TileService tileService;
 
   public OfflinePackageRepository(OfflinePackageMapper mapper) {
@@ -151,7 +146,6 @@ public class OfflinePackageRepository {
         (SearchAreaQuery) null,
         (SearchAreaAssignmentQuery) null,
         (MarkerService) null,
-        (PolicePhoneMapper) null,
         tileService);
   }
 
@@ -163,7 +157,6 @@ public class OfflinePackageRepository {
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
       ObjectProvider<MarkerService> markerService,
-      ObjectProvider<PolicePhoneMapper> policePhoneMapper,
       ObjectProvider<TileService> tileService) {
     this(
         mapper,
@@ -172,27 +165,7 @@ public class OfflinePackageRepository {
         searchAreaQuery == null ? null : searchAreaQuery.getIfAvailable(),
         assignmentQuery == null ? null : assignmentQuery.getIfAvailable(),
         markerService == null ? null : markerService.getIfAvailable(),
-        policePhoneMapper == null ? null : policePhoneMapper.getIfAvailable(),
         tileService == null ? null : tileService.getIfAvailable(LocalTileService::new));
-  }
-
-  public OfflinePackageRepository(
-      OfflinePackageMapper mapper,
-      ObjectProvider<IncidentMapper> incidentMapper,
-      ObjectProvider<OperationalPeriodQuery> operationalPeriodQuery,
-      ObjectProvider<SearchAreaQuery> searchAreaQuery,
-      ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
-      ObjectProvider<MarkerService> markerService,
-      ObjectProvider<TileService> tileService) {
-    this(
-        mapper,
-        incidentMapper,
-        operationalPeriodQuery,
-        searchAreaQuery,
-        assignmentQuery,
-        markerService,
-        null,
-        tileService);
   }
 
   private OfflinePackageRepository(
@@ -202,7 +175,6 @@ public class OfflinePackageRepository {
       SearchAreaQuery searchAreaQuery,
       SearchAreaAssignmentQuery assignmentQuery,
       MarkerService markerService,
-      PolicePhoneMapper policePhoneMapper,
       TileService tileService) {
     this.mapper = mapper;
     this.incidentMapper = incidentMapper;
@@ -210,20 +182,20 @@ public class OfflinePackageRepository {
     this.searchAreaQuery = searchAreaQuery;
     this.assignmentQuery = assignmentQuery;
     this.markerService = markerService;
-    this.policePhoneMapper = policePhoneMapper;
     this.tileService = tileService == null ? new LocalTileService() : tileService;
   }
 
+  // 배정 구역에는 요청한 계정에 배정된 구역만 담긴다. 업무폰 ID는 패키지 항목의 설치 상태를 찾을 때만 쓰인다.
   @Transactional
   public synchronized OfflinePackageManifestResponse manifest(
-      String incidentId, String policePhoneId) {
+      String incidentId, String policePhoneId, UUID accountId) {
     String incidentDbId = incidentDbId(incidentId);
     String policePhoneDbId =
         policePhoneDbId(policePhoneId == null ? POLICE_PHONE_ID : policePhoneId);
     OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null) {
       Optional<OfflinePackageManifestResponse> generated =
-          generateManifestFromSources(incidentDbId, policePhoneDbId);
+          generateManifestFromSources(incidentDbId, policePhoneDbId, accountId);
       if (generated.isPresent()) {
         return generated.get();
       }
@@ -239,7 +211,7 @@ public class OfflinePackageRepository {
       throw new OfflinePackageApiException("package_purged", HttpStatus.GONE);
     }
     Optional<SourceSnapshot> sourceSnapshot =
-        sourceSnapshot(UUID.fromString(incidentDbId), UUID.fromString(policePhoneDbId));
+        sourceSnapshot(UUID.fromString(incidentDbId), accountId);
     if (sourceSnapshot.isPresent()) {
       return manifestFromSource(current, policePhoneDbId, sourceSnapshot.get());
     }
@@ -247,10 +219,9 @@ public class OfflinePackageRepository {
   }
 
   private Optional<OfflinePackageManifestResponse> generateManifestFromSources(
-      String incidentDbId, String policePhoneDbId) {
+      String incidentDbId, String policePhoneDbId, UUID accountId) {
     UUID incidentUuid = UUID.fromString(incidentDbId);
-    Optional<SourceSnapshot> sourceSnapshot =
-        sourceSnapshot(incidentUuid, UUID.fromString(policePhoneDbId));
+    Optional<SourceSnapshot> sourceSnapshot = sourceSnapshot(incidentUuid, accountId);
     if (sourceSnapshot.isEmpty()) {
       return Optional.empty();
     }
@@ -294,12 +265,6 @@ public class OfflinePackageRepository {
         current.manifestVersion(),
         current.expiresAt(),
         "sha256:" + current.manifestHash(),
-        new PolicePhoneContext(
-            policePhonePublicId(policePhoneDbId),
-            AccountIdentityCatalog.PRECINCT_TEAM_ID.toString(),
-            "TEAM",
-            "team-precinct-jongno",
-            "MEMBER"),
         new IncidentMetadata(publicIncidentId, "OPEN", "CURRENT", "mock-112-incident-001"),
         new MissingPerson(
             publicIncidentId,
@@ -309,7 +274,8 @@ public class OfflinePackageRepository {
             "무등산 서측 탐방로 입구",
             OffsetDateTime.parse("2026-04-28T08:30:00+09:00")),
         List.of(new OperationalPeriod(OP_DB_ID, publicIncidentId, 1, "ACTIVE", 1L)),
-        List.of(new AssignedArea(ASSIGNED_AREA_DB_ID, publicIncidentId, OP_DB_ID, "ASSIGNED", 1L)),
+        // 원천 조회가 비면 요청한 계정의 배정을 알 수 없으므로 배정 구역을 비운다.
+        List.of(),
         List.of(
             new InitialMarker(
                 "mk-precinct-clue-001",
@@ -328,7 +294,7 @@ public class OfflinePackageRepository {
         fixturePackageItems(itemState, publicManifestId, publicOverallSearchAreaId));
   }
 
-  private Optional<SourceSnapshot> sourceSnapshot(UUID incidentId, UUID policePhoneId) {
+  private Optional<SourceSnapshot> sourceSnapshot(UUID incidentId, UUID accountId) {
     if (incidentMapper == null
         || operationalPeriodQuery == null
         || searchAreaQuery == null
@@ -337,13 +303,13 @@ public class OfflinePackageRepository {
       return Optional.empty();
     }
     try {
-      return readSourceSnapshot(incidentId, policePhoneId);
+      return readSourceSnapshot(incidentId, accountId);
     } catch (DataAccessException ignored) {
       return Optional.empty();
     }
   }
 
-  private Optional<SourceSnapshot> readSourceSnapshot(UUID incidentId, UUID policePhoneId) {
+  private Optional<SourceSnapshot> readSourceSnapshot(UUID incidentId, UUID accountId) {
     Optional<IncidentRecord> incident = incidentMapper.findByIncidentId(incidentId);
     if (incident.isEmpty()) {
       return Optional.empty();
@@ -364,10 +330,6 @@ public class OfflinePackageRepository {
             .filter(op -> "ACTIVE".equals(op.status()))
             .findFirst()
             .orElse(operationalPeriods.get(0));
-    Optional<PolicePhoneStateRow> policePhone =
-        policePhoneMapper == null
-            ? Optional.empty()
-            : policePhoneMapper.findActiveById(policePhoneId);
     SearchAreaCollection opAreas =
         searchAreaQuery.byOp(currentOp.opId(), SearchAreaFilters.empty());
     Map<UUID, SearchAreaRow> areasById =
@@ -382,12 +344,7 @@ public class OfflinePackageRepository {
         queriedAssignments == null
             ? Set.of()
             : queriedAssignments.stream()
-                .filter(
-                    row ->
-                        policePhoneMapper == null
-                            || policePhone
-                                .map(phone -> phone.accountId().equals(row.assignedAccountId()))
-                                .orElse(false))
+                .filter(row -> row.assignedAccountId().equals(accountId))
                 .map(row -> row.searchAreaId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     List<SearchAreaRow> assignedAreas =
@@ -404,7 +361,6 @@ public class OfflinePackageRepository {
                 .sorted(Comparator.comparingInt(OperationalPeriodRow::sequenceNumber))
                 .toList(),
             currentOp,
-            policePhone.orElse(null),
             overallSearchArea.get(),
             assignedAreas,
             markers.stream()
@@ -434,14 +390,6 @@ public class OfflinePackageRepository {
         record.manifestVersion(),
         record.expiresAt(),
         "sha256:" + record.manifestHash(),
-        new PolicePhoneContext(
-            policePhonePublicId(policePhoneDbId),
-            source.policePhone() == null
-                ? AccountIdentityCatalog.PRECINCT_TEAM_ID.toString()
-                : source.policePhone().accountId().toString(),
-            source.policePhone() == null ? "TEAM" : source.policePhone().accountType().name(),
-            "team-precinct-jongno",
-            "MEMBER"),
         new IncidentMetadata(
             incidentId,
             source.incident().getStatus(),
@@ -1019,7 +967,6 @@ public class OfflinePackageRepository {
       MissingPersonRecord missingPerson,
       List<OperationalPeriodRow> operationalPeriods,
       OperationalPeriodRow currentOp,
-      PolicePhoneStateRow policePhone,
       OverallSearchAreaResult overallSearchArea,
       List<SearchAreaRow> assignedAreas,
       List<MarkerServiceResponse> initialMarkers) {
