@@ -420,7 +420,7 @@ SSE 클래스 이름과 배치는 2026-09에 한 번 정리했다([이름 후보
 
 ### 동작하지 않거나 확인되지 않은 곳
 
-- 지금도 맞는 차이. 재전송은 선행 요청 확인 없이 순번 정렬만 쓴다. 근무 교대 종료만 따로 앞선 기록을 기다린다(`RoomLocalSyncServices.kt:395-413`). `write_conflict`를 최종 실패로 처리한다. 사건 종료 후 마지막 전송을 시도한다(`handleIncidentClosed`, `:576-604`).
+- 지금도 맞는 차이. 재전송은 선행 요청 확인 없이 순번 정렬만 쓴다. 근무 종료만 따로 앞선 기록을 기다린다(`RoomLocalSyncServices.kt:395-413`). `write_conflict`를 최종 실패로 처리한다. 사건 종료 후 마지막 전송을 시도한다(`handleIncidentClosed`, `:576-604`).
 - 응답 복구가 연결되지 않았다. `register` 호출이 운영 코드에 없다. `IdempotentResponseCache.java:56`에서 operationId와 entityId가 null로 넘어가므로, 연결해도 복구에 쓰기 어려울 것으로 본다(추측).
 - 진단 API에서는 고정 사건 ID 목록으로 종료 여부가 정해진다(`OutboxRequeue` 쪽 `:24-25`). 앱은 이 서버 응답을 버리고 로컬 재큐만 한다(`SuriMapApp.kt:1377-1394`의 `runCatching` 결과를 쓰지 않음).
 - 단말 파기의 `cleanupSteps`는 단계 이름만 돌려주고 실제로 지우지 않는다(`RoomLocalSyncServices.kt:676`).
@@ -439,7 +439,7 @@ SSE 클래스 이름과 배치는 2026-09에 한 번 정리했다([이름 후보
 
 ### 정리 규모와 의존
 
-미사용 코드 제거, 조립 코드 모으기, Android 파일 나누기는 작다. 응답 복구 연결은 `IdempotentResponseCache`를 쓰는 서비스 전부(수색 차수, 인수인계 메모, 수색 구역의 세 Service 포함)를 건드리므로 크다. 모든 앱 쓰기 영역(마커, 경로, 근무 교대, 인수인계 메모, 패키지 설치 상태)이 이 영역의 재전송에 기댄다.
+미사용 코드 제거, 조립 코드 모으기, Android 파일 나누기는 작다. 응답 복구 연결은 `IdempotentResponseCache`를 쓰는 서비스 전부(수색 차수, 인수인계 메모, 수색 구역의 세 Service 포함)를 건드리므로 크다. 모든 앱 쓰기 영역(마커, 경로, 근무, 인수인계 메모, 패키지 설치 상태)이 이 영역의 재전송에 기댄다.
 
 ## 오프라인 패키지
 
@@ -583,7 +583,7 @@ SSE 클래스 이름과 배치는 2026-09에 한 번 정리했다([이름 후보
 
 ## 인수인계와 수색 이력
 
-[인수인계와 수색 이력 기능 정의 문서](../features/handover.md)의 영역이다. 수색 차수, 근무 교대, 인수인계 메모, 수색 이력 요약, 차수 비교를 다룬다.
+[인수인계와 수색 이력 기능 정의 문서](../features/handover.md)의 영역이다. 수색 차수, 근무, 인수인계 메모, 수색 이력 요약, 차수 비교를 다룬다.
 
 ### 코드 위치
 
@@ -593,7 +593,7 @@ SSE 클래스 이름과 배치는 2026-09에 한 번 정리했다([이름 후보
 | Backend | `B/api/service`의 `HandoverTimelineApiService`(485줄), `OpComparisonApiService`(398줄), `OperationalPeriodApiService`(264줄), `B/app/service`의 `AppDutyShiftCommandService`(249줄) | - |
 | Backend | 차수 Mapper XML이 `resources/mapper/op/`에 있어 Java 패키지 이름 `operationalperiod`와 다르다. | - |
 | Frontend | `F/features/handover`(약 5,640줄. `OperationalPeriodReviewWorkspace.tsx` 1,973줄), `F/features/operationalPeriod/api`(약 950줄). 둘 다 테스트 포함 수치다. `operationalPeriods`는 빈 폴더다. | 약 6,590줄 |
-| Android | `A/core/operationalperiod`(5파일, 394줄. 근무 교대, 인수인계 메모, 수색 이력 요약 저장소가 섞여 있다), `A/feature/handover`(6파일, 약 2,980줄) | 약 3,370줄 |
+| Android | `A/core/operationalperiod`(5파일, 394줄. 근무, 인수인계 메모, 수색 이력 요약 저장소가 섞여 있다), `A/feature/handover`(6파일, 약 2,980줄) | 약 3,370줄 |
 
 ### 읽기 어려운 곳
 
@@ -611,7 +611,7 @@ SSE 클래스 이름과 배치는 2026-09에 한 번 정리했다([이름 후보
 
 - 지금도 맞는 차이. 인수인계 메모 대상의 존재와 소속을 조회하지 않는다(`HandoverMemoApiService.java:152-160`). 인수인계 메모 최대 길이를 검사하지 않는다(`@NotBlank`만 있음). 채널, 업무폰, `clientTs`를 인수인계 메모 행에 저장하지 않는다. 차수 전환 때 인수인계 메모는 이전 차수에 저장한다. 수색 이력 요약의 준비 상태는 READY로 고정이다. 수색 이력 요약을 만드는 호출자는 근무 종료와 차수 전환뿐이다. 앱은 미전송 기록을 기다린 뒤 근무 종료를 보낸다. 공용 fixture의 수색 이력 요약 생성 POST(`common-fixtures.json:1941`)와 `retryCta`(`:1953`)가 현재 API와 맞지 않는다.
 - 사건당 활성 수색 차수가 2개 이상 생기는 것은 DB 고유 인덱스로 막혀 있다(`V20260428_801__create_operational_period.sql:25-27`). 경합 때 어떤 오류 코드가 나가는지는 확인하지 못했다.
-- Service와 DB를 함께 거치는 테스트가 없다. 차수, 근무 교대, 인수인계 메모 API 테스트는 Mapper를 대역으로 둔 WebMvcTest다(`OperationalPeriodApiContractTest.java:45-61`). `OpTransitionRedTest`에는 테스트 대역만 검증하는 테스트가 있다. Mapper를 실제 DB로 검증하는 테스트는 따로 있다. 그래서 테스트가 모두 통과해도 Service와 DB를 함께 거치는 흐름은 확인된 것이 아니다.
+- Service와 DB를 함께 거치는 테스트가 없다. 차수, 근무, 인수인계 메모 API 테스트는 Mapper를 대역으로 둔 WebMvcTest다(`OperationalPeriodApiContractTest.java:45-61`). `OpTransitionRedTest`에는 테스트 대역만 검증하는 테스트가 있다. Mapper를 실제 DB로 검증하는 테스트는 따로 있다. 그래서 테스트가 모두 통과해도 Service와 DB를 함께 거치는 흐름은 확인된 것이 아니다.
 - 자동 판단 금지 원칙은 지키는 것으로 본다. 차수 비교에서는 지표 차이와 공통 지역, 다른 지역이라는 사실만 만들어진다(`OpComparisonRegionFactType.java:4-5`). 금지 표현 검사가 있다(`OpComparisonNarrativeValidator.java:18`, `ForbiddenSummaryGuard.java:17-18`). 웹과 앱에 수색 이력 요약 재시도 버튼이 없다. 다만 어떤 차이를 보여 줄지 정하는 고정 임계값(300m, 15% 등, `OpComparisonThresholdFilter.java:15-24`)의 근거는 확인해야 한다.
 - 검증: 관련 Backend 테스트, Android 테스트, Frontend 인수인계 화면 테스트가 통과했다.
 

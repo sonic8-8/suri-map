@@ -13,7 +13,7 @@
 ## 재전송 순서와 부분 실패
 
 - **기존 요구**: 마커 생성이 실패하면 그 마커에 의존하는 사진만 대기하고, 관련 없는 경로·패키지 요청은 계속 처리한다. 선행 요청 확인과 요청 순번을 함께 사용한다.
-- **현재 차이**: [OutboxDao](../../android/app/src/main/java/com/surimap/core/database/OutboxDao.kt)는 사건·업무폰별 후보를 `sequence`로 정렬한다. `parentOperationId`는 저장하지만 일반적인 선행 요청 ACK 검사에는 사용하지 않는다. [RoomOutboxReplay](../../android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt)의 별도 대기 검사는 근무 교대 종료 요청에 한정된다. 순번 정렬만으로 모든 의존 관계가 보장되지는 않는다.
+- **현재 차이**: [OutboxDao](../../android/app/src/main/java/com/surimap/core/database/OutboxDao.kt)는 사건과 업무폰별로 후보를 `sequence` 순서로 정렬한다. `parentOperationId`는 저장하지만 일반적인 선행 요청 ACK 검사에는 사용하지 않는다. [RoomOutboxReplay](../../android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt)의 별도 대기 검사는 근무 종료 요청에 한정된다. 순번 정렬만으로 모든 의존 관계가 보장되지는 않는다.
 
 ## 중복 요청과 응답 복구
 

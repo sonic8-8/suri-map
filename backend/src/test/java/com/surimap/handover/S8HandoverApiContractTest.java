@@ -114,7 +114,7 @@ class S8HandoverApiContractTest {
     when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, OTHER_ACCOUNT_ID))
         .thenReturn(Optional.of(OTHER_INCIDENT_ASSIGNMENT_ID));
     when(dutyShiftMapper.findById(DUTY_SHIFT_ID)).thenReturn(Optional.of(activeDutyShift()));
-    when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, POLICE_PHONE_ID, null, "ACTIVE"))
+    when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, null, "ACTIVE"))
         .thenReturn(List.of(activeDutyShift()));
     when(handoverMemoMapper.findByContext(INCIDENT_ID, OP_ID, "OPERATIONAL_PERIOD", OP_ID))
         .thenReturn(List.of(memoRow()));
@@ -131,6 +131,15 @@ class S8HandoverApiContractTest {
       policePhoneId = "00000000-0000-0000-0000-000000000101")
   @DisplayName("APP starts a duty shift through canonical URL")
   void appStartsDutyShift() throws Exception {
+    // given: 저장한 근무를 다시 읽으면 계정 이름이 붙은 행이 돌아온다.
+    when(dutyShiftMapper.findById(any(UUID.class)))
+        .thenAnswer(
+            invocation -> {
+              DutyShift saved = activeDutyShift();
+              saved.setId(invocation.getArgument(0));
+              return Optional.of(saved);
+            });
+
     mockMvc
         .perform(
             post("/api/duty-shifts")
@@ -144,14 +153,14 @@ class S8HandoverApiContractTest {
                     {
                       "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
                       "opId": "88888888-8888-8888-8888-888888880001",
-                      "policePhoneId": "00000000-0000-0000-0000-000000000101",
                       "clientTs": "2026-05-11T10:00:00+09:00"
                     }
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
-        .andExpect(jsonPath("$.policePhoneId", is(POLICE_PHONE_ID.toString())))
+        .andExpect(jsonPath("$.policePhoneId").doesNotExist())
+        .andExpect(jsonPath("$.accountDisplayName", is("무등산 현장팀")))
         .andExpect(jsonPath("$.status", is("ACTIVE")))
         .andExpect(jsonPath("$.version", is(1)));
 
@@ -292,7 +301,7 @@ class S8HandoverApiContractTest {
                       "opId": "88888888-8888-8888-8888-888888880001",
                       "action": "END",
                       "clientTs": "2026-05-11T10:35:00+09:00",
-                      "memo": "다른 등록 업무폰에서 근무교대 종료"
+                      "memo": "다른 등록 업무폰에서 근무 종료"
                     }
                     """))
         .andExpect(status().isOk())
@@ -327,7 +336,7 @@ class S8HandoverApiContractTest {
                       "opId": "88888888-8888-8888-8888-888888880001",
                       "action": "END",
                       "clientTs": "2026-05-11T10:36:00+09:00",
-                      "memo": "다른 계정에서 근무교대 종료 시도"
+                      "memo": "다른 계정에서 근무 종료 시도"
                     }
                     """))
         .andExpect(status().isConflict())
@@ -354,15 +363,15 @@ class S8HandoverApiContractTest {
                 .header("X-Client-Channel", "WEB")
                 .queryParam("incidentId", INCIDENT_ID.toString())
                 .queryParam("opId", OP_ID.toString())
-                .queryParam("policePhoneId", POLICE_PHONE_ID.toString())
                 .queryParam("status", "ACTIVE"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items", hasSize(1)))
         .andExpect(jsonPath("$.items[0].id", is(DUTY_SHIFT_ID.toString())))
         .andExpect(jsonPath("$.items[0].incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.items[0].opId", is(OP_ID.toString())))
-        .andExpect(jsonPath("$.items[0].policePhoneId", is(POLICE_PHONE_ID.toString())))
-        .andExpect(jsonPath("$.items[0].policePhoneLabel", is("무등산 현장팀 폴리폰")))
+        .andExpect(jsonPath("$.items[0].accountId", is(ACCOUNT_ID.toString())))
+        .andExpect(jsonPath("$.items[0].accountDisplayName", is("무등산 현장팀")))
+        .andExpect(jsonPath("$.items[0].policePhoneId").doesNotExist())
         .andExpect(jsonPath("$.items[0].status", is("ACTIVE")))
         .andExpect(jsonPath("$.items[0].startedAt", is(NOW.toString())))
         .andExpect(jsonPath("$.items[0].endedAt").doesNotExist());
@@ -494,7 +503,6 @@ class S8HandoverApiContractTest {
         {
           "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
           "opId": "88888888-8888-8888-8888-888888880001",
-          "policePhoneId": "00000000-0000-0000-0000-000000000101",
           "clientTs": "2026-05-11T10:00:00+09:00"
         }
         """;
@@ -510,22 +518,23 @@ class S8HandoverApiContractTest {
   }
 
   private static DutyShift activeDutyShift() {
-    return new DutyShift(
-        DUTY_SHIFT_ID,
-        INCIDENT_ID,
-        OP_ID,
-        INCIDENT_ASSIGNMENT_ID,
-        POLICE_PHONE_ID,
-        "PHONE-001",
-        "무등산 현장팀 폴리폰",
-        "ACTIVE",
-        ACCOUNT_ID,
-        null,
-        NOW,
-        null,
-        1L,
-        NOW,
-        NOW);
+    DutyShift dutyShift =
+        new DutyShift(
+            DUTY_SHIFT_ID,
+            INCIDENT_ID,
+            OP_ID,
+            INCIDENT_ASSIGNMENT_ID,
+            "ACTIVE",
+            ACCOUNT_ID,
+            null,
+            NOW,
+            null,
+            1L,
+            NOW,
+            NOW);
+    dutyShift.setAccountId(ACCOUNT_ID);
+    dutyShift.setAccountDisplayName("무등산 현장팀");
+    return dutyShift;
   }
 
   private static HandoverMemoRow memoRow() {

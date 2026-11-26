@@ -163,14 +163,13 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-          id, operational_period_id, incident_assignment_id, police_phone_id, status,
+          id, operational_period_id, incident_assignment_id, status,
           started_by_account_id, started_at, version, created_at, updated_at
         )
-        VALUES (gen_random_uuid(), ?, ?, ?, 'ACTIVE', ?, ?, 1, ?, ?)
+        VALUES (gen_random_uuid(), ?, ?, 'ACTIVE', ?, ?, 1, ?, ?)
         """,
         OP_ID,
         INCIDENT_ASSIGNMENT_ID,
-        UNKNOWN_POLICE_PHONE_ID,
         ACCOUNT_ID,
         base,
         base,
@@ -197,14 +196,12 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("DB에 기록이 없는 업무폰 ID로도 근무 교대를 시작할 수 있다")
+  @DisplayName("DB에 기록이 없는 업무폰 ID로도 근무를 시작할 수 있다")
   void start_duty_shift_with_unknown_police_phone_succeeds() throws Exception {
-    // given: 시작할 근무 교대와 겹치지 않도록 seed의 근무 교대를 지운다.
+    // given: 시작할 근무와 겹치지 않도록 seed의 근무를 지운다.
     jdbcTemplate.update("DELETE FROM duty_shift");
 
-    perform(dutyShiftStart(UNKNOWN_POLICE_PHONE_ID.toString()), UNKNOWN_POLICE_PHONE_ID.toString())
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.policePhoneId", is(UNKNOWN_POLICE_PHONE_ID.toString())));
+    perform(dutyShiftStart(), UNKNOWN_POLICE_PHONE_ID.toString()).andExpect(status().isCreated());
   }
 
   @Test
@@ -279,7 +276,7 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
         Arguments.of("마커", markerCreate()),
         Arguments.of("사진", photoUploadUrl()),
         Arguments.of("수색 경로", searchPathStart()),
-        Arguments.of("근무 교대", dutyShiftStart(UNKNOWN_POLICE_PHONE_ID.toString())),
+        Arguments.of("근무 시작", dutyShiftStart()),
         Arguments.of("인수인계 메모", handoverMemoCreate()),
         Arguments.of("수색 구역 경계 알림", boundaryAlertCreate()),
         Arguments.of("FCM 토큰", fcmTokenRegister()),
@@ -358,18 +355,17 @@ class AppWritePolicePhoneHeaderApiTest extends PostGisIntegrationTestSupport {
             .formatted(UUID.randomUUID(), INCIDENT_ID, OP_ID));
   }
 
-  private static MockHttpServletRequestBuilder dutyShiftStart(String bodyPolicePhoneId) {
+  private static MockHttpServletRequestBuilder dutyShiftStart() {
     return json(
         post("/api/duty-shifts"),
         """
         {
           "incidentId": "%s",
           "opId": "%s",
-          "policePhoneId": "%s",
           "clientTs": "2026-11-19T09:00:00+09:00"
         }
         """
-            .formatted(INCIDENT_ID, OP_ID, bodyPolicePhoneId));
+            .formatted(INCIDENT_ID, OP_ID));
   }
 
   private static MockHttpServletRequestBuilder handoverMemoCreate() {

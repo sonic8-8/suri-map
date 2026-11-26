@@ -4,9 +4,9 @@
 
 선은 코드에서 사용하는 관계다. **외래 키 제약이 모두 있다는 뜻은 아니다.** 타입·제약은 [migration](../../backend/src/main/resources/db/migration/), 업무 의미와 설계·구현 차이는 [읽기 문서](./db-design-readable.md)에서 확인한다.
 
-## 사건·배정·근무 구간
+## 사건, 배정, 근무
 
-`||`는 하나, `o|`는 없거나 하나, `o{`는 없거나 여러 개를 뜻한다. 근무 구간의 업무폰 맥락과 경로를 기록한 계정을 분리해서 읽는다.
+`||`는 하나, `o|`는 없거나 하나, `o{`는 없거나 여러 개를 뜻한다. 근무는 사건 배정으로 근무한 계정과 연결된다. 업무폰과는 연결되지 않는다(2026-11-25 #58).
 
 ```mermaid
 erDiagram
@@ -17,7 +17,6 @@ erDiagram
 
     operational_period ||--o{ duty_shift : contains
     incident_assignment ||--o{ duty_shift : works
-    police_phone ||--o{ duty_shift : used_in
 ```
 
 ## 현장 기록과 상세 데이터

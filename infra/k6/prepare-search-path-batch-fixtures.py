@@ -542,13 +542,12 @@ WITH fixture AS (
     SELECT
         value,
         ('a1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS account_id,
-        ('b1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS phone_id,
         ('c1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS assignment_id,
         ('d1000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid AS duty_shift_id
     FROM generate_series(1, {police_phone_count}) AS value
 )
 INSERT INTO duty_shift (
-    id, operational_period_id, incident_assignment_id, police_phone_id,
+    id, operational_period_id, incident_assignment_id,
     status, started_by_account_id, ended_by_account_id, started_at,
     ended_at, version, created_at, updated_at
 )
@@ -556,7 +555,6 @@ SELECT
     duty_shift_id,
     '{OPERATIONAL_PERIOD_ID}'::uuid,
     assignment_id,
-    phone_id,
     'ACTIVE',
     account_id,
     NULL,

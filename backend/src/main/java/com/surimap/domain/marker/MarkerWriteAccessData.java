@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 마커 권한 검사를 위해 조회한 사건·배정·근무교대 정보다. 허용 여부는 Validator가 판단한다. */
+/** 마커 권한 검사를 위해 조회한 사건, 배정, 근무 정보다. 허용 여부는 Validator가 판단한다. */
 @Getter
 @Builder(toBuilder = true)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

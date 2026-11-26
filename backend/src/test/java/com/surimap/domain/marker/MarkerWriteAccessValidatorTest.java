@@ -40,7 +40,7 @@ class MarkerWriteAccessValidatorTest {
   @DisplayName("마커 생성 조건을 충족하지 못하면, 마커 생성과 생성 전 사진 업로드를 해당 오류 코드로 거부한다")
   void validateAccess_unmetCreationCondition_rejectsWithExpectedError(
       String condition, MarkerWriteAccessData accessData, ErrorCode expectedError) {
-    // given: 사건·수색 차수·배정·근무교대 중 한 조건을 충족하지 못한다.
+    // given: 사건, 수색 차수, 배정, 근무 가운데 한 조건을 충족하지 못한다.
     // when & then: DB 조회 없이 전달받은 값으로 거부 사유를 판단한다.
     assertThatThrownBy(() -> validator.validateCreateAccess(accessData, OP1_ID))
         .isInstanceOf(BusinessException.class)
@@ -124,9 +124,9 @@ class MarkerWriteAccessValidatorTest {
   }
 
   @Test
-  @DisplayName("열린 사건에 배정되어 있으면, 기존 마커의 수정·삭제 검사에는 활성 차수와 근무교대를 요구하지 않는다")
+  @DisplayName("열린 사건에 배정되어 있으면, 기존 마커의 수정과 삭제 검사에는 활성 차수와 진행 중인 근무를 요구하지 않는다")
   void validateIncidentAccess_withoutOpOrDutyShift_allowsAssignedAccount() {
-    // given: 사건 배정은 유효하지만 활성 차수와 근무교대는 없다.
+    // given: 사건 배정은 유효하지만 활성 차수와 진행 중인 근무는 없다.
     MarkerWriteAccessData accessData =
         createAllowedAccessData().toBuilder().currentOpId(null).activeDutyShiftId(null).build();
 
@@ -162,7 +162,7 @@ class MarkerWriteAccessValidatorTest {
             allowed.toBuilder().activeIncidentAssignmentCount(0).build(),
             ErrorCode.INCIDENT_ACCESS_DENIED),
         Arguments.of(
-            "활성 근무교대 부재",
+            "진행 중인 근무 부재",
             allowed.toBuilder().activeDutyShiftId(null).build(),
             ErrorCode.POLICE_PHONE_NOT_ASSIGNED));
   }

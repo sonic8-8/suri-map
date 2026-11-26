@@ -15,7 +15,7 @@ Spring REST Docs 전환 전까지 요청·응답 설명을 임시 보존한다. 
 | [상황판·이벤트](#45-situation-board--event) | [상황판 조회](../features/situation-board.md), [전달·재전송](../features/event-delivery.md) |
 | [마커·사진](#46-marker--photo) | [복구·삭제](../features/marker-photo.md) |
 | [동기화·오프라인](#47-sync--offline) | [미전송 기록](../features/offline-sync.md), [패키지 준비](../features/offline-package.md) |
-| [차수·근무 교대·인수인계](#48-operational-period--duty-shift--handover) | [요약·원본 기록](../features/handover.md) |
+| [차수, 근무, 인수인계](#48-operational-period--duty-shift--handover) | [수색 이력 요약과 원본 기록](../features/handover.md) |
 | [타일](#49-tiles) | [자체 지도 제공의 선택 이유](../adr/0004-maplibre-and-self-hosted-tiles.md) |
 
 본문에 남은 S1~S8·guard 묶음은 옛 설계의 참조명이며 현재 작업 소유권이나 검증 완료 표시가 아니다. 권한·재시도·요약 생성 등 계획과 실제 구현의 차이는 오른쪽 문서에서 확인한다.
@@ -551,8 +551,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, current OP
 - Idempotency-Key: yes
-- Request: `incidentId`, `opId`, `policePhoneId`, `clientTs`
-- Response: `201 {id, incidentId, opId, policePhoneId, status, version}`
+- Request: `incidentId`, `opId`, `clientTs`
+- Response: `201 {id, incidentId, opId, accountId, accountDisplayName, status, startedAt, endedAt, version}`
 - Errors: S8/S1-2 write-common errors
 
 #### PATCH `/api/duty-shifts/{dutyShiftId}`
@@ -571,8 +571,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 아래 �
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
-- Query: `incidentId`, optional `opId`, `policePhoneId`, `accountId(UUID)`, `status`
-- Response: `200 {items[{id, incidentId, opId, policePhoneId, policePhoneLabel, status, startedAt, endedAt, version}]}`
+- Query: `incidentId`, optional `opId`, `accountId(UUID)`, `status`
+- Response: `200 {items[{id, incidentId, opId, accountId, accountDisplayName, status, startedAt, endedAt, version}]}`
+- `accountDisplayName`은 근무를 시작한 사건 배정 계정의 이름이다. 사건 배정이 해제된 계정의 근무에도 이름이 들어간다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### POST `/api/handover-memos`

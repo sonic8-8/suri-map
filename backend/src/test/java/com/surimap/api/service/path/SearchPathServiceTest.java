@@ -911,10 +911,10 @@ class SearchPathServiceTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-            id, operational_period_id, incident_assignment_id, police_phone_id, status,
+            id, operational_period_id, incident_assignment_id, status,
             started_by_account_id, started_at, ended_at, version, created_at, updated_at
         )
-        SELECT ?::uuid, ?::uuid, incident_assignment_id, police_phone_id, 'ENDED',
+        SELECT ?::uuid, ?::uuid, incident_assignment_id, 'ENDED',
                started_by_account_id, started_at, started_at + INTERVAL '8 hours',
                1, created_at, updated_at
         FROM duty_shift

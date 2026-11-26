@@ -21,24 +21,24 @@
 
 관련 요구와 차이: [사건 가져오기·배정·종료](../features/incident-lifecycle.md), [인증·업무폰·토큰](../features/authentication.md).
 
-## 수색 차수·근무 구간·구역
+## 수색 차수, 근무, 구역
 
 | 데이터 | 나누어 둔 이유 |
 |---|---|
 | `operational_period` | 1차·2차 수색처럼 범위나 운영 방향을 나누는 차수. 근무자 교대와 별개다. |
-| `duty_shift` | 특정 사건 배정 계정이 업무폰을 사용해 근무한 구간. 차수·사건 배정·업무폰을 연결하고 경로와 현장 기록의 근무 맥락을 남긴다. |
+| `duty_shift` | 근무. 현장 경찰관이 한 수색 차수 안에서 사건에 배정된 계정으로 수색에 참여한 기록이다. 차수와 사건 배정을 연결한다. 경로와 현장 기록에는 어느 근무에서 남겼는지가 남는다. 업무폰 ID는 2026-11-25 #58에서 뺐다. |
 | `search_area` | 차수 안의 수색 구역. `area_level = OVERALL`이 전체 범위이며 별도 `map_boundary` 테이블은 두지 않는다. 상위 구역은 자기 참조로 연결한다. |
 | `search_area_assignment` | 구역 담당 계정과 배정한 계정을 구분한다. 사건 접근을 위한 `incident_assignment`와 다르다. |
 | `search_area_history` | 구역의 이전·이후 상태와 도형, 변경자·사유를 남긴다. 현재 구역 상태를 대신하는 테이블은 아니다. |
 | `search_area_boundary_alert` | 담당 TEAM 구역 밖 위치·재진입을 기록한다. 사건·차수·구역·업무폰에 연결하고 경로 ID는 없을 수 있다. 경계 확인 안내용이지 위반 판정이나 다음 구역 추천이 아니다. |
 
-관련 요구와 차이: [수색 차수·근무 교대](../features/handover.md), [수색 구역](../features/search-area.md). 담당 배정·경계 확인의 저장 구조가 있다는 사실만으로 권한 검사나 실제 알림 전달까지 완료됐다고 보지 않는다.
+관련 요구와 차이: [수색 차수와 근무](../features/handover.md), [수색 구역](../features/search-area.md). 담당 배정과 경계 확인의 저장 구조가 있다는 사실만으로 권한 검사나 실제 알림 전달까지 완료됐다고 보지 않는다.
 
 ## 경로와 GPS 좌표
 
 | 데이터 | 의미와 구분 |
 |---|---|
-| `search_path` | 시작부터 종료까지의 경로와 현재 기록 상태. 근무 구간에 속하고 기록 주체는 `account_id`다. |
+| `search_path` | 시작부터 종료까지의 경로와 현재 기록 상태. 근무에 속하고 기록 주체는 `account_id`다. |
 | `search_path_gps_point` | 품질 검사를 통과한 좌표의 원본 측정값. `point_order`는 경로 안의 저장 순서이고 `point_id`는 앱이 붙인 좌표 식별자다. |
 | `search_path_excluded_point` | 도형에서 제외한 좌표도 측정값과 제외 사유를 남긴다. 제외를 원본 폐기로 취급하지 않는다. |
 | `search_path_segment` | 차량·도보·미확인 구간과 자동 분류·수동 보정의 출처. 업무폰 종류가 아니라 이동 기록을 나눈 결과다. |
@@ -54,11 +54,11 @@
 
 | 데이터 | 의미와 구분 |
 |---|---|
-| `marker` | 사건과 차수에 남긴 위치 기록. 작성 계정과, 필요하면 근무 구간을 함께 남긴다. 마커를 남긴 업무폰은 저장하지 않는다(#57). `occurred_at`은 현장 기록 시각이며 DB 저장 시각과 다르다. |
+| `marker` | 사건과 차수에 남긴 위치 기록. 작성 계정과, 필요하면 근무를 함께 남긴다. 마커를 남긴 업무폰은 저장하지 않는다(#57). `occurred_at`은 현장 기록 시각이며 DB 저장 시각과 다르다. |
 | `photo` | 현재 스키마에서는 `marker_id`를 갖는 사진 메타데이터. 파일 본문은 object storage에 있고 업로드 대기·첨부·실패·삭제 상태를 구분한다. 실종자 사진까지 이 테이블로 연결된 것은 아니다. |
 | `marker_notification` | 지원 요청과 실종자 발견 알림의 내용, 수신 계정 스냅샷. 수신 업무폰은 저장하지 않고 FCM을 보낼 때 수신 계정의 ACTIVE FCM 토큰으로 정한다(#57). 마커당 최대 한 행이며 전송 성공 영수증은 아니다. |
-| `handover_memo` | 다음 근무자에게 남기는 정성 메모. 차수·근무 구간·경로·구역·마커 중 대상을 `memo_target_type`과 `memo_target_id`로 구분하고, 작성 당시 근무 구간은 별도로 남긴다. |
-| `search_history_summary` | 차수 또는 근무 구간 기록의 요약. 원본 묶음의 해시·준비 상태와 생성 상태를 구분한다. 원래 요구는 실패를 `FAILED`로 남기고 임의의 대체 요약을 저장하지 않는 것이다. |
+| `handover_memo` | 다음 근무자에게 남기는 정성 메모. 차수, 근무, 경로, 구역, 마커 가운데 대상을 `memo_target_type`과 `memo_target_id`로 구분한다. 작성 당시의 근무는 따로 남긴다. |
+| `search_history_summary` | 차수 또는 근무의 수색 이력 요약. 원본 묶음의 해시와 준비 상태, 생성 상태를 구분한다. 원래 요구는 실패를 `FAILED`로 남기고 임의로 만든 대체 수색 이력 요약을 저장하지 않는 것이다. |
 | `op_comparison_analysis` | 여러 차수의 계산 결과와 AI 관찰 문장. 계산 `status`와 문장 `narrative_status`를 나누어, 문장 생성 실패를 계산 결과의 부재와 혼동하지 않게 한다. |
 
 사진 업로드와 마커 첨부, 알림 저장과 실제 수신은 서로 다른 완료 단계다. [PhotoMapper](../../backend/src/main/resources/mapper/photo/PhotoMapper.xml)·[MarkerNotificationMapper](../../backend/src/main/resources/mapper/marker/MarkerNotificationMapper.xml)와 [마커·사진 요구](../features/marker-photo.md)를 함께 확인한다.

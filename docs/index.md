@@ -20,7 +20,7 @@
 |---|---|
 | 로그인·채널·사건 접근 | [인증과 접근 권한](features/authentication.md) |
 | 사건 가져오기·배정·종료 | [사건 생명주기](features/incident-lifecycle.md) |
-| 수색 차수·근무 교대·인수인계 | [인수인계와 수색 이력](features/handover.md) |
+| 수색 차수, 근무, 인수인계 | [인수인계와 수색 이력](features/handover.md) |
 | 수색 구역의 도형·담당 배정·완료 | [수색 구역](features/search-area.md) |
 | GPS 수집·묶음 저장·경로 조회 | [수색 경로](features/search-path.md) |
 | 마커·사진의 기록·재시도·삭제 | [마커와 사진](features/marker-photo.md) |

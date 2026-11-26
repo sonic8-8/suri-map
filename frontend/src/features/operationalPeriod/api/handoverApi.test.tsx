@@ -16,20 +16,21 @@ import {
 
 const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
 const OP_ID = '88888888-8888-8888-8888-888888880001';
-const POLICE_PHONE_ID = '00000000-0000-0000-0000-000000000101';
+const ACCOUNT_ID = '11111111-1111-1111-1111-111111110001';
 const DUTY_SHIFT_ID = '99999999-9999-9999-9999-999999990001';
 const HANDOVER_MEMO_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0010';
 const SEARCH_HISTORY_SUMMARY_ID = '44444444-4444-4444-4444-444444440001';
 
 describe('handover API', () => {
-  test('lists duty shifts through canonical read endpoint', async () => {
+  test('근무 목록을 계정 필터로 조회하고 업무폰 ID 필터는 보내지 않는다', async () => {
     const response: DutyShiftListResponse = {
       items: [
         {
           id: DUTY_SHIFT_ID,
           incidentId: INCIDENT_ID,
           opId: OP_ID,
-          policePhoneId: POLICE_PHONE_ID,
+          accountId: ACCOUNT_ID,
+          accountDisplayName: '광주경찰청 실종팀 현장1팀',
           status: 'ACTIVE',
           version: 1,
         },
@@ -42,7 +43,7 @@ describe('handover API', () => {
       api.listDutyShifts({
         incidentId: INCIDENT_ID,
         opId: OP_ID,
-        policePhoneId: POLICE_PHONE_ID,
+        accountId: ACCOUNT_ID,
         status: 'ACTIVE',
       }),
     ).resolves.toBe(response);
@@ -51,8 +52,7 @@ describe('handover API', () => {
       query: {
         incidentId: INCIDENT_ID,
         opId: OP_ID,
-        policePhoneId: POLICE_PHONE_ID,
-        accountId: undefined,
+        accountId: ACCOUNT_ID,
         status: 'ACTIVE',
       },
     });

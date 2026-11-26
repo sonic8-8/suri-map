@@ -284,17 +284,16 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-            id, operational_period_id, incident_assignment_id, police_phone_id, status,
+            id, operational_period_id, incident_assignment_id, status,
             started_by_account_id, started_at, version, created_at, updated_at
         )
         VALUES
-            (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?),
-            (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
+            (?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?),
+            (?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
         """,
         TARGET_DUTY_SHIFT_ID.toString(),
         TARGET_OP_ID.toString(),
         TARGET_ASSIGNMENT_ID.toString(),
-        TARGET_PHONE_ID.toString(),
         TARGET_ACCOUNT_ID.toString(),
         startedAt,
         startedAt,
@@ -302,7 +301,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
         OTHER_DUTY_SHIFT_ID.toString(),
         OTHER_OP_ID.toString(),
         OTHER_ASSIGNMENT_ID.toString(),
-        OTHER_PHONE_ID.toString(),
         OTHER_ACCOUNT_ID.toString(),
         startedAt,
         startedAt,
@@ -374,7 +372,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
             op.incident_id,
             ds.operational_period_id AS op_id,
             sp.duty_shift_id,
-            ds.police_phone_id,
             sp.account_id,
             sp.status,
             sp.started_at,
@@ -400,7 +397,6 @@ class SearchPathQueryPerformanceServiceTest extends PostGisIntegrationTestSuppor
             op.incident_id,
             ds.operational_period_id AS op_id,
             sp.duty_shift_id,
-            ds.police_phone_id,
             sp.account_id,
             sp.status,
             sp.started_at,

@@ -36,11 +36,10 @@ public class AppDutyShiftController {
   @RequirePolicePhone
   @RequireIncidentAccess
   public ResponseEntity<DutyShiftResponse> start(
-      @RequestHeader("X-PolicePhone-Id") UUID policePhoneId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody StartDutyShiftRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(service.start(request, policePhoneId, idempotencyKey, actorAccountId()));
+        .body(service.start(request, idempotencyKey, actorAccountId()));
   }
 
   @PatchMapping("/api/duty-shifts/{dutyShiftId}")
@@ -49,7 +48,6 @@ public class AppDutyShiftController {
   @RequireIncidentAccess
   public ResponseEntity<DutyShiftEndResponse> end(
       @PathVariable UUID dutyShiftId,
-      @RequestHeader("X-PolicePhone-Id") UUID policePhoneId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody EndDutyShiftRequest request) {
     return ResponseEntity.ok(

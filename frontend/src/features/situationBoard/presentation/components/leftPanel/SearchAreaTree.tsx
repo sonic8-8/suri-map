@@ -1,5 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
-import { Car, CircleMinus, ClipboardList, Phone } from 'lucide-react';
+import { Car, CircleMinus, ClipboardList, Users } from 'lucide-react';
 
 import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
 import {
@@ -109,7 +109,7 @@ function isSplitParentArea(area: SearchAreaTreeNode) {
   return area.status === 'CANCELLED' && (area.children ?? []).length > 0;
 }
 
-function hasPolicePhoneAssignment(area: SearchAreaTreeNode) {
+function hasTeamAssignment(area: SearchAreaTreeNode) {
   return getAssignedCount(area) > 0 && !hasPatrolCarAssignment(area);
 }
 
@@ -333,7 +333,7 @@ export function SearchAreaTree({
 }: SearchAreaTreeProps) {
   const assignedAreaIds = new Set(savedAreaDrafts.map((draft) => draft.areaId));
   const leafAreas = getLeafAreas(searchAreaTree);
-  const policePhoneLeafCount = leafAreas.filter(hasPolicePhoneAssignment).length;
+  const teamLeafCount = leafAreas.filter(hasTeamAssignment).length;
   const patrolCarLeafCount = leafAreas.filter(hasPatrolCarAssignment).length;
   const unassignedLeafCount = leafAreas.filter((area) => getAssignedCount(area) === 0).length;
   const unassignedLeafLabel = unassignedLeafCount === 0 ? '없음' : `${unassignedLeafCount}개`;
@@ -349,13 +349,13 @@ export function SearchAreaTree({
             icon={<ClipboardList size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
-            label="폴리폰"
-            value={`${policePhoneLeafCount}개`}
+            label="팀 배정 구역"
+            value={`${teamLeafCount}개`}
             tone="cyan"
-            icon={<Phone size={18} strokeWidth={2.2} />}
+            icon={<Users size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
-            label="순찰차"
+            label="순찰차 배정 구역"
             value={`${patrolCarLeafCount}개`}
             tone="green"
             icon={<Car size={18} strokeWidth={2.2} />}

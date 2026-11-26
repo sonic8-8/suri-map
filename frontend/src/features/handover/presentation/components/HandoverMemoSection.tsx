@@ -103,7 +103,7 @@ export function HandoverMemoSection({
           <textarea
             value={content}
             onChange={(event) => onContentChange(event.target.value)}
-            placeholder="선택한 OP 또는 근무 구간에 남길 현장 기록을 입력하세요."
+            placeholder="선택한 OP 또는 근무에 남길 현장 기록을 입력하세요."
             maxLength={1000}
             disabled={!focusedOpId || isSubmitting}
           />

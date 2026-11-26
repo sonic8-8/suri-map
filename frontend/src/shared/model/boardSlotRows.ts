@@ -34,16 +34,6 @@ export function readBoolean(row: Record<string, unknown>, key: string) {
   return typeof value === 'boolean' ? value : null;
 }
 
-export function readPolicePhoneId(row: Record<string, unknown>) {
-  return (
-    readString(row, 'policePhoneId') ??
-    readString(row, 'police_phone_id') ??
-    readString(row, 'phoneId') ??
-    readString(row, 'deviceId') ??
-    readString(row, 'device_id')
-  );
-}
-
 export function readAccountId(row: Record<string, unknown>) {
   return readString(row, 'accountId') ?? readString(row, 'account_id');
 }

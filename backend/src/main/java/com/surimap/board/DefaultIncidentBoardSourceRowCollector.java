@@ -14,7 +14,6 @@ import com.surimap.domain.connectionstatus.ConnectionStatusQuery;
 import com.surimap.domain.connectionstatus.ConnectionStatusRow;
 import com.surimap.domain.marker.MarkerNotificationMapper;
 import com.surimap.domain.marker.MarkerNotificationMapper.NotificationRow;
-import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -71,7 +70,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final ObjectProvider<IncidentReadMapper> incidentReadMapper;
   private final ObjectProvider<IncidentDataPurgeStore> purgeStore;
   private final ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider;
-  private final ObjectProvider<DutyShiftMapper> dutyShiftMapper;
 
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
@@ -120,37 +118,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         incidentReadMapper,
         purgeStore,
         markerNotificationMapperProvider,
-        null,
         null);
-  }
-
-  public DefaultIncidentBoardSourceRowCollector(
-      ObjectProvider<SearchAreaQuery> searchAreaQuery,
-      ObjectProvider<SearchPathService> searchPathService,
-      ObjectProvider<ConnectionStatusQuery> connectionStatusQuery,
-      MarkerService markerService,
-      OperationalPeriodQuery operationalPeriodQuery,
-      HandoverMemoQuery handoverMemoQuery,
-      SearchHistorySummaryMapper searchHistorySummaryMapper,
-      ObjectProvider<IncidentMapper> incidentMapper,
-      ObjectProvider<IncidentReadMapper> incidentReadMapper,
-      ObjectProvider<IncidentDataPurgeStore> purgeStore,
-      ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider,
-      ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery) {
-    this(
-        searchAreaQuery,
-        searchPathService,
-        connectionStatusQuery,
-        markerService,
-        operationalPeriodQuery,
-        handoverMemoQuery,
-        searchHistorySummaryMapper,
-        incidentMapper,
-        incidentReadMapper,
-        purgeStore,
-        markerNotificationMapperProvider,
-        null,
-        searchAreaAssignmentQuery);
   }
 
   @Autowired
@@ -166,7 +134,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       ObjectProvider<IncidentReadMapper> incidentReadMapper,
       ObjectProvider<IncidentDataPurgeStore> purgeStore,
       ObjectProvider<MarkerNotificationMapper> markerNotificationMapperProvider,
-      ObjectProvider<DutyShiftMapper> dutyShiftMapper,
       ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery) {
     this.searchAreaQuery = searchAreaQuery;
     this.searchAreaAssignmentQuery = searchAreaAssignmentQuery;
@@ -184,7 +151,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     this.incidentReadMapper = incidentReadMapper;
     this.purgeStore = purgeStore;
     this.markerNotificationMapperProvider = markerNotificationMapperProvider;
-    this.dutyShiftMapper = dutyShiftMapper;
   }
 
   @Override
@@ -446,8 +412,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Map<String, Object> payload = new LinkedHashMap<>();
     long version = areaRowVersion(row, assignments);
     String latestEventId = areaLatestEventId(row, assignments);
-    Map<String, String> activePolicePhoneIdsByAccountId =
-        activePolicePhoneIdsByAccountId(row.incidentId());
     payload.put("incidentId", row.incidentId().toString());
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "parentAreaId", row.parentAreaId());
@@ -462,14 +426,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put(
         "assignedAccounts",
         assignments.stream()
-            .map(
-                assignment ->
-                    assignmentPayload(
-                        assignment,
-                        row.incidentId(),
-                        row.opId(),
-                        activeAssignmentsByAccountId,
-                        activePolicePhoneIdsByAccountId))
+            .map(assignment -> assignmentPayload(assignment, activeAssignmentsByAccountId))
             .toList());
     return sourceRow(
         "area",
@@ -553,27 +510,15 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   }
 
   private Map<String, Object> assignmentPayload(
-      SearchAreaAssignmentRow row,
-      UUID incidentId,
-      UUID opId,
-      Map<String, AssignmentRow> activeAssignmentsByAccountId,
-      Map<String, String> activePolicePhoneIdsByAccountId) {
+      SearchAreaAssignmentRow row, Map<String, AssignmentRow> activeAssignmentsByAccountId) {
     Map<String, Object> payload = new LinkedHashMap<>();
     AssignmentRow incidentAssignment =
         activeAssignmentsByAccountId.get(row.assignedAccountId().toString());
     String displayName = assignmentDisplayName(incidentAssignment);
-    String activeDutyPhoneId =
-        activeDutyShiftPolicePhoneId(incidentId, opId, row.assignedAccountId()).orElse(null);
     payload.put("assignmentId", row.id().toString());
     payload.put("accountId", row.assignedAccountId().toString());
     payload.put("displayName", displayName);
     payload.put("accountDisplayName", displayName);
-    payload.put(
-        "policePhoneId",
-        activeDutyPhoneId != null
-            ? activeDutyPhoneId
-            : fallbackPolicePhoneId(
-                opId, row.assignedAccountId(), activePolicePhoneIdsByAccountId));
     payload.put(
         "accountType", incidentAssignment == null ? null : incidentAssignment.getAccountType());
     payload.put(
@@ -586,26 +531,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("status", row.status());
     payload.put("version", row.version());
     return payload;
-  }
-
-  private Optional<String> activeDutyShiftPolicePhoneId(
-      UUID incidentId, UUID opId, UUID accountId) {
-    DutyShiftMapper mapper = dutyShiftMapper == null ? null : dutyShiftMapper.getIfAvailable();
-    if (mapper == null || incidentId == null || opId == null || accountId == null) {
-      return Optional.empty();
-    }
-    return mapper.findByFilters(incidentId, opId, null, accountId, "ACTIVE").stream()
-        .map(shift -> shift.getPolicePhoneId() == null ? null : shift.getPolicePhoneId().toString())
-        .filter(Objects::nonNull)
-        .findFirst();
-  }
-
-  private String fallbackPolicePhoneId(
-      UUID opId, UUID accountId, Map<String, String> activePolicePhoneIdsByAccountId) {
-    if (dutyShiftMapper != null && dutyShiftMapper.getIfAvailable() != null && opId != null) {
-      return null;
-    }
-    return activePolicePhoneIdsByAccountId.get(accountId.toString());
   }
 
   private Map<String, AssignmentRow> activeIncidentAssignmentsByAccountId(UUID incidentId) {
@@ -621,24 +546,6 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         .filter(row -> row.getAccountId() != null && !row.getAccountId().isBlank())
         .forEach(row -> assignmentsByAccountId.putIfAbsent(row.getAccountId(), row));
     return assignmentsByAccountId;
-  }
-
-  private Map<String, String> activePolicePhoneIdsByAccountId(UUID incidentId) {
-    IncidentReadMapper query =
-        incidentReadMapper == null ? null : incidentReadMapper.getIfAvailable();
-    if (query == null || incidentId == null) {
-      return Map.of();
-    }
-
-    Map<String, String> policePhoneIdsByAccountId = new LinkedHashMap<>();
-    query.findActiveAssignmentTargetsByIncidentId(incidentId).stream()
-        .filter(Objects::nonNull)
-        .filter(row -> row.getAccountId() != null && !row.getAccountId().isBlank())
-        .filter(row -> row.getPolicePhoneId() != null && !row.getPolicePhoneId().isBlank())
-        .forEach(
-            row ->
-                policePhoneIdsByAccountId.putIfAbsent(row.getAccountId(), row.getPolicePhoneId()));
-    return policePhoneIdsByAccountId;
   }
 
   private static String assignmentDisplayName(AssignmentRow assignment) {

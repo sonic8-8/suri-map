@@ -140,18 +140,17 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-            id, operational_period_id, incident_assignment_id, police_phone_id, status,
+            id, operational_period_id, incident_assignment_id, status,
             started_by_account_id, ended_by_account_id, started_at, ended_at, version,
             created_at, updated_at
         ) VALUES (
-            ?, ?, ?, ?, 'ACTIVE', ?, NULL,
+            ?, ?, ?, 'ACTIVE', ?, NULL,
             '2026-04-28T09:00:00+09:00', NULL, 1,
             '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00'
         )
         ON CONFLICT (id) DO UPDATE SET
             operational_period_id = EXCLUDED.operational_period_id,
             incident_assignment_id = EXCLUDED.incident_assignment_id,
-            police_phone_id = EXCLUDED.police_phone_id,
             status = 'ACTIVE',
             ended_at = NULL,
             updated_at = EXCLUDED.updated_at
@@ -159,23 +158,21 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         DUTY_SHIFT_ID,
         OP_ID,
         ASSIGNMENT_ID,
-        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
         AccountIdentityCatalog.PRECINCT_TEAM_ID);
     jdbcTemplate.update(
         """
             INSERT INTO duty_shift (
-                id, operational_period_id, incident_assignment_id, police_phone_id, status,
+                id, operational_period_id, incident_assignment_id, status,
                 started_by_account_id, ended_by_account_id, started_at, ended_at, version,
                 created_at, updated_at
             ) VALUES (
-                ?, ?, ?, ?, 'ACTIVE', ?, NULL,
+                ?, ?, ?, 'ACTIVE', ?, NULL,
                 '2026-04-28T09:00:00+09:00', NULL, 1,
                 '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00'
             )
             ON CONFLICT (id) DO UPDATE SET
                 operational_period_id = EXCLUDED.operational_period_id,
                 incident_assignment_id = EXCLUDED.incident_assignment_id,
-                police_phone_id = EXCLUDED.police_phone_id,
                 status = 'ACTIVE',
                 ended_at = NULL,
                 updated_at = EXCLUDED.updated_at
@@ -183,7 +180,6 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         COMMANDER_DUTY_SHIFT_ID,
         OP_ID,
         COMMANDER_ASSIGNMENT_ID,
-        PolicePhoneFixtures.ASSIGNED_PATH_POLICE_PHONE_ID,
         AccountIdentityCatalog.PRECINCT_COMMANDER_ID);
     jdbcTemplate.update(
         """

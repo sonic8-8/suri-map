@@ -29,7 +29,8 @@ data class HandoverSessionContext(
     val opId: String?,
     val opLabel: String? = null,
     val dutyShiftId: String?,
-    val policePhoneId: String?
+    val policePhoneId: String?,
+    val accountId: String? = null
 ) {
     val displayOpLabel: String =
         opLabel?.takeIf(String::isNotBlank)
@@ -253,12 +254,13 @@ class DutyHandoverStateLoader(
         valid: RequiredHandoverSessionContext,
         context: HandoverSessionContext
     ): List<DutyShiftOptionReadModel> {
+        val accountId = context.accountId?.takeIf(String::isNotBlank)
         val response =
             dutyShifts(
                 DutyShiftQuery(
                     incidentId = valid.incidentId,
                     opId = valid.opId,
-                    policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank)
+                    accountId = accountId
                 )
             )
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -267,19 +269,21 @@ class DutyHandoverStateLoader(
         return parseDutyShiftOptions(
             body = response.body,
             currentDutyShiftId = context.dutyShiftId,
-            samePhoneScoped = !context.policePhoneId.isNullOrBlank()
+            accountId = accountId
         )
     }
 
     private fun parseDutyShiftOptions(
         body: String,
         currentDutyShiftId: String?,
-        samePhoneScoped: Boolean
+        accountId: String?
     ): List<DutyShiftOptionReadModel> {
         val items = parseItems(body)
         return buildList {
             repeat(items.length()) { index ->
                 val item = items.optJSONObject(index) ?: return@repeat
+                // 다른 계정의 근무를 기본 선택이나 재생 대체 대상으로 고르지 않도록 응답도 한 번 더 거른다.
+                if (accountId != null && item.optString("accountId") != accountId) return@repeat
                 val dutyShiftId =
                     item.optString("id")
                         .ifBlank { item.optString("dutyShiftId") }
@@ -301,7 +305,7 @@ class DutyHandoverStateLoader(
                         dutyLabel = dutyLabel,
                         actorLabel = actorLabel,
                         label = actorLabel ?: dutyLabel,
-                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status, dutyLabel, samePhoneScoped)
+                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status, dutyLabel)
                     )
                 )
             }
@@ -699,7 +703,7 @@ class DutyHandoverStateLoader(
             when {
                 current -> "현재 근무 확인"
                 previous -> TITLE
-                else -> "근무 구간 확인"
+                else -> "근무 확인"
             }
 
     private fun parseItems(body: String): JSONArray {
@@ -892,7 +896,7 @@ class DutyHandoverStateLoader(
         when {
             current -> "현재 근무"
             endedAt != null || status.isEndedStatus() -> "이전 근무"
-            else -> "근무 구간"
+            else -> "근무"
         }
 
     private fun String.isEndedStatus(): Boolean =
@@ -903,11 +907,9 @@ class DutyHandoverStateLoader(
         startedAt: Instant?,
         endedAt: Instant?,
         status: String,
-        dutyLabel: String,
-        samePhoneScoped: Boolean
+        dutyLabel: String
     ): String =
         listOf(
-            if (samePhoneScoped) "같은 폴리폰" else "",
             dutyLabel,
             timeRangeLabel(startedAt?.toString().orEmpty(), endedAt?.toString().orEmpty()),
             status.toDutyShiftStatusLabel()
@@ -916,18 +918,7 @@ class DutyHandoverStateLoader(
             .ifBlank { dutyShiftId }
 
     private fun JSONObject.dutyShiftActorLabel(): String? =
-        optString("policePhoneLabel")
-            .ifBlank { optString("policePhoneDisplayName") }
-            .ifBlank { optString("displayName") }
-            .ifBlank { optString("policePhoneCode") }
-            .ifBlank { optString("phoneCode") }
-            .ifBlank {
-                optString("policePhoneId")
-                    .takeIf(String::isNotBlank)
-                    ?.let { "폴리폰 ${it.takeLast(4)}" }
-                    .orEmpty()
-            }
-            .takeIf(String::isNotBlank)
+        optString("accountDisplayName").trim().takeIf(String::isNotBlank)
 
     private fun String.toTimeLabel(): String =
         toInstantOrNull()?.let(TimeFormatter::format) ?: "시간 없음"

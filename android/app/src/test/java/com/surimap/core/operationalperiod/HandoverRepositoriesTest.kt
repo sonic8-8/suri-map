@@ -54,7 +54,7 @@ class HandoverRepositoriesTest {
         assertEquals(POLICE_PHONE_ID, start.policePhoneId)
         assertEquals("duty_shift", start.entityType)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","clientTs":"2026-05-11T06:00:00Z"}""",
+            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z"}""",
             start.payload
         )
 
@@ -99,7 +99,7 @@ class HandoverRepositoriesTest {
             DutyShiftQuery(
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
-                policePhoneId = POLICE_PHONE_ID,
+                accountId = ACCOUNT_ID,
                 status = "ACTIVE"
             )
         )
@@ -108,7 +108,7 @@ class HandoverRepositoriesTest {
         assertEquals(200, result.statusCode)
         assertEquals("GET", request.method)
         assertEquals(
-            "https://suri-map.example.com/api/duty-shifts?incidentId=$INCIDENT_ID&opId=$OP_ID&policePhoneId=$POLICE_PHONE_ID&status=ACTIVE",
+            "https://suri-map.example.com/api/duty-shifts?incidentId=$INCIDENT_ID&opId=$OP_ID&accountId=$ACCOUNT_ID&status=ACTIVE",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))
@@ -299,6 +299,7 @@ class HandoverRepositoriesTest {
         val OP_ID = opIdFixture("precinct-first-001")
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        const val ACCOUNT_ID = "62000000-0000-0000-0000-000000005801"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
     }
 }

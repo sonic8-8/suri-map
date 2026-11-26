@@ -139,14 +139,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
         PRECINCT_TEAM_ID);
     jdbcTemplate.update(
         """
-        INSERT INTO duty_shift (id, operational_period_id, incident_assignment_id, police_phone_id,
+        INSERT INTO duty_shift (id, operational_period_id, incident_assignment_id,
             status, started_by_account_id, started_at, version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'ACTIVE', ?, NOW(), 1, NOW(), NOW())
+        VALUES (?, ?, ?, 'ACTIVE', ?, NOW(), 1, NOW(), NOW())
         """,
         DUTY_SHIFT_ID,
         OP1_ID,
         assignmentId,
-        ASSIGNED_POLICE_PHONE_ID,
         PRECINCT_TEAM_ID);
     insertMarker(MARKER_ID);
   }
@@ -258,7 +257,7 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   @Test
   @DisplayName("현재 수색 차수에서 근무 중인 작성자가 요청하면, 사진 업로드 주소와 대기 중인 사진을 생성한다")
   void createUploadUrl_assignedAuthor_savesPendingPhoto() {
-    // given: 배정된 계정의 활성 근무교대와 같은 계정이 만든 현장 마커가 있다.
+    // given: 배정된 계정의 진행 중인 근무와 같은 계정이 만든 현장 마커가 있다.
     Instant requestedAt = Instant.now();
 
     // when: 실제 사진 서비스에서 업로드 주소를 발급한다.
@@ -1343,13 +1342,13 @@ class PhotoServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("작성자의 활성 근무교대가 없으면, police_phone_not_assigned 오류를 반환하고 사진을 저장하지 않는다")
+  @DisplayName("작성자의 진행 중인 근무가 없으면, police_phone_not_assigned 오류를 반환하고 사진을 저장하지 않는다")
   void createUploadUrl_noActiveDutyShift_rejectsWithoutSavingPhoto() {
-    // given: 사건 배정은 유지하지만 현재 계정의 근무교대가 종료되었다.
+    // given: 사건 배정은 유지하지만 현재 계정의 근무가 종료되었다.
     jdbcTemplate.update(
         "UPDATE duty_shift SET status = 'ENDED', ended_at = NOW() WHERE id = ?", DUTY_SHIFT_ID);
 
-    // when & then: 배정과 활성 근무교대의 실제 SQL 조회 결과를 구분한다.
+    // when & then: 배정과 진행 중인 근무의 실제 SQL 조회 결과를 구분한다.
     assertUploadRejected("police_phone_not_assigned", HttpStatus.FORBIDDEN);
   }
 

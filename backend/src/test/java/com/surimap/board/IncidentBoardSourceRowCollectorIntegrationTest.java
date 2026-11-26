@@ -28,8 +28,6 @@ import com.surimap.domain.marker.MarkerType;
 import com.surimap.domain.path.MovementType;
 import com.surimap.domain.path.MovementTypeSource;
 import com.surimap.domain.path.SearchPathStatus;
-import com.surimap.dutyshift.DutyShift;
-import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.global.geometry.GeoJsonPoint;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
@@ -87,10 +85,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID NOTIFICATION_EVENT_ID =
       UUID.fromString("52000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("50000000-0000-4000-8000-000000000001");
-  private static final UUID ACTIVE_DUTY_POLICE_PHONE_ID =
-      UUID.fromString("50000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNED_BY_ACCOUNT_ID =
       UUID.fromString("70000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNMENT_ID = UUID.fromString("71000000-0000-4000-8000-000000000001");
@@ -292,45 +286,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(assignedAccounts.get(0))
         .containsEntry("assignmentId", ASSIGNMENT_ID.toString())
         .containsEntry("accountId", ACCOUNT_ID.toString())
-        .containsEntry("policePhoneId", POLICE_PHONE_ID.toString())
         .containsEntry("displayName", ACCOUNT_DISPLAY_NAME)
         .containsEntry("assignedByAccountId", ASSIGNED_BY_ACCOUNT_ID.toString())
-        .containsEntry("status", "ACTIVE");
-  }
-
-  @Test
-  @DisplayName("area assignment policePhoneId follows active duty shift for the selected OP")
-  void area_assignment_police_phone_id_follows_active_duty_shift_for_selected_op() {
-    DutyShiftMapper dutyShiftMapper = mock(DutyShiftMapper.class);
-    DutyShift activeShift = new DutyShift();
-    activeShift.setPolicePhoneId(ACTIVE_DUTY_POLICE_PHONE_ID);
-    when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, null, ACCOUNT_ID, "ACTIVE"))
-        .thenReturn(List.of(activeShift));
-    DefaultIncidentBoardSourceRowCollector collector =
-        new DefaultIncidentBoardSourceRowCollector(
-            provider(new FakeSearchAreaQuery()),
-            provider(searchPathService()),
-            provider(new FakeConnectionStatusQuery()),
-            createMarkerService(),
-            new FakeOperationalPeriodQuery(),
-            new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper(),
-            provider(null),
-            provider(new FakeIncidentReadMapper()),
-            provider(null),
-            provider(null),
-            provider(dutyShiftMapper),
-            provider(new FakeSearchAreaAssignmentQuery()));
-
-    IncidentBoardSourceRowSnapshot snapshot =
-        collector.collect(
-            new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
-
-    @SuppressWarnings("unchecked")
-    List<Map<String, Object>> assignedAccounts =
-        (List<Map<String, Object>>) row(snapshot, "area").payload().get("assignedAccounts");
-    assertThat(assignedAccounts.get(0))
-        .containsEntry("policePhoneId", ACTIVE_DUTY_POLICE_PHONE_ID.toString());
+        .containsEntry("status", "ACTIVE")
+        .doesNotContainKey("policePhoneId");
   }
 
   @Test
@@ -768,7 +727,6 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
       row.setIncidentRole("MEMBER");
       row.setAccountType("PATROL_CAR");
       row.setOrganizationType("POLICE_SUBSTATION");
-      row.setPolicePhoneId(POLICE_PHONE_ID.toString());
       return List.of(row);
     }
   }

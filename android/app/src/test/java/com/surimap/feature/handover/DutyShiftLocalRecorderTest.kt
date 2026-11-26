@@ -44,7 +44,7 @@ class DutyShiftLocalRecorderTest {
         assertEquals("POST", startOperation.method)
         assertEquals("/api/duty-shifts", startOperation.endpoint)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","policePhoneId":"$POLICE_PHONE_ID","clientTs":"2026-05-11T06:00:00Z"}""",
+            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z"}""",
             startOperation.payload
         )
         assertEquals("PATCH", endOperation.method)

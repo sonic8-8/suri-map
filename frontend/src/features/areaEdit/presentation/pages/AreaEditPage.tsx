@@ -1241,7 +1241,7 @@ export function AreaEditPage({
                   isAssigningArea={isAssigningArea}
                   normalSelectedAreaId={normalSelectedAreaId}
                   selectedAreaId={selectedAreaId}
-                  unassignedPhoneCount={unassignedAreaCount}
+                  unassignedAreaCount={unassignedAreaCount}
                   splitChildAreaCount={splitChildAreaCount}
                   splitChildRangeMissingCount={splitChildRangeMissingCount}
                   isSplitFlow={isSplitFlow}

@@ -87,7 +87,7 @@ class BlockedOutboxStateLoader(
             "MARKER" -> "마커 기록"
             "PHOTO" -> "사진 첨부"
             "HANDOVER_MEMO" -> "인수인계 메모"
-            "DUTY_SHIFT" -> "근무 교대"
+            "DUTY_SHIFT" -> "근무 기록"
             "PACKAGE_INSTALLATION" -> "지도 데이터 상태"
             else -> requestPath
         }

@@ -3741,14 +3741,14 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
 private suspend fun DutyShiftRepository.currentDutyShiftStartedAt(context: SearchMapSessionContext): Instant? {
     val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return null
     val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return null
-    val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return null
+    val accountId = context.accountId?.takeIf(String::isNotBlank) ?: return null
     val response =
         runCatching {
             listDutyShifts(
                 DutyShiftQuery(
                     incidentId = incidentId,
                     opId = opId,
-                    policePhoneId = policePhoneId,
+                    accountId = accountId,
                     status = "ACTIVE"
                 )
             )
@@ -3840,7 +3840,8 @@ private fun IncidentContext?.toHandoverSessionContext(policePhoneContext: Police
         opId = this?.currentOpId,
         opLabel = this?.currentOpLabel,
         dutyShiftId = this?.currentDutyShiftId,
-        policePhoneId = policePhoneContext?.policePhoneId
+        policePhoneId = policePhoneContext?.policePhoneId,
+        accountId = policePhoneContext?.accountId
     )
 
 private fun SearchMapSessionContext.toSearchPathWriteContext(): SearchPathWriteContext =

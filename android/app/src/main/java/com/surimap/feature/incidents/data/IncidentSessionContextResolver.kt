@@ -70,7 +70,7 @@ class IncidentSessionContextResolver(
         accountId: String?
     ): String? {
         val normalizedOpId = opId?.takeIf(String::isNotBlank) ?: return null
-        val normalizedPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
+        if (policePhoneId.isNullOrBlank()) return null
         val normalizedAccountId = accountId?.takeIf(String::isNotBlank) ?: return null
         val response =
             runCatching {
@@ -78,7 +78,6 @@ class IncidentSessionContextResolver(
                     DutyShiftQuery(
                         incidentId = incidentId,
                         opId = normalizedOpId,
-                        policePhoneId = normalizedPolicePhoneId,
                         accountId = normalizedAccountId,
                         status = "ACTIVE"
                     )

@@ -180,14 +180,13 @@ class OpComparisonRegionFactMapperIntegrationTest extends PostGisIntegrationTest
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-          id, operational_period_id, incident_assignment_id, police_phone_id, status,
+          id, operational_period_id, incident_assignment_id, status,
           started_at, ended_at, version, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, 'ENDED', ?, ?, 1, ?, ?)
+        VALUES (?, ?, ?, 'ENDED', ?, ?, 1, ?, ?)
         """,
         dutyShiftId,
         opId,
-        UUID.randomUUID(),
         UUID.randomUUID(),
         timestamp(BASE_TIME),
         timestamp(BASE_TIME.plusSeconds(3600)),

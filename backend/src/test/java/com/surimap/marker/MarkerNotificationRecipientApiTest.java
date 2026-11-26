@@ -188,14 +188,13 @@ class MarkerNotificationRecipientApiTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-          id, operational_period_id, incident_assignment_id, police_phone_id, status,
+          id, operational_period_id, incident_assignment_id, status,
           started_by_account_id, started_at, version, created_at, updated_at
         )
-        VALUES (gen_random_uuid(), ?, ?, ?, 'ACTIVE', ?, ?, 1, ?, ?)
+        VALUES (gen_random_uuid(), ?, ?, 'ACTIVE', ?, ?, 1, ?, ?)
         """,
         OP_ID,
         AUTHOR_ASSIGNMENT_ID,
-        AUTHOR_POLICE_PHONE_ID,
         AUTHOR_ID,
         base,
         base,

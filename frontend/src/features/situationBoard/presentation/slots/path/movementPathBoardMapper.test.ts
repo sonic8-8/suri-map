@@ -251,7 +251,7 @@ function createAreaNode(overrides: Partial<SearchAreaTreeNode> = {}): SearchArea
     meta: 'TEAM',
     status: 'ACTIVE',
     geometryState: 'saved',
-    assignedAccounts: [{ accountId: ACCOUNT_ID, displayName: '대원 A', policePhoneId: POLICE_PHONE_ID }],
+    assignedAccounts: [{ accountId: ACCOUNT_ID, displayName: '대원 A' }],
     children: [],
     ...overrides,
   };
@@ -297,6 +297,5 @@ const OP_ID = '88888888-8888-8888-8888-888888880001';
 const NEXT_OP_ID = '88888888-8888-8888-8888-888888880002';
 const AREA_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0001';
 const NEXT_AREA_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0002';
-const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
 const ACCOUNT_ID = '10000000-0000-0000-0000-000000000001';
 const UNASSIGNED_ACCOUNT_ID = '10000000-0000-0000-0000-000000000002';

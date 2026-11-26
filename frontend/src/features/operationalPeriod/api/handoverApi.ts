@@ -16,7 +16,6 @@ export type SearchHistorySummaryScopeType = 'OP' | 'DUTY_SHIFT';
 export interface DutyShiftQuery {
   incidentId: string;
   opId?: string;
-  policePhoneId?: string;
   accountId?: string;
   status?: DutyShiftStatus;
 }
@@ -25,7 +24,8 @@ export interface DutyShiftResponse {
   id: string;
   incidentId: string;
   opId: string;
-  policePhoneId: string;
+  accountId: string;
+  accountDisplayName: string | null;
   status: DutyShiftStatus;
   version: number;
 }
@@ -215,7 +215,6 @@ function toDutyShiftQuery(query: DutyShiftQuery): ApiQuery {
   return {
     incidentId: query.incidentId,
     opId: query.opId,
-    policePhoneId: query.policePhoneId,
     accountId: query.accountId,
     status: query.status,
   };

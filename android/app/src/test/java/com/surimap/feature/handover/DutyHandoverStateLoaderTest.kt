@@ -162,7 +162,6 @@ class DutyHandoverStateLoaderTest {
                 dutyShifts = { query: DutyShiftQuery ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
                     ok(
                         """
                         {
@@ -171,14 +170,16 @@ class DutyHandoverStateLoaderTest {
                               "id": "$DUTY_SHIFT_ID",
                               "status": "ACTIVE",
                               "startedAt": "2026-05-11T04:00:00Z",
-                              "policePhoneLabel": "현재 폴리폰"
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀"
                             },
                             {
                               "id": "$PREVIOUS_DUTY_SHIFT_ID",
                               "status": "ENDED",
                               "startedAt": "2026-05-11T02:00:00Z",
                               "endedAt": "2026-05-11T03:30:00Z",
-                              "policePhoneLabel": "이전 근무 폴리폰"
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀"
                             }
                           ]
                         }
@@ -242,7 +243,7 @@ class DutyHandoverStateLoaderTest {
 
         assertEquals(listOf(DUTY_SHIFT_ID), timelineQueries.map { it.dutyShiftId })
         assertEquals(HandoverRecordScope.DutyShift, state.recordScope)
-        assertEquals("OP 3차 · 현재 근무 · 현재 폴리폰", state.subtitle)
+        assertEquals("OP 3차 · 현재 근무 · 광주경찰청 실종팀 현장1팀", state.subtitle)
         assertTrue(state.dutyShiftOptions.any { it.dutyShiftId == DUTY_SHIFT_ID && it.selected })
         assertFalse(state.dutyShiftOptions.any { it.dutyShiftId == PREVIOUS_DUTY_SHIFT_ID })
         assertEquals("path-current-1", state.replayPathSegments.single().sourceKey)
@@ -258,7 +259,6 @@ class DutyHandoverStateLoaderTest {
                 dutyShifts = { query: DutyShiftQuery ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
                     ok(
                         """
                         {
@@ -267,14 +267,16 @@ class DutyHandoverStateLoaderTest {
                               "id": "$DUTY_SHIFT_ID",
                               "status": "ACTIVE",
                               "startedAt": "2026-05-11T04:00:00Z",
-                              "policePhoneLabel": "현재 폴리폰"
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀"
                             },
                             {
                               "id": "$PREVIOUS_DUTY_SHIFT_ID",
                               "status": "ENDED",
                               "startedAt": "2026-05-11T02:00:00Z",
                               "endedAt": "2026-05-11T03:30:00Z",
-                              "policePhoneLabel": "이전 근무 폴리폰"
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀"
                             }
                           ]
                         }
@@ -377,7 +379,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals(listOf(DUTY_SHIFT_ID), timelineQueries.map { it.dutyShiftId })
         assertEquals(HandoverRecordScope.DutyShift, state.recordScope)
         assertEquals("현재 근무 확인", state.title)
-        assertEquals("OP 3차 · 현재 근무 · 현재 폴리폰", state.subtitle)
+        assertEquals("OP 3차 · 현재 근무 · 광주경찰청 실종팀 현장1팀", state.subtitle)
         assertTrue(state.dutyShiftOptions.any { it.dutyShiftId == DUTY_SHIFT_ID && it.selected })
         assertFalse(state.dutyShiftOptions.any { it.dutyShiftId == PREVIOUS_DUTY_SHIFT_ID })
         assertEquals("path-current-1", state.replayPathSegments.single().sourceKey)
@@ -393,14 +395,14 @@ class DutyHandoverStateLoaderTest {
                 dutyShifts = { query: DutyShiftQuery ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
                     ok(
                         """
                         {
                           "items": [
                             {
                               "id": "$DUTY_SHIFT_ID",
-                              "policePhoneLabel": "후보 폴리폰",
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀",
                               "status": "ACTIVE",
                               "startedAt": "2026-05-11T04:00:00Z"
                             }
@@ -445,10 +447,87 @@ class DutyHandoverStateLoaderTest {
         val state = loader.load(CONTEXT.copy(dutyShiftId = null))
 
         assertEquals(listOf(DUTY_SHIFT_ID), timelineQueries.map { it.dutyShiftId })
-        assertEquals("근무 구간 확인", state.title)
-        assertEquals("OP 3차 · 근무 구간 · 후보 폴리폰", state.subtitle)
+        assertEquals("근무 확인", state.title)
+        assertEquals("OP 3차 · 근무 · 광주경찰청 실종팀 현장1팀", state.subtitle)
         assertTrue(state.dutyShiftOptions.single().selected)
         assertEquals("path-first-1", state.replayPathSegments.single().sourceKey)
+    }
+
+    @Test
+    fun otherAccountActiveDutyShiftIsNeitherDefaultSelectionNorReplayFallback() = runBlocking {
+        val timelineQueries = mutableListOf<HandoverTimelineQuery>()
+        val loader =
+            DutyHandoverStateLoader(
+                dutyShifts = { query: DutyShiftQuery ->
+                    assertEquals(ACCOUNT_ID, query.accountId)
+                    ok(
+                        """
+                        {
+                          "items": [
+                            {
+                              "id": "$OTHER_DUTY_SHIFT_ID",
+                              "accountId": "$OTHER_ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장2팀",
+                              "status": "ACTIVE",
+                              "startedAt": "2026-05-11T05:00:00Z"
+                            },
+                            {
+                              "id": "$DUTY_SHIFT_ID",
+                              "accountId": "$ACCOUNT_ID",
+                              "accountDisplayName": "광주경찰청 실종팀 현장1팀",
+                              "status": "ACTIVE",
+                              "startedAt": "2026-05-11T04:00:00Z"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverTimeline = { _, query: HandoverTimelineQuery ->
+                    timelineQueries += query
+                    val paths =
+                        if (query.dutyShiftId == OTHER_DUTY_SHIFT_ID) {
+                            """
+                            [{
+                              "pathId": "path-other-1",
+                              "actorId": "actor-other",
+                              "mode": "FOOT",
+                              "startedAt": "2026-05-11T05:05:00Z",
+                              "endedAt": "2026-05-11T05:15:00Z",
+                              "points": [
+                                {"at": "2026-05-11T05:05:00Z", "lat": 37.1000, "lng": 127.1000},
+                                {"at": "2026-05-11T05:15:00Z", "lat": 37.1020, "lng": 127.1030}
+                              ]
+                            }]
+                            """.trimIndent()
+                        } else {
+                            "[]"
+                        }
+                    ok(
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "operationalPeriodId": "$OP_ID",
+                          "scope": {"scopeType": "DUTY_SHIFT", "dutyShiftId": "${query.dutyShiftId}"},
+                          "actors": [],
+                          "paths": $paths,
+                          "events": [],
+                          "metrics": {"distanceMeters": 0, "markerCount": 0, "handoverMemoCount": 0, "syncStatus": "READY"}
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverMemos = { ok("""{"items":[]}""") },
+                searchHistorySummaries = { _, _ -> ok("""{"items":[]}""") }
+            )
+
+        // 세션에 현재 근무가 없어도 다른 계정의 진행 중인 근무를 고르지 않는다.
+        val state = loader.load(CONTEXT.copy(dutyShiftId = null))
+
+        assertFalse(timelineQueries.any { it.dutyShiftId == OTHER_DUTY_SHIFT_ID })
+        assertEquals(listOf(DUTY_SHIFT_ID), state.dutyShiftOptions.map { it.dutyShiftId })
+        assertTrue(state.dutyShiftOptions.single().selected)
+        assertTrue(state.replayPathSegments.none { it.sourceKey == "path-other-1" })
     }
 
     @Test
@@ -464,6 +543,7 @@ class DutyHandoverStateLoaderTest {
                           "items": [
                             {
                               "id": "$DUTY_SHIFT_ID",
+                              "accountId": "$ACCOUNT_ID",
                               "status": "ACTIVE",
                               "startedAt": "2026-05-11T04:00:00Z"
                             }
@@ -717,6 +797,9 @@ class DutyHandoverStateLoaderTest {
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
         val PREVIOUS_DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-000")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        const val ACCOUNT_ID = "62000000-0000-0000-0000-000000005801"
+        const val OTHER_ACCOUNT_ID = "62000000-0000-0000-0000-000000005802"
+        val OTHER_DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-second-001")
         val MEMO_ID = handoverMemoIdFixture("memo-001")
         val SUMMARY_ID = searchHistorySummaryIdFixture("summary-001")
         val PENDING_SUMMARY_ID = searchHistorySummaryIdFixture("summary-pending")
@@ -726,7 +809,8 @@ class DutyHandoverStateLoaderTest {
                 opId = OP_ID,
                 opLabel = "OP 3차",
                 dutyShiftId = DUTY_SHIFT_ID,
-                policePhoneId = POLICE_PHONE_ID
+                policePhoneId = POLICE_PHONE_ID,
+                accountId = ACCOUNT_ID
             )
     }
 }

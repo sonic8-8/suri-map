@@ -442,7 +442,7 @@ public class HandoverTimelineApiService {
       }
       DutyShift dutyShift =
           dutyShiftId == null
-              ? dutyShiftMapper.findByFilters(incidentId, opId, null, null, null).stream()
+              ? dutyShiftMapper.findByFilters(incidentId, opId, null, null).stream()
                   .findFirst()
                   .orElse(null)
               : dutyShiftMapper.findById(dutyShiftId).orElse(null);

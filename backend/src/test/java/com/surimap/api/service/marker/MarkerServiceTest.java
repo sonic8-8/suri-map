@@ -151,9 +151,9 @@ class MarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("지원 요청 마커에 근무 교대와 요청 유형이 있으면, 조회 결과에도 해당 값을 유지한다")
+  @DisplayName("지원 요청 마커에 근무와 요청 유형이 있으면, 조회 결과에도 해당 값을 유지한다")
   void listMarkers_supportRequestWithDutyShift_preservesContext() {
-    // given: 근무 교대와 드론 지원 요청이 기록된 마커다.
+    // given: 근무와 드론 지원 요청이 기록된 마커다.
     UUID dutyShiftId = UUID.randomUUID();
     jdbcTemplate.update(
         "UPDATE marker SET duty_shift_id = ?, marker_type = 'SUPPORT_REQUEST',"

@@ -61,6 +61,13 @@ import {
   type HandoverComparisonMapSharedProps,
 } from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
+import {
+  formatDutyShiftAccountLabel,
+  formatOpHistoryRecordMeta,
+  formatSearchPathMemoTargetLabel,
+  formatSearchPathRecordMeta,
+  formatStatusLabel,
+} from '../model/handoverSourceRecordLabels';
 import { ComparisonAnalysisPanel, type ComparisonOperationalPeriodOption } from '../components/ComparisonAnalysisPanel';
 import {
   HandoverMemoSection,
@@ -1326,9 +1333,9 @@ function createSourceRecords(
   dutyShifts.forEach((shift) => {
     records.push({
       key: `duty-shift:${shift.id}`,
-      label: '근무 구간',
+      label: '근무',
       meta: formatStatusLabel(shift.status),
-      detail: `폴리폰 ${shortId(shift.policePhoneId)} / ${shortId(shift.id)}`,
+      detail: `${formatDutyShiftAccountLabel({ accountDisplayName: shift.accountDisplayName })} / ${shortId(shift.id)}`,
     });
   });
 
@@ -1337,11 +1344,10 @@ function createSourceRecords(
       const opId = readString(row, 'opId') ?? readString(row, 'id') ?? 'op-history';
       const sequenceNumber = readNumber(row, 'sequenceNumber');
       const areaIds = readUnknownArray(row, 'areaIds');
-      const policePhoneIds = readUnknownArray(row, 'policePhoneIds');
       records.push({
         key: `op-history:${opId}:${readString(row, 'latestEventId') ?? ''}`,
         label: sequenceNumber ? `OP ${sequenceNumber}차 이력` : 'OP 이력',
-        meta: `${areaIds.length}개 구역 / ${policePhoneIds.length}개 폴리폰`,
+        meta: formatOpHistoryRecordMeta(areaIds.length),
         detail: `event=${readString(row, 'latestEventId') ?? '-'} / version=${readNumber(row, 'version') ?? '-'}`,
       });
     });
@@ -1360,11 +1366,10 @@ function createSourceRecords(
 
     filterRowsBySelectedOps(readSlotRows(board, 'path'), selectedOpIds).forEach((row) => {
       const pathId = readString(row, 'pathId') ?? readString(row, 'id') ?? 'path';
-      const policePhoneId = readString(row, 'policePhoneId');
       records.push({
         key: `path:${pathId}`,
         label: '수색 경로',
-        meta: policePhoneId ? `폴리폰 ${shortId(policePhoneId)}` : formatStatusLabel(readString(row, 'status') ?? '-'),
+        meta: formatSearchPathRecordMeta(row),
         detail: `pathId=${shortId(pathId)}`,
       });
     });
@@ -1475,8 +1480,8 @@ function createHandoverMemoTargetOptions(
       key: createMemoTargetKey('DUTY_SHIFT', shift.id),
       targetType: 'DUTY_SHIFT',
       targetId: shift.id,
-      label: `근무 구간 · ${shift.policePhoneId ? shortId(shift.policePhoneId) : shortId(shift.id)}`,
-      description: shift.status === 'ACTIVE' ? '현재 진행 중인 근무 구간 메모' : '종료된 근무 구간 메모',
+      label: `근무 · ${formatDutyShiftAccountLabel({ accountDisplayName: shift.accountDisplayName })}`,
+      description: shift.status === 'ACTIVE' ? '현재 진행 중인 근무 메모' : '종료된 근무 메모',
     });
   });
 
@@ -1503,14 +1508,13 @@ function createHandoverMemoTargetOptions(
     const targetId = readString(row, 'pathId') ?? readString(row, 'id');
     if (!targetId) return;
 
-    const policePhoneId = readString(row, 'policePhoneId');
     const status = readString(row, 'status');
 
     options.push({
       key: createMemoTargetKey('SEARCH_PATH', targetId),
       targetType: 'SEARCH_PATH',
       targetId,
-      label: `수색 경로 · ${policePhoneId ?? shortId(targetId)}`,
+      label: formatSearchPathMemoTargetLabel({ ...row, pathId: targetId }),
       description: status ? `${formatStatusLabel(status)} 경로 메모` : '수색 경로에 남기는 인수인계 메모',
     });
   });
@@ -1630,7 +1634,7 @@ function formatOrganizationTypeLabel(value: string | null) {
 function formatMemoTargetTypeLabel(targetType: string) {
   const labels: Record<string, string> = {
     OPERATIONAL_PERIOD: 'OP 전체',
-    DUTY_SHIFT: '근무 구간',
+    DUTY_SHIFT: '근무',
     SEARCH_PATH: '수색 경로',
     SEARCH_AREA: '수색 구역',
     MARKER: '마커',
@@ -1800,7 +1804,7 @@ function isDutyShiftResponse(value: unknown): value is DutyShiftResponse {
     typeof value.id === 'string' &&
     typeof value.incidentId === 'string' &&
     typeof value.opId === 'string' &&
-    typeof value.policePhoneId === 'string' &&
+    typeof value.accountId === 'string' &&
     typeof value.status === 'string' &&
     typeof value.version === 'number' &&
     Number.isFinite(value.version)
@@ -1863,20 +1867,6 @@ function formatReasonLabel(reason: string) {
     OTHER: '기타',
   };
   return labels[reason] ?? (reason || '-');
-}
-
-function formatStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    ACTIVE: '진행 중',
-    CLOSED: '종료',
-    ENDED: '종료',
-    READY: '준비됨',
-    NEEDS_MEMO: '메모 필요',
-    STALE_REFETCH: '갱신 대기',
-    FAILED: '실패',
-    GENERATING: '생성 중',
-  };
-  return labels[status] ?? status;
 }
 
 function formatHandoverStatusLabel(status: string | null, readyForHandover: boolean, memoCount: number) {

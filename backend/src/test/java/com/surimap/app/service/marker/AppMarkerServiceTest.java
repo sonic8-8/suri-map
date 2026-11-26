@@ -186,14 +186,13 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
     assignAccount(SUPPORT_TEAM_ID, "FIELD_COMMANDER");
     jdbcTemplate.update(
         """
-        INSERT INTO duty_shift (id, operational_period_id, incident_assignment_id, police_phone_id,
+        INSERT INTO duty_shift (id, operational_period_id, incident_assignment_id,
             status, started_by_account_id, started_at, version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'ACTIVE', ?, NOW(), 1, NOW(), NOW())
+        VALUES (?, ?, ?, 'ACTIVE', ?, NOW(), 1, NOW(), NOW())
         """,
         DUTY_SHIFT_ID,
         OP1_ID,
         memberAssignmentId,
-        ASSIGNED_POLICE_PHONE_ID,
         PRECINCT_TEAM_ID);
     authentication = new SuriMapAuthentication(PRECINCT_TEAM_ID, "APP", ASSIGNED_POLICE_PHONE_ID);
   }
@@ -552,9 +551,9 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("활성 근무교대가 없으면, 마커 생성을 거부하고 마커·이벤트·요청 처리 기록을 남기지 않는다")
+  @DisplayName("진행 중인 근무가 없으면, 마커 생성을 거부하고 마커, 이벤트, 요청 처리 기록을 남기지 않는다")
   void createMarker_withoutActiveDutyShift_rejectsWithoutSavingMarkerEventOrRequest() {
-    // given: 사건에는 배정되어 있지만 현재 수색 차수의 활성 근무교대는 없다.
+    // given: 사건에는 배정되어 있지만 현재 수색 차수에서 진행 중인 근무는 없다.
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?", DUTY_SHIFT_ID);
     MarkerCreateServiceRequest request = createRequest("CLUE", null);
 
@@ -1786,9 +1785,9 @@ class AppMarkerServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("사건 배정이 유지되면, 현재 수색 차수와 근무교대가 끝나도 작성자는 기존 마커를 수정할 수 있다")
+  @DisplayName("사건 배정이 유지되면, 현재 수색 차수와 근무가 끝나도 작성자는 기존 마커를 수정할 수 있다")
   void updateMarker_opAndDutyShiftEnded_allowsAssignedAuthorToUpdate() {
-    // given: 사건은 열려 있고 작성자 배정은 유효하지만 수색 차수와 근무교대는 끝났다.
+    // given: 사건은 열려 있고 작성자 배정은 유효하지만 수색 차수와 근무는 끝났다.
     insertMarker(MarkerSource.APP);
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?", DUTY_SHIFT_ID);
     jdbcTemplate.update(

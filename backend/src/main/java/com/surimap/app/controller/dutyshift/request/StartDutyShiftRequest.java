@@ -7,5 +7,4 @@ import java.util.UUID;
 public record StartDutyShiftRequest(
     @NotNull UUID incidentId,
     @NotNull UUID opId,
-    @NotNull UUID policePhoneId,
     @NotNull OffsetDateTime clientTs) {}

@@ -195,6 +195,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [OperationalPeriodFixtureExactnessTest](../../backend/src/test/java/com/surimap/operationalperiod/fixturetest/OperationalPeriodFixtureExactnessTest.java) | 고정값 대조와 실제 차수 전환 검증을 구분. 옛 상태·URL을 고정한 검사의 필요성을 함께 확인 |
 | [IncidentHandoverSupportAssignmentContractTest](../../backend/src/test/java/com/surimap/incident/IncidentHandoverSupportAssignmentContractTest.java) | `Contract` 분류 대신 인계·지원 배정의 실제 검증 대상을 드러낼 필요가 있음 |
 | [resources/mapper/op/OperationalPeriodMapper.xml](../../backend/src/main/resources/mapper/op/OperationalPeriodMapper.xml) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. XML 폴더 이름 `op`가 Java 패키지 이름 `operationalperiod`와 다르다. Mapper scan 경로와 함께 확인한다. |
+| [DutyShiftMapper.xml](../../backend/src/main/resources/mapper/dutyshift/DutyShiftMapper.xml)의 `<sql id="dutyShiftColumns">` | 2026-11-25 #58 검수에서 확인했다. 이름은 열 목록처럼 보인다. 실제 조각에는 `SELECT`, `FROM`과 사건 배정, 계정 `JOIN`까지 들어 있다. `findById`와 `findByFilters`에서 이 조각 뒤에 `WHERE`만 붙인다. `dutyShiftSelect`처럼 범위가 드러나는 이름을 검토한다. 후보 등록이며 이름은 바꾸지 않았다. |
 
 2026-11-24 #62를 쓰면서 확인했다. 웹 상황판의 지도 메모(구역 팝업과 마커 팝업에서 쓰는 메모)와 수색 이력의 새 OP 열기 메모는 인수인계와 용도가 다르다. 그런데 두 메모의 화면 문구와 코드 이름은 인수인계와 같은 인수인계 메모, `HandoverMemo`다. 예를 들어 [SearchMapCanvas.tsx](../../frontend/src/features/situationBoard/presentation/components/map/SearchMapCanvas.tsx)에서 지도 메모의 대상 타입은 `HandoverMemoTargetType`이다. [CreateOperationalPeriodModal.tsx](../../frontend/src/features/handover/presentation/components/CreateOperationalPeriodModal.tsx)에서 새 OP 열기 메모 입력란의 제목은 "인수인계 메모"다. 둘을 어떤 이름으로 나눌지는 #62 뒤에 정한다.
 
@@ -374,6 +375,8 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [infra/k6/README.md](../../infra/k6/README.md) | 2026-10-28 지운 작업 폴더 참조 정리 중 확인했다. 제목은 "Search-path load test"지만 본문은 GPS 경로 저장 부하뿐 아니라 Android Outbox 재전송, 서버 Breakpoint Test, 상황판 반영 시간 측정, 지휘 계정과 시험 마커 준비까지 614줄에 담는다. 폴더 이름 `k6`도 도구 이름이며, 안에는 k6 스크립트 밖의 Python, Node 준비와 관측 도구가 함께 있다. 제목을 실제 범위(부하 테스트 실행 안내)에 맞추거나 시나리오별 문서로 나눌지 검토한다. 폴더와 스크립트 이름은 위 합의대로 유지하고, Jenkinsfile과 `docs/architecture.md`의 참조를 함께 확인한다. 후보 등록이며 문서는 바꾸지 않았다. |
 
 ## 반영 이력 요약
+
+- 2026-11-25 #58에서 DutyShift의 한국어 이름을 "근무 교대"에서 "근무"로 바꿨다(사용자 결정). 근무는 현장 경찰관이 한 수색 차수 안에서 사건에 배정된 계정으로 수색에 참여한 기록이다. 그런데 "근무 교대"라는 말의 뜻은 근무를 서로 바꾸는 일이다. 화면의 "근무 구간"은 지도의 범위처럼 읽혀서 함께 바꿨다. `GLOSSARY.md`에 근무 항목을 추가했다. DutyShift 코드 식별자, ADR, 문제 해결 기록, `docs/research/`의 조사 문서는 그대로 두었다.
 
 - 2026-10-03 경로 버전 경합 수정과 함께 [AppSearchPathServiceTest](../../backend/src/test/java/com/surimap/app/service/path/AppSearchPathServiceTest.java)의 클래스 영문 표시명을 제거하고 메서드명을 밑줄로 구분했다. 기존 8개 검증과 한글 메서드 표시명은 유지하며 실제 DB 동시 쓰기 검사 11개를 추가했다.
 

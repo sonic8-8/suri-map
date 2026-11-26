@@ -54,7 +54,6 @@ class IncidentSessionContextResolverTest {
                 dutyShifts = { query: DutyShiftQuery ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
                     assertEquals(ACCOUNT_ID, query.accountId)
                     assertEquals("ACTIVE", query.status)
                     SuriMapApiResponse(

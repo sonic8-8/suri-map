@@ -292,6 +292,114 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
     }
   }
 
+  @Test
+  @DisplayName("근무의 업무폰 컬럼 삭제 migration은 업무폰 ID만 지우고 근무 행과 계정 연결은 남긴다")
+  void dutyShiftPolicePhoneMigration_storedDutyShift_dropsPolicePhoneIdAndKeepsRow()
+      throws Exception {
+    try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE)) {
+      postgres.start();
+
+      // given: 배포 전 형식으로 업무폰 ID가 들어간 근무가 있다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .target("20261125.001")
+          .load()
+          .migrate();
+      try (Connection connection =
+              DriverManager.getConnection(
+                  postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+          var statement = connection.createStatement()) {
+        statement.executeUpdate(
+            """
+            INSERT INTO duty_shift (
+                id, operational_period_id, incident_assignment_id, police_phone_id, status,
+                started_by_account_id, started_at, version, created_at, updated_at
+            )
+            VALUES (
+                'd0000000-0000-4000-8000-000000005801', 'b0000000-0000-4000-8000-000000005801',
+                'a1000000-0000-4000-8000-000000005801', gen_random_uuid(), 'ACTIVE',
+                'a0000000-0000-4000-8000-000000005801', now(), 1, now(), now()
+            )
+            """);
+      }
+
+      // when: 남은 migration을 적용한다.
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .load()
+          .migrate();
+
+      // then: 업무폰 ID 컬럼과 인덱스는 없고, 근무 행은 배정과 시작 계정을 그대로 가진다.
+      try (Connection connection =
+          DriverManager.getConnection(
+              postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+        assertColumnDoesNotExist(connection, "duty_shift", "police_phone_id");
+        assertIndexDoesNotExist(connection, "duty_shift", "idx_duty_shift_phone");
+        try (var statement =
+                connection.prepareStatement(
+                    """
+                    SELECT incident_assignment_id::text, started_by_account_id::text, status
+                    FROM duty_shift
+                    WHERE id = 'd0000000-0000-4000-8000-000000005801'::uuid
+                    """);
+            ResultSet result = statement.executeQuery()) {
+          assertThat(result.next()).isTrue();
+          assertThat(result.getString(1)).isEqualTo("a1000000-0000-4000-8000-000000005801");
+          assertThat(result.getString(2)).isEqualTo("a0000000-0000-4000-8000-000000005801");
+          assertThat(result.getString(3)).isEqualTo("ACTIVE");
+        }
+      }
+    }
+  }
+
+  private static void assertColumnDoesNotExist(
+      Connection connection, String tableName, String columnName) throws SQLException {
+    try (var statement =
+        connection.prepareStatement(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = ?
+                  AND column_name = ?
+            )
+            """)) {
+      statement.setString(1, tableName);
+      statement.setString(2, columnName);
+      try (ResultSet result = statement.executeQuery()) {
+        assertThat(result.next()).isTrue();
+        assertThat(result.getBoolean(1))
+            .as("%s.%s does not exist", tableName, columnName)
+            .isFalse();
+      }
+    }
+  }
+
+  private static void assertIndexDoesNotExist(
+      Connection connection, String tableName, String indexName) throws SQLException {
+    try (var statement =
+        connection.prepareStatement(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = ?
+                  AND indexname = ?
+            )
+            """)) {
+      statement.setString(1, tableName);
+      statement.setString(2, indexName);
+      try (ResultSet result = statement.executeQuery()) {
+        assertThat(result.next()).isTrue();
+        assertThat(result.getBoolean(1)).as("index %s does not exist", indexName).isFalse();
+      }
+    }
+  }
+
   private static String eventPayload(Connection connection, String eventId) throws SQLException {
     try (var statement =
         connection.prepareStatement(

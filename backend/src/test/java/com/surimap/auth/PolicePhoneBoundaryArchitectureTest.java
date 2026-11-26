@@ -50,7 +50,7 @@ class PolicePhoneBoundaryArchitectureTest {
   }
 
   @Test
-  @DisplayName("수색 경로 조회 mapper는 활성 근무교대로 조회 범위를 제한하지 않는다")
+  @DisplayName("수색 경로 조회 mapper는 진행 중인 근무로 조회 범위를 제한하지 않는다")
   void searchPathReadQueriesDoNotRequireActiveDutyShift() throws Exception {
     String mapper =
         Files.readString(Path.of("src/main/resources/mapper/path/SearchPathMapper.xml"));

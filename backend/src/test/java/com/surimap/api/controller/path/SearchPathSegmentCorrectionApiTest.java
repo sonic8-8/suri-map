@@ -365,15 +365,14 @@ class SearchPathSegmentCorrectionApiTest extends PostGisIntegrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-          id, operational_period_id, incident_assignment_id, police_phone_id, status,
+          id, operational_period_id, incident_assignment_id, status,
           started_by_account_id, started_at, version, created_at, updated_at
         )
-        VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
+        VALUES (?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
         """,
         dutyShiftId,
         opId.toString(),
         assignmentId,
-        policePhoneId,
         accountId,
         Timestamp.from(BASE_TS),
         Timestamp.from(BASE_TS),

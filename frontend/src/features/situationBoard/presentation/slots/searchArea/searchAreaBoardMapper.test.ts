@@ -87,27 +87,22 @@ describe('searchAreaBoardMapper', () => {
     expect(tree.children?.[0]?.colorToken).toBe('AREA_ROSE_01');
   });
 
-  test('assigned account policePhoneId falls back to path rows only', () => {
+  test('구역 배정에는 계정 이름이 표시되고 업무폰 ID는 경로 행에서도 가져오지 않는다', () => {
     const board = createBoard({
       area: [
         createAreaPayload({
           id: 'team-001',
-          assignedAccounts: [{ accountId: 'account-001', displayName: 'Team A' }],
-        }),
-        createAreaPayload({
-          id: 'team-002',
-          assignedAccounts: [{ accountId: 'account-002', displayName: 'Team B' }],
+          assignedAccounts: [{ accountId: 'account-001', displayName: '광주경찰청 실종팀 현장1팀' }],
         }),
       ],
       path: [{ accountId: 'account-001', policePhoneId: 'phone-from-path' }],
-      marker: [{ accountId: 'account-002', policePhoneId: 'phone-from-marker' }],
     });
 
-    const rows = toSearchAreaRows(board);
+    const assignedAccount = toSearchAreaRows(board)[0]?.assignedAccounts[0];
 
-    expect(rows[0]?.assignedAccounts[0]?.policePhoneId).toBe('phone-from-path');
-    expect(rows[1]?.assignedAccounts[0]?.policePhoneId).toBeNull();
-    expect(toAssignmentsByAreaId(board).get('team-001')?.[0]?.policePhoneId).toBe('phone-from-path');
+    expect(assignedAccount?.displayName).toBe('광주경찰청 실종팀 현장1팀');
+    expect(assignedAccount).not.toHaveProperty('policePhoneId');
+    expect(toAssignmentsByAreaId(board).get('team-001')?.[0]).not.toHaveProperty('policePhoneId');
   });
 });
 

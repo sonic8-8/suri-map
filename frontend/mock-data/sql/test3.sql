@@ -452,7 +452,6 @@ INSERT INTO duty_shift (
     id,
     operational_period_id,
     incident_assignment_id,
-    police_phone_id,
     status,
     started_by_account_id,
     ended_by_account_id,
@@ -466,7 +465,6 @@ SELECT
     ('e3400000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
     CASE WHEN gs <= 4 THEN 'e3200000-0000-4000-8000-000000000002'::uuid ELSE 'e3200000-0000-4000-8000-000000000003'::uuid END,
     ('e3100000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
-    ('e2000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
     CASE WHEN gs IN (3, 4, 8, 13) THEN 'ENDED' ELSE 'ACTIVE' END,
     CASE WHEN gs IN (1, 2, 3, 4, 5, 6) THEN 'e1000000-0000-4000-8000-000000000001'::uuid ELSE 'e1000000-0000-4000-8000-000000000007'::uuid END,
     CASE WHEN gs IN (3, 4, 8, 13) THEN 'e1000000-0000-4000-8000-000000000001'::uuid ELSE NULL END,
@@ -479,7 +477,6 @@ FROM generate_series(1, 16) AS gs
 ON CONFLICT (id) DO UPDATE SET
     operational_period_id = EXCLUDED.operational_period_id,
     incident_assignment_id = EXCLUDED.incident_assignment_id,
-    police_phone_id = EXCLUDED.police_phone_id,
     status = EXCLUDED.status,
     ended_by_account_id = EXCLUDED.ended_by_account_id,
     ended_at = EXCLUDED.ended_at,

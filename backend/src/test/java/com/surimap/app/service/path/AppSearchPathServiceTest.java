@@ -294,13 +294,13 @@ class AppSearchPathServiceTest extends PostGisIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("수색 경로를 시작하면 계정의 근무교대에 연결해 저장한다")
+  @DisplayName("수색 경로를 시작하면 계정의 근무에 연결해 저장한다")
   void start_persists_path_for_account_duty_shift() {
-    // given/when: 계정의 진행 중인 근무교대에서 수색 경로를 시작한다.
+    // given/when: 계정의 진행 중인 근무에서 수색 경로를 시작한다.
     SearchPathStartServiceResponse response =
         appSearchPathService.start(startRequest("idem-path-start"));
 
-    // then: 경로 소유자·근무교대·기록 상태를 저장한다.
+    // then: 경로 소유자, 근무, 기록 상태를 저장한다.
     SearchPath found = searchPathMapper.findPathById(PATH_ID).orElseThrow();
     assertThat(response.getId()).isEqualTo(PATH_ID);
     assertThat(response.getAccountId()).isEqualTo(ACCOUNT_ID);

@@ -108,7 +108,7 @@ fun HandoverMemoScreen(
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
         ) {
             PoliCard {
-                Text(text = "근무 구간", style = MaterialTheme.typography.titleMedium)
+                Text(text = "근무", style = MaterialTheme.typography.titleMedium)
                 PoliRow(title = "근무", subtitle = "14:00 인계 · 현재 OP 3차") {
                     PoliChip(text = "현재")
                 }

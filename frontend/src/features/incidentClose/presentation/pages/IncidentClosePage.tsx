@@ -182,7 +182,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
                   <dd>{formatCount(operationalPeriodQuery.data?.items.length ?? null, '차')}</dd>
                 </div>
                 <div>
-                  <dt>근무 교대</dt>
+                  <dt>근무</dt>
                   <dd>-</dd>
                 </div>
                 <div>
@@ -196,7 +196,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
               </dl>
 
               <div className={styles.neutralNotice}>
-                종료 사건은 사용자 대상 재오픈 UI를 제공하지 않습니다. 실종자 개인정보, 폴리폰 위치, 경로 좌표, 실시간
+                종료 사건은 사용자 대상 재오픈 UI를 제공하지 않습니다. 실종자 개인정보, 현장 인원 위치, 경로 좌표, 실시간
                 스트림은 종료 사건 요약 화면에서 다시 노출하지 않습니다.
               </div>
             </section>
@@ -250,7 +250,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
               <div className={styles.warningBox}>
                 <strong>사건을 종료하면 다시 진행 상태로 되돌릴 수 없습니다.</strong>
                 <span>
-                  종료 후 실종자 개인정보, 사진, 폴리폰 위치, 경로 좌표는 파기 절차로 전환되며 사용자 대상 재오픈 화면은
+                  종료 후 실종자 개인정보, 사진, 현장 인원 위치, 경로 좌표는 파기 절차로 전환되며 사용자 대상 재오픈 화면은
                   제공하지 않습니다.
                 </span>
               </div>

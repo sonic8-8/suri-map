@@ -17,7 +17,6 @@ public interface DutyShiftMapper {
   List<DutyShift> findByFilters(
       @Param("incidentId") UUID incidentId,
       @Param("opId") UUID opId,
-      @Param("policePhoneId") UUID policePhoneId,
       @Param("accountId") UUID accountId,
       @Param("status") String status);
 

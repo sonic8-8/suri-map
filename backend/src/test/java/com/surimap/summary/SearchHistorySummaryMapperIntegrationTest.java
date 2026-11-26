@@ -296,10 +296,10 @@ class SearchHistorySummaryMapperIntegrationTest extends PostGisIntegrationTestSu
     jdbcTemplate.update(
         """
         INSERT INTO duty_shift (
-          id, operational_period_id, incident_assignment_id, police_phone_id, status,
+          id, operational_period_id, incident_assignment_id, status,
           started_by_account_id, started_at, ended_at, version, created_at, updated_at
         )
-        VALUES (?, ?, gen_random_uuid(), gen_random_uuid(), 'ENDED', ?, ?, ?, 1, ?, ?)
+        VALUES (?, ?, gen_random_uuid(), 'ENDED', ?, ?, ?, 1, ?, ?)
         """,
         DUTY_SHIFT_ID,
         OP_ID,

@@ -24,7 +24,7 @@
 - 마커·사진의 재시도·삭제·수색 차수 충돌 처리를 바꿀 때는 `docs/features/marker-photo.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
 - 앱의 미전송 기록·중복 요청·사건 종료 후 정리를 바꿀 때는 `docs/features/offline-sync.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
 - 오프라인 패키지의 다운로드·준비 완료·갱신·파기를 바꿀 때는 `docs/features/offline-package.md`에서 기존 요구와 현재 구현의 차이를 확인한다.
-- 수색 차수·근무 교대·인수인계 메모·수색 이력 요약을 바꿀 때는 `docs/features/handover.md`에서 기존 요구와 현재 구현·테스트 입력의 차이를 확인한다.
+- 수색 차수, 근무, 인수인계 메모, 수색 이력 요약을 바꿀 때는 `docs/features/handover.md`에서 기존 요구와 현재 구현, 테스트 입력의 차이를 확인한다.
 - 사건 가져오기·배정·종료를 바꿀 때는 `docs/features/incident-lifecycle.md`에서 원천 시스템과의 역할 분담, 접근 범위, 종료 후 개인정보 제거의 기존 요구와 구현 차이를 확인한다.
 - 로그인·채널·사건 접근·업무폰 최신성·FCM 토큰을 바꿀 때는 `docs/features/authentication.md`에서 인증 결합·권한 검사·암호화의 기존 요구와 구현 차이를 확인한다.
 - 사건 데이터 파기·위치 조회 감사·운영 로그를 바꿀 때는 `docs/features/data-retention.md`에서 미전송 원본 보존, 실제 삭제 연결과 기록 실패 처리의 차이를 확인한다.

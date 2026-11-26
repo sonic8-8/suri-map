@@ -16,7 +16,6 @@ import {
   isRecord,
   readBbox,
   readNumber,
-  readPolicePhoneId,
   readPolygonCoordinates,
   readSlotRows,
   readString,
@@ -38,7 +37,6 @@ export type BoardSearchAreaRow = {
 };
 
 export function toSearchAreaRows(board: SituationBoardResponseDto): BoardSearchAreaRow[] {
-  const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(board);
   const rows = [
     ...readSlotRows(board, 'overall_search_area').map((row) => ({ row, fallbackLevel: 'OVERALL' as const })),
     ...readSlotRows(board, 'area').map((row) => ({ row, fallbackLevel: 'UNIT' as const })),
@@ -67,7 +65,7 @@ export function toSearchAreaRows(board: SituationBoardResponseDto): BoardSearchA
         colorToken: readAreaColorToken(row),
         coordinates,
         bbox: readBbox(row),
-        assignedAccounts: readAssignedAccounts(row, policePhoneIdsByAccountId),
+        assignedAccounts: readAssignedAccounts(row),
       },
     ];
   });
@@ -78,12 +76,11 @@ export function toSearchAreaDrafts(rows: BoardSearchAreaRow[]): CompletedAreaDra
 }
 
 export function toAssignmentsByAreaId(board: SituationBoardResponseDto) {
-  const policePhoneIdsByAccountId = createPolicePhoneIdsByAccountId(board);
   const assignmentsByAreaId = new Map<string, SearchAreaAssignedAccount[]>();
   for (const row of readSlotRows(board, 'area')) {
     const id = readString(row, 'id') ?? readString(row, 'searchAreaId');
     if (!id) continue;
-    assignmentsByAreaId.set(id, readAssignedAccounts(row, policePhoneIdsByAccountId));
+    assignmentsByAreaId.set(id, readAssignedAccounts(row));
   }
   return assignmentsByAreaId;
 }
@@ -349,24 +346,7 @@ function readSearchAreaStatus(row: Record<string, unknown>): SearchAreaHierarchy
   return status === 'COMPLETED' || status === 'CANCELLED' ? status : 'ACTIVE';
 }
 
-function createPolicePhoneIdsByAccountId(board: SituationBoardResponseDto) {
-  const policePhoneIdsByAccountId = new Map<string, string>();
-
-  for (const row of readSlotRows(board, 'path')) {
-    const accountId = readString(row, 'accountId') ?? readString(row, 'account_id');
-    const policePhoneId = readPolicePhoneId(row);
-    if (accountId && policePhoneId && !policePhoneIdsByAccountId.has(accountId)) {
-      policePhoneIdsByAccountId.set(accountId, policePhoneId);
-    }
-  }
-
-  return policePhoneIdsByAccountId;
-}
-
-function readAssignedAccounts(
-  row: Record<string, unknown>,
-  policePhoneIdsByAccountId: ReadonlyMap<string, string>,
-): SearchAreaAssignedAccount[] {
+function readAssignedAccounts(row: Record<string, unknown>): SearchAreaAssignedAccount[] {
   const assignedAccounts = row.assignedAccounts;
   if (!Array.isArray(assignedAccounts)) return [];
 
@@ -383,7 +363,6 @@ function readAssignedAccounts(
         readString(account, 'name') ??
         readString(account, 'label') ??
         '',
-      policePhoneId: readPolicePhoneId(account) ?? policePhoneIdsByAccountId.get(accountId) ?? null,
       incidentRole: readString(account, 'incidentRole'),
       accountType: readString(account, 'accountType'),
       organizationType: readString(account, 'organizationType'),

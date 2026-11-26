@@ -23,7 +23,7 @@ type AreaHierarchyPanelProps = {
   isAssigningArea: boolean;
   normalSelectedAreaId: string | null;
   selectedAreaId: string | null;
-  unassignedPhoneCount: number;
+  unassignedAreaCount: number;
   splitChildAreaCount: number;
   splitChildRangeMissingCount: number;
   isSplitFlow: boolean;
@@ -237,7 +237,7 @@ export function AreaHierarchyPanel({
   isAssigningArea,
   normalSelectedAreaId,
   selectedAreaId,
-  unassignedPhoneCount,
+  unassignedAreaCount,
   splitChildAreaCount,
   splitChildRangeMissingCount,
   isSplitFlow,
@@ -254,7 +254,6 @@ export function AreaHierarchyPanel({
   onStartDrawing,
   onToggleAssignee,
 }: AreaHierarchyPanelProps) {
-  const shouldShowUnassignedNotice = false;
   const units = areaTree.children ?? [];
   const selectedArea = flattenAreaTree(areaTree).find((area) => area.id === selectedAreaId) ?? null;
   const canAssignArea = isAssignmentEnabled && canAssignSelectedArea(selectedArea, assignedAreaIds);
@@ -263,7 +262,7 @@ export function AreaHierarchyPanel({
     isSplitFlow,
     isSaveEnabled,
     isSaving,
-    unassignedPhoneCount,
+    unassignedAreaCount,
     splitChildAreaCount,
     splitChildRangeMissingCount,
     saveActionLabel,
@@ -289,24 +288,6 @@ export function AreaHierarchyPanel({
           {noticeMessage.description}
         </span>
       </div>
-
-      {shouldShowUnassignedNotice ? (
-        <div className={noticeClassName} role="status">
-          {isSaveEnabled ? (
-            <span>
-              구역 배정이 모두 완료되었습니다.
-              <br />
-              해당 차수의 수색 구역을 확정할 수 있습니다.
-            </span>
-          ) : (
-            <span>
-              {unassignedPhoneCount}개의 폴리폰 배정 필요 구역이 있습니다.
-              <br />
-              UNIT을 선택해 배정하세요.
-            </span>
-          )}
-        </div>
-      ) : null}
 
       <div className={styles.tree}>
         <div className={styles.rootNode} style={getAreaIdentityColorStyle(areaTree.colorToken)}>

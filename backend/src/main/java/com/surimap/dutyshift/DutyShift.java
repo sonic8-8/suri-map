@@ -3,16 +3,15 @@ package com.surimap.dutyshift;
 import java.time.Instant;
 import java.util.UUID;
 
-/** duty_shift row with joined incident context. */
+/** duty_shift row with joined incident and account context. */
 public class DutyShift {
 
   private UUID id;
   private UUID incidentId;
   private UUID opId;
   private UUID incidentAssignmentId;
-  private UUID policePhoneId;
-  private String policePhoneCode;
-  private String policePhoneDisplayName;
+  private UUID accountId;
+  private String accountDisplayName;
   private String status;
   private UUID startedByAccountId;
   private UUID endedByAccountId;
@@ -29,41 +28,6 @@ public class DutyShift {
       UUID incidentId,
       UUID opId,
       UUID incidentAssignmentId,
-      UUID policePhoneId,
-      String status,
-      UUID startedByAccountId,
-      UUID endedByAccountId,
-      Instant startedAt,
-      Instant endedAt,
-      long version,
-      Instant createdAt,
-      Instant updatedAt) {
-    this(
-        id,
-        incidentId,
-        opId,
-        incidentAssignmentId,
-        policePhoneId,
-        null,
-        null,
-        status,
-        startedByAccountId,
-        endedByAccountId,
-        startedAt,
-        endedAt,
-        version,
-        createdAt,
-        updatedAt);
-  }
-
-  public DutyShift(
-      UUID id,
-      UUID incidentId,
-      UUID opId,
-      UUID incidentAssignmentId,
-      UUID policePhoneId,
-      String policePhoneCode,
-      String policePhoneDisplayName,
       String status,
       UUID startedByAccountId,
       UUID endedByAccountId,
@@ -76,9 +40,6 @@ public class DutyShift {
     this.incidentId = incidentId;
     this.opId = opId;
     this.incidentAssignmentId = incidentAssignmentId;
-    this.policePhoneId = policePhoneId;
-    this.policePhoneCode = policePhoneCode;
-    this.policePhoneDisplayName = policePhoneDisplayName;
     this.status = status;
     this.startedByAccountId = startedByAccountId;
     this.endedByAccountId = endedByAccountId;
@@ -121,28 +82,21 @@ public class DutyShift {
     this.incidentAssignmentId = incidentAssignmentId;
   }
 
-  public UUID getPolicePhoneId() {
-    return policePhoneId;
+  /** 근무한 계정. incident_assignment에서 조회할 때만 채워진다. */
+  public UUID getAccountId() {
+    return accountId;
   }
 
-  public void setPolicePhoneId(UUID policePhoneId) {
-    this.policePhoneId = policePhoneId;
+  public void setAccountId(UUID accountId) {
+    this.accountId = accountId;
   }
 
-  public String getPolicePhoneCode() {
-    return policePhoneCode;
+  public String getAccountDisplayName() {
+    return accountDisplayName;
   }
 
-  public void setPolicePhoneCode(String policePhoneCode) {
-    this.policePhoneCode = policePhoneCode;
-  }
-
-  public String getPolicePhoneDisplayName() {
-    return policePhoneDisplayName;
-  }
-
-  public void setPolicePhoneDisplayName(String policePhoneDisplayName) {
-    this.policePhoneDisplayName = policePhoneDisplayName;
+  public void setAccountDisplayName(String accountDisplayName) {
+    this.accountDisplayName = accountDisplayName;
   }
 
   public String getStatus() {

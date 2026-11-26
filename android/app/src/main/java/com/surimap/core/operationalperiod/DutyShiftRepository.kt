@@ -46,7 +46,6 @@ data class EndDutyShiftCommand(
 data class DutyShiftQuery(
     val incidentId: String,
     val opId: String? = null,
-    val policePhoneId: String? = null,
     val accountId: String? = null,
     val status: String? = null
 )
@@ -60,7 +59,6 @@ class DutyShiftRepository(
         val payload = jsonObject(
             "incidentId" to jsonString(command.incidentId),
             "opId" to jsonString(command.opId),
-            "policePhoneId" to jsonString(command.policePhoneId),
             "clientTs" to jsonInstant(command.clientTs)
         )
         return enqueue(
@@ -133,7 +131,6 @@ class DutyShiftRepository(
         val queryPairs = listOfNotNull(
             "incidentId" to query.incidentId,
             query.opId?.let { "opId" to it },
-            query.policePhoneId?.let { "policePhoneId" to it },
             query.accountId?.let { "accountId" to it },
             query.status?.let { "status" to it }
         )

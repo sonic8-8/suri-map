@@ -277,7 +277,6 @@ public final class IncidentReadRows {
     private String incidentRole;
     private String accountType;
     private String organizationType;
-    private String policePhoneId;
 
     public String getAccountId() {
       return accountId;
@@ -309,14 +308,6 @@ public final class IncidentReadRows {
 
     public void setOrganizationType(String organizationType) {
       this.organizationType = organizationType;
-    }
-
-    public String getPolicePhoneId() {
-      return policePhoneId;
-    }
-
-    public void setPolicePhoneId(String policePhoneId) {
-      this.policePhoneId = policePhoneId;
     }
   }
 }

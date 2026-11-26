@@ -8,8 +8,8 @@ public record DutyShiftResponse(
     UUID id,
     UUID incidentId,
     UUID opId,
-    UUID policePhoneId,
-    String policePhoneLabel,
+    UUID accountId,
+    String accountDisplayName,
     String status,
     Instant startedAt,
     Instant endedAt,
@@ -20,25 +20,11 @@ public record DutyShiftResponse(
         dutyShift.getId(),
         dutyShift.getIncidentId(),
         dutyShift.getOpId(),
-        dutyShift.getPolicePhoneId(),
-        policePhoneLabel(dutyShift),
+        dutyShift.getAccountId(),
+        dutyShift.getAccountDisplayName(),
         dutyShift.getStatus(),
         dutyShift.getStartedAt(),
         dutyShift.getEndedAt(),
         dutyShift.getVersion());
-  }
-
-  private static String policePhoneLabel(DutyShift dutyShift) {
-    if (hasText(dutyShift.getPolicePhoneDisplayName())) {
-      return dutyShift.getPolicePhoneDisplayName();
-    }
-    if (hasText(dutyShift.getPolicePhoneCode())) {
-      return dutyShift.getPolicePhoneCode();
-    }
-    return dutyShift.getPolicePhoneId() == null ? null : dutyShift.getPolicePhoneId().toString();
-  }
-
-  private static boolean hasText(String value) {
-    return value != null && !value.isBlank();
   }
 }

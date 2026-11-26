@@ -55,10 +55,7 @@ public class AppDutyShiftCommandService {
 
   @Transactional
   public synchronized DutyShiftResponse start(
-      StartDutyShiftRequest request,
-      UUID headerPolicePhoneId,
-      String idempotencyKey,
-      UUID actorAccountId) {
+      StartDutyShiftRequest request, String idempotencyKey, UUID actorAccountId) {
     requireIdempotencyKey(idempotencyKey);
     String fingerprint = fingerprint("duty-start", request);
     return replayOrRun(
@@ -67,7 +64,6 @@ public class AppDutyShiftCommandService {
         DutyShiftResponse.class,
         () -> {
           requireActor(actorAccountId);
-          requirePhoneMatch(headerPolicePhoneId, request.policePhoneId());
           requireCurrentOp(request.incidentId(), request.opId());
           incidentLifecycleGuard.requireOpen(request.incidentId());
           UUID assignmentId =
@@ -81,7 +77,6 @@ public class AppDutyShiftCommandService {
                   request.incidentId(),
                   request.opId(),
                   assignmentId,
-                  request.policePhoneId(),
                   ACTIVE,
                   actorAccountId,
                   null,
@@ -91,7 +86,8 @@ public class AppDutyShiftCommandService {
                   now,
                   now);
           dutyShiftMapper.insert(dutyShift);
-          return DutyShiftResponse.from(dutyShift);
+          // 응답에 근무한 계정 이름을 담으려고 계정과 함께 다시 읽는다.
+          return DutyShiftResponse.from(dutyShiftMapper.findById(dutyShift.getId()).orElseThrow());
         });
   }
 
@@ -130,7 +126,6 @@ public class AppDutyShiftCommandService {
                   existing.getIncidentId(),
                   existing.getOpId(),
                   existing.getIncidentAssignmentId(),
-                  existing.getPolicePhoneId(),
                   ENDED,
                   existing.getStartedByAccountId(),
                   actorAccountId,
@@ -156,12 +151,6 @@ public class AppDutyShiftCommandService {
 
   private void requireActor(UUID actorAccountId) {
     if (actorAccountId == null) {
-      throw HandoverApiException.writeConflict();
-    }
-  }
-
-  private void requirePhoneMatch(UUID headerPolicePhoneId, UUID requestPolicePhoneId) {
-    if (headerPolicePhoneId == null || !headerPolicePhoneId.equals(requestPolicePhoneId)) {
       throw HandoverApiException.writeConflict();
     }
   }
