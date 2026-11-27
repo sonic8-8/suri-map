@@ -75,5 +75,8 @@ data class OutboxEntity(
     @ColumnInfo(name = "incident_closed_at")
     val incidentClosedAt: Long? = null,
     @ColumnInfo(name = "last_error")
-    val lastError: String? = null
+    val lastError: String? = null,
+    // 기록을 만들 때 로그인해 있던 계정이다. 앱 업데이트 전에 만든 기록에는 없다.
+    @ColumnInfo(name = "author_account_id")
+    val authorAccountId: String? = null
 )

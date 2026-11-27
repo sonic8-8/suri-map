@@ -28,7 +28,8 @@ data class CreateSearchAreaBoundaryAlertCommand(
     val sequence: Long,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 class SearchAreaBoundaryAlertRepository(
@@ -69,7 +70,8 @@ class SearchAreaBoundaryAlertRepository(
                 clockOffsetMs = command.clockOffsetMs,
                 clockSyncedAt = command.clockSyncedAt,
                 opId = command.opId,
-                entityType = "search_area_boundary_alert"
+                entityType = "search_area_boundary_alert",
+                accountId = command.accountId
             )
         return syncClient.enqueue(operation)
     }

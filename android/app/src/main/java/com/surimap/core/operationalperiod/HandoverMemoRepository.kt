@@ -29,7 +29,8 @@ data class CreateHandoverMemoCommand(
     val content: String,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 data class HandoverMemoQuery(
@@ -69,7 +70,8 @@ class HandoverMemoRepository(
                 clockOffsetMs = command.clockOffsetMs,
                 clockSyncedAt = command.clockSyncedAt,
                 opId = command.opId,
-                entityType = "handover_memo"
+                entityType = "handover_memo",
+                accountId = command.accountId
             )
         )
     }

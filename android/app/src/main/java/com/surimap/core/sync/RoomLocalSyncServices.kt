@@ -103,7 +103,8 @@ class RoomSyncClient(
             clockSyncedAt = (writeOperation.clockSyncedAt ?: Instant.EPOCH).toEpochMilli(),
             serverAckTs = null,
             incidentClosedAt = knownIncidentClosedAt,
-            lastError = if (isPostCloseWrite) POST_CLOSE_REQUEUE_REJECTED else null
+            lastError = if (isPostCloseWrite) POST_CLOSE_REQUEUE_REJECTED else null,
+            authorAccountId = writeOperation.accountId?.takeIf(String::isNotBlank)
         )
         outboxDao.upsert(entity)
 
@@ -244,12 +245,29 @@ class RoomSyncClient(
 
 class RoomOutboxReplay(
     private val outboxDao: OutboxDao,
-    private val sender: OutboxSender,
+    private val senderForAuthor: suspend (authorAccountId: String?) -> AuthorOutboxSender,
     private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate(),
     private val accessRepairAvailable: () -> Boolean = { false },
     private val enableRetryJitter: Boolean = false,
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) : OutboxReplay {
+    // 작성 계정과 관계없이 한 sender로 보내는 생성자다. 작성 계정별 토큰을 고르지 않는 테스트에서 쓴다.
+    constructor(
+        outboxDao: OutboxDao,
+        sender: OutboxSender,
+        idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate(),
+        accessRepairAvailable: () -> Boolean = { false },
+        enableRetryJitter: Boolean = false,
+        nowMillis: () -> Long = System::currentTimeMillis
+    ) : this(
+        outboxDao = outboxDao,
+        senderForAuthor = { AuthorOutboxSender.Ready(sender) },
+        idempotencyReplayGate = idempotencyReplayGate,
+        accessRepairAvailable = accessRepairAvailable,
+        enableRetryJitter = enableRetryJitter,
+        nowMillis = nowMillis
+    )
+
     private val staleClockSyncAfterMs = 300_000L
 
     override suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult {
@@ -270,9 +288,26 @@ class RoomOutboxReplay(
         var retryableFailureCount = 0
         var accessRepairRequiredCount = 0
         var finalFailureCount = 0
+        var waitingForAccessTokenCount = 0
+        val senders = mutableMapOf<String?, AuthorOutboxSender>()
+        // 근무 종료 요청을 앞선 기록 때문에 보내지 못하면 그 작성 계정의 뒤 기록도 보내지 않는다. 다른 작성 계정의 기록은 계속 전송된다.
+        val blockedAuthors = mutableSetOf<String?>()
         for (row in candidates) {
+            if (row.authorAccountId in blockedAuthors) {
+                continue
+            }
+            val sender =
+                when (val choice = senders.getOrPut(row.authorAccountId) { senderForAuthor(row.authorAccountId) }) {
+                    is AuthorOutboxSender.Ready -> choice.sender
+                    AuthorOutboxSender.NoToken -> continue
+                    AuthorOutboxSender.TokenUnavailable -> {
+                        waitingForAccessTokenCount += 1
+                        continue
+                    }
+                }
             if (isDutyShiftEndBlocked(row)) {
-                break
+                blockedAuthors += row.authorAccountId
+                continue
             }
             attemptedCount += 1
 
@@ -388,7 +423,8 @@ class RoomOutboxReplay(
             ackedCount = ackedCount,
             retryableFailureCount = retryableFailureCount,
             accessRepairRequiredCount = accessRepairRequiredCount,
-            finalFailureCount = finalFailureCount
+            finalFailureCount = finalFailureCount,
+            waitingForAccessTokenCount = waitingForAccessTokenCount
         )
     }
 
@@ -400,6 +436,7 @@ class RoomOutboxReplay(
             incidentId = row.incidentId ?: return false,
             policePhoneId = row.policePhoneId,
             opId = row.opId,
+            authorAccountId = row.authorAccountId,
             sequence = row.sequence
         )
         return blockerCount > 0
@@ -693,6 +730,17 @@ fun interface OutboxSender {
     fun retryAfterDelayMs(): Long? = null
 
     fun finalFailureErrorCode(): String? = null
+}
+
+// 작성 계정의 토큰으로 만든 sender다. 토큰이 없거나 지금 갱신할 수 없으면 그 계정의 기록은 outbox에 남는다.
+sealed interface AuthorOutboxSender {
+    data class Ready(val sender: OutboxSender) : AuthorOutboxSender
+
+    // 그 계정으로 다시 로그인할 때까지 기록은 outbox에 남는다.
+    data object NoToken : AuthorOutboxSender
+
+    // 통신이 돌아오면 기록이 다시 전송된다.
+    data object TokenUnavailable : AuthorOutboxSender
 }
 
 object NoopOutboxSender : OutboxSender {

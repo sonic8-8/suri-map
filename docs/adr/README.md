@@ -22,6 +22,7 @@
 | [ADR-0036 · 오프라인에서 UUID를 먼저 발급](0036-offline-uuid-identifiers.md) | 2026-04-27 |
 | [ADR-0037 업무폰 인증을 인프라 계층에서 담당](0037-police-phone-authentication-at-infrastructure.md) | 2026-11-17 |
 | [ADR-0038 수색 구역은 팀에 배정하고 소속은 인증 정보에서 읽는다](0038-search-area-assigned-to-team.md) | 2026-11-24 |
+| [ADR-0039 로그아웃한 사람의 미전송 기록은 그 사람의 offline token으로 보낸다](0039-logged-out-records-sent-with-offline-token.md) | 2026-11-26 |
 
 ## 요약으로 남긴 이력
 

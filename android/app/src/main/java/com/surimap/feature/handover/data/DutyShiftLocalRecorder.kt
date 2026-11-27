@@ -12,7 +12,8 @@ data class DutyShiftWriteContext(
     val incidentId: String?,
     val opId: String?,
     val dutyShiftId: String?,
-    val policePhoneId: String?
+    val policePhoneId: String?,
+    val accountId: String? = null
 )
 
 sealed interface DutyShiftWriteResult {
@@ -49,7 +50,8 @@ class DutyShiftLocalRecorder(
                     sequence = sequenceSource(),
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = context.accountId?.takeIf(String::isNotBlank)
                 )
             )
         return result.enqueued()
@@ -72,7 +74,8 @@ class DutyShiftLocalRecorder(
                     clientTs = clientTs,
                     memo = memo?.trim()?.takeIf(String::isNotBlank),
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = context.accountId?.takeIf(String::isNotBlank)
                 )
             )
         return result.enqueued()

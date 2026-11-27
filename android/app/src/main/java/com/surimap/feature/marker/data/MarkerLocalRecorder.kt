@@ -17,7 +17,8 @@ import java.util.UUID
 data class MarkerWriteContext(
     val incidentId: String?,
     val opId: String?,
-    val policePhoneId: String?
+    val policePhoneId: String?,
+    val accountId: String? = null
 )
 
 data class MarkerLocation(
@@ -114,7 +115,8 @@ class MarkerLocalRecorder(
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
                     clockSyncedAt = clockSyncedAt(),
-                    photos = photos
+                    photos = photos,
+                    accountId = valid.accountId
                 )
             )
         if (result.status != OutboxStatus.FAILED_FINAL) {
@@ -179,7 +181,8 @@ class MarkerLocalRecorder(
                     type = input.type?.takeIf(String::isNotBlank),
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = valid.accountId
                 )
             )
         return result.enqueued()
@@ -212,7 +215,8 @@ class MarkerLocalRecorder(
                     reason = reason?.takeIf(String::isNotBlank),
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = valid.accountId
                 )
             )
         return result.enqueued()
@@ -245,7 +249,8 @@ class MarkerLocalRecorder(
                     checksumSha256 = input.checksumSha256?.takeIf(String::isNotBlank),
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = valid.accountId
                 )
             )
         return result.enqueued()
@@ -289,7 +294,8 @@ class MarkerLocalRecorder(
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
                     clockSyncedAt = clockSyncedAt(),
-                    parentOperationId = input.parentOperationId?.takeIf(String::isNotBlank)
+                    parentOperationId = input.parentOperationId?.takeIf(String::isNotBlank),
+                    accountId = valid.accountId
                 )
             )
         return result.enqueued()
@@ -302,7 +308,8 @@ class MarkerLocalRecorder(
         return RequiredMarkerContext(
             incidentId = incidentId,
             opId = opId,
-            policePhoneId = policePhoneId
+            policePhoneId = policePhoneId,
+            accountId = accountId?.takeIf(String::isNotBlank)
         )
     }
 
@@ -348,7 +355,8 @@ class MarkerLocalRecorder(
     private data class RequiredMarkerContext(
         val incidentId: String,
         val opId: String,
-        val policePhoneId: String
+        val policePhoneId: String,
+        val accountId: String?
     )
 
     private companion object {

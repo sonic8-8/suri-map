@@ -9,10 +9,12 @@ data class OutboxReplayResult(
     val ackedCount: Int = 0,
     val retryableFailureCount: Int = 0,
     val accessRepairRequiredCount: Int = 0,
-    val finalFailureCount: Int = 0
+    val finalFailureCount: Int = 0,
+    // 작성 계정의 토큰을 통신 문제로 갱신하지 못해 보내지 않은 기록 수다.
+    val waitingForAccessTokenCount: Int = 0
 ) {
     val shouldRetry: Boolean
-        get() = retryableFailureCount > 0
+        get() = retryableFailureCount > 0 || waitingForAccessTokenCount > 0
 }
 
 interface OutboxReplay {

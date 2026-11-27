@@ -26,7 +26,8 @@ data class StartDutyShiftCommand(
     val sequence: Long,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 data class EndDutyShiftCommand(
@@ -40,7 +41,8 @@ data class EndDutyShiftCommand(
     val clientTs: Instant,
     val memo: String? = null,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 data class DutyShiftQuery(
@@ -77,7 +79,8 @@ class DutyShiftRepository(
                 clockOffsetMs = command.clockOffsetMs,
                 clockSyncedAt = command.clockSyncedAt,
                 opId = command.opId,
-                entityType = "duty_shift"
+                entityType = "duty_shift",
+                accountId = command.accountId
             )
         )
     }
@@ -107,7 +110,8 @@ class DutyShiftRepository(
                 clockSyncedAt = command.clockSyncedAt,
                 opId = command.opId,
                 entityId = command.dutyShiftId,
-                entityType = "duty_shift"
+                entityType = "duty_shift",
+                accountId = command.accountId
             )
         )
     }

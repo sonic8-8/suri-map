@@ -3,13 +3,10 @@ package com.surimap.core.fcm
 import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.surimap.BuildConfig
 import com.surimap.core.auth.OidcAccessTokenProvider
 import com.surimap.core.database.SuriMapDatabaseProvider
-import com.surimap.core.network.AndroidNetworkFactory
 import com.surimap.core.sync.LocalSyncPurgeHookAdapter
-import com.surimap.core.sync.RoomOutboxReplay
-import com.surimap.ui.navigation.accessTokenProvider
+import com.surimap.core.sync.createAuthorAwareOutboxReplay
 import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,17 +54,7 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
                 snapshot.toPolicePhoneContext(accessToken = OidcAccessTokenProvider(applicationContext).accessToken())
                     ?: return@launch
             val database = SuriMapDatabaseProvider.database(applicationContext)
-            val outboxReplay =
-                RoomOutboxReplay(
-                    outboxDao = database.outboxDao(),
-                    sender =
-                    AndroidNetworkFactory.createOutboxSender(
-                        baseUrl = policePhoneContext.apiBaseUrl,
-                        accessTokenProvider = policePhoneContext.accessTokenProvider()
-                    ),
-                    accessRepairAvailable = { !policePhoneContext.accessToken.isNullOrBlank() },
-                    enableRetryJitter = !BuildConfig.DEBUG
-                )
+            val outboxReplay = createAuthorAwareOutboxReplay(applicationContext, policePhoneContext.apiBaseUrl)
             LocalSyncPurgeHookAdapter(
                 outboxDao = database.outboxDao(),
                 localWriteDraftDao = database.localWriteDraftDao(),

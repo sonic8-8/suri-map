@@ -141,6 +141,7 @@ class AuthBootstrapContractTest {
         assertTrue(oidcClient.contains("setDefaultColorSchemeParams"))
         assertTrue(oidcClient.contains("setToolbarColor"))
         assertTrue(oidcClient.contains("getAuthorizationRequestIntent(request, customTabsIntent)"))
+        assertTrue(oidcClient.contains("""setScopes("openid", "profile", OFFLINE_ACCESS_SCOPE)"""))
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD"))
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE"))
         assertFalse(oidcClient.contains("WebView"))

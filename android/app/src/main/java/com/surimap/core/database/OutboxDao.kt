@@ -109,6 +109,7 @@ interface OutboxDao {
         WHERE incident_id = :incidentId
           AND police_phone_id = :policePhoneId
           AND (:opId IS NULL OR op_id = :opId)
+          AND author_account_id IS :authorAccountId
           AND sequence < :sequence
           AND dependency_group IN ('PATH', 'MARKER', 'PHOTO', 'HANDOVER_MEMO')
           AND idempotency_status NOT IN ('ACKED', 'FAILED_FINAL', 'PURGED')
@@ -118,8 +119,29 @@ interface OutboxDao {
         incidentId: String,
         policePhoneId: String,
         opId: String?,
+        authorAccountId: String?,
         sequence: Long
     ): Int
+
+    // 미전송 기록은 서버 반영을 확인받지 못한 기록이다. 최종 실패한 기록도 미전송 기록에 든다.
+    @Query(
+        """
+        SELECT COUNT(*) FROM android_outbox_row
+        WHERE author_account_id = :authorAccountId
+          AND idempotency_status IN ('PENDING', 'SENDING', 'FAILED_RETRYABLE', 'FAILED_FINAL')
+        """
+    )
+    suspend fun countUnsentRowsByAuthor(authorAccountId: String): Int
+
+    @Query(
+        """
+        SELECT DISTINCT incident_id, police_phone_id FROM android_outbox_row
+        WHERE author_account_id = :authorAccountId
+          AND incident_id IS NOT NULL
+          AND idempotency_status IN ('PENDING', 'SENDING', 'FAILED_RETRYABLE')
+        """
+    )
+    suspend fun findReplayTargetsByAuthor(authorAccountId: String): List<OutboxReplayTarget>
 
     @Query("SELECT * FROM android_outbox_row WHERE client_operation_id = :operationId LIMIT 1")
     suspend fun findByOperationId(operationId: String): OutboxEntity?

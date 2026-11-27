@@ -11,7 +11,8 @@ data class HandoverWriteContext(
     val incidentId: String?,
     val opId: String?,
     val dutyShiftId: String?,
-    val policePhoneId: String?
+    val policePhoneId: String?,
+    val accountId: String? = null
 )
 
 data class HandoverMemoInput(
@@ -65,7 +66,8 @@ class HandoverMemoLocalRecorder(
                     content = content,
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = context.accountId?.takeIf(String::isNotBlank)
                 )
             )
         return result.enqueued()

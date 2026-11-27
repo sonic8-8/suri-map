@@ -344,6 +344,7 @@ S8 내용·연결 검토 중 다음 후보도 추가했다. 이름만 바꾸면 
 | [MarkerPhotoPayloadReader / read()](../../android/app/src/main/java/com/surimap/feature/marker/data/MarkerPhotoPayloadReader.kt) | 읽기뿐 아니라 이미지 변환·압축을 하는 역할이 드러나도록 명명 |
 | [OutboxHarnessIntegrationTest](../../android/app/src/test/java/com/surimap/core/sync/OutboxHarnessIntegrationTest.kt) | 공용 catalog와 Outbox 대역 흐름을 확인한다. `Harness`·`Integration` 대신 실제 검증 대상을 확인해 `<대상>Test`로 정리 |
 | [NetworkOutboxSender.kt](../../android/app/src/main/java/com/surimap/core/network/NetworkOutboxSender.kt) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. 파일 이름과 안의 클래스 이름 `HttpOutboxSender`가 다르다. |
+| [OidcSessionStateStore](../../android/app/src/main/java/com/surimap/core/auth/OidcSessionStateStore.kt) | 2026-11-27 #63에서 작업자가 같은 파일에 로그아웃한 계정의 offline token 저장소 `OfflineTokenStore`를 더하면서 확인했다. 이 클래스에는 지금 로그인해 있는 사람의 화면 세션만 저장된다. 그런데 이름만 보면 OIDC 세션 전체를 저장하는 것처럼 읽힌다. 두 저장소가 모두 AuthState JSON을 담기 때문에 혼동하기 쉽다. 화면 세션이 드러나는 이름을 검토한다. 후보 등록이며 이름은 변경하지 않았다. |
 | [MarkerPhotoRouteContractTest](../../android/app/src/test/java/com/surimap/feature/marker/MarkerPhotoRouteContractTest.kt), [IncidentAssignmentNotificationContractTest](../../android/app/src/test/java/com/surimap/core/fcm/IncidentAssignmentNotificationContractTest.kt) | 2026-11-15 [기능 영역별 조사](codebase-survey.md)에서 확인했다. Android의 `Contract` 접미사 테스트다. 하위 조사에 따르면 뒤의 파일에는 소스 문자열을 검사하는 테스트가 있다. 실제 동작 검증과 구분해 이름과 필요성을 정한다. |
 
 ## mock-112

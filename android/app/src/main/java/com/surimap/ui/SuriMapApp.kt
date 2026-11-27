@@ -75,6 +75,9 @@ import androidx.navigation.navArgument
 import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.SuriMapApplication
+import com.surimap.core.auth.AccountSessionLifecycle
+import com.surimap.core.auth.OfflineTokenRevocationWorker
+import com.surimap.core.auth.OfflineTokenStore
 import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageInstallationDao
@@ -142,6 +145,7 @@ import com.surimap.core.sync.RoomOutboxReplay
 import com.surimap.core.sync.RoomOutboxRequeue
 import com.surimap.core.sync.RoomSyncClient
 import com.surimap.core.sync.SchedulingSyncClient
+import com.surimap.core.sync.createAuthorAwareOutboxReplay
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AndroidOidcLoginClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
@@ -361,8 +365,11 @@ fun SuriMapApp() {
     var assignmentRefreshNonce by remember { mutableStateOf(0) }
     val sessionSnapshotStore = remember(context) { SuriMapSessionSnapshotStore(context) }
     val oidcSessionStateStore = remember(context) { OidcSessionStateStore(context) }
-    var oidcAuthStateJson by remember(oidcSessionStateStore) {
-        mutableStateOf(oidcSessionStateStore.load())
+    val accountSessions = remember(application, oidcSessionStateStore) {
+        accountSessionLifecycle(application, oidcSessionStateStore)
+    }
+    var oidcAuthStateJson by remember(accountSessions) {
+        mutableStateOf(accountSessions.screenSessionWithOfflineToken())
     }
     val persistedOidcSession = remember(oidcAuthStateJson) {
         AndroidOidcLoginClient.sessionFromAuthStateJson(oidcAuthStateJson)
@@ -585,12 +592,16 @@ fun SuriMapApp() {
                 offlineStartupState != OfflineStartupState.RequiresConnection,
         policePhoneContext = incidentSessionState.policePhoneContext,
         authStateJson = oidcAuthStateJson,
-        onSessionRefreshed = { oidcSession ->
-            oidcSessionStateStore.save(oidcSession.authStateJson)
-            oidcAuthStateJson = oidcSession.authStateJson
-            incidentSessionState.policePhoneContext
-                ?.withOidcSession(oidcSession)
-                ?.let(incidentSessionState::activatePolicePhoneContext)
+        onSessionRefreshed = { previousAuthStateJson, oidcSession ->
+            val sessionToUse =
+                accountSessions.screenSessionRefreshed(previousAuthStateJson, oidcSession.authStateJson)
+                    ?.let(AndroidOidcLoginClient::sessionFromAuthStateJson)
+            if (sessionToUse != null) {
+                oidcAuthStateJson = sessionToUse.authStateJson
+                incidentSessionState.policePhoneContext
+                    ?.withOidcSession(sessionToUse)
+                    ?.let(incidentSessionState::activatePolicePhoneContext)
+            }
         },
         onSessionExpired = {
             incidentSessionState.policePhoneContext?.let { expiredContext ->
@@ -601,12 +612,16 @@ fun SuriMapApp() {
                     accessToken = expiredContext.accessToken
                 )
             }
-            oidcSessionStateStore.clear()
+            accountSessions.screenSessionRejected()
             oidcAuthStateJson = null
             incidentSessionState.clearOidcSession()
             navController.navigateToAuthBootstrapRoot()
         }
     )
+    LaunchedEffect(application) {
+        // 앱을 켤 때 지난번에 보내지 못한 철회를 다시 요청한다.
+        OfflineTokenRevocationWorker.schedule(application)
+    }
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     MarkerAlertEffect(onAlert = { markerAlert = it })
     IncidentClosedEffect(
@@ -680,14 +695,21 @@ fun SuriMapApp() {
                             navController = navController,
                             assignmentRefreshNonce = assignmentRefreshNonce,
                             initialOidcSession = persistedOidcSession,
-                            onOidcSessionChanged = { oidcSession ->
-                                if (oidcSession == null) {
-                                    oidcSessionStateStore.clear()
-                                    oidcAuthStateJson = null
-                                } else {
-                                    oidcSessionStateStore.save(oidcSession.authStateJson)
-                                    oidcAuthStateJson = oidcSession.authStateJson
-                                }
+                            onLoggedIn = { oidcSession ->
+                                accountSessions.loggedIn(oidcSession.authStateJson)
+                                oidcAuthStateJson = oidcSession.authStateJson
+                            },
+                            onSessionRefreshed = { previousAuthStateJson, oidcSession ->
+                                accountSessions.screenSessionRefreshed(previousAuthStateJson, oidcSession.authStateJson)
+                                    ?.let { oidcAuthStateJson = it }
+                            },
+                            onSessionRejected = {
+                                accountSessions.screenSessionRejected()
+                                oidcAuthStateJson = null
+                            },
+                            onSwitchAccount = {
+                                accountSessions.switchAccount()
+                                oidcAuthStateJson = null
                             }
                         )
                     }
@@ -842,6 +864,33 @@ fun SuriMapApp() {
             }
         }
     }
+}
+
+private fun accountSessionLifecycle(
+    application: SuriMapApplication,
+    screenSessions: OidcSessionStateStore
+): AccountSessionLifecycle {
+    val outboxDao = SuriMapDatabaseProvider.database(application).outboxDao()
+    val replayScheduler = OutboxReplayScheduler(WorkManager.getInstance(application))
+    return AccountSessionLifecycle(
+        screenSessions = screenSessions,
+        offlineTokens = OfflineTokenStore(application),
+        scheduleReplay = { accountId ->
+            val apiBaseUrl = AndroidManagedConfigurationReader(context = application).read().apiBaseUrl
+            application.accountSessionScope.launch {
+                outboxDao.findReplayTargetsByAuthor(accountId).forEach { target ->
+                    replayScheduler.schedule(
+                        OutboxReplayWorkRequest(
+                            incidentId = target.incidentId,
+                            policePhoneId = target.policePhoneId,
+                            apiBaseUrl = apiBaseUrl
+                        )
+                    )
+                }
+            }
+        },
+        scheduleRevocation = { OfflineTokenRevocationWorker.schedule(application) }
+    )
 }
 
 @Composable
@@ -1041,7 +1090,7 @@ private fun OidcSessionRefreshEffect(
     enabled: Boolean,
     policePhoneContext: PolicePhoneContext?,
     authStateJson: String?,
-    onSessionRefreshed: (OidcLoginSession) -> Unit,
+    onSessionRefreshed: (previousAuthStateJson: String, OidcLoginSession) -> Unit,
     onSessionExpired: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -1071,7 +1120,7 @@ private fun OidcSessionRefreshEffect(
 
             if (currentContext == null) return@LaunchedEffect
             when (val result = oidcLoginClient.refresh(stateJson)) {
-                is OidcSessionRefreshResult.Refreshed -> currentOnSessionRefreshed(result.session)
+                is OidcSessionRefreshResult.Refreshed -> currentOnSessionRefreshed(stateJson, result.session)
                 OidcSessionRefreshResult.Unavailable -> delay(ACCESS_TOKEN_REFRESH_RETRY_MS)
                 OidcSessionRefreshResult.AuthenticationRequired -> {
                     currentOnSessionExpired()
@@ -1221,17 +1270,7 @@ private fun createIncidentClosedPurgeHook(
     policePhoneContext: PolicePhoneContext
 ): LocalSyncPurgeHookAdapter {
     val database = SuriMapDatabaseProvider.database(context)
-    val outboxReplay =
-        RoomOutboxReplay(
-            outboxDao = database.outboxDao(),
-            sender =
-            AndroidNetworkFactory.createOutboxSender(
-                baseUrl = policePhoneContext.apiBaseUrl,
-                accessTokenProvider = policePhoneContext.accessTokenProvider()
-            ),
-            accessRepairAvailable = { !policePhoneContext.accessToken.isNullOrBlank() },
-            enableRetryJitter = !BuildConfig.DEBUG
-        )
+    val outboxReplay = createAuthorAwareOutboxReplay(context, policePhoneContext.apiBaseUrl)
     return LocalSyncPurgeHookAdapter(
         outboxDao = database.outboxDao(),
         localWriteDraftDao = database.localWriteDraftDao(),
@@ -1801,13 +1840,8 @@ private fun SearchMapRoute(
             )
         }
     val immediateOutboxReplay =
-        remember(database, apiBaseUrl, policePhoneContext?.accessToken) {
-            createImmediateOutboxReplay(
-                database = database,
-                apiBaseUrl = apiBaseUrl,
-                accessTokenProvider = accessTokenProvider,
-                accessTokenPresent = !policePhoneContext?.accessToken.isNullOrBlank()
-            )
+        remember(context, apiBaseUrl, policePhoneContext?.accessToken) {
+            createAuthorAwareOutboxReplay(context, apiBaseUrl)
         }
     val boundaryAlertRecorder = remember(syncClient, clockSyncState) {
         SearchAreaBoundaryAlertLocalRecorder(
@@ -2727,13 +2761,8 @@ private fun MarkerDetailRoute(
             )
         }
     val immediateOutboxReplay =
-        remember(database, apiBaseUrl, policePhoneContext?.accessToken) {
-            createImmediateOutboxReplay(
-                database = database,
-                apiBaseUrl = apiBaseUrl,
-                accessTokenProvider = accessTokenProvider,
-                accessTokenPresent = !policePhoneContext?.accessToken.isNullOrBlank()
-            )
+        remember(context, apiBaseUrl, policePhoneContext?.accessToken) {
+            createAuthorAwareOutboxReplay(context, apiBaseUrl)
         }
     val markerRecorder = remember(syncClient, clockSyncState) {
         MarkerLocalRecorder(
@@ -3181,7 +3210,10 @@ private fun AuthBootstrapRoute(
     navController: NavHostController,
     assignmentRefreshNonce: Int,
     initialOidcSession: OidcLoginSession?,
-    onOidcSessionChanged: (OidcLoginSession?) -> Unit
+    onLoggedIn: (OidcLoginSession) -> Unit,
+    onSessionRefreshed: (previousAuthStateJson: String, OidcLoginSession) -> Unit,
+    onSessionRejected: () -> Unit,
+    onSwitchAccount: () -> Unit
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -3202,7 +3234,7 @@ private fun AuthBootstrapRoute(
                 coroutineScope.launch {
                     val completedSession = oidcLoginClient.completeLogin(result.data!!)
                     oidcSession = completedSession
-                    onOidcSessionChanged(completedSession)
+                    if (completedSession == null) onSessionRejected() else onLoggedIn(completedSession)
                     retryNonce += 1
                 }
             } else {
@@ -3252,9 +3284,13 @@ private fun AuthBootstrapRoute(
                     accessToken = restoredSession?.accessToken
                 )
             }
-            if (sessionDecision?.replaceStoredSession == true) {
+            if (restoredSession != null && sessionDecision?.replaceStoredSession == true) {
                 oidcSession = sessionForBootstrap
-                onOidcSessionChanged(sessionForBootstrap)
+                if (sessionForBootstrap == null) {
+                    onSessionRejected()
+                } else {
+                    onSessionRefreshed(restoredSession.authStateJson, sessionForBootstrap)
+                }
             }
             val bootstrapCoordinator =
                 AuthBootstrapCoordinator(
@@ -3320,7 +3356,7 @@ private fun AuthBootstrapRoute(
             )
             oidcSession = null
             incidentSessionState.clearPolicePhoneContext()
-            onOidcSessionChanged(null)
+            onSwitchAccount()
             oidcEndSessionLauncher.launch(
                 oidcLoginClient.createEndSessionIntent(
                     apiBaseUrl = managedConfigurationReader.read().apiBaseUrl,
@@ -3569,23 +3605,6 @@ private suspend fun ClockSyncState.syncClockForIncident(
         policePhoneId = policePhoneContext.policePhoneId
     )
 }
-
-private fun createImmediateOutboxReplay(
-    database: SuriMapDatabase,
-    apiBaseUrl: String,
-    accessTokenProvider: AccessTokenProvider,
-    accessTokenPresent: Boolean
-): RoomOutboxReplay =
-    RoomOutboxReplay(
-        outboxDao = database.outboxDao(),
-        sender =
-        AndroidNetworkFactory.createOutboxSender(
-            baseUrl = apiBaseUrl,
-            accessTokenProvider = accessTokenProvider
-        ),
-        accessRepairAvailable = { accessTokenPresent },
-        enableRetryJitter = !BuildConfig.DEBUG
-    )
 
 private suspend fun RoomOutboxReplay.flushPendingIfReady(
     incidentId: String?,
@@ -3902,14 +3921,16 @@ private fun SearchMapSessionContext.toMarkerWriteContext(): MarkerWriteContext =
     MarkerWriteContext(
         incidentId = incidentId,
         opId = currentOpId,
-        policePhoneId = policePhoneId
+        policePhoneId = policePhoneId,
+        accountId = accountId
     )
 
 private fun MarkerDetailSessionContext.toMarkerWriteContext(): MarkerWriteContext =
     MarkerWriteContext(
         incidentId = incidentId,
         opId = opId,
-        policePhoneId = policePhoneId
+        policePhoneId = policePhoneId,
+        accountId = accountId
     )
 
 private fun MarkerDetailUiState.toMarkerUpsertInput(): MarkerUpsertInput =
@@ -4006,7 +4027,8 @@ private fun HandoverSessionContext.toHandoverWriteContext(): HandoverWriteContex
         incidentId = incidentId,
         opId = opId,
         dutyShiftId = dutyShiftId,
-        policePhoneId = policePhoneId
+        policePhoneId = policePhoneId,
+        accountId = accountId
     )
 
 private fun IncidentContext?.toDutyShiftWriteContext(policePhoneContext: PolicePhoneContext?): DutyShiftWriteContext =
@@ -4014,7 +4036,8 @@ private fun IncidentContext?.toDutyShiftWriteContext(policePhoneContext: PoliceP
         incidentId = this?.incidentId,
         opId = this?.currentOpId,
         dutyShiftId = this?.currentDutyShiftId,
-        policePhoneId = policePhoneContext?.policePhoneId
+        policePhoneId = policePhoneContext?.policePhoneId,
+        accountId = policePhoneContext?.accountId
     )
 
 private fun HandoverMemoUiState.withContext(context: HandoverSessionContext): HandoverMemoUiState =

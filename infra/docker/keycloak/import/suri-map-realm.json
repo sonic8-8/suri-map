@@ -8,6 +8,9 @@
   "ssoSessionMaxLifespan": 43200,
   "clientSessionIdleTimeout": 28800,
   "clientSessionMaxLifespan": 43200,
+  "revokeRefreshToken": false,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "loginWithEmailAllowed": false,
@@ -208,6 +211,22 @@
       "redirectUris": [
         "com.surimap://auth/callback",
         "surimap://auth/callback"
+      ],
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "organization",
+        "microprofile-jwt"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -543,12 +562,23 @@
       ]
     }
   ],
+  "scopeMappings": [
+    {
+      "client": "suri-map-android",
+      "roles": [
+        "offline_access"
+      ]
+    }
+  ],
   "users": [
     {
       "username": "acct-precinct-cmd",
       "enabled": true,
       "email": "acct-precinct-cmd@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "김도현",
       "lastName": "",
       "credentials": [
@@ -596,6 +626,9 @@
       "enabled": true,
       "email": "acct-precinct-car@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "박민수",
       "lastName": "",
       "credentials": [
@@ -643,6 +676,9 @@
       "enabled": true,
       "email": "acct-precinct-team@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "이준호",
       "lastName": "",
       "credentials": [
@@ -690,6 +726,9 @@
       "enabled": true,
       "email": "acct-cmd-alpha@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "정서윤",
       "lastName": "",
       "credentials": [
@@ -737,6 +776,9 @@
       "enabled": true,
       "email": "acct-team-alpha@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "최지훈",
       "lastName": "",
       "credentials": [
@@ -784,6 +826,9 @@
       "enabled": true,
       "email": "acct-support-cmd@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "강현우",
       "lastName": "",
       "credentials": [
@@ -831,6 +876,9 @@
       "enabled": true,
       "email": "acct-support-car@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "윤태영",
       "lastName": "",
       "credentials": [
@@ -878,6 +926,9 @@
       "enabled": true,
       "email": "acct-support-team@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "오민재",
       "lastName": "",
       "credentials": [
@@ -925,6 +976,9 @@
       "enabled": true,
       "email": "acct-unassigned-phone@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "한지민",
       "lastName": "",
       "credentials": [
@@ -972,6 +1026,9 @@
       "enabled": true,
       "email": "station1@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "김도현",
       "lastName": "",
       "credentials": [
@@ -1019,6 +1076,9 @@
       "enabled": true,
       "email": "station2@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "박민수",
       "lastName": "",
       "credentials": [
@@ -1066,6 +1126,9 @@
       "enabled": true,
       "email": "station3@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "이준호",
       "lastName": "",
       "credentials": [
@@ -1113,6 +1176,9 @@
       "enabled": true,
       "email": "missing1@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "정서윤",
       "lastName": "",
       "credentials": [
@@ -1160,6 +1226,9 @@
       "enabled": true,
       "email": "missing2@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "최지훈",
       "lastName": "",
       "credentials": [
@@ -1207,6 +1276,9 @@
       "enabled": true,
       "email": "support1@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "강현우",
       "lastName": "",
       "credentials": [
@@ -1254,6 +1326,9 @@
       "enabled": true,
       "email": "support2@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "윤태영",
       "lastName": "",
       "credentials": [
@@ -1301,6 +1376,9 @@
       "enabled": true,
       "email": "support3@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "오민재",
       "lastName": "",
       "credentials": [
@@ -1348,6 +1426,9 @@
       "enabled": true,
       "email": "station4@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "문태호",
       "lastName": "",
       "credentials": [
@@ -1395,6 +1476,9 @@
       "enabled": true,
       "email": "station5@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "서민재",
       "lastName": "",
       "credentials": [
@@ -1442,6 +1526,9 @@
       "enabled": true,
       "email": "missing3@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "한유라",
       "lastName": "",
       "credentials": [
@@ -1489,6 +1576,9 @@
       "enabled": true,
       "email": "missing4@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "임재훈",
       "lastName": "",
       "credentials": [
@@ -1536,6 +1626,9 @@
       "enabled": true,
       "email": "support4@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "백승우",
       "lastName": "",
       "credentials": [
@@ -1583,6 +1676,9 @@
       "enabled": true,
       "email": "support5@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "조아린",
       "lastName": "",
       "credentials": [
@@ -1630,6 +1726,9 @@
       "enabled": true,
       "email": "support6@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "조영민",
       "lastName": "",
       "credentials": [
@@ -1677,6 +1776,9 @@
       "enabled": true,
       "email": "support7@suri-map.local",
       "emailVerified": true,
+      "realmRoles": [
+        "offline_access"
+      ],
       "firstName": "김나영",
       "lastName": "",
       "credentials": [

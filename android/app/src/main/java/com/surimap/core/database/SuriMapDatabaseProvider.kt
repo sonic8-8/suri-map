@@ -22,7 +22,8 @@ object SuriMapDatabaseProvider {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
-                    MIGRATION_6_7
+                    MIGRATION_6_7,
+                    MIGRATION_7_8
                 )
                 .build().also { database ->
                 instance = database
@@ -203,6 +204,14 @@ object SuriMapDatabaseProvider {
                     ON `search_recording_state` (`account_id`, `lifecycle_status`, `updated_at`)
                     """.trimIndent()
                 )
+            }
+        }
+
+    // 이전 기록은 작성 계정이 빈 채로 남는다. 이 기록은 전송하는 시점에 로그인해 있는 계정의 토큰으로 전송된다.
+    internal val MIGRATION_7_8 =
+        object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `android_outbox_row` ADD COLUMN `author_account_id` TEXT")
             }
         }
 

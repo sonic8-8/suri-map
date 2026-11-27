@@ -35,7 +35,8 @@ data class CreateMarkerCommand(
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null,
-    val photos: List<CreateMarkerPhotoCommand> = emptyList()
+    val photos: List<CreateMarkerPhotoCommand> = emptyList(),
+    val accountId: String? = null
 )
 
 data class CreateMarkerPhotoCommand(
@@ -62,7 +63,8 @@ data class UpdateMarkerCommand(
     val type: String? = null,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 data class DeleteMarkerCommand(
@@ -77,7 +79,8 @@ data class DeleteMarkerCommand(
     val reason: String? = null,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val accountId: String? = null
 )
 
 data class PhotoUploadUrlCommand(
@@ -94,7 +97,8 @@ data class PhotoUploadUrlCommand(
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null,
-    val parentOperationId: String? = null
+    val parentOperationId: String? = null,
+    val accountId: String? = null
 )
 
 data class PhotoAttachCommand(
@@ -114,7 +118,8 @@ data class PhotoAttachCommand(
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null,
-    val parentOperationId: String? = null
+    val parentOperationId: String? = null,
+    val accountId: String? = null
 )
 
 data class MarkerReadQuery(
@@ -256,7 +261,8 @@ class MarkerRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = entityId,
-            entityType = entityType
+            entityType = entityType,
+            accountId = accountId
         )
     }
 
@@ -281,7 +287,8 @@ class MarkerRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = markerId,
-            entityType = "marker"
+            entityType = "marker",
+            accountId = accountId
         )
     }
 
@@ -306,7 +313,8 @@ class MarkerRepository(
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = markerId,
-            entityType = "marker"
+            entityType = "marker",
+            accountId = accountId
         )
     }
 
@@ -333,7 +341,8 @@ class MarkerRepository(
             opId = opId,
             entityId = entityId,
             entityType = "marker_photo",
-            parentOperationId = parentOperationId
+            parentOperationId = parentOperationId,
+            accountId = accountId
         )
     }
 
@@ -359,7 +368,8 @@ class MarkerRepository(
             opId = opId,
             entityId = photoId,
             entityType = "marker_photo",
-            parentOperationId = parentOperationId
+            parentOperationId = parentOperationId,
+            accountId = accountId
         )
     }
 

@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import com.surimap.BuildConfig
+import com.surimap.core.auth.KeycloakTokenClient
+import com.surimap.core.auth.OFFLINE_ACCESS_SCOPE
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthState
@@ -88,7 +90,8 @@ internal suspend fun refreshOidcSessionBeforeBootstrap(
         ?: OidcSessionRefreshResult.AuthenticationRequired
 
 class AndroidOidcLoginClient(
-    context: Context
+    context: Context,
+    private val keycloakTokenClient: KeycloakTokenClient = KeycloakTokenClient()
 ) {
     private val authorizationService = AuthorizationService(context)
 
@@ -171,34 +174,8 @@ class AndroidOidcLoginClient(
         }
     }
 
-    suspend fun refresh(authStateJson: String): OidcSessionRefreshResult {
-        val authState =
-            runCatching { AuthState.jsonDeserialize(authStateJson) }.getOrNull()
-                ?: return OidcSessionRefreshResult.AuthenticationRequired
-        return suspendCancellableCoroutine { continuation ->
-            authState.performActionWithFreshTokens(authorizationService) action@ { accessToken, idToken, exception ->
-                if (exception != null) {
-                    continuation.resume(classifyOidcRefreshFailure(exception))
-                    return@action
-                }
-                val refreshedAccessToken = accessToken?.takeIf(String::isNotBlank)
-                if (refreshedAccessToken == null) {
-                    continuation.resume(OidcSessionRefreshResult.AuthenticationRequired)
-                    return@action
-                }
-                continuation.resume(
-                    OidcSessionRefreshResult.Refreshed(
-                        OidcLoginSession(
-                            accessToken = refreshedAccessToken,
-                            idToken = idToken,
-                            accessTokenExpiresAtEpochMs = authState.accessTokenExpirationTime,
-                            authStateJson = authState.jsonSerializeString()
-                        )
-                    )
-                )
-            }
-        }
-    }
+    // outbox 전송과 같은 방법으로 갱신한다.
+    suspend fun refresh(authStateJson: String): OidcSessionRefreshResult = keycloakTokenClient.refresh(authStateJson)
 
     fun dispose() {
         authorizationService.dispose()
@@ -211,7 +188,8 @@ class AndroidOidcLoginClient(
             ResponseTypeValues.CODE,
             Uri.parse(BuildConfig.SURI_MAP_KEYCLOAK_REDIRECT_URI)
         )
-            .setScopes("openid", "profile")
+            // 로그아웃한 뒤에도 미전송 기록을 그 계정으로 보낼 수 있게 일반 refresh token 대신 offline token을 받는다.
+            .setScopes("openid", "profile", OFFLINE_ACCESS_SCOPE)
         if (forceLogin) {
             builder.setPrompt("login")
             builder.setAdditionalParameters(mapOf("max_age" to "0"))

@@ -12,7 +12,13 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.surimap.BuildConfig
+import com.surimap.core.auth.AuthorAccessToken
+import com.surimap.core.auth.KeycloakTokenClient
+import com.surimap.core.auth.OfflineTokenRevocationWorker
+import com.surimap.core.auth.OfflineTokenStore
 import com.surimap.core.auth.OidcAccessTokenProvider
+import com.surimap.core.auth.OidcSessionStateStore
+import com.surimap.core.auth.OutboxAccessTokens
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.AndroidNetworkFactory
@@ -96,6 +102,40 @@ class SchedulingSyncClient(
             harnessStatus == HarnessSyncStatus.PENDING_SEND
 }
 
+// 기록마다 작성 계정의 토큰으로 전송하는 replay다. 작성 계정이 로그인해 있으면 화면 세션의 토큰이 쓰인다.
+// 작성 계정이 로그아웃했으면 그 계정의 offline token이 쓰인다.
+fun createAuthorAwareOutboxReplay(context: Context, apiBaseUrl: String): RoomOutboxReplay {
+    val accessTokens =
+        OutboxAccessTokens(
+            screenSessions = OidcSessionStateStore(context),
+            offlineTokens = OfflineTokenStore(context),
+            keycloak = KeycloakTokenClient()
+        )
+    return RoomOutboxReplay(
+        outboxDao = SuriMapDatabaseProvider.database(context).outboxDao(),
+        senderForAuthor =
+            authorOutboxSenders(accessTokens::accessTokenFor) { accessToken ->
+                AndroidNetworkFactory.createOutboxSender(
+                    baseUrl = apiBaseUrl,
+                    accessTokenProvider = AccessTokenProvider { accessToken }
+                )
+            },
+        accessRepairAvailable = { accessTokens.screenAccountId() != null },
+        enableRetryJitter = !BuildConfig.DEBUG
+    )
+}
+
+fun authorOutboxSenders(
+    accessTokenFor: suspend (authorAccountId: String?) -> AuthorAccessToken,
+    senderForAccessToken: (accessToken: String) -> OutboxSender
+): suspend (String?) -> AuthorOutboxSender = { authorAccountId ->
+    when (val token = accessTokenFor(authorAccountId)) {
+        is AuthorAccessToken.Available -> AuthorOutboxSender.Ready(senderForAccessToken(token.accessToken))
+        AuthorAccessToken.Missing -> AuthorOutboxSender.NoToken
+        AuthorAccessToken.Unavailable -> AuthorOutboxSender.TokenUnavailable
+    }
+}
+
 fun interface OutboxReplayProvider {
     fun create(context: Context, apiBaseUrl: String, accessToken: String?): OutboxReplay
 }
@@ -119,39 +159,27 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
         if (incidentId == null || policePhoneId == null) {
             return Result.failure()
         }
-        val accessTokenProvider = LocalSyncRuntime.accessTokenProvider
-            ?: OidcAccessTokenProvider(applicationContext)
-        val accessToken = accessTokenProvider.accessToken()
-        val runtimeReplay = LocalSyncRuntime.outboxReplay
-        if (runtimeReplay == null && accessToken.isNullOrBlank()) {
-            return Result.retry()
-        }
-        val replay = runtimeReplay
-            ?: LocalSyncRuntime.outboxReplayProvider?.create(applicationContext, apiBaseUrl, accessToken)
-            ?: createRoomOutboxReplay(applicationContext, apiBaseUrl, accessToken)
+        val runtimeReplay =
+            LocalSyncRuntime.outboxReplay
+                ?: LocalSyncRuntime.outboxReplayProvider?.let { provider ->
+                    val accessToken =
+                        (LocalSyncRuntime.accessTokenProvider ?: OidcAccessTokenProvider(applicationContext))
+                            .accessToken()
+                    if (accessToken.isNullOrBlank()) {
+                        return Result.retry()
+                    }
+                    provider.create(applicationContext, apiBaseUrl, accessToken)
+                }
+        // 아무도 로그인하지 않았어도 로그아웃한 계정의 기록은 그 계정의 offline token으로 전송된다.
+        val replay = runtimeReplay ?: createAuthorAwareOutboxReplay(applicationContext, apiBaseUrl)
         val replayResult = replay.flushPending(
             policePhoneId = policePhoneId,
             incidentId = incidentId
         )
+        if (runtimeReplay == null) {
+            OfflineTokenRevocationWorker.schedule(applicationContext)
+        }
         return if (replayResult.shouldRetry) Result.retry() else Result.success()
-    }
-
-    private fun createRoomOutboxReplay(
-        context: Context,
-        apiBaseUrl: String,
-        accessToken: String?
-    ): OutboxReplay {
-        val database = SuriMapDatabaseProvider.database(context)
-        return RoomOutboxReplay(
-            outboxDao = database.outboxDao(),
-            sender =
-            AndroidNetworkFactory.createOutboxSender(
-                baseUrl = apiBaseUrl,
-                accessTokenProvider = AccessTokenProvider { accessToken }
-            ),
-            accessRepairAvailable = { !accessToken.isNullOrBlank() },
-            enableRetryJitter = !BuildConfig.DEBUG
-        )
     }
 
     companion object {

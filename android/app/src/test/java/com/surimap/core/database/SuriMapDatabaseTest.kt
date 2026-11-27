@@ -4,6 +4,9 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import com.surimap.core.sync.DependencyGroup
+import com.surimap.testing.AccountSessionHarness
+import com.surimap.testing.AccountSessionHarness.Companion.ACCOUNT_A
+import com.surimap.testing.SentRecord
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.manifestIdFixture
 import com.surimap.testing.policePhoneIdFixture
@@ -107,7 +110,8 @@ class SuriMapDatabaseTest {
                 ColumnSpec("clock_synced_at", nullable = false),
                 ColumnSpec("server_ack_ts", nullable = true),
                 ColumnSpec("incident_closed_at", nullable = true),
-                ColumnSpec("last_error", nullable = true)
+                ColumnSpec("last_error", nullable = true),
+                ColumnSpec("author_account_id", nullable = true)
             ),
             columns
         )
@@ -607,6 +611,7 @@ class SuriMapDatabaseTest {
             MIGRATION_DATABASE_NAME
         ).allowMainThreadQueries().build()
         val writableDatabase = version6Database.openHelper.writableDatabase
+        recreateVersion7OutboxTable(writableDatabase)
 
         val outboxValues = ContentValues().apply {
             put("outbox_id", GPS_OUTBOX_ID)
@@ -666,7 +671,7 @@ class SuriMapDatabaseTest {
             SuriMapDatabase::class.java,
             MIGRATION_DATABASE_NAME
         )
-            .addMigrations(SuriMapDatabaseProvider.MIGRATION_6_7)
+            .addMigrations(SuriMapDatabaseProvider.MIGRATION_6_7, SuriMapDatabaseProvider.MIGRATION_7_8)
             .allowMainThreadQueries()
             .build()
         val migratedDatabase = migratedRoomDatabase.openHelper.writableDatabase
@@ -696,6 +701,70 @@ class SuriMapDatabaseTest {
             assertEquals(payload, cursor.getString(2))
         }
         migratedRoomDatabase.close()
+        context.deleteDatabase(MIGRATION_DATABASE_NAME)
+    }
+
+    @Test
+    fun migration7To8KeepsUnsentRowWithoutAuthorAccountAndSendsItWithLoggedInAccountToken() = runBlocking<Unit> {
+        val context = RuntimeEnvironment.getApplication()
+        context.deleteDatabase(MIGRATION_DATABASE_NAME)
+        val version7Database = Room.databaseBuilder(
+            context,
+            SuriMapDatabase::class.java,
+            MIGRATION_DATABASE_NAME
+        ).allowMainThreadQueries().build()
+        val writableDatabase = version7Database.openHelper.writableDatabase
+        recreateVersion7OutboxTable(writableDatabase)
+        val outboxValues = ContentValues().apply {
+            put("outbox_id", GPS_OUTBOX_ID)
+            put("client_operation_id", GPS_OPERATION_ID)
+            put("incident_id", INCIDENT_ID)
+            put("op_id", OP_ID)
+            put("police_phone_id", POLICE_PHONE_ID)
+            put("dependency_group", DependencyGroup.PATH.name)
+            put("sequence", GPS_BATCH_SEQUENCE)
+            put("request_method", "POST")
+            put("request_path", "/api/search-paths/batch")
+            put("payload_json", "{}")
+            put("request_body_hash", GPS_BODY_HASH)
+            put("idempotency_key", GPS_IDEMPOTENCY_KEY)
+            put("idempotency_status", "PENDING")
+            put("local_mirror_status", "PENDING_SEND")
+            put("attempt_count", 0)
+            put("client_requested_at", 1_000L)
+            put("clock_offset_ms", 0L)
+            put("clock_synced_at", 1_000L)
+        }
+        assertTrue(
+            writableDatabase.insert("android_outbox_row", SQLiteDatabase.CONFLICT_ABORT, outboxValues) != -1L
+        )
+        writableDatabase.execSQL(
+            "UPDATE room_master_table SET identity_hash = '$VERSION_7_IDENTITY_HASH' WHERE id = 42"
+        )
+        writableDatabase.version = 7
+        version7Database.close()
+
+        val migratedRoomDatabase = Room.databaseBuilder(
+            context,
+            SuriMapDatabase::class.java,
+            MIGRATION_DATABASE_NAME
+        )
+            .addMigrations(SuriMapDatabaseProvider.MIGRATION_7_8)
+            .allowMainThreadQueries()
+            .build()
+
+        val migratedRow = migratedRoomDatabase.outboxDao().findById(GPS_OUTBOX_ID)
+        assertEquals(GPS_OPERATION_ID, migratedRow?.operationId)
+        assertEquals("PENDING", migratedRow?.idempotencyStatus)
+        assertEquals(null, migratedRow?.authorAccountId)
+
+        val phone = AccountSessionHarness(database = migratedRoomDatabase)
+        phone.logIn(ACCOUNT_A)
+        phone.flush(incidentId = INCIDENT_ID, policePhoneId = POLICE_PHONE_ID)
+
+        assertEquals(listOf(SentRecord(GPS_IDEMPOTENCY_KEY, ACCOUNT_A)), phone.sent)
+        assertEquals("ACKED", migratedRoomDatabase.outboxDao().findById(GPS_OUTBOX_ID)?.idempotencyStatus)
+        phone.close()
         context.deleteDatabase(MIGRATION_DATABASE_NAME)
     }
 
@@ -791,9 +860,37 @@ class SuriMapDatabaseTest {
             clockSyncedAt = 1_000L
         )
 
+    // 현재 스키마로 만든 파일에서 outbox 테이블만 버전 7 모양으로 되돌린다. 버전 7에는 작성 계정 열이 없다.
+    private fun recreateVersion7OutboxTable(writableDatabase: androidx.sqlite.db.SupportSQLiteDatabase) {
+        writableDatabase.execSQL("DROP TABLE android_outbox_row")
+        writableDatabase.execSQL(
+            "CREATE TABLE IF NOT EXISTS `android_outbox_row` (`outbox_id` TEXT NOT NULL, `client_operation_id` TEXT NOT NULL, " +
+                "`incident_id` TEXT, `op_id` TEXT, `police_phone_id` TEXT NOT NULL, `dependency_group` TEXT NOT NULL, " +
+                "`parent_client_operation_id` TEXT, `sequence` INTEGER NOT NULL, `request_method` TEXT NOT NULL, " +
+                "`request_path` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `request_body_hash` TEXT NOT NULL, " +
+                "`idempotency_key` TEXT NOT NULL, `idempotency_status` TEXT NOT NULL, `local_mirror_status` TEXT NOT NULL, " +
+                "`attempt_count` INTEGER NOT NULL, `first_attempt_at` INTEGER, `next_attempt_at` INTEGER, " +
+                "`client_requested_at` INTEGER NOT NULL, `clock_offset_ms` INTEGER NOT NULL, `clock_synced_at` INTEGER NOT NULL, " +
+                "`server_ack_ts` INTEGER, `incident_closed_at` INTEGER, `last_error` TEXT, PRIMARY KEY(`outbox_id`))"
+        )
+        writableDatabase.execSQL(
+            "CREATE INDEX IF NOT EXISTS `idx_android_outbox_status_next_attempt` ON `android_outbox_row` (`idempotency_status`, `next_attempt_at`)"
+        )
+        writableDatabase.execSQL(
+            "CREATE INDEX IF NOT EXISTS `idx_android_outbox_replay_order` ON `android_outbox_row` (`incident_id`, `police_phone_id`, `dependency_group`, `sequence`)"
+        )
+        writableDatabase.execSQL(
+            "CREATE INDEX IF NOT EXISTS `idx_android_outbox_incident_police_phone` ON `android_outbox_row` (`incident_id`, `police_phone_id`)"
+        )
+        writableDatabase.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `ux_android_outbox_idempotency_key` ON `android_outbox_row` (`idempotency_key`)"
+        )
+    }
+
     private companion object {
         const val MIGRATION_DATABASE_NAME = "suri-map-migration-test.db"
         const val VERSION_6_IDENTITY_HASH = "a832a337615d0663d90332e403a441bc"
+        const val VERSION_7_IDENTITY_HASH = "86e415134ff39d215eb3edbbd1537b61"
         const val GPS_OUTBOX_ID = "gps-outbox-001"
         const val GPS_OPERATION_ID = "22222222-2222-4222-8222-222222222010"
         const val GPS_DRAFT_ID = "gps-draft-001"

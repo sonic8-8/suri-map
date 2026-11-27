@@ -144,14 +144,19 @@ fun PolicePhoneContext?.offlineStartupAccountId(): String? =
         ?.accountId
         ?.takeIf(String::isNotBlank)
 
-fun String?.accountIdClaim(): String? {
+fun String?.accountIdClaim(): String? =
+    jwtPayload()?.optString("accountId")?.takeIf(String::isNotBlank)
+
+// 토큰이 발급된 시각이다. 갱신할 때마다 access token이 새로 발급되므로 마지막 갱신 시각으로 쓴다.
+fun String?.issuedAtEpochMsClaim(): Long? =
+    jwtPayload()?.optLong("iat", 0L)?.takeIf { it > 0L }?.times(1_000L)
+
+internal fun String?.jwtPayload(): JSONObject? {
     val token = this?.takeIf(String::isNotBlank) ?: return null
     val payloadPart = token.split('.').getOrNull(1)?.takeIf(String::isNotBlank) ?: return null
     return runCatching {
         val decoded = Base64.decode(payloadPart, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
         JSONObject(String(decoded, StandardCharsets.UTF_8))
-            .optString("accountId")
-            .takeIf(String::isNotBlank)
     }.getOrNull()
 }
 

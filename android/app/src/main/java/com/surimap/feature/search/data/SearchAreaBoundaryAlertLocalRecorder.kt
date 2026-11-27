@@ -44,7 +44,8 @@ class SearchAreaBoundaryAlertLocalRecorder(
                     sequence = sequenceSource(),
                     clientTs = fix.capturedAt.takeIf { it != Instant.EPOCH } ?: now(),
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    accountId = context.accountId?.takeIf(String::isNotBlank)
                 )
             )
         return SearchPathWriteResult.Enqueued(

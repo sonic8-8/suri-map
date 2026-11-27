@@ -47,6 +47,54 @@
 - 통신이 끊겨 연결 해제 요청이 실패한 경우에도 서버의 토큰은 다음 로그인 때 다시 등록될 때까지 이전 계정에 연결된 채로 남는다. 이 한계는 #59에서 받아들였다. 마커 알림의 계정 전환은 #57에서 확인했다.
 - **미구현 요구**: 로그인한 상태에서 로그아웃하는 버튼은 아직 없다. 이 버튼이 있어야 유효한 access token으로 연결 해제를 요청할 수 있다.
 
+## 로그아웃한 사람의 offline token
+
+현장 경찰관 여러 명이 업무폰 한 대를 각자 자기 계정으로 번갈아 쓴다. 로그아웃한 사람의 미전송 기록은 그 사람의 offline token으로 백그라운드에서 보낸다. 결정과 이유는 [ADR-0039](../adr/0039-logged-out-records-sent-with-offline-token.md)에 있다. 기록마다 어느 토큰으로 보내는지는 [오프라인 동기화 기능 정의 문서](./offline-sync.md#작성-계정별-토큰으로-전송)에 적었다.
+
+- **offline token으로 로그인 (2026-11-27 #63, Android 소스 대조 테스트와 가짜 Keycloak 응답을 쓰는 Android JVM 테스트로 확인)**: 로그인할 때 [로그인 요청](../../android/app/src/main/java/com/surimap/feature/bootstrap/data/AndroidOidcLoginClient.kt)에 `offline_access` scope가 더해진다. 그래서 일반 refresh token 대신 offline token이 발급된다. 로그인해 있는 동안의 화면 세션도 이 offline token으로 갱신된다.
+- 화면 세션은 지금처럼 [OidcSessionStateStore](../../android/app/src/main/java/com/surimap/core/auth/OidcSessionStateStore.kt)에 하나만 저장된다. 로그아웃한 계정의 offline token은 같은 파일의 `OfflineTokenStore`에 계정별로 저장된다. 두 저장소에서는 비교 후 저장과 비교 후 삭제가 같은 잠금 아래에서 실행된다. 그래서 늦게 도착한 갱신 응답이나 철회 응답으로 더 새로운 저장본이 덮어써지거나 지워지지 않는다.
+- 화면 세션과 offline token은 같은 [Keycloak 요청 코드](../../android/app/src/main/java/com/surimap/core/auth/KeycloakTokenClient.kt)로 갱신된다. 갱신 요청은 AppAuth를 거치지 않고 token endpoint로 바로 간다. 이전에는 AppAuth의 갱신 함수를 썼다.
+- 갱신 응답에 든 ID token은 앱에서 검증된다(2026-11-27 #63, 가짜 Keycloak 응답을 쓰는 Android JVM 테스트로 확인). 검증 기준은 AppAuth의 갱신 함수를 쓰던 이전 구현(fd134569)에서 실제로 실행되던 검증과 같다. 검증 조건은 다음과 같다.
+  - `iss`, `sub`, `aud`, `exp`, `iat`가 모두 있어야 한다.
+  - `aud`에 Android client ID가 있거나 `azp`가 Android client ID여야 한다.
+  - 만료 시각(`exp`)이 지나지 않아야 한다.
+  - 발급 시각(`iat`)과 업무폰 시각의 차이가 10분 이하여야 한다.
+- issuer의 형식과 값은 검증 조건에 없다. 이전 구현에서는 Keycloak 주소가 discovery 문서 없이 설정돼 있었다. 그래서 AppAuth의 issuer 검사(https 주소, host, query와 fragment, discovery 문서의 issuer와 같은지)가 실행되지 않았다.
+- 검증에 실패한 갱신 응답은 저장되지 않는다. 이 경우는 Keycloak의 갱신 거절과 같이 처리된다. 화면 세션이면 로그인 화면이 열린다. 로그아웃한 계정의 offline token이면 그 토큰이 업무폰에서 지워진다. 미전송 기록은 어느 경우에도 남는다.
+- ID token의 서명은 이전 구현과 같이 검증되지 않는다. access token에서 읽는 값은 `accountId`와 `iat`뿐이다. access token의 서명은 지금처럼 Backend에서 검증된다.
+- 앱 업데이트 전에 로그인한 화면 세션에는 offline token이 없다. 이 화면 세션은 앱을 켤 때 지워진다. 그래서 로그인 화면이 열린다. 앱을 다시 켜 저장된 수색 화면으로 바로 들어가는 경로에서도 로그인 화면이 열린다. 미전송 기록은 지워지지 않는다.
+
+화면 세션을 지우는 곳은 세 군데다. 각 경우의 offline token 처리는 다음과 같다. 어느 경우에도 미전송 기록은 지워지지 않는다. 통신 오류로 갱신하지 못한 경우(`Unavailable`)에는 화면 세션이 유지된다.
+
+| 화면 세션을 지우는 곳 | offline token 처리 |
+|---|---|
+| "다른 계정으로 로그인" 버튼 | 그 계정의 offline token을 계정별 저장소로 옮긴다. 그 계정의 미전송 기록이 모든 사건에서 0건이면 철회를 요청한다. |
+| 사용 중 화면 세션 갱신이 거절됐을 때 | 지운다. 이 토큰은 이미 무효다. |
+| 앱을 시작할 때 화면 세션 갱신이 거절됐을 때 | 지운다. 이 토큰은 이미 무효다. |
+
+- **offline token 철회 (2026-11-27 #63, 가짜 Keycloak 응답을 쓰는 Android JVM 테스트로 확인)**: [철회 작업](../../android/app/src/main/java/com/surimap/core/auth/OfflineTokenRevocation.kt)의 철회 여부는 로그아웃한 계정마다 모든 사건의 미전송 기록 수로 정해진다. 미전송 기록에는 대기, `SENDING`, `FAILED_RETRYABLE`, `FAILED_FINAL` 기록이 든다. 미전송 기록이 0건인 계정의 offline token만 철회가 요청된다. 지금 로그인해 있는 계정의 offline token은 철회되지 않는다.
+- 철회 요청은 realm의 `/protocol/openid-connect/revoke`로 간다. 본문에는 `client_id`, `token`, `token_type_hint=refresh_token`이 들어간다. Android client는 public client라서 client secret은 넣지 않는다.
+- 철회 작업은 앱을 켤 때와 "다른 계정으로 로그인"을 누를 때, outbox를 보낸 뒤에 WorkManager로 예약된다. 로그아웃과 다음 사람의 로그인은 철회를 기다리지 않는다.
+
+| Keycloak 응답 | 처리 |
+|---|---|
+| 성공(2xx) | 업무폰에서 offline token을 지운다. |
+| 400 `invalid_token`, `invalid_grant` | 이미 무효인 토큰으로 보고 성공과 같이 지운다. |
+| 통신 실패, 5xx | 토큰을 남긴다. 통신이 돌아오면 WorkManager 재시도로 다시 요청한다. |
+| 그 밖의 거절 | 토큰을 남긴다. 다음에 앱을 켤 때 다시 요청한다. |
+
+- 같은 계정이 다시 로그인하면 업무폰에 남은 그 계정의 이전 offline token이 지워진다. 그래서 아직 보내지 않은 철회가 취소된다. Keycloak에는 철회를 요청하지 않는다. 이미 보낸 철회 때문에 새 offline token이 갱신에서 거절되면 사용 중 갱신 거절과 같이 로그인 화면이 열린다. 철회 응답이 다시 로그인한 뒤에 도착해도 새 화면 세션은 지워지지 않는다.
+- 마지막 갱신 뒤 30일이 지난 offline token은 철회 요청 없이 업무폰에서 지워진다. 마지막 갱신 시각은 저장된 access token의 발급 시각(`iat`)이다. 이 확인은 철회 작업에서 함께 실행된다. 그 계정의 미전송 기록은 지워지지 않는다.
+- **Keycloak 설정 (2026-11-27 #63, 설정 파일의 diff만 확인)**: [realm 설정](../../infra/docker/keycloak/import/suri-map-realm.json)과 [Jenkins의 Keycloak 설정 단계](../../infra/Jenkinsfile)에 같은 값을 적었다. 실서버 realm은 이미 있어서 시작할 때 import를 건너뛰기 때문이다.
+  - 모든 사용자에게 realm의 `offline_access` 역할을 준다. Jenkins 단계에는 기본 역할 `default-roles-suri-map`에 `offline_access`를 넣는 명령도 있다. 새로 만드는 사용자도 이 역할을 받게 하기 위해서다.
+  - Android client에 `offline_access` 역할 scope와 optional client scope `offline_access`를 둔다. realm 설정에는 Android client의 default client scope와 optional client scope를 Keycloak 26 기본값 그대로 적었다. `offline_access`는 optional client scope 기본값에 들어 있다. Jenkins 단계에서는 기존 scope를 빼지 않고 `offline_access`만 더한다. 그래서 새로 import한 realm과 Jenkins 단계를 적용한 realm의 Android client scope가 같아야 한다.
+  - realm에 `revokeRefreshToken=false`, `offlineSessionIdleTimeout=2592000`, `offlineSessionMaxLifespanEnabled=false`를 둔다.
+  - Android client의 offline 세션 유휴 기간이 realm 값보다 짧으면 Jenkins 단계에서 배포가 멈춘다. 이 값이 비어 있거나 0이면 realm 값이 쓰인다.
+- **MDM 전제로 생략한 조건**: 업무폰을 MDM으로 관리한다는 전제에서 토큰 교체, 토큰의 암호화 저장, offline token의 기간 제한을 두지 않았다. 이유와 위험은 [ADR-0039의 MDM 전제](../adr/0039-logged-out-records-sent-with-offline-token.md#mdm-전제로-생략한-보안-조건)에 있다.
+- **로컬 Keycloak 확인 (2026-11-27 #63 검수, 로컬 Keycloak 26.6.1에서 kcadm과 curl로 확인)**: 새로 import한 realm과, 이전 realm 설정에 Jenkins 단계에서 #63에 더한 명령을 옮겨 두 번 실행한 realm에서 정책 값과 Android client scope 값이 같았다. 두 경우 모두 기존 사용자와 새로 만든 사용자가 offline token을 받았다. A가 로그아웃하고 B가 로그인한 뒤에도 A의 offline token으로 access token을 받을 수 있었다. A의 offline token을 철회한 뒤에는 A가 access token을 받지 못했다. B는 계속 받았다. 새로 import한 realm에서 같은 계정이 일반 세션으로 로그인하고 end-session 없이 offline 로그인을 두 번 했다. 그 뒤 첫 offline token을 철회하면 두 번째 offline token도 갱신에서 거절됐다. 이미 무효인 토큰을 철회하면 HTTP 200과 `invalid_token` 본문이 돌아왔다. 로그인은 업무폰 브라우저가 아니라 curl로 재현했다. A와 B는 쿠키 파일 하나를 같이 썼다. realm 설정에서 import한 사용자는 `lastName`이 비어 있어 로그인할 때 프로필 입력 화면이 먼저 열렸다. 이 확인에서는 로컬 사용자의 `lastName`을 채워 넘겼다.
+- 앱 코드에서는 철회 응답이 2xx면 본문과 상관없이 철회 성공으로 처리된다. 그래서 위의 HTTP 200과 `invalid_token` 응답에도 업무폰의 토큰이 지워진다(2026-11-27 #63 검수, 검수자가 따로 쓴 JVM 테스트로 확인). 저장소의 JVM 테스트에서는 이미 무효인 토큰에 HTTP 400 `invalid_token`이 돌아오는 경우만 확인한다.
+- **확인하지 않은 것**: 실기기에서 로그인, 로그아웃, 백그라운드 전송, 철회를 실행하지 않았다. 실서버 Keycloak의 Jenkins 단계 실행 결과는 develop에 병합한 뒤 배포할 때 확인한다. 실서버 realm에서 로그인할 때 프로필 입력 화면이 열리는지는 확인하지 않았다. 화면 콜백에서 세션 저장소를 부르는 연결은 코드로만 확인했다.
+
 ## 테스트 입력과 원문
 
 - 계정 별칭, 역할, 통신 상태 입력은 [공용 fixture](../../test-fixtures/common-fixtures.json)의 `accountAliases`, `incidentSeed`, `boardAssembly`와 기존 Java/DB seed를 그대로 사용한다. fixture 통과를 실제 Keycloak 인증이나 업무폰 인증의 성공으로 해석하지 않는다.

@@ -888,9 +888,68 @@ EOF
                           -s "ssoSessionIdleTimeout=28800" \
                           -s "ssoSessionMaxLifespan=43200" \
                           -s "clientSessionIdleTimeout=28800" \
-                          -s "clientSessionMaxLifespan=43200" >/dev/null
+                          -s "clientSessionMaxLifespan=43200" \
+                          -s "revokeRefreshToken=false" \
+                          -s "offlineSessionIdleTimeout=2592000" \
+                          -s "offlineSessionMaxLifespanEnabled=false" >/dev/null
                         echo "keycloak_suri_map_login_theme=suri-map"
                         echo "keycloak_suri_map_session_policy=ready"
+                        echo "keycloak_suri_map_offline_session_policy=ready"
+
+                        # 로그아웃한 사람의 미전송 기록을 그 사람의 offline token으로 보낸다(ADR-0039).
+                        # 실서버 realm은 import를 건너뛰므로 여기서 Android client의 offline_access 설정을 맞춘다.
+                        ensure_android_offline_access() {
+                          client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
+                            -r suri-map \
+                            -q clientId="suri-map-android" \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          test -n "${client_uuid}"
+                          offline_scope_id=$(/opt/keycloak/bin/kcadm.sh get client-scopes \
+                            -r suri-map \
+                            --fields id,name \
+                            --format csv \
+                            --noquotes | grep ",offline_access$" | cut -d, -f1)
+                          test -n "${offline_scope_id}"
+                          /opt/keycloak/bin/kcadm.sh update \
+                            "clients/${client_uuid}/optional-client-scopes/${offline_scope_id}" \
+                            -r suri-map >/dev/null
+                          offline_role_id=$(/opt/keycloak/bin/kcadm.sh get roles/offline_access \
+                            -r suri-map \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          test -n "${offline_role_id}"
+                          cat >"/tmp/suri-map-android-offline-scope-mapping.json" <<EOF
+[
+  {
+    "id": "${offline_role_id}",
+    "name": "offline_access"
+  }
+]
+EOF
+                          /opt/keycloak/bin/kcadm.sh create \
+                            "clients/${client_uuid}/scope-mappings/realm" \
+                            -r suri-map \
+                            -f "/tmp/suri-map-android-offline-scope-mapping.json" >/dev/null
+                          # client별 offline 세션 유휴 기간이 realm 값보다 짧으면 30일 전에 토큰이 끝난다. 비어 있거나 0이면 realm 값이 쓰인다.
+                          client_offline_idle=$(/opt/keycloak/bin/kcadm.sh get "clients/${client_uuid}" \
+                            -r suri-map \
+                            --fields attributes | grep "client.offline.session.idle.timeout" | tr -dc 0-9)
+                          if [ -n "${client_offline_idle}" ] && [ "${client_offline_idle}" -ne 0 ] && [ "${client_offline_idle}" -lt 2592000 ]; then
+                            echo "keycloak_suri_map_android_offline_idle=shorter_than_realm"
+                            exit 1
+                          fi
+                          # 새로 만드는 사용자는 기본 역할로 offline_access를 받는다.
+                          /opt/keycloak/bin/kcadm.sh add-roles \
+                            -r suri-map \
+                            --rname default-roles-suri-map \
+                            --rolename offline_access >/dev/null
+                        }
+
+                        ensure_android_offline_access
+                        echo "keycloak_suri_map_android_offline_access=ready"
 
                         ensure_demo_user_profile() {
                           username="$1"
@@ -1298,6 +1357,20 @@ PROFILE_JSON
                           ensure_demo_user_profile "${username}"
                         done
                         echo "keycloak_demo_user_profiles=ready"
+
+                        # import한 사용자에게는 기본 역할이 없어서 realm의 모든 사용자에게 offline_access를 직접 준다. 이미 있으면 그대로다.
+                        for username in $(/opt/keycloak/bin/kcadm.sh get users \
+                          -r suri-map \
+                          --limit 10000 \
+                          --fields username \
+                          --format csv \
+                          --noquotes); do
+                          /opt/keycloak/bin/kcadm.sh add-roles \
+                            -r suri-map \
+                            --uusername "${username}" \
+                            --rolename offline_access >/dev/null
+                        done
+                        echo "keycloak_suri_map_offline_access_role=ready"
                       '
 
                     if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then

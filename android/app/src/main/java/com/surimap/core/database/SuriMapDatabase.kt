@@ -15,7 +15,7 @@ import androidx.room.RoomDatabase
         IncidentSummaryEntity::class,
         SearchRecordingStateEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class SuriMapDatabase : RoomDatabase() {
